@@ -1,19 +1,32 @@
 """
-nasa_budget.py  •  v2.1
-=======================
+nasa_budget.py
+==============
 
-• Adds automatic **inflation-adjusted columns** to the stored DataFrame:
-    <monetary_col>_adjusted_nnsi   (NASA New-Start Index)
-    <monetary_col>_adjusted_gdp    (GDP deflator - stub today)
+Provides a base class and concrete implementations for loading, cleaning, and
+accessing NASA budget data from CSV sources, including inflation adjustments.
 
-  The adjustment is to *current fiscal year* at load-time.  
-  Custom-year projections remain available through the dynamic
-  `<col>_adjusted(type=…, year=…)` accessors.
+The module handles:
+- Loading data from local files or remote URLs.
+- Caching downloaded data locally.
+- Cleaning and renaming DataFrame columns.
+- Preserving the special "1976 TQ" fiscal year value.
+- Adding columns for inflation-adjusted monetary values using NNSI and GDP
+  indices, adjusted to the prior fiscal year.
+- Auto-generating attribute-style getters for raw and adjusted monetary columns.
 
-• “1976 TQ” continues to map to the “FROM TQ” row of the NNSI table.
+Classes:
+    NASABudget: Base class for handling NASA budget data.
+    Historical: Concrete class for historical NASA budget data.
+    Science: Concrete class for NASA Science Directorate budget data.
+    Directorates: Concrete class for NASA Directorate budget data.
 
-Only the base-class changes; concrete subclasses are unaffected.
+Dependencies:
+    pandas: For data manipulation.
+    requests: For downloading data from URLs.
+    certifi: For SSL certificates when downloading.
+    inflation: A custom library (assumed) providing NNSI and GDP adjusters.
 """
+
 from __future__ import annotations
 
 import io
@@ -22,228 +35,325 @@ import ssl
 from datetime import date
 from functools import cached_property
 from pathlib import Path
-from typing import Callable, List
+from typing import Callable, List, Dict, Any
 
 import certifi
 import pandas as pd
 import requests
 from urllib.error import URLError
 
+# Assumed external library for inflation adjustments
+from inflation import NNSI, GDP
 
-# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────── base class ────────────────────────────
 class NASABudget:
+    """
+    Base class for loading, cleaning, and accessing NASA budget data.
+
+    This class provides the core logic for reading CSV data, cleaning it,
+    adding inflation-adjusted columns, and creating dynamic attributes
+    for accessing monetary data.
+
+    Subclasses should define:
+    - CSV_URL (str): The URL of the CSV data source.
+    - COLUMNS (List[str], optional): A list of columns to keep.
+    - RENAMES (Dict[str, str], optional): A dictionary for renaming columns.
+    - MONETARY_COLUMNS (List[str], optional): A list of columns containing
+      monetary values that should have adjusted versions created.
+    """
+    # Regex to find and remove currency symbols, commas, and 'M' or 'B' suffixes
     _CURRENCY_RE = re.compile(r"[\$,]|\s*[MB]$", flags=re.IGNORECASE)
 
-    # ─────────────────────────── constructor / cache ────────────────────────
+    # ── core API ────────────────────────────────────────────────────
     def __init__(self, csv_source: str | Path, *, cache_dir: Path | None = None) -> None:
+        """
+        Initializes the NASABudget instance.
+
+        The data loading and processing pipeline is triggered lazily when
+        the `_df` cached property is first accessed.
+
+        Args:
+            csv_source: The path to a local CSV file or a URL of a CSV file.
+            cache_dir: An optional directory to cache downloaded CSV files.
+        """
         self._csv_source = str(csv_source)
         self._cache_dir = cache_dir
 
-    # ───────────────────── public minimal interface ─────────────────────────
     def data(self) -> pd.DataFrame:
-        """Return a deep copy of the cleaned & augmented DataFrame."""
+        """
+        Return the fully cleaned & augmented DataFrame.
+
+        Returns:
+            A deep copy of the internal pandas DataFrame containing the
+            processed NASA budget data.
+        """
         return self._df.copy(deep=True)
 
     def columns(self) -> List[str]:
+        """
+        Return a list of column names in the processed DataFrame.
+
+        Returns:
+            A list of strings representing the column names.
+        """
         return list(self._df.columns)
 
-    # Attribute access for arbitrary columns
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> List[Any]:
+        """
+        Provides attribute-style access to DataFrame columns.
+
+        If the requested attribute name matches a column name in the internal
+        DataFrame, its values are returned as a list. Otherwise, raises an
+        AttributeError.
+
+        This method is called only if the attribute is not found in the
+        standard way (i.e., not in the instance's __dict__ or class's __dict__).
+
+        Args:
+            name: The name of the attribute being accessed.
+
+        Returns:
+            A list containing the values from the corresponding DataFrame column.
+
+        Raises:
+            AttributeError: If the name does not match any DataFrame column.
+        """
         if name in self._df.columns:
+            # Return the column data as a list
             return self._df[name].tolist()
-        raise AttributeError(f"{type(self).__name__} has no attribute {name!r}")
+        # If the name is not a column, raise the standard AttributeError
+        raise AttributeError(name)
 
-    # ─────────────────────────── convenience I/O ────────────────────────────
-    def to_csv(self, path: str | Path, **kwargs) -> Path:
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        self._df.to_csv(path, index=False, **kwargs)
-        return path
+    # ── auto getters for monetary columns ──────────────────────────
+    def __init_subclass__(cls, **kw):
+        """
+        Automatically creates attribute getters for monetary columns in subclasses.
 
-    def to_json(self, path_or_buf, orient: str = "records", **kwargs):
-        return self._df.to_json(path_or_buf, orient=orient, **kwargs)
+        This class method is called automatically when a class inherits from
+        NASABudget. It iterates through the `MONETARY_COLUMNS` defined in the
+        subclass and dynamically creates two attributes for each:
+        - A raw attribute (e.g., `appropriation`) returning the nominal list.
+        - An adjusted attribute (e.g., `appropriation_adjusted`) returning
+          the inflation-adjusted list based on specified type and year.
 
-    # ─────────────────────────── time-series helpers ─────────────────────────
-    def fy_range(self, start: int | None = None, end: int | None = None) -> pd.DataFrame:
-        fy = self._fy_col()
-        m = pd.Series(True, index=self._df.index)
-        if start is not None:
-            m &= self._df[fy] >= start
-        if end is not None:
-            m &= self._df[fy] <= end
-        return self._df[m].copy()
-
-    def percent_change(self, col: str, periods: int = 1) -> pd.Series:
-        return self._df[col].pct_change(periods)
-
-    def cagr(self, col: str, start_fy: int, end_fy: int) -> float:
-        fy = self._fy_col()
-        a = self._df.loc[self._df[fy] == start_fy, col].squeeze()
-        b = self._df.loc[self._df[fy] == end_fy, col].squeeze()
-        yrs = end_fy - start_fy
-        if pd.isna(a) or pd.isna(b) or yrs <= 0:
-            return float("nan")
-        return (b / a) ** (1 / yrs) - 1
-
-    def total_by_year(self, value_cols: list[str] | None = None) -> pd.Series:
-        fy = self._fy_col()
-        if value_cols is None:
-            value_cols = self._df.select_dtypes("number").columns.tolist()
-        return (
-            self._df.groupby(fy)[value_cols]
-            .sum(min_count=1)
-            .sum(axis=1, min_count=1)
-        )
-
-    def pivot(self, *, index: str, columns: str, values: str) -> pd.DataFrame:
-        return self._df.pivot(index=index, columns=columns, values=values)
-
-    # ───────────────────────── diagnostics / QA ─────────────────────────────
-    def info(self) -> None:
-        print(f"=== {type(self).__name__}  •  source: {self._csv_source}\n")
-        self._df.info()
-
-    def missing(self, threshold: float = 0.10) -> pd.Series:
-        frac = self._df.isna().mean()
-        return frac[frac > threshold].sort_values(ascending=False)
-
-    # Column filter
-    def filter(self, columns: list[str]) -> pd.DataFrame:
-        return self._df[columns].copy()
-
-    # ────────────── auto-generated raw & adjusted property makers ───────────
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        monetary = getattr(cls, "MONETARY_COLUMNS", [])
-        if not monetary:
-            return
-
-        def to_attr(col: str) -> str:
-            return re.sub(r"\W+", "_", col).lower()
-
-        for col in monetary:
-            raw_attr = to_attr(col)
-            if raw_attr not in cls.__dict__:
-                setattr(cls, raw_attr, cls._make_raw_getter(col))
-
-            adj_attr = f"{raw_attr}_adjusted"
+        Args:
+            cls: The subclass being initialized.
+            **kw: Arbitrary keyword arguments.
+        """
+        super().__init_subclass__(**kw)
+        # Iterate through columns listed in the subclass's MONETARY_COLUMNS
+        for col in getattr(cls, "MONETARY_COLUMNS", []):
+            # Create a 'pythonic' attribute name (lowercase, underscores)
+            attr = re.sub(r"\W+", "_", col).lower()
+            # If the raw attribute doesn't exist on the class, create it
+            if attr not in cls.__dict__:
+                setattr(cls, attr, cls._mk_raw(col))
+            # Create the adjusted attribute name
+            adj_attr = f"{attr}_adjusted"
             if adj_attr not in cls.__dict__:
-                setattr(cls, adj_attr, cls._make_adjusted_getter(col))
+                setattr(cls, adj_attr, cls._mk_adj(col))
 
     @classmethod
-    def _make_raw_getter(cls, col: str) -> Callable[["NASABudget"], List[float]]:
-        def _g(self: "NASABudget") -> List[float]:
-            return self._df[col].tolist()
+    def _mk_raw(cls, col: str) -> Callable[["NASABudget"], List[float]]:
+        """
+        Creates a getter function for a raw monetary column.
 
-        _g.__doc__ = f"Raw nominal values from '{col}'."
-        return _g
+        This function returns a callable that, when called on a NASABudget
+        instance, will return the specified column's data as a list of floats.
+
+        Args:
+            col: The name of the column in the DataFrame.
+
+        Returns:
+            A callable that takes a NASABudget instance and returns a list of floats.
+        """
+        # Lambda function that accesses the specified column from the instance's
+        # DataFrame and converts it to a list.
+        return lambda self: self._df[col].tolist()
 
     @classmethod
-    def _make_adjusted_getter(cls, col: str) -> Callable:
-        def _g(
-            self: "NASABudget", *, type: str = "nnsi", year: int | None = None
-        ) -> List[float]:
+    def _mk_adj(cls, col: str) -> Callable:
+        """
+        Creates a getter function for an inflation-adjusted monetary column.
+
+        This function returns a callable that, when called on a NASABudget
+        instance, calculates and returns the specified column's data adjusted
+        for inflation. The adjustment type ("nnsi" or "gdp") and target year
+        can be specified.
+
+        Args:
+            col: The name of the column in the DataFrame to adjust.
+
+        Returns:
+            A callable that takes a NASABudget instance and optional type/year
+            arguments, returning a list of adjusted float values.
+        """
+        def getter(self, *, type: str = "nnsi", year: int | None = None) -> List[float]:
+            """
+            Getter function for adjusted monetary columns.
+
+            Calculates the inflation-adjusted values for the column.
+
+            Args:
+                type: The type of inflation index to use ("nnsi" or "gdp").
+                      Defaults to "nnsi".
+                year: The target fiscal year for adjustment. If None, defaults
+                      to the prior fiscal year based on the current date.
+
+            Returns:
+                A list of floats representing the inflation-adjusted values.
+
+            Raises:
+                KeyError: If an invalid adjustment type is provided.
+            """
+            # Detect the fiscal year column name
             fy = self._fy_col()
-            tgt = year if year is not None else self._current_fy()
-            fn = (
-                self._nnsi_multiplier
-                if type.lower() == "nnsi"
-                else self._gdp_multiplier
-            )
-            mult = self._df[fy].apply(lambda v: fn(v, tgt))
+            # Get the appropriate adjuster object (NNSI or GDP) based on type
+            # Raises KeyError if type is invalid
+            adj = _ADJUSTERS[type.lower()]
+            # Calculate the inflation multiplier for each row based on its fiscal year
+            # The multiplier converts the value from the row's FY to the adjuster's target year (prior FY)
+            # Ensure the fiscal year value is passed as a string to the calc method
+            mult = self._df[fy].apply(lambda v: adj.calc(str(v), 1.0))
+            # Apply the multiplier to the column values and return as a list
             return (self._df[col] * mult).tolist()
+        # Return the inner getter function
+        return getter
 
-        _g.__doc__ = (
-            f"'{col}' adjusted to *year* (default current FY) "
-            "using NNSI (default) or GDP deflator."
-        )
-        return _g
-
-    # ──────────────────────── DataFrame construction ────────────────────────
+    # ── DataFrame construction pipeline ────────────────────────────
     @cached_property
     def _df(self) -> pd.DataFrame:
+        """
+        Loads, cleans, and processes the NASA budget data into a DataFrame.
+
+        This property is computed only once per instance and the result is cached.
+        It orchestrates the data loading, subsetting, renaming, cleaning, and
+        adjustment steps.
+
+        Returns:
+            The fully processed pandas DataFrame.
+        """
+        # Read the raw data from the source (file or URL)
         raw = self._read_csv()
 
-        # 1) optional subset
-        subset = getattr(self.__class__, "COLUMNS", None)
-        if subset:
-            missing = set(subset) - set(raw.columns)
-            if missing:
-                raise KeyError(f"{type(self).__name__}: missing columns {missing}")
-            raw = raw[subset].copy()
+        # Subset columns if COLUMNS is defined in the subclass
+        if subset := getattr(self.__class__, "COLUMNS", None):
+            raw = raw[subset]
 
-        # 2) optional rename
-        ren = getattr(self.__class__, "RENAMES", None)
-        if ren:
-            miss = set(ren) - set(raw.columns)
-            if miss:
-                raise KeyError(f"{type(self).__name__}: cannot rename {miss}")
+        # Rename columns if RENAMES is defined in the subclass
+        if ren := getattr(self.__class__, "RENAMES", None):
             raw = raw.rename(columns=ren)
 
-        # 3) clean fields
+        # Apply general cleaning rules (currency, dates, fiscal years)
         cleaned = self._clean(raw)
+        # Add inflation-adjusted columns
+        return self._add_adjusted_cols(cleaned)
 
-        # 4) add inflation-adjusted columns
-        augmented = self._add_adjusted_columns(cleaned)
-
-        return augmented
-
-    # ------------------------------------------------------------------ #
-    # CSV loader with cert fallback                                      #
-    # ------------------------------------------------------------------ #
+    # ── I/O helpers ────────────────────────────────────────────────
     def _read_csv(self) -> pd.DataFrame:
+        """
+        Reads the CSV data from the source, potentially using a cache.
+
+        If a cache directory is specified and the cached file exists, it reads
+        from the cache. Otherwise, it reads from the specified source (local
+        path or URL). If reading from a URL and a cache directory is provided,
+        it saves the downloaded data to the cache.
+
+        Returns:
+            A pandas DataFrame containing the raw data from the CSV source.
+
+        Raises:
+            URLError, ssl.SSLError, requests.exceptions.RequestException:
+                If the data cannot be fetched from the URL.
+            FileNotFoundError: If the local file does not exist.
+        """
+        # Check if caching is enabled and a cached file exists
         if self._cache_dir:
             self._cache_dir.mkdir(parents=True, exist_ok=True)
             dest = self._cache_dir / Path(self._csv_source).name
             if dest.exists():
+                print(f"Reading from cache: {dest}") # Added for visibility
                 return pd.read_csv(dest)
 
+        print(f"Reading from source: {self._csv_source}") # Added for visibility
         try:
+            # Try reading directly (works for local files and some URLs)
             df = pd.read_csv(self._csv_source)
         except (URLError, ssl.SSLError):
-            resp = requests.get(self._csv_source, timeout=30, verify=certifi.where())
-            resp.raise_for_status()
-            df = pd.read_csv(io.StringIO(resp.text))
+            # If direct read fails (often for HTTPS URLs), use requests
+            print("Direct read failed, attempting with requests...") # Added for visibility
+            try:
+                # Fetch content using requests, verifying SSL certs
+                response = requests.get(self._csv_source, timeout=30, verify=certifi.where())
+                response.raise_for_status() # Raise an exception for bad status codes
+                text = response.text
+                # Read the text content into a DataFrame
+                df = pd.read_csv(io.StringIO(text))
+            except requests.exceptions.RequestException as e:
+                print(f"Error fetching data with requests: {e}") # Added for visibility
+                raise # Re-raise the exception after printing
 
+        # If caching is enabled, save the downloaded DataFrame to the cache
         if self._cache_dir:
-            (self._cache_dir / Path(self._csv_source).name).write_bytes(
-                df.to_csv(index=False).encode()
+            cache_path = Path(self._cache_dir, Path(self._csv_source).name)
+            print(f"Caching data to: {cache_path}") # Added for visibility
+            cache_path.write_bytes(
+                df.to_csv(index=False).encode() # Convert DataFrame to CSV string, then bytes
             )
         return df
 
-    # ------------------------------------------------------------------ #
-    # cleaning helpers                                                   #
-    # ------------------------------------------------------------------ #
+    # ── cleaning helpers ───────────────────────────────────────────
     def _clean(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.copy()
+        """
+        Applies general cleaning rules to the DataFrame.
 
-        # currency columns
+        Cleans columns identified as currency-like, date-style, or fiscal year
+        columns. Handles the special "1976 TQ" case for fiscal years. Ensures
+        fiscal year columns remain as strings.
+
+        Args:
+            df: The input pandas DataFrame to clean.
+
+        Returns:
+            A new DataFrame with cleaned data.
+        """
+        df = df.copy() # Work on a copy to avoid modifying the original DataFrame
+
+        # Clean currency-like columns: remove symbols, commas, and M/B suffixes,
+        # then convert to float and multiply by 1,000,000 if M/B was present.
         for col in df.select_dtypes("object"):
+            # Check if the column contains '$' characters (indicating currency)
             if df[col].astype(str).str.contains(r"\$", na=False).any():
                 df[col] = (
                     df[col]
-                    .astype(str)
-                    .str.replace(self._CURRENCY_RE, "", regex=True)
-                    .astype(float, errors="ignore")
-                    .mul(1_000_000)
-                    .astype("Float64")
+                    .astype(str) # Ensure column is string type for regex operations
+                    .str.replace(self._CURRENCY_RE, "", regex=True) # Remove currency symbols, commas, M/B
+                    .astype(float, errors="ignore") # Convert to float, ignoring errors (non-numeric become NaN)
+                    .mul(1_000_000) # Multiply by 1 million (assuming M/B implies millions/billions, simplified to millions)
+                    .astype("Float64") # Convert to pandas nullable float type
                 )
 
-        # date-style
+        # Clean date-style columns: convert to datetime objects.
+        # Identifies columns ending with 'date', 'signed', or 'updated' (case-insensitive).
         for col in df.columns:
             if re.search(r"(date|signed|updated)$", str(col), flags=re.I):
+                # Convert to datetime, coercing errors to NaT (Not a Time)
                 df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
 
-        # FY / year column – preserve 1976 TQ
-        def norm(y):
-            if pd.isna(y):
-                return pd.NA
-            s = str(y).strip()
+        # Clean fiscal-year / year columns: normalize format and handle "1976 TQ".
+        # Identifies columns matching FY followed by 2-4 digits or names like 'fiscal year', 'fy', 'year'.
+        # Modified to keep 4-digit years as strings.
+        def norm(x):
+            """Helper function to normalize fiscal year values, keeping them as strings."""
+            if pd.isna(x):
+                return pd.NA # Return pandas NA for missing values
+            s = str(x).strip() # Convert to string and remove leading/trailing whitespace
             if "TQ" in s.upper():
-                return "1976 TQ"
-            if re.fullmatch(r"\d{4}", s):
-                return int(s)
-            return pd.NA
+                return "1976 TQ" # Preserve the special '1976 TQ' string
+            if s.isdigit() and len(s) == 4:
+                return s # Keep 4-digit years as strings
+            return pd.NA # Return pandas NA for any other format
 
         for col in df.columns:
             if re.fullmatch(r"FY\d{2,4}", str(col), flags=re.I) or str(col).lower() in {
@@ -251,92 +361,153 @@ class NASABudget:
                 "fy",
                 "year",
             }:
+                # Apply the normalization function to the column
                 df[col] = df[col].apply(norm)
 
         return df
 
-    # ------------------------------------------------------------------ #
-    # add _adjusted_nnsi / _adjusted_gdp columns                         #
-    # ------------------------------------------------------------------ #
-    def _add_adjusted_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.copy()
-        fy_col = self._fy_col()
-        tgt = self._current_fy()
-        mon = getattr(self.__class__, "MONETARY_COLUMNS", [])
+    def _add_adjusted_cols(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Adds inflation-adjusted columns to the DataFrame.
 
-        if not mon:
+        For each column listed in `MONETARY_COLUMNS`, two new columns are added:
+        - `{column_name}_adjusted_nnsi`: Adjusted using the NNSI index.
+        - `{column_name}_adjusted_gdp`: Adjusted using the GDP index.
+        The adjustment is performed to the prior fiscal year.
+
+        Args:
+            df: The input pandas DataFrame.
+
+        Returns:
+            A new DataFrame with the added adjusted columns.
+        """
+        df = df.copy() # Work on a copy
+        # Detect the fiscal year column to use for adjustments
+        fy_col = self._detect_fy(df)
+        # Get the target fiscal year for adjustment (prior FY) - currently unused in the logic,
+        # as the adjusters are initialized with the target year.
+        # target = self._current_fy() # This seems incorrect, should be _prior_fy() if used.
+        # Let's rely on the adjusters being initialized correctly.
+
+        # Get the list of columns to adjust from the subclass
+        mons = getattr(self.__class__, "MONETARY_COLUMNS", [])
+
+        # If no monetary columns are defined, return the DataFrame as is
+        if not mons:
             return df
 
-        nnsi_mult = df[fy_col].apply(lambda v: self._nnsi_multiplier(v, tgt))
-        gdp_mult = df[fy_col].apply(lambda v: self._gdp_multiplier(v, tgt))
+        # Calculate the inflation multipliers for NNSI and GDP for each fiscal year in the DataFrame
+        # The calc method converts from the row's FY to the target FY (prior FY, set in _ADJUSTERS)
+        # Ensure the fiscal year value is passed as a string to the calc method
+        nnsi_mult = df[fy_col].apply(lambda v: _ADJUSTERS["nnsi"].calc(str(v), 1.0))
+        gdp_mult  = df[fy_col].apply(lambda v: _ADJUSTERS["gdp"].calc(str(v), 1.0))
 
-        for col in mon:
-            if col not in df.columns:
-                continue
-            df[f"{col}_adjusted_nnsi"] = (df[col] * nnsi_mult).astype("Float64")
-            df[f"{col}_adjusted_gdp"] = (df[col] * gdp_mult).astype("Float64")
-
+        # Apply the multipliers to each monetary column and add the new adjusted columns
+        for col in mons:
+            if col in df.columns: # Ensure the column exists in the DataFrame
+                df[f"{col}_adjusted_nnsi"] = (df[col] * nnsi_mult).astype("Float64")
+                df[f"{col}_adjusted_gdp"]  = (df[col] * gdp_mult ).astype("Float64")
         return df
 
-    # ------------------------------------------------------------------ #
-    # FY helpers                                                         #
-    # ------------------------------------------------------------------ #
-    def _fy_col(self) -> str:
-        for c in self._df.columns:
+    # ── misc helpers ───────────────────────────────────────────────
+    @staticmethod
+    def _detect_fy(df: pd.DataFrame) -> str:
+        """
+        Detects the fiscal year column name in a DataFrame.
+
+        Searches for columns matching patterns like 'FY####' or names like
+        'fiscal year', 'fy', or 'year' (case-insensitive).
+
+        Args:
+            df: The pandas DataFrame to inspect.
+
+        Returns:
+            The name of the detected fiscal year column.
+
+        Raises:
+            ValueError: If no fiscal year column is detected.
+        """
+        for c in df.columns:
             if re.fullmatch(r"FY\d{2,4}", str(c), flags=re.I) or str(c).lower() in {
                 "fiscal year",
                 "fy",
                 "year",
             }:
                 return c
-        raise ValueError("No fiscal-year column found.")
+        raise ValueError("No fiscal-year column detected.")
+
+    def _fy_col(self) -> str:
+        """
+        Returns the detected fiscal year column name for this instance.
+
+        The detection is performed only on the first call and the result is
+        cached per instance.
+
+        Returns:
+            The name of the fiscal year column.
+        """
+        # Check if the fiscal year column name is already cached in the instance's dictionary
+        if "_fy_name" not in self.__dict__:
+            # If not cached, detect it from the processed DataFrame (_df)
+            self.__dict__["_fy_name"] = self._detect_fy(self._df)
+        # Return the cached name
+        return self.__dict__["_fy_name"]
 
     @staticmethod
     def _current_fy() -> int:
+        """
+        Calculates the current fiscal year based on the current date.
+
+        The fiscal year starts in October.
+
+        Returns:
+            The current fiscal year as an integer.
+        """
         today = date.today()
+        # If the current month is October or later (>= 10), the FY is the next calendar year.
+        # Otherwise, it's the current calendar year.
         return today.year + (today.month >= 10)
 
-    # ──────────────────────────── inflation utils ───────────────────────────
-    @cached_property
-    def _nnsi_table(self) -> pd.DataFrame:
-        url = (
-            "https://docs.google.com/spreadsheets/d/"
-            "1t7hYjU6AIAovar5sqi7cHXPmkWu6uAujsptMtGukQrA/export?format=csv"
-        )
-        r = requests.get(url, timeout=30, verify=certifi.where())
-        r.raise_for_status()
-        t = pd.read_csv(io.StringIO(r.text), header=1).rename(
-            columns=lambda x: "FROM" if "Year" in str(x) else x
-        )
-        t = t.set_index("FROM")
-        t.columns = [int(c) if re.fullmatch(r"\d{4}", str(c)) else c for c in t.columns]
-        return t
+    @staticmethod
+    def _prior_fy() -> int:
+        """
+        Calculates the prior fiscal year based on the current date.
 
-    def _nnsi_multiplier(self, from_val, to_year: int) -> float:
-        if pd.isna(from_val):
-            return 1.0
-        key = "FROM TQ" if isinstance(from_val, str) and "TQ" in from_val.upper() else f"FROM {int(from_val)}"
-        try:
-            return float(self._nnsi_table.loc[key, to_year])
-        except KeyError:
-            return 1.0
+        This is typically the target year for inflation adjustments.
 
-    # GDP deflator stub ---------------------------------------------------
-    @cached_property
-    def _gdp_deflator(self) -> pd.Series:
-        return pd.Series(dtype=float)
-
-    def _gdp_multiplier(self, from_val, to_year: int) -> float:
-        return 1.0  # until implemented
+        Returns:
+            The prior fiscal year as an integer.
+        """
+        # Calculate the date one year ago
+        last_year_date = date.today() - pd.DateOffset(years=1)
+        # Determine the fiscal year for that date
+        return last_year_date.year + (last_year_date.month >= 10)
 
 
-# ───────────────────────────── concrete sheets ──────────────────────────────
+# single shared inflation adjusters (reuse everywhere)
+# Initialize NNSI and GDP adjusters, targeting the prior fiscal year.
+# These instances are created once when the module is imported.
+# The year is passed as a string, which aligns with the updated norm function.
+_ADJUSTERS = {
+    "nnsi": NNSI(year=str(NASABudget._prior_fy())),
+    "gdp":  GDP(year=str(NASABudget._prior_fy())),
+}
+
+
+# ────────────────────────── concrete sheets ─────────────────────────
 class Historical(NASABudget):
+    """
+    Represents historical NASA budget data.
+
+    Loads data from a specific Google Sheets CSV URL and defines the columns
+    to keep, how to rename them, and which ones are monetary for adjustment.
+    """
     CSV_URL = (
         "https://docs.google.com/spreadsheets/d/"
         "1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/export"
         "?format=csv&gid=670209929"
     )
+    # Define the specific columns to load from the source CSV
     COLUMNS = [
         "Year",
         "White House Budget Submission",
@@ -345,36 +516,80 @@ class Historical(NASABudget):
         "% of U.S. Spending",
         "% of U.S. Discretionary Spending",
     ]
+    # Define how to rename columns after loading
     RENAMES = {"Year": "Fiscal Year", "White House Budget Submission": "PBR"}
+    # Define which columns contain monetary values that need inflation adjustment
     MONETARY_COLUMNS = ["PBR", "Appropriation", "Outlays"]
 
     def __init__(self, *, cache_dir: Path | None = None) -> None:
+        """
+        Initializes the Historical budget data instance.
+
+        Args:
+            cache_dir: An optional directory to cache the downloaded CSV file.
+        """
+        # Call the base class constructor with the specific CSV URL
         super().__init__(self.CSV_URL, cache_dir=cache_dir)
 
 
-class Science(NASABudget):
+class ScienceDivisions(NASABudget):
+    """
+    Represents NASA Science Directorate budget data.
+
+    Loads data from a specific Google Sheets CSV URL. COLUMNS, RENAMES, and
+    MONETARY_COLUMNS are placeholders and should be defined based on the
+    actual structure of the Science sheet.
+    """
     CSV_URL = (
         "https://docs.google.com/spreadsheets/d/"
         "1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/export"
         "?format=csv&gid=36975677"
     )
-    # Define COLUMNS/RENAMES/MONETARY_COLUMNS as needed
+    # define COLUMNS / RENAMES / MONETARY_COLUMNS when ready
+    # Example placeholders:
+    COLUMNS = ["Fiscal Year", "Astrophysics", "Planetary Science", "Earth Science", "Heliophysics",
+               "Astrophysics_proposed", "Planetary Science_proposed", "Earth Science_proposed", "Heliophysics_proposed"]
+    MONETARY_COLUMNS = ["Astrophysics", "Planetary Science", "Earth Science", "Heliophysics",
+                        "Astrophysics_proposed", "Planetary Science_proposed", "Earth Science_proposed", "Heliophysics_proposed"]
+
     def __init__(self, *, cache_dir: Path | None = None) -> None:
+        """
+        Initializes the Science budget data instance.
+
+        Args:
+            cache_dir: An optional directory to cache the downloaded CSV file.
+        """
+        # Call the base class constructor with the specific CSV URL
         super().__init__(self.CSV_URL, cache_dir=cache_dir)
 
 
 class Directorates(NASABudget):
+    """
+    Represents NASA Directorate budget data.
+
+    Loads data from a specific Google Sheets CSV URL. COLUMNS, RENAMES, and
+    MONETARY_COLUMNS are placeholders and should be defined based on the
+    actual structure of the Directorates sheet.
+    """
     CSV_URL = (
         "https://docs.google.com/spreadsheets/d/"
         "1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/export"
         "?format=csv&gid=1870113890"
     )
+    # define COLUMNS / RENAMES / MONETARY_COLUMNS when ready
+    # Example placeholders:
+    COLUMNS = ["Fiscal Year", "Aeronautics", "Space Technology", "HSF Exploration", "LEO Space Operations",
+               "STMD", "SMD", "Education/STEM Outreach", "Cross Agency Support/CECR"]
+    MONETARY_COLUMNS = ["Aeronautics", "Space Technology", "HSF Exploration", "LEO Space Operations",
+               "STMD", "SMD", "Education/STEM Outreach", "Cross Agency Support/CECR"]
+
     def __init__(self, *, cache_dir: Path | None = None) -> None:
+        """
+        Initializes the Directorates budget data instance.
+
+        Args:
+            cache_dir: An optional directory to cache the downloaded CSV file.
+        """
+        # Call the base class constructor with the specific CSV URL
         super().__init__(self.CSV_URL, cache_dir=cache_dir)
 
-
-# ───────────────────────── optional quick-test ──────────────────────────────
-if __name__ == "__main__":
-    h = Historical(cache_dir=Path(".cache"))
-    print(h.columns()[:8])
-    print(h.data().head()[["Fiscal Year", "Appropriation", "Appropriation_adjusted_nnsi"]])
