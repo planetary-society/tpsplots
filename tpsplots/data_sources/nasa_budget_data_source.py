@@ -330,8 +330,8 @@ class NASABudget:
                     .astype(str) # Ensure column is string type for regex operations
                     .str.replace(self._CURRENCY_RE, "", regex=True) # Remove currency symbols, commas, M/B
                     .astype(float, errors="ignore") # Convert to float, ignoring errors (non-numeric become NaN)
-                    .mul(1_000_000) # Multiply by 1 million (assuming M/B implies millions/billions, simplified to millions)
-                    .astype("Float64") # Convert to pandas nullable float type
+                    .mul(1_000_000) # Multiply by 1 million to convert to whole dollars
+                    .astype("float64")
                 )
 
         # Clean date-style columns: convert to datetime objects.
@@ -405,8 +405,15 @@ class NASABudget:
         # Apply the multipliers to each monetary column and add the new adjusted columns
         for col in mons:
             if col in df.columns: # Ensure the column exists in the DataFrame
-                df[f"{col}_adjusted_nnsi"] = (df[col] * nnsi_mult).astype("Float64")
-                df[f"{col}_adjusted_gdp"]  = (df[col] * gdp_mult ).astype("Float64")
+                # Calculate product. If multiplier is NaN, product is NaN.
+                product_nnsi = df[col] * nnsi_mult
+                product_gdp  = df[col] * gdp_mult
+
+                # Where product is NaN (likely due to a NaN multiplier),
+                # fill with the original value from df[col].
+                # Then ensure the final column is of type float64.
+                df[f"{col}_adjusted_nnsi"] = product_nnsi.fillna(df[col]).astype("float64")
+                df[f"{col}_adjusted_gdp"]  = product_gdp.fillna(df[col]).astype("float64")
         return df
 
     # ── misc helpers ───────────────────────────────────────────────

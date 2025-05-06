@@ -12,38 +12,46 @@ class NASABudgetChart(BaseChart):
     def __init__(self):
         super().__init__(Historical(), outdir=Path("charts") / "nasa_budget")
 
-    def pbrs(self) -> None:
+    def nasa_historical_inflation_adjusted(self) -> None:
         """
         NASA Presidential Budget Requests by fiscal year.
-        Saves SVG + PNG in 16×9 and 1×1 aspect ratios via BaseChart._export().
+        Saves SVG + PNG in 16x9 and 1x1 aspect ratios via BaseChart._export().
         """
 
         # ---------- data prep --------------------------------------------------
         df = (
             self.data_source.data()          # fetch dataframe
-              .astype({"PBR": "float"})      # cast from nullable Float64 → float64
               .dropna(subset=["PBR"])        # remove rows where PBR is <NA>
         )
 
         # ---------- build figure ----------------------------------------------
-        fig, ax = plt.subplots(figsize=(12, 6))
+        fig, ax = plt.subplots(figsize=self.RATIOS.get("16x9"))
 
-        sns.lineplot(
-            data=df,
-            x="Fiscal Year",
-            y="PBR",
-            marker="o",
-            ax=ax
+        ax.plot(
+            df["Fiscal Year"], 
+            df["PBR_adjusted_nnsi"], 
+            color=self.COLORS["light_blue"], 
+            linestyle="--",
+            linewidth=4,
+            label="Presidential Budget Request"
         )
+        
+        ax.plot(
+            df["Fiscal Year"], 
+            df["Appropriation_adjusted_nnsi"], 
+            color=self.COLORS["blue"], 
+            label="Congressional Appropriation"
+        )
+        ax.legend(title="Legend")
 
         # ---------- styling tweaks --------------------------------------------
         ax.set_title("NASA PBR by Fiscal Year", fontweight="bold")
-        ax.set_xlabel("Fiscal Year")
-        ax.set_ylabel("PBR (Billions USD)")
-        ax.yaxis.set_major_formatter(FormatStrFormatter("$%1.2fB"))
+    
+        ax.set_xlim(df["Fiscal Year"].min(), df["Fiscal Year"].max())
+        self.apply_scale_formatter(ax=ax, scale="billions", decimals=0)
 
-        if len(df) > 15:
-            ax.xaxis.set_major_locator(plt.MaxNLocator(15))
+        if len(df) > 20:
+            ax.xaxis.set_major_locator(plt.MaxNLocator(20))
 
         plt.xticks(rotation=45, ha="right")
         plt.tight_layout()
@@ -52,5 +60,5 @@ class NASABudgetChart(BaseChart):
 
 
 if __name__ == "__main__":
-    NASABudgetChart().pbrs()
+    NASABudgetChart().nasa_historical_inflation_adjusted()
     print("All done.")

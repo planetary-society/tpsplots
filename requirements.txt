@@ -4,3 +4,4 @@ pywaffle
 seaborn
 certifi
 requests
+python-pptx
