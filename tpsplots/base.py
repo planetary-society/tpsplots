@@ -1,20 +1,21 @@
 """tpsplots.base – shared chart infrastructure"""
-
 from __future__ import annotations
+from abc import ABC, abstractmethod
 import os
 from pathlib import Path
 from typing import Tuple, Dict
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
-
 from pptx import Presentation
 from pptx.util import Inches
+
+from styles import ChartStyle, ChartStyleFactory
 
 # ------------------------------------------------------------------#
 # Load TPS chart styles
 plt.style.use(Path(__file__).parent / "style" / "tps.mplstyle")
 
-class BaseChart:
+class BaseChart(ABC):
     """Parent for all TPS charts: common style + export helpers."""
 
     # aspect-ratio presets
