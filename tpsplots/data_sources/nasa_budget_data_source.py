@@ -35,7 +35,7 @@ import ssl
 from datetime import date
 from functools import cached_property
 from pathlib import Path
-from typing import Callable, List, Dict, Any
+from typing import Callable, List, Any
 
 import certifi
 import pandas as pd
@@ -43,7 +43,7 @@ import requests
 from urllib.error import URLError
 
 # Assumed external library for inflation adjustments
-from inflation import NNSI, GDP
+from .inflation import NNSI, GDP
 
 
 # ─────────────────────────── base class ────────────────────────────
