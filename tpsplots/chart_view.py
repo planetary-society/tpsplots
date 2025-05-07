@@ -49,7 +49,7 @@ class ChartView:
         "title_size": 20,
         "label_size": 15,
         "tick_size": 16,
-        "legend_size": 14,
+        "legend_size": 12,
         "line_width": 4,
         "marker_size": 5,
         "grid": True,
@@ -64,7 +64,7 @@ class ChartView:
         "title_size": 18,
         "label_size": 15,
         "tick_size": 15,
-        "legend_size": 12,
+        "legend_size": 9,
         "line_width": 3,
         "marker_size": 5,
         "grid": True,
@@ -139,33 +139,24 @@ class ChartView:
             Device-specific styling to apply
         **kwargs : dict
             Matplotlib-compatible plot parameters
-            
-        Returns:
-        --------
-        matplotlib.figure.Figure
-            The generated figure
         """
-        # Create figure and axis
-        fig_kwargs = {
-            'figsize': kwargs.pop('figsize', style["figsize"]),
-            'dpi': kwargs.pop('dpi', style["dpi"]),
-            'facecolor': kwargs.pop('facecolor', None),
-            'edgecolor': kwargs.pop('edgecolor', None),
-        }
-        fig, ax = plt.subplots(**{k: v for k, v in fig_kwargs.items() if v is not None})
+        # Extract figure parameters
+        figsize = kwargs.pop('figsize', style["figsize"])
+        dpi = kwargs.pop('dpi', style["dpi"])
+        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
         
-        # Handle different data input methods (matching matplotlib's flexibility)
+        # Extract data sources
         data = kwargs.pop('data', kwargs.pop('df', None))
         x = kwargs.pop('x', None)
         y = kwargs.pop('y', None)
         
-        # Extract data directly from kwargs if not specified in x/y
+        # Handle alternative data inputs
         if x is None and 'x_data' in kwargs:
             x = kwargs.pop('x_data')
         if y is None and 'y_data_list' in kwargs:
             y = kwargs.pop('y_data_list')
         
-        # Validate we have the necessary data
+        # Validate data
         if x is None:
             raise ValueError("X-axis data must be provided via 'x' or 'x_data'")
         
@@ -178,153 +169,149 @@ class ChartView:
             elif isinstance(y, str):
                 y = [data[y]]
         
-        # If y is not a list but x is, interpret x as y and generate a range for x
-        if y is None and isinstance(x, (list, tuple, np.ndarray)) and not isinstance(x[0], (list, tuple, np.ndarray)):
+        # Handle single y series
+        if y is None and isinstance(x, (list, tuple, np.ndarray)):
             y = [x]
             x = np.arange(len(x))
         
-        # If y is not provided or not a list, convert to a list for consistent handling
+        # Validate y data
         if y is None:
-            raise ValueError("Y-axis data must be provided via 'y', 'y_data_list', or as the first positional argument")
-        elif not isinstance(y, (list, tuple)) or (len(y) > 0 and not hasattr(y[0], '__len__')):
+            raise ValueError("Y-axis data must be provided")
+        
+        # Ensure y is a list for consistent handling
+        if not isinstance(y, (list, tuple)):
             y = [y]
         
-        # Process style parameters
-        # Handle matplotlib aliases
+        # Extract plot-specific parameters
         color = kwargs.pop('color', kwargs.pop('c', None))
-        linestyle = kwargs.pop('linestyle', kwargs.pop('ls', None))
+        linestyle = kwargs.pop('linestyle', kwargs.pop('ls', None)) 
+        label = kwargs.pop('label', kwargs.pop('labels', None))
         linewidth = kwargs.pop('linewidth', kwargs.pop('lw', style["line_width"]))
-        marker = kwargs.pop('marker', None)
         markersize = kwargs.pop('markersize', kwargs.pop('ms', style["marker_size"]))
+        marker = kwargs.pop('marker', None)
         alpha = kwargs.pop('alpha', None)
-        label = kwargs.pop('label', None)
         
-        # Handle list or scalar inputs for style parameters
-        colors = self._ensure_list(color, len(y), default=list(self.TPS_COLORS.values()))
-        linestyles = self._ensure_list(linestyle, len(y), default=['-', '--', '-.', ':'])
-        linewidths = self._ensure_list(linewidth, len(y))
-        markers = self._ensure_list(marker, len(y), default=[None] * len(y))
-        markersizes = self._ensure_list(markersize, len(y))
-        alphas = self._ensure_list(alpha, len(y), default=[1.0] * len(y))
+        # Extract axis-specific parameters
+        xlim = kwargs.pop('xlim', None)
+        ylim = kwargs.pop('ylim', None)
+        xticks = kwargs.pop('xticks', None)
+        xticklabels = kwargs.pop('xticklabels', None)
+        max_xticks = kwargs.pop('max_xticks', style.get("max_ticks"))
         
-        # Handle labels
-        if label is not None:
-            labels = self._ensure_list(label, len(y))
-        else:
-            labels = kwargs.pop('labels', [f"Series {i+1}" for i in range(len(y))])
-            labels = self._ensure_list(labels, len(y))
+        # Extract other styling parameters
+        grid = kwargs.pop('grid', style["grid"])
+        tick_rotation = kwargs.pop('tick_rotation', style["tick_rotation"])
+        tick_size = kwargs.pop('tick_size', style["tick_size"])
+        xlabel = kwargs.pop('xlabel', None)
+        ylabel = kwargs.pop('ylabel', None)
+        scale = kwargs.pop('scale', None)
+        axis_scale = kwargs.pop('axis_scale', 'y')
         
-        # Plot each data series
-        lines = []
+        # Handle legend parameter
+        legend = kwargs.pop('legend', True)
+        
+        # Plot each series
         for i, y_data in enumerate(y):
-            # Build plot kwargs for this series
-            plot_kwargs = {
-                'color': colors[i],
-                'linestyle': linestyles[i],
-                'linewidth': linewidths[i],
-                'marker': markers[i],
-                'markersize': markersizes[i],
-                'alpha': alphas[i],
-                'label': labels[i],
-            }
+            # Common plot parameters
+            plot_kwargs = {}
             
-            # Add any series-specific parameters from kwargs
+            # Handle list parameters for this series
+            if isinstance(color, (list, tuple)) and i < len(color):
+                plot_kwargs['color'] = color[i]
+            elif color is not None and i == 0:
+                plot_kwargs['color'] = color
+                
+            if isinstance(linestyle, (list, tuple)) and i < len(linestyle):
+                plot_kwargs['linestyle'] = linestyle[i]
+            elif linestyle is not None and i == 0:
+                plot_kwargs['linestyle'] = linestyle
+                
+            if isinstance(marker, (list, tuple)) and i < len(marker):
+                plot_kwargs['marker'] = marker[i]
+            elif marker is not None and i == 0:
+                plot_kwargs['marker'] = marker
+                
+            if isinstance(alpha, (list, tuple)) and i < len(alpha):
+                plot_kwargs['alpha'] = alpha[i]
+            elif alpha is not None and i == 0:
+                plot_kwargs['alpha'] = alpha
+                
+            if isinstance(label, (list, tuple)) and i < len(label):
+                plot_kwargs['label'] = label[i]
+            elif label is not None and i == 0:
+                plot_kwargs['label'] = label
+            else:
+                plot_kwargs['label'] = f"Series {i+1}"
+            
+            # Set linewidth and markersize
+            plot_kwargs['linewidth'] = linewidth
+            plot_kwargs['markersize'] = markersize
+            
+            # Apply any series-specific overrides
             series_key = f"series_{i}"
             if series_key in kwargs:
                 plot_kwargs.update(kwargs.pop(series_key))
             
-            # Plot the series
-            line, = ax.plot(x, y_data, **plot_kwargs)
-            lines.append(line)
+            # Plot this series
+            ax.plot(x, y_data, **plot_kwargs)
         
-        # Apply title from metadata
-        title = metadata.get('title', '')
-        if title:
+        # Apply title if in metadata
+        if title := metadata.get('title'):
             ax.set_title(title, fontweight='bold', fontsize=style["title_size"])
         
-        # Apply axes labels if provided
-        xlabel = kwargs.pop('xlabel', None)
+        # Apply axis labels if provided
         if xlabel:
             ax.set_xlabel(xlabel, fontsize=style["label_size"])
-        
-        ylabel = kwargs.pop('ylabel', None)
         if ylabel:
             ax.set_ylabel(ylabel, fontsize=style["label_size"])
         
-        # Apply grid
-        grid = kwargs.pop('grid', style["grid"])
+        # Apply grid setting
         ax.grid(grid)
         
         # Apply tick formatting
-        tick_rotation = kwargs.pop('tick_rotation', style["tick_rotation"])
-        tick_size = kwargs.pop('tick_size', style["tick_size"])
-        
         plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
         plt.setp(ax.get_yticklabels(), fontsize=tick_size)
         
-        # Apply scale formatter if specified
-        scale = kwargs.pop('scale', None)
+        # Apply scale formatter
         if scale:
-            axis = kwargs.pop('axis_scale', 'y')
-            self._apply_scale_formatter(ax, scale, axis)
+            self._apply_scale_formatter(ax, scale, axis_scale)
         
-        # Apply axis limits if provided
-        if 'xlim' in kwargs:
-            ax.set_xlim(kwargs.pop('xlim'))
-        if 'ylim' in kwargs:
-            ax.set_ylim(kwargs.pop('ylim'))
+        # Apply custom limits
+        if xlim:
+            ax.set_xlim(xlim)
+        if ylim:
+            ax.set_ylim(ylim)
         
-        # Apply custom ticks if specified
-        if 'xticks' in kwargs:
-            ticks = kwargs.pop('xticks')
-            ax.set_xticks(ticks)
-            # If custom tick labels are provided, use them
-            if 'xticklabels' in kwargs:
-                ax.set_xticklabels(kwargs.pop('xticklabels'))
-            else:
-                # Format as integers if they are whole numbers
-                if all(float(x).is_integer() for x in ticks):
-                    ax.set_xticklabels([f"{int(x)}" for x in ticks])
+        # Apply custom ticks
+        if xticks is not None:
+            ax.set_xticks(xticks)
+            if xticklabels is not None:
+                ax.set_xticklabels(xticklabels)
+            elif all(float(x).is_integer() for x in xticks):
+                ax.set_xticklabels([f"{int(x)}" for x in xticks])
         
         # Set tick locators
-        max_xticks = kwargs.pop('max_xticks', style.get("max_ticks", None))
         if max_xticks:
             ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
         
-        # Add legend if any label is non-None and not empty
-        if any(label for label in labels if label):
-            legend_kwargs = {
-                'fontsize': style["legend_size"],
-                'loc': kwargs.pop('legend_loc', 'best'),
-                'frameon': kwargs.pop('legend_frameon', True),
-            }
-            
-            # Extract legend parameters if provided
-            legend_params = kwargs.pop('legend_params', {})
-            legend_kwargs.update(legend_params)
-            
-            # Create the legend
-            legend = ax.legend(**legend_kwargs)
+        # Handle legend
+        if legend:
+            legend_kwargs = {'fontsize': style["legend_size"]}
+            if isinstance(legend, dict):
+                legend_kwargs.update(legend)
+            print(legend_kwargs)
+            ax.legend(**legend_kwargs)
         
-        # Apply any remaining kwargs to the axis using matplotlib's set methods
-        for key, value in kwargs.items():
-            try:
-                # First try if it's a direct attribute
-                if hasattr(ax, key):
-                    setattr(ax, key, value)
-                # Then try as a setter method
-                else:
-                    setter = getattr(ax, f"set_{key}", None)
-                    if setter and callable(setter):
-                        setter(value)
-            except Exception as e:
-                print(f"Warning: Could not set axis parameter '{key}': {e}")
-        
-        # Add footer elements (line, source, logo)
+        # Add footer elements
         self._add_footer(fig, metadata, style)
         
-        # Apply tight layout, avoiding the footer area
+        # Apply tight layout
         fig.tight_layout(rect=[0, style.get("footer_height", 0.1), 1, 1])
+        
+        # If any kwargs remain, try to apply them to the axes
+        for key, value in kwargs.items():
+            if hasattr(ax, f"set_{key}"):
+                getattr(ax, f"set_{key}")(value)
         
         return fig
 

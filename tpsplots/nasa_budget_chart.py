@@ -26,10 +26,6 @@ class NASABudgetChart(ChartController):
         
         # Prepare data for view
         fiscal_years = df["Fiscal Year"].astype(int)  # Convert to int for x-axis
-        y_data_list = [
-            df["PBR_adjusted_nnsi"],
-            df["Appropriation_adjusted_nnsi"]
-        ]
         
         # Determine the closest year in the future that is a multiple of 5 and greater
         # than the last year in the data to use as the x-axis limit
@@ -95,7 +91,7 @@ class NASABudgetChart(ChartController):
         df = self.data_source.data().dropna(subset=["Science"]) # Drop rows without directorate data
         
         # Prepare data for view
-        fiscal_years = df["Fiscal Year"].astype(int)  # Convert to int for x-axis
+        fiscal_years = df["Fiscal Year"]  # Convert to int for x-axis
         
         y_limit = (df["Deep Space Exploration Systems_adjusted_nnsi"].max() // 5000000000 + 1) * 5000000000
         
@@ -119,15 +115,12 @@ class NASABudgetChart(ChartController):
             y=y_data,
             linestyle=["-"],
             label=labels,
-            xlim=(2007, fiscal_years.max()),
-            ylim=(0, y_limit),
+            xlim=("2008", fiscal_years.max()),
+            ylim=(1e-10, y_limit),
             scale="billions",
             legend={
-                'loc': 'lower left',
-                'frameon': False,  # No border
-                'bbox_to_anchor': (0, -0.10),
-                'fontsize': "medium",  # Readable size
-                'ncol': 4,
+                'loc': 'upper right',
+                'ncol': 2,
                 'handlelength': .8
             },
         )
@@ -200,7 +193,8 @@ class NASABudgetChart(ChartController):
 if __name__ == "__main__":
     # Create and use the chart controller
     chart = NASABudgetChart()
+    chart.nasa_budget_by_year_inflation_adjusted()
     #chart.nasa_by_presidential_administration()
-    chart.nasa_major_programs_by_year_inflation_adjusted()
+    #chart.nasa_major_programs_by_year_inflation_adjusted()
     #chart.nasa_directorate_breakdown()
     print("All done.")
