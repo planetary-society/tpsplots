@@ -116,12 +116,13 @@ class NASABudgetChart(ChartController):
         metadata = {
             "title": f"NASA Budget by Directorate, FY {self.data_source._prior_fy()}",
             "source": f"FY{prior_fy} NASA Budget Justification",
-            "labels": repartition
         }
-        
+        print("Values for waffle chart:", nasa_directorates)
         self.view.waffle_chart(
-            data=nasa_directorates,
-            rows=10,
+            values=nasa_directorates,
+            rows=20,
+            columns=40,
+            labels=repartition,
             metadata=metadata,
             stem="nasa_directorate_breakdown"
         )

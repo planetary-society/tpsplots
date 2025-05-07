@@ -213,68 +213,83 @@ class ChartView:
         # Similar implementation to line_plot but for bar charts
         # ...
         
-    def waffle_chart(self, data, rows, metadata, stem: str, colors=None) -> None:
+    def waffle_chart(self, metadata, stem: str, **kwargs) -> None:
         """
         Generate waffle charts for both desktop and mobile.
         
         Parameters:
         -----------
-        data : dict
-            Dictionary with labels as keys and values as values
         metadata : dict
             Chart metadata (title, source, etc)
         stem : str
             Base filename for outputs
-        colors : list, optional
-            List of colors to use for different categories. If None, default colors will be used.
+        **kwargs : dict
+            Keyword arguments for the waffle chart, including:
+            - values: dict - Dictionary with labels as keys and values as values (required)
+            - rows: int - Number of rows in the waffle chart (required)
+            - colors: list - List of colors to use for different categories
+            - legend: bool/dict - Whether to show a legend and legend parameters
+            - And any other valid Waffle parameters
+            
+        Returns:
+        --------
+        dict
+            Dictionary containing the generated figure objects {'desktop': fig, 'mobile': fig}
         """
+        
         # Generate desktop version
         desktop_fig = self._create_waffle_chart(
-            data, rows, metadata, 
+            metadata, 
             style=self.DESKTOP,
-            colors=colors
+            **kwargs
         )
         self._save_chart(desktop_fig, f"{stem}_desktop", create_pptx=True)
         
         # Generate mobile version
         mobile_fig = self._create_waffle_chart(
-            data, rows, metadata, 
+            metadata, 
             style=self.MOBILE,
-            colors=colors
+            **kwargs
         )
         self._save_chart(mobile_fig, f"{stem}_mobile", create_pptx=False)
-
-    def _create_waffle_chart(self, data, rows, metadata, style, colors=None):
-        """Internal method to create a waffle chart with appropriate styling."""
         
-        # Extract any custom matplotlib parameters from metadata
-        mpl_kwargs = metadata.get('mpl_kwargs', {})
-        
-        waffle_params = {
-            "values": data,
+        return {
+            'desktop': desktop_fig,
+            'mobile': mobile_fig
         }
-        # Set size and other parameters
-        fig_kwargs = mpl_kwargs.get('figure', {})
-        figsize = fig_kwargs.get('figsize', style["figsize"])
-        
-        if figsize:
-            waffle_params['figsize'] = figsize
-        
-        waffle_params['rows'] = rows
-        
-        if metadata.get("columns"):
-            waffle_params['columns'] = metadata.get("columns")
-        
-        if metadata.get("legend"):
-            waffle_params['legend'] = metadata["legend"]
 
-        if colors:
-            waffle_params['colors'] = colors
+    def _create_waffle_chart(self, metadata, style, **kwargs):
+        """
+        Internal method to create a waffle chart with appropriate styling.
         
-        # Add any additional waffle parameters from metadata
-        waffle_kwargs = mpl_kwargs.get('waffle', {})
-        for key, value in waffle_kwargs.items():
-            waffle_params[key] = value
+        Parameters:
+        -----------
+        metadata : dict
+            Chart metadata (title, source, etc)
+        style : dict
+            Device-specific styling to apply
+        **kwargs : dict
+            Any parameters to pass to the Waffle constructor
+            
+        Returns:
+        --------
+        matplotlib.figure.Figure
+            The generated figure
+        """
+        # Extract parameters that need special handling
+        special_params = {}
+        for param in ['legend', 'title_fontproperties', 'labels_fontproperties']:
+            if param in kwargs:
+                special_params[param] = kwargs.pop(param)
+        
+        # Start with style defaults relevant to Waffle
+        waffle_defaults = {
+            'figsize': style["figsize"]
+        }
+        
+        # Create parameters by merging defaults with provided kwargs
+        # (kwargs take precedence)
+        waffle_params = {**waffle_defaults, **kwargs}
         
         # Create the waffle chart
         fig = plt.figure(
@@ -282,16 +297,45 @@ class ChartView:
             **waffle_params
         )
         
-        # Apply styling with potential overrides
+        # Apply title from metadata
         title = metadata.get('title', '')
-        title_kwargs = mpl_kwargs.get('title', {})
         if title:
             fig.suptitle(
                 title,
-                fontsize=title_kwargs.get('fontsize', style["title_size"]),
-                fontweight=title_kwargs.get('fontweight', 'bold'),
+                fontsize=style["title_size"],
+                fontweight='bold',
                 y=0.98
             )
+        
+        # Process special parameters that need post-figure creation handling
+        if 'legend' in special_params and special_params['legend']:
+            legend_params = {}
+            if isinstance(special_params['legend'], dict):
+                legend_params = special_params['legend']
+            
+            # Apply the legend with styling
+            legend = plt.legend(
+                fontsize=legend_params.get('fontsize', style["legend_size"]),
+                loc=legend_params.get('loc', 'best'),
+                frameon=legend_params.get('frameon', True)
+            )
+            
+            # Apply any additional legend styling
+            for key, value in legend_params.items():
+                if key not in ['fontsize', 'loc', 'frameon']:
+                    try:
+                        # Try to set the attribute if available
+                        setter = getattr(legend, f"set_{key}", None)
+                        if setter and callable(setter):
+                            setter(value)
+                    except Exception as e:
+                        print(f"Warning: Could not set legend parameter '{key}': {e}")
+        
+        # Apply custom font properties if provided
+        if 'title_fontproperties' in special_params:
+            for title_obj in fig.findobj(plt.text.Text):
+                if title_obj.get_text() == title:
+                    title_obj.set_fontproperties(special_params['title_fontproperties'])
         
         # Add footer elements (line, source, logo)
         self._add_footer(fig, metadata, style)
