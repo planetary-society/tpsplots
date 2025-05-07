@@ -1,3 +1,4 @@
+
 # --- Base font family ---
 font.family         : sans-serif
 font.sans-serif     : Poppins, Arial, sans-serif
@@ -12,15 +13,25 @@ figure.facecolor    : F5F5F5
 # --- Text colors ---
 axes.edgecolor      : 414141
 axes.labelcolor     : 414141 
-ytick.color        : 414141
-xtick.color        : 414141
+ytick.color         : 414141
+xtick.color         : 414141
 text.color          : 414141
 
 # --- Spines ---
 axes.spines.top     : False
 axes.spines.right   : False
-axes.linewidth      : 1.2
+axes.spines.left    : False
+axes.spines.bottom  : True
+axes.linewidth      : 2
+
+grid.linewidth      : 0.6
+grid.alpha          : 0.5
+yaxis.labellocation : top
+xaxis.labellocation : right
 
 # --- Tick direction ---
 xtick.direction     : out
 ytick.direction     : out
+xtick.minor.visible : True
+xtick.labelweight : bold
+ytick.labelweight : bold

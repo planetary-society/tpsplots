@@ -517,6 +517,8 @@ class Historical(NASABudget):
     # Define the specific columns to load from the source CSV
     COLUMNS = [
         "Year",
+        "Presidential Administration",
+        "White House Budget Release Date",
         "White House Budget Submission",
         "Appropriation",
         "Outlays",
