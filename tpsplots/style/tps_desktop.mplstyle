@@ -1,0 +1,25 @@
+# --- Typography ---
+font.size           : 14
+axes.titlesize      : 20
+axes.labelsize      : 18
+xtick.labelsize     : 14
+ytick.labelsize     : 14
+legend.fontsize     : 14
+
+# --- Lines and markers ---
+lines.linewidth     : 10
+lines.markersize    : 8
+
+# --- Grid ---
+axes.grid           : True
+grid.color          : C3C3C3
+grid.linewidth      : 0.5
+grid.linestyle      : -
+
+# --- Ticks ---
+xtick.minor.visible : True
+ytick.minor.visible : True
+xtick.major.size    : 5
+xtick.minor.size    : 2
+ytick.major.size    : 5
+ytick.minor.size    : 2

@@ -1,0 +1,26 @@
+# --- Base font family ---
+font.family         : sans-serif
+font.sans-serif     : Poppins, Arial, sans-serif
+
+# --- Brand colors ---
+axes.prop_cycle     : cycler('color', ["#037CC2","#643788","#FF5D47","#80BDE0","#B19BC3","#414141"])
+
+# --- Background colors ---
+axes.facecolor      : F5F5F5
+figure.facecolor    : F5F5F5
+
+# --- Text colors ---
+axes.edgecolor      : 414141
+axes.labelcolor     : 414141 
+ytick.color        : 414141
+xtick.color        : 414141
+text.color          : 414141
+
+# --- Spines ---
+axes.spines.top     : False
+axes.spines.right   : False
+axes.linewidth      : 1.2
+
+# --- Tick direction ---
+xtick.direction     : out
+ytick.direction     : out

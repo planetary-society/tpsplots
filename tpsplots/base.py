@@ -9,7 +9,7 @@ from matplotlib.ticker import FuncFormatter
 from pptx import Presentation
 from pptx.util import Inches
 
-from styles import ChartStyle, ChartStyleFactory
+from styles import ChartStyleFactory
 
 # ------------------------------------------------------------------#
 # Load TPS chart styles
@@ -17,21 +17,6 @@ plt.style.use(Path(__file__).parent / "style" / "tps.mplstyle")
 
 class BaseChart(ABC):
     """Parent for all TPS charts: common style + export helpers."""
-
-    # aspect-ratio presets
-    RATIOS: Dict[str, Tuple[int, int]] = {"16x9": (16, 9), "1x1": (10, 10)}
-
-    # TPS Brand colors
-    COLORS = {
-        "blue": "#037CC2",
-        "purple": "#643788",
-        "orange": "#FF5D47",
-        "light_blue": "#80BDE0",
-        "light_purple": "#B19BC3",
-        "dark_gray": "#414141",
-        "medium_gray": "#C3C3C3",
-        "light_gray": "#F5F5F5"
-    }
 
     def __init__(self, data_source=None, outdir: str | os.PathLike = "charts"):
         self.data_source = data_source
@@ -117,27 +102,86 @@ class BaseChart(ABC):
         self,
         fig: plt.Figure,
         stem: str,
-        ratios: Tuple[str, ...] = ("16x9", "1x1"),
+        styles: Tuple[str, ...] = ("desktop", "mobile"),
         pptx: bool = True,
     ) -> None:
-        """Save *fig* as SVG+PNG in each ratio; embed the widescreen PNG in PPTX."""
+        """Save *fig* as SVG+PNG with each specified style; embed the desktop PNG in PPTX."""
         self.outdir.mkdir(parents=True, exist_ok=True)
 
-        for label in ratios:
-            w, h = self.RATIOS[label]
-            fig.set_size_inches(w, h, forward=True)
+        # Store original figure properties
+        original_figsize = fig.get_size_inches()
+        
+        for style_name in styles:
+            # Get style from factory
+            style = ChartStyleFactory.make(style_name)
+            print(style.stylesheets)
+            # Apply the stylesheet directly
+            plt.style.use(style.stylesheets)  # Reset to default before applying new style
+            
+            # Set figure size from style
+            fig.set_size_inches(*style.figsize, forward=True)
+            
+            # Apply style-specific tweaks that can't be done via stylesheets
+            if style_name == "mobile":
+                for ax in fig.get_axes():
+                    ax.xaxis.set_major_locator(plt.MaxNLocator(5))
+                    ax.yaxis.set_major_locator(plt.MaxNLocator(5))
+                    plt.setp(ax.get_xticklabels(), rotation=0)
+            elif style_name == "desktop":
+                for ax in fig.get_axes():
+                    plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+            
+            # Add padding for logo if needed
+            if style.add_logo and style.logo_path and style.logo_path.exists():
+                fig.subplots_adjust(bottom=0.15)
+            
             fig.tight_layout()
-
-            svg = self.outdir / f"{stem}_{label}.svg"
-            png = self.outdir / f"{stem}_{label}.png"
-            fig.savefig(svg, format="svg", bbox_inches="tight")
-            fig.savefig(png, format="png", dpi=300, bbox_inches="tight")
+            
+            # Add logo if specified
+            if style.add_logo and style.logo_path and style.logo_path.exists():
+                self._add_logo(fig, style.logo_path)
+            
+            # Save files
+            svg = self.outdir / f"{stem}_{style_name}.svg"
+            png = self.outdir / f"{stem}_{style_name}.png"
+            fig.savefig(svg, format="svg", bbox_inches="tight", dpi=style.dpi)
+            fig.savefig(png, format="png", bbox_inches="tight", dpi=style.dpi)
             print(f"✓ saved {svg.name} and {png.name}")
 
-            if pptx and label == "16x9":
+            # Create PPTX for desktop style
+            if pptx and style_name == "desktop":
                 self._png_to_pptx(png, self.outdir / f"{stem}.pptx")
-
+            
+            # Remove logo after saving if it was added
+            if style.add_logo:
+                for artist in fig.artists[:]:
+                    if isinstance(artist, plt.matplotlib.offsetbox.AnnotationBbox):
+                        artist.remove()
+        
+        # Restore original figure size
+        fig.set_size_inches(*original_figsize, forward=True)
         plt.close(fig)
+
+    def _add_logo(self, fig: plt.Figure, logo_path: Path) -> None:
+        """Add The Planetary Society logo to the figure."""
+        from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+        import matplotlib.image as mpimg
+        
+        # Load the logo
+        logo = mpimg.imread(str(logo_path))
+        
+        # Create an OffsetImage with the logo
+        imagebox = OffsetImage(logo, zoom=0.1)  # Adjust zoom as needed
+        
+        # Add the logo to the figure (bottom right corner)
+        ab = AnnotationBbox(
+            imagebox, 
+            xy=(0.99, 0.01),  # Position (right, bottom)
+            xycoords='figure fraction',
+            box_alignment=(1, 0),  # Alignment (right, bottom)
+            frameon=False
+        )
+        fig.add_artist(ab)
 
     @staticmethod
     def _png_to_pptx(png_path: Path, pptx_path: Path) -> None:
