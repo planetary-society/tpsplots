@@ -1,6 +1,7 @@
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import matplotlib.image as mpimg
 import numpy as np
+import math
 from pathlib import Path
 import matplotlib.pyplot as plt
 from pywaffle import Waffle
@@ -25,6 +26,22 @@ class ChartView:
         "light_gray": "#F5F5F5"
     }
     
+    TPS_COLORS = {
+        "Light Plasma": "#D8CDE1",
+        "Medium Plasma": "#B19BC3",
+        "Plasma Purple": "#643788",
+        "Rocket Flame": "#FF5D47",
+        "Neptune Blue": "#037CC2",
+        "Medium Neptune": "#80BDE0",
+        "Light Neptune": "#BFDEF0",
+        "Crater Shadow": "#414141",
+        "Lunar Soil": "#8C8C8C",
+        "Comet Dust": "#C3C3C3",
+        "Slushy Brine": "#F5F5F5",
+        "Black Hole": "#000000",
+        "Polar White": "#FFFFFF",
+    }
+
     # Device-specific visual settings
     DESKTOP = {
         "figsize": (16, 9),
@@ -183,8 +200,7 @@ class ChartView:
         label = kwargs.pop('label', None)
         
         # Handle list or scalar inputs for style parameters
-        colors = self._ensure_list(color, len(y), default=[self.COLORS["blue"], self.COLORS["light_blue"], 
-                                                        self.COLORS["purple"], self.COLORS["orange"]])
+        colors = self._ensure_list(color, len(y), default=list(self.TPS_COLORS.values()))
         linestyles = self._ensure_list(linestyle, len(y), default=['-', '--', '-.', ':'])
         linewidths = self._ensure_list(linewidth, len(y))
         markers = self._ensure_list(marker, len(y), default=[None] * len(y))
@@ -373,19 +389,54 @@ class ChartView:
         dict
             Dictionary containing the generated figure objects {'desktop': fig, 'mobile': fig}
         """
+        values = kwargs.get('values')
+        if not values:
+            raise ValueError("The 'values' parameter is required for waffle_chart")
+        
+        # Calculate the total number of rows and columns to match the aspect ratio
+        if 'rows' not in kwargs or 'columns' not in kwargs:
+            total_blocks = sum(values.values())
+            mobile_rows, mobile_columns = self._calculate_waffle_dimensions(total_blocks, self.MOBILE["figsize"])
+            desktop_rows, desktop_columns = self._calculate_waffle_dimensions(total_blocks, self.DESKTOP["figsize"])
+        else:
+            # Use provided values if specified
+            desktop_rows = kwargs.get('rows')
+            desktop_columns = kwargs.get('columns')
+            mobile_rows = kwargs.get('rows')
+            mobile_columns = kwargs.get('columns')
         
         # Generate desktop version
         desktop_fig = self._create_waffle_chart(
             metadata, 
             style=self.DESKTOP,
+            rows=desktop_rows,
+            columns=desktop_columns,
             **kwargs
         )
         self._save_chart(desktop_fig, f"{stem}_desktop", create_pptx=True)
+        
+        # Generate mobile (1x1) version
+        
+        # If lenged["ncol"] is set, cut the number of rows in half (rounding up) for mobile
+        # and reduce the font size to small
+        if 'legend' in kwargs and isinstance(kwargs['legend'], dict):
+            if 'ncol' in kwargs['legend']:
+                mobile_legend_columns = math.ceil(kwargs['legend']['ncol'] / 2) + 1
+                kwargs['legend']['ncol'] = mobile_legend_columns
+            kwargs['legend']['fontsize'] = "small"
+        
+        # Now tweak the bbox_to_anchor to nudge down slightly more
+        if 'bbox_to_anchor' in kwargs['legend']:
+            bbox = kwargs['legend']['bbox_to_anchor']
+            kwargs['legend']['bbox_to_anchor'] = (bbox[0], bbox[1] - 0.03)
+            kwargs['legend']['borderpad'] = 0
         
         # Generate mobile version
         mobile_fig = self._create_waffle_chart(
             metadata, 
             style=self.MOBILE,
+            rows=mobile_rows,
+            columns=mobile_columns,
             **kwargs
         )
         self._save_chart(mobile_fig, f"{stem}_mobile", create_pptx=False)
@@ -415,7 +466,7 @@ class ChartView:
         """
         # Extract parameters that need special handling
         special_params = {}
-        for param in ['legend', 'title_fontproperties', 'labels_fontproperties']:
+        for param in ['title_fontproperties', 'labels_fontproperties']:
             if param in kwargs:
                 special_params[param] = kwargs.pop(param)
         
@@ -444,29 +495,16 @@ class ChartView:
                 y=0.98
             )
         
-        # Process special parameters that need post-figure creation handling
-        if 'legend' in special_params and special_params['legend']:
-            legend_params = {}
-            if isinstance(special_params['legend'], dict):
-                legend_params = special_params['legend']
-            
-            # Apply the legend with styling
-            legend = plt.legend(
-                fontsize=legend_params.get('fontsize', style["legend_size"]),
-                loc=legend_params.get('loc', 'best'),
-                frameon=legend_params.get('frameon', True)
+        # Apply subtitle if present
+        subtitle = metadata.get('subtitle', '')
+        if subtitle:
+            fig.text(
+                0.5, 0.92,  # Position just below the title
+                subtitle,
+                fontsize=style["title_size"] * 0.5,
+                ha='center',
+                style='italic'
             )
-            
-            # Apply any additional legend styling
-            for key, value in legend_params.items():
-                if key not in ['fontsize', 'loc', 'frameon']:
-                    try:
-                        # Try to set the attribute if available
-                        setter = getattr(legend, f"set_{key}", None)
-                        if setter and callable(setter):
-                            setter(value)
-                    except Exception as e:
-                        print(f"Warning: Could not set legend parameter '{key}': {e}")
         
         # Apply custom font properties if provided
         if 'title_fontproperties' in special_params:
@@ -476,24 +514,49 @@ class ChartView:
         
         # Add footer elements (line, source, logo)
         self._add_footer(fig, metadata, style)
-        
+
         return fig
     
-    def _save_chart(self, fig, filename, create_pptx=False):
-        """Save chart as SVG, PNG, and optionally PPTX."""
-        svg_path = self.outdir / f"{filename}.svg"
-        png_path = self.outdir / f"{filename}.png"
+    def _calculate_waffle_dimensions(self, total_blocks, figsize):
+        """
+        Calculate optimal rows and columns for a waffle chart,
+        accounting for footer and legend space.
         
-        fig.savefig(svg_path, format="svg", dpi=300)
-        fig.savefig(png_path, format="png", dpi=300)
-        print(f"✓ saved {svg_path.name} and {png_path.name}")
-        
-        if create_pptx:
-            pptx_path = self.outdir / f"{filename}.pptx"
-            self._create_pptx(png_path, pptx_path)
-            print(f"✓ saved {pptx_path.name}")
+        Parameters:
+        -----------
+        total_blocks : int
+            Total number of blocks in the waffle chart
+        figsize : tuple
+            (width, height) dimensions of the figure
             
-        plt.close(fig)
+        Returns:
+        --------
+        tuple
+            (rows, columns) optimized for the aspect ratio
+        """
+        import math
+        
+        # Extract width and height from figsize
+        width, height = figsize
+        
+        # Reserve some portion of the image height for footer and legend
+        # This effectively reduces the available height for the waffle chart
+        available_height = height * 0.75
+        
+        # Calculate the effective aspect ratio of the available space
+        effective_aspect_ratio = width / available_height
+        
+        # Calculate columns optimized for the effective aspect ratio
+        columns = round(math.sqrt(total_blocks * effective_aspect_ratio))
+        
+        # Calculate rows to accommodate all blocks
+        rows = math.ceil(total_blocks / columns)
+        
+        # Ensure we have enough rows and columns
+        rows = max(rows, 1)
+        columns = max(columns, 1)
+        
+        return rows, columns
     
     def _apply_scale_formatter(self, ax, scale='billions', axis='y', decimals=0, prefix='$'):
         """Apply scale formatting to axis."""
@@ -638,7 +701,23 @@ class ChartView:
             ha='left',
             va='bottom'
         )
-    
+
+    def _save_chart(self, fig, filename, create_pptx=False):
+        """Save chart as SVG, PNG, and optionally PPTX."""
+        svg_path = self.outdir / f"{filename}.svg"
+        png_path = self.outdir / f"{filename}.png"
+        
+        fig.savefig(svg_path, format="svg", dpi=300)
+        fig.savefig(png_path, format="png", dpi=300)
+        print(f"✓ saved {svg_path.name} and {png_path.name}")
+        
+        if create_pptx:
+            pptx_path = self.outdir / f"{filename}.pptx"
+            self._create_pptx(png_path, pptx_path)
+            print(f"✓ saved {pptx_path.name}")
+            
+        plt.close(fig)
+
     def _create_pptx(self, png_path, pptx_path):
         """Create a PowerPoint file with the chart."""
         from pptx import Presentation

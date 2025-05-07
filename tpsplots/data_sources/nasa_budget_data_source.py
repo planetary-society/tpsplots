@@ -589,8 +589,15 @@ class Directorates(NASABudget):
     # Example placeholders:
     COLUMNS = ["Fiscal Year", "Aeronautics", "HSF Exploration", "LEO Space Operations",
                "STMD", "SMD", "Education/STEM Outreach", "Cross Agency Support/CECR"]
-    MONETARY_COLUMNS = ["Aeronautics", "Space Technology", "HSF Exploration", "LEO Space Operations",
-               "STMD", "SMD", "Education/STEM Outreach", "Cross Agency Support/CECR"]
+    RENAMES = {
+            "Cross Agency Support/CECR": "Infrastructure/Overhead",
+            "Education/STEM Outreach": "STEM Education",
+            "STMD": "Space Technology",
+            "HSF Exploration": "Deep Space Exploration Systems",
+            "SMD": "Science",
+        }
+    MONETARY_COLUMNS = ["Aeronautics", "Space Technology", "Deep Space Exploration Systems", "LEO Space Operations",
+               "Science", "STEM Education", "Infrastructure/Overhead"]
 
     def __init__(self, *, cache_dir: Path | None = None) -> None:
         """

@@ -33,7 +33,7 @@ class NASABudgetChart(ChartController):
         
         # Determine the closest year in the future that is a multiple of 5 and greater
         # than the last year in the data to use as the x-axis limit
-        x_limit = (int(fiscal_years.max()) // 5 + 1) * 5
+        x_limit = (fiscal_years.max() // 5 + 1) * 5
         y_limit = (df["PBR_adjusted_nnsi"].max() // 5000000000 + 1) * 5000000000
         
         # Prepare metadata
@@ -89,10 +89,53 @@ class NASABudgetChart(ChartController):
                 max_xticks=(fiscal_years.max() - fiscal_years.min() + 1)
             )
 
-    def nasa_directorate_breakdown(self):
-        """ Generate NASA budget by directorate waffle chart."""
+    def nasa_major_programs_by_year_inflation_adjusted(self):
+        """ Line chart of NASA's directorate budgets from 2007 onwards."""
         self.data_source = Directorates()
-        df = self.data_source.data().dropna(subset=["SMD"]) # Drop rows without directorate data
+        df = self.data_source.data().dropna(subset=["Science"]) # Drop rows without directorate data
+        
+        # Prepare data for view
+        fiscal_years = df["Fiscal Year"].astype(int)  # Convert to int for x-axis
+        
+        y_limit = (df["Deep Space Exploration Systems_adjusted_nnsi"].max() // 5000000000 + 1) * 5000000000
+        
+        y_data = [df["Deep Space Exploration Systems_adjusted_nnsi"],df["Science_adjusted_nnsi"],
+                  df["Aeronautics_adjusted_nnsi"], df["Space Technology_adjusted_nnsi"], df["STEM Education_adjusted_nnsi"],
+                  df["LEO Space Operations_adjusted_nnsi"], df["Infrastructure/Overhead_adjusted_nnsi"]
+                  ]
+        labels = ["Deep Space Exploration Systems","Science Mission Directorate",
+                  "Aeronautics", "Space Technology", "STEM Education",
+                  "LEO Space Operations", "SSMS/CECR (Overhead)"]
+        # Prepare metadata
+        metadata = {
+            "source": f"NASA Budget Justifications, FYs 2007-{fiscal_years.max()}",
+        }
+        
+        # Generate charts via view
+        self.view.line_plot(
+            metadata=metadata,
+            stem="nasa_major_programs_by_year_inflation_adjusted",
+            x=fiscal_years,
+            y=y_data,
+            linestyle=["-"],
+            label=labels,
+            xlim=(2007, fiscal_years.max()),
+            ylim=(0, y_limit),
+            scale="billions",
+            legend={
+                'loc': 'lower left',
+                'frameon': False,  # No border
+                'bbox_to_anchor': (0, -0.10),
+                'fontsize': "medium",  # Readable size
+                'ncol': 4,
+                'handlelength': .8
+            },
+        )
+
+    def nasa_directorate_budget_waffle_chart(self):
+        """ Generate NASA budget breakdown by directorate as a waffle chart."""
+        self.data_source = Directorates()
+        df = self.data_source.data().dropna(subset=["Science"]) # Drop rows without directorate data
         
         available_years = sorted(df["Fiscal Year"].unique())
         prior_fy = available_years[-2]
@@ -102,24 +145,55 @@ class NASABudgetChart(ChartController):
             labels=["Fiscal Year"] + [col for col in df.columns if "adjusted" in col]
         ).to_dict()
         
-        # Convert the values to millions for better readability
-        for k, v in nasa_directorates.items():
-            nasa_directorates[k] = v / 1000000
+        # Define block value - each block represents $100M
+        block_value = 50000000
 
-        # Calculate relative percentages for labels
-        repartition = [f"{k} ({int(v / sum(nasa_directorates.values()) * 100)}%)" for k, v in nasa_directorates.items()]
+        # Scale values to represent blocks ($50M each)
+        scaled_directorates = {k: round(v / block_value) for k, v in nasa_directorates.items()}
+        
+        # Order directorates so largest values are first
+        sorted_directorates = dict(sorted(scaled_directorates.items(), key=lambda item: item[1], reverse=True))
 
+        # Calculate relative percentages for labels and sort from largest to smallest
+        repartition = [
+            f"{k} ({v / sum(nasa_directorates.values()) * 100:.1f}%)" if v / sum(nasa_directorates.values()) * 100 < 1 
+            else f"{k} ({int(v / sum(nasa_directorates.values()) * 100)}%)" 
+            for k, v in sorted(nasa_directorates.items(), key=lambda item: item[1], reverse=True)
+        ]
+
+        # Add block value explanation to the title or subtitle
         metadata = {
-            "title": f"NASA Budget by Directorate, FY {self.data_source._prior_fy()}",
+            "title": f"NASA Budget by Directorate, FY {prior_fy}",
+            "subtitle": "Each block represents $50 million",
             "source": f"FY{prior_fy} NASA Budget Justification",
         }
-        print("Values for waffle chart:", nasa_directorates)
+        
+        category_colors = [
+            self.view.TPS_COLORS["Neptune Blue"],     # Strong blue for largest category
+            self.view.TPS_COLORS["Plasma Purple"],    # Rich purple for contrast
+            self.view.TPS_COLORS["Medium Neptune"],   # Lighter blue
+            self.view.TPS_COLORS["Rocket Flame"],     # Warm orange-red
+            self.view.TPS_COLORS["Medium Plasma"],    # Softer purple
+            self.view.TPS_COLORS["Lunar Soil"],       # Neutral gray
+            self.view.TPS_COLORS["Light Neptune"]     # Very light blue for smallest category
+        ]
+        
         self.view.waffle_chart(
-            values=nasa_directorates,
-            rows=20,
-            columns=40,
-            labels=repartition,
+            values=sorted_directorates,
+            labels=repartition, 
+            colors=category_colors,
+            vertical=True,
             metadata=metadata,
+            interval_ratio_x=0.11,
+            interval_ratio_y=0.11,
+            legend={
+                'loc': 'lower left',
+                'frameon': False,  # No border
+                'bbox_to_anchor': (0, -0.10),
+                'fontsize': "medium",  # Readable size
+                'ncol': 4,
+                'handlelength': .8
+            },
             stem="nasa_directorate_breakdown"
         )
         
@@ -127,6 +201,6 @@ if __name__ == "__main__":
     # Create and use the chart controller
     chart = NASABudgetChart()
     #chart.nasa_by_presidential_administration()
-    chart.nasa_budget_by_year_inflation_adjusted()
+    chart.nasa_major_programs_by_year_inflation_adjusted()
     #chart.nasa_directorate_breakdown()
     print("All done.")
