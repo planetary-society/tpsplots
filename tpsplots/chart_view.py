@@ -3,6 +3,8 @@ import matplotlib.image as mpimg
 import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
+from pywaffle import Waffle
+
 
 class ChartView:
     """View component for chart generation with desktop/mobile versions built in."""
@@ -211,9 +213,90 @@ class ChartView:
         # Similar implementation to line_plot but for bar charts
         # ...
         
-    def waffle_chart(self, data, metadata, stem: str) -> None:
-        """Generate waffle charts for both desktop and mobile."""
-        # ...
+    def waffle_chart(self, data, rows, metadata, stem: str, colors=None) -> None:
+        """
+        Generate waffle charts for both desktop and mobile.
+        
+        Parameters:
+        -----------
+        data : dict
+            Dictionary with labels as keys and values as values
+        metadata : dict
+            Chart metadata (title, source, etc)
+        stem : str
+            Base filename for outputs
+        colors : list, optional
+            List of colors to use for different categories. If None, default colors will be used.
+        """
+        # Generate desktop version
+        desktop_fig = self._create_waffle_chart(
+            data, rows, metadata, 
+            style=self.DESKTOP,
+            colors=colors
+        )
+        self._save_chart(desktop_fig, f"{stem}_desktop", create_pptx=True)
+        
+        # Generate mobile version
+        mobile_fig = self._create_waffle_chart(
+            data, rows, metadata, 
+            style=self.MOBILE,
+            colors=colors
+        )
+        self._save_chart(mobile_fig, f"{stem}_mobile", create_pptx=False)
+
+    def _create_waffle_chart(self, data, rows, metadata, style, colors=None):
+        """Internal method to create a waffle chart with appropriate styling."""
+        
+        # Extract any custom matplotlib parameters from metadata
+        mpl_kwargs = metadata.get('mpl_kwargs', {})
+        
+        waffle_params = {
+            "values": data,
+        }
+        # Set size and other parameters
+        fig_kwargs = mpl_kwargs.get('figure', {})
+        figsize = fig_kwargs.get('figsize', style["figsize"])
+        
+        if figsize:
+            waffle_params['figsize'] = figsize
+        
+        waffle_params['rows'] = rows
+        
+        if metadata.get("columns"):
+            waffle_params['columns'] = metadata.get("columns")
+        
+        if metadata.get("legend"):
+            waffle_params['legend'] = metadata["legend"]
+
+        if colors:
+            waffle_params['colors'] = colors
+        
+        # Add any additional waffle parameters from metadata
+        waffle_kwargs = mpl_kwargs.get('waffle', {})
+        for key, value in waffle_kwargs.items():
+            waffle_params[key] = value
+        
+        # Create the waffle chart
+        fig = plt.figure(
+            FigureClass=Waffle,
+            **waffle_params
+        )
+        
+        # Apply styling with potential overrides
+        title = metadata.get('title', '')
+        title_kwargs = mpl_kwargs.get('title', {})
+        if title:
+            fig.suptitle(
+                title,
+                fontsize=title_kwargs.get('fontsize', style["title_size"]),
+                fontweight=title_kwargs.get('fontweight', 'bold'),
+                y=0.98
+            )
+        
+        # Add footer elements (line, source, logo)
+        self._add_footer(fig, metadata, style)
+        
+        return fig
     
     def _save_chart(self, fig, filename, create_pptx=False):
         """Save chart as SVG, PNG, and optionally PPTX."""

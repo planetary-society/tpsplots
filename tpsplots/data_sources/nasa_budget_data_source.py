@@ -587,7 +587,7 @@ class Directorates(NASABudget):
     )
     # define COLUMNS / RENAMES / MONETARY_COLUMNS when ready
     # Example placeholders:
-    COLUMNS = ["Fiscal Year", "Aeronautics", "Space Technology", "HSF Exploration", "LEO Space Operations",
+    COLUMNS = ["Fiscal Year", "Aeronautics", "HSF Exploration", "LEO Space Operations",
                "STMD", "SMD", "Education/STEM Outreach", "Cross Agency Support/CECR"]
     MONETARY_COLUMNS = ["Aeronautics", "Space Technology", "HSF Exploration", "LEO Space Operations",
                "STMD", "SMD", "Education/STEM Outreach", "Cross Agency Support/CECR"]

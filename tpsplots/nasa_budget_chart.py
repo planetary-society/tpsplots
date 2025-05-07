@@ -1,10 +1,11 @@
 """Concrete NASA budget charts."""
 from pathlib import Path
 from chart_controller import ChartController
-from data_sources.nasa_budget_data_source import Historical
+from data_sources.nasa_budget_data_source import Historical, Directorates
+
 
 class NASABudgetChart(ChartController):
-    """Controller for NASA budget charts."""
+    """Controller for top-line NASA budget charts."""
 
     def __init__(self):
         # Initialize with data source and output directory
@@ -15,10 +16,10 @@ class NASABudgetChart(ChartController):
 
     def generate_charts(self):
         """Generate all NASA budget charts."""
-        self.nasa_historical_appropriation_pbr_inflation_adjusted()
+        self.nasa_budget_by_year_inflation_adjusted()
         self.nasa_by_presidential_administration()
     
-    def nasa_historical_appropriation_pbr_inflation_adjusted(self):
+    def nasa_budget_by_year_inflation_adjusted(self):
         """Generate historical NASA budget chart."""
         # Get data from model
         df = self.data_source.data().dropna(subset=["PBR"])
@@ -51,9 +52,9 @@ class NASABudgetChart(ChartController):
         }
         
         # Generate charts via view
-        self.view.line_plot(x_data, y_data_list, metadata, "nasa_pbr_by_year")
+        self.view.line_plot(x_data, y_data_list, metadata, "nasa_budget_by_year_inflation_adjusted")
 
-    def nasa_by_presidential_administration(self):
+    def nasa_budget_by_presidential_administration(self):
         """Generate NASA budget by presidential administration chart."""
         # Get data from model
         df = self.data_source.data().dropna(subset=["PBR"])
@@ -90,12 +91,45 @@ class NASABudgetChart(ChartController):
             }
         
             # Generate charts via view
-            self.view.line_plot(x_data, y_data_list, metadata, f"{president}_nasa_budget")
+            self.view.line_plot(x_data, y_data_list, metadata, f"{president}_nasa_budget_inflation_adjusted")
+    
+    def nasa_directorate_breakdown(self):
+        """ Generate NASA budget by directorate waffle chart."""
+        self.data_source = Directorates()
+        df = self.data_source.data().dropna(subset=["SMD"]) # Drop rows without directorate data
+        
+        available_years = sorted(df["Fiscal Year"].unique())
+        prior_fy = available_years[-2]
+        
+        # Convert the row where Fiscal Year is 2025 into a dictionary
+        nasa_directorates = df[df["Fiscal Year"] == prior_fy].iloc[0].drop(
+            labels=["Fiscal Year"] + [col for col in df.columns if "adjusted" in col]
+        ).to_dict()
+        
+        # Convert the values to millions for better readability
+        for k, v in nasa_directorates.items():
+            nasa_directorates[k] = v / 1000000
 
+        # Calculate relative percentages for labels
+        repartition = [f"{k} ({int(v / sum(nasa_directorates.values()) * 100)}%)" for k, v in nasa_directorates.items()]
+
+        metadata = {
+            "title": f"NASA Budget by Directorate, FY {self.data_source._prior_fy()}",
+            "source": f"FY{prior_fy} NASA Budget Justification",
+            "labels": repartition
+        }
+        
+        self.view.waffle_chart(
+            data=nasa_directorates,
+            rows=10,
+            metadata=metadata,
+            stem="nasa_directorate_breakdown"
+        )
         
 if __name__ == "__main__":
     # Create and use the chart controller
     chart = NASABudgetChart()
     #chart.nasa_by_presidential_administration()
-    chart.generate_charts()
+    #chart.generate_charts()
+    chart.nasa_directorate_breakdown()
     print("All done.")

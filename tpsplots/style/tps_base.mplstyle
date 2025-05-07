@@ -33,5 +33,3 @@ xaxis.labellocation : right
 xtick.direction     : out
 ytick.direction     : out
 xtick.minor.visible : True
-xtick.labelweight : bold
-ytick.labelweight : bold

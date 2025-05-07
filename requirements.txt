@@ -1,7 +1,6 @@
 pandas
 matplotlib
 pywaffle
-seaborn
 certifi
 requests
 python-pptx
