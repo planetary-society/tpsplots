@@ -25,7 +25,7 @@ class NASABudgetChart(ChartController):
         df = self.data_source.data().dropna(subset=["PBR"])
         
         # Prepare data for view
-        x_data = df["Fiscal Year"].astype(int)  # Convert to int for x-axis
+        fiscal_years = df["Fiscal Year"].astype(int)  # Convert to int for x-axis
         y_data_list = [
             df["PBR_adjusted_nnsi"],
             df["Appropriation_adjusted_nnsi"]
@@ -33,26 +33,27 @@ class NASABudgetChart(ChartController):
         
         # Determine the closest year in the future that is a multiple of 5 and greater
         # than the last year in the data to use as the x-axis limit
-        x_limit = (int(x_data.max()) // 5 + 1) * 5
+        x_limit = (int(fiscal_years.max()) // 5 + 1) * 5
         y_limit = (df["PBR_adjusted_nnsi"].max() // 5000000000 + 1) * 5000000000
         
         # Prepare metadata
         metadata = {
-            "labels": ["Presidential Budget Request", "Congressional Appropriation"],
-            "colors": [self.view.COLORS["light_blue"], self.view.COLORS["blue"]],
-            "formats": ["--", "-"],
-            "scale": "billions",
-            "source": f"NASA Budget Justifications, FYs 1961-{x_data.max()}",
-            "mpl_args": {
-                "axes": {
-                    "xlim": (1958, x_limit),
-                    "ylim": (0, y_limit),
-                },
-            }
+            "source": f"NASA Budget Justifications, FYs 1961-{fiscal_years.max()}",
         }
         
         # Generate charts via view
-        self.view.line_plot(x_data, y_data_list, metadata, "nasa_budget_by_year_inflation_adjusted")
+        self.view.line_plot(
+            metadata=metadata,
+            stem="nasa_budget_by_year_inflation_adjusted",
+            x=fiscal_years,
+            y=[df["PBR_adjusted_nnsi"], df["Appropriation_adjusted_nnsi"]],
+            color=[self.view.COLORS["light_blue"], self.view.COLORS["blue"]],
+            linestyle=["--", "-"],
+            label=["Presidential Budget Request", "Congressional Appropriation"],
+            xlim=(1958, x_limit),
+            ylim=(0, y_limit),
+            scale="billions"
+        )
 
     def nasa_budget_by_presidential_administration(self):
         """Generate NASA budget by presidential administration chart."""
@@ -62,37 +63,32 @@ class NASABudgetChart(ChartController):
         
         for president in presidents:
             df_president = df[df["Presidential Administration"] == president]
-            x_data = df_president["Fiscal Year"].astype(int)
-            y_data_list = [
-                df_president["PBR_adjusted_nnsi"],
-                df_president["Appropriation_adjusted_nnsi"]
-            ]
+            fiscal_years = df_president["Fiscal Year"].astype(int)
             
             y_limit = (df_president["PBR_adjusted_nnsi"].max() // 10000000000 + 1) * 10000000000
             
             # Prepare metadata
             metadata = {
                 "title": f"NASA budget during the {president} administration",
-                "labels": ["Presidential Budget Request", "Congressional Appropriation"],
-                "colors": [self.view.COLORS["light_blue"], self.view.COLORS["blue"]],
-                "source": f"NASA Budget Justifications, FYs {x_data.min()}-{x_data.max()+2}",
-                "formats": ["--", "-"],
-                "scale": "billions",
-                "mpl_args": {
-                    "axes": {
-                        "xlim": (x_data.min(), x_data.max()),
-                        "ylim": (1e-10, y_limit),
-                        "custom_xticks": True,  # Enable custom x-ticks
-                        "xticks": x_data,       # Use the actual years as ticks
-                        "hide_y_zero": True
-                    },
-                    "max_xticks": (x_data.max() - x_data.min() + 1)
-                }
+                "source": f"NASA Budget Justifications, FYs {fiscal_years.min()}-{fiscal_years.max()+2}"
             }
-        
-            # Generate charts via view
-            self.view.line_plot(x_data, y_data_list, metadata, f"{president}_nasa_budget_inflation_adjusted")
-    
+            
+            # Generate charts via view with direct kwargs
+            self.view.line_plot(
+                metadata=metadata,
+                stem=f"{president}_nasa_budget_inflation_adjusted",
+                x=fiscal_years,
+                y=[df_president["PBR_adjusted_nnsi"], df_president["Appropriation_adjusted_nnsi"]],
+                color=[self.view.COLORS["light_blue"], self.view.COLORS["blue"]],
+                linestyle=["--", "-"],
+                label=["Presidential Request", "Congressional Appropriation"],
+                xlim=(fiscal_years.min(), fiscal_years.max()),
+                ylim=(1e-10, y_limit),
+                scale="billions",
+                xticks=fiscal_years,
+                max_xticks=(fiscal_years.max() - fiscal_years.min() + 1)
+            )
+
     def nasa_directorate_breakdown(self):
         """ Generate NASA budget by directorate waffle chart."""
         self.data_source = Directorates()
@@ -131,6 +127,6 @@ if __name__ == "__main__":
     # Create and use the chart controller
     chart = NASABudgetChart()
     #chart.nasa_by_presidential_administration()
-    #chart.generate_charts()
-    chart.nasa_directorate_breakdown()
+    chart.nasa_budget_by_year_inflation_adjusted()
+    #chart.nasa_directorate_breakdown()
     print("All done.")

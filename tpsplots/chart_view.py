@@ -60,153 +60,290 @@ class ChartView:
         self.outdir = outdir
         self.outdir.mkdir(parents=True, exist_ok=True)
     
-    def line_plot(self, x_data, y_data_list, metadata, stem: str) -> None:
-        """Generate line charts for both desktop and mobile."""
+    def line_plot(self, metadata, stem: str, **kwargs):
+        """
+        Generate line charts for both desktop and mobile.
+        
+        Parameters:
+        -----------
+        metadata : dict
+            Chart metadata (title, source, etc.)
+        stem : str
+            Base filename for outputs
+        **kwargs : dict
+            Keyword arguments passed to matplotlib plotting functions, including:
+            - x: array-like - X-axis data points (required)
+            - y: list of array-like - Y-axis data series (required if not using data/df)
+            - data: DataFrame - Data source when using DataFrame column references
+            - df: DataFrame - Alias for data
+            - color/c: str or list - Colors for the plot series
+            - linestyle/ls: str or list - Line styles for the plot series
+            - linewidth/lw: float or list - Line widths for the plot series
+            - marker: str or list - Marker styles for the plot series
+            - markersize/ms: float or list - Marker sizes for the plot series
+            - label: str or list - Labels for the legend
+            - alpha: float or list - Transparency values for the plot series
+            
+        Returns:
+        --------
+        dict
+            Dictionary containing the generated figure objects {'desktop': fig, 'mobile': fig}
+        """
         # Generate desktop version
         desktop_fig = self._create_line_plot(
-            x_data, y_data_list, metadata, 
-            style=self.DESKTOP
+            metadata, 
+            style=self.DESKTOP,
+            **kwargs
         )
         self._save_chart(desktop_fig, f"{stem}_desktop", create_pptx=True)
         
         # Generate mobile version
         mobile_fig = self._create_line_plot(
-            x_data, y_data_list, metadata, 
-            style=self.MOBILE
+            metadata, 
+            style=self.MOBILE,
+            **kwargs
         )
         self._save_chart(mobile_fig, f"{stem}_mobile", create_pptx=False)
-    
-    def _create_line_plot(self, x_data, y_data_list, metadata, style):
-        """Internal method to create a line plot with appropriate styling."""
-        # Extract any custom matplotlib parameters from metadata
-        mpl_kwargs = metadata.get('mpl_args', {})
         
-        # Create figure with default or custom figure parameters
-        fig_kwargs = mpl_kwargs.get('figure', {})
-        figsize = fig_kwargs.get('figsize', style["figsize"])
-        fig, ax = plt.subplots(figsize=figsize)
+        return {
+            'desktop': desktop_fig,
+            'mobile': mobile_fig
+        }
+
+    def _create_line_plot(self, metadata, style, **kwargs):
+        """
+        Internal method to create a line plot with appropriate styling.
         
-        # Extract metadata
-        title = metadata.get('title', '')
-        ylabel = metadata.get('ylabel', '')
-        labels = metadata.get('labels', [f"Series {i+1}" for i in range(len(y_data_list))])
-        colors = metadata.get('colors', [self.COLORS["blue"], self.COLORS["light_blue"], 
-                                        self.COLORS["purple"], self.COLORS["orange"]])
-        formats = metadata.get('formats', ['-', '--', '-.', ':'])
-        scale = metadata.get('scale', None)
-        
-        # Create the line plot - allow series-specific styling
-        for i, y_data in enumerate(y_data_list):
-            # Get default style for this series
-            color = colors[i % len(colors)]
-            format = formats[i % len(formats)]
-            linewidth = style["line_width"]
-            label = labels[i]
+        Parameters:
+        -----------
+        metadata : dict
+            Chart metadata (title, source, etc.)
+        style : dict
+            Device-specific styling to apply
+        **kwargs : dict
+            Matplotlib-compatible plot parameters
             
-            # Override with series-specific styling if provided
-            series_kwargs = mpl_kwargs.get(f'series_{i}', {})
+        Returns:
+        --------
+        matplotlib.figure.Figure
+            The generated figure
+        """
+        # Create figure and axis
+        fig_kwargs = {
+            'figsize': kwargs.pop('figsize', style["figsize"]),
+            'dpi': kwargs.pop('dpi', style["dpi"]),
+            'facecolor': kwargs.pop('facecolor', None),
+            'edgecolor': kwargs.pop('edgecolor', None),
+        }
+        fig, ax = plt.subplots(**{k: v for k, v in fig_kwargs.items() if v is not None})
+        
+        # Handle different data input methods (matching matplotlib's flexibility)
+        data = kwargs.pop('data', kwargs.pop('df', None))
+        x = kwargs.pop('x', None)
+        y = kwargs.pop('y', None)
+        
+        # Extract data directly from kwargs if not specified in x/y
+        if x is None and 'x_data' in kwargs:
+            x = kwargs.pop('x_data')
+        if y is None and 'y_data_list' in kwargs:
+            y = kwargs.pop('y_data_list')
+        
+        # Validate we have the necessary data
+        if x is None:
+            raise ValueError("X-axis data must be provided via 'x' or 'x_data'")
+        
+        # Handle DataFrame input
+        if data is not None:
+            if isinstance(x, str):
+                x = data[x]
+            if isinstance(y, (list, tuple)) and all(isinstance(item, str) for item in y):
+                y = [data[col] for col in y]
+            elif isinstance(y, str):
+                y = [data[y]]
+        
+        # If y is not a list but x is, interpret x as y and generate a range for x
+        if y is None and isinstance(x, (list, tuple, np.ndarray)) and not isinstance(x[0], (list, tuple, np.ndarray)):
+            y = [x]
+            x = np.arange(len(x))
+        
+        # If y is not provided or not a list, convert to a list for consistent handling
+        if y is None:
+            raise ValueError("Y-axis data must be provided via 'y', 'y_data_list', or as the first positional argument")
+        elif not isinstance(y, (list, tuple)) or (len(y) > 0 and not hasattr(y[0], '__len__')):
+            y = [y]
+        
+        # Process style parameters
+        # Handle matplotlib aliases
+        color = kwargs.pop('color', kwargs.pop('c', None))
+        linestyle = kwargs.pop('linestyle', kwargs.pop('ls', None))
+        linewidth = kwargs.pop('linewidth', kwargs.pop('lw', style["line_width"]))
+        marker = kwargs.pop('marker', None)
+        markersize = kwargs.pop('markersize', kwargs.pop('ms', style["marker_size"]))
+        alpha = kwargs.pop('alpha', None)
+        label = kwargs.pop('label', None)
+        
+        # Handle list or scalar inputs for style parameters
+        colors = self._ensure_list(color, len(y), default=[self.COLORS["blue"], self.COLORS["light_blue"], 
+                                                        self.COLORS["purple"], self.COLORS["orange"]])
+        linestyles = self._ensure_list(linestyle, len(y), default=['-', '--', '-.', ':'])
+        linewidths = self._ensure_list(linewidth, len(y))
+        markers = self._ensure_list(marker, len(y), default=[None] * len(y))
+        markersizes = self._ensure_list(markersize, len(y))
+        alphas = self._ensure_list(alpha, len(y), default=[1.0] * len(y))
+        
+        # Handle labels
+        if label is not None:
+            labels = self._ensure_list(label, len(y))
+        else:
+            labels = kwargs.pop('labels', [f"Series {i+1}" for i in range(len(y))])
+            labels = self._ensure_list(labels, len(y))
+        
+        # Plot each data series
+        lines = []
+        for i, y_data in enumerate(y):
+            # Build plot kwargs for this series
             plot_kwargs = {
-                'color': series_kwargs.get('color', color),
-                'linestyle': series_kwargs.get('linestyle', format),
-                'linewidth': series_kwargs.get('linewidth', linewidth),
-                'label': series_kwargs.get('label', label)
+                'color': colors[i],
+                'linestyle': linestyles[i],
+                'linewidth': linewidths[i],
+                'marker': markers[i],
+                'markersize': markersizes[i],
+                'alpha': alphas[i],
+                'label': labels[i],
             }
             
-            # Add any additional series-specific parameters 
-            for key, value in series_kwargs.items():
-                if key not in plot_kwargs:
-                    plot_kwargs[key] = value
+            # Add any series-specific parameters from kwargs
+            series_key = f"series_{i}"
+            if series_key in kwargs:
+                plot_kwargs.update(kwargs.pop(series_key))
             
-            # Plot the series with all parameters
-            ax.plot(x_data, y_data, **plot_kwargs)
+            # Plot the series
+            line, = ax.plot(x, y_data, **plot_kwargs)
+            lines.append(line)
         
-        # Apply styling with potential overrides
-        title_kwargs = mpl_kwargs.get('title', {})
-        if title is not None:
-            ax.set_title(title, 
-                        fontweight=title_kwargs.get('fontweight', 'bold'), 
-                        fontsize=title_kwargs.get('fontsize', style["title_size"]))
+        # Apply title from metadata
+        title = metadata.get('title', '')
+        if title:
+            ax.set_title(title, fontweight='bold', fontsize=style["title_size"])
         
-        # Apply axis labels with potential overrides
-        ylabel_kwargs = mpl_kwargs.get('ylabel', {})
-        ax.set_ylabel(ylabel, fontsize=ylabel_kwargs.get('fontsize', style["label_size"]))
+        # Apply axes labels if provided
+        xlabel = kwargs.pop('xlabel', None)
+        if xlabel:
+            ax.set_xlabel(xlabel, fontsize=style["label_size"])
         
-        # Apply tick formatting with potential overrides
-        xtick_kwargs = mpl_kwargs.get('xtick', {})
-        plt.setp(ax.get_xticklabels(), 
-                rotation=xtick_kwargs.get('rotation', style["tick_rotation"]), 
-                fontsize=xtick_kwargs.get('fontsize', style["tick_size"]))
+        ylabel = kwargs.pop('ylabel', None)
+        if ylabel:
+            ax.set_ylabel(ylabel, fontsize=style["label_size"])
         
-        if style["tick_rotation"] > 0 and xtick_kwargs.get('ha') is None:
-            plt.setp(ax.get_xticklabels(), ha=xtick_kwargs.get('ha', 'center'))
-            
-        ytick_kwargs = mpl_kwargs.get('ytick', {})
-        plt.setp(ax.get_yticklabels(), 
-                fontsize=ytick_kwargs.get('fontsize', style["tick_size"]))
-        
-        # Apply other axes customizations
-        axes_kwargs = mpl_kwargs.get('axes', {})
-        
-        # Apply xlim/ylim if provided
-        if 'xlim' in axes_kwargs:
-            ax.set_xlim(axes_kwargs['xlim'])
-        if 'ylim' in axes_kwargs:
-            ax.set_ylim(axes_kwargs['ylim'])
-        
-        # Limit number of ticks
-        if 'max_xticks' in axes_kwargs:
-            ax.xaxis.set_major_locator(plt.MaxNLocator(axes_kwargs['max_xticks']))
-        elif 'max_ticks' in style:
-            ax.xaxis.set_major_locator(plt.MaxNLocator(style["max_ticks"]))
-            
-        if 'max_yticks' in axes_kwargs:
-            ax.yaxis.set_major_locator(plt.MaxNLocator(axes_kwargs['max_yticks']))
-        
-        # Set custom y-ticks to exclude zero
-        if axes_kwargs.get('hide_y_zero', False):
-            # Get current ticks
-            yticks = ax.get_yticks()
-            # Filter out zero (using a small threshold to handle floating point issues)
-            yticks = yticks[abs(yticks) > 1e-10]
-            # Apply the filtered ticks
-            ax.set_yticks(yticks)
-            
-        # Apply custom ticks if specified
-        if axes_kwargs.get('custom_xticks', False):
-            if 'xticks' in axes_kwargs:
-                ax.set_xticks(axes_kwargs['xticks'])
-                # If you want custom tick labels, you can set them here
-                if 'xtick_labels' in axes_kwargs:
-                    ax.set_xticklabels(axes_kwargs['xtick_labels'])
-                else:
-                    # Format as integers (no decimal points)
-                    ax.set_xticklabels([f"{int(x)}" for x in axes_kwargs['xticks']])
-        
-        # Set grid
-        grid = axes_kwargs.get('grid', style["grid"])
+        # Apply grid
+        grid = kwargs.pop('grid', style["grid"])
         ax.grid(grid)
         
+        # Apply tick formatting
+        tick_rotation = kwargs.pop('tick_rotation', style["tick_rotation"])
+        tick_size = kwargs.pop('tick_size', style["tick_size"])
+        
+        plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
+        plt.setp(ax.get_yticklabels(), fontsize=tick_size)
+        
         # Apply scale formatter if specified
+        scale = kwargs.pop('scale', None)
         if scale:
-            self._apply_scale_formatter(ax, scale)
+            axis = kwargs.pop('axis_scale', 'y')
+            self._apply_scale_formatter(ax, scale, axis)
         
-        # Add legend with potential overrides
-        legend_kwargs = mpl_kwargs.get('legend', {})
-        if any(label is not None for label in labels):
-            legend = ax.legend(fontsize=legend_kwargs.get('fontsize', style["legend_size"]))
+        # Apply axis limits if provided
+        if 'xlim' in kwargs:
+            ax.set_xlim(kwargs.pop('xlim'))
+        if 'ylim' in kwargs:
+            ax.set_ylim(kwargs.pop('ylim'))
+        
+        # Apply custom ticks if specified
+        if 'xticks' in kwargs:
+            ticks = kwargs.pop('xticks')
+            ax.set_xticks(ticks)
+            # If custom tick labels are provided, use them
+            if 'xticklabels' in kwargs:
+                ax.set_xticklabels(kwargs.pop('xticklabels'))
+            else:
+                # Format as integers if they are whole numbers
+                if all(float(x).is_integer() for x in ticks):
+                    ax.set_xticklabels([f"{int(x)}" for x in ticks])
+        
+        # Set tick locators
+        max_xticks = kwargs.pop('max_xticks', style.get("max_ticks", None))
+        if max_xticks:
+            ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
+        
+        # Add legend if any label is non-None and not empty
+        if any(label for label in labels if label):
+            legend_kwargs = {
+                'fontsize': style["legend_size"],
+                'loc': kwargs.pop('legend_loc', 'best'),
+                'frameon': kwargs.pop('legend_frameon', True),
+            }
             
-            # Apply additional legend kwargs if provided
-            for key, value in legend_kwargs.items():
-                if key != 'fontsize':  # Already handled above
-                    try:
-                        setattr(legend, f"set_{key}", value)
-                    except (AttributeError, TypeError):
-                        pass  # Ignore if parameter not supported
+            # Extract legend parameters if provided
+            legend_params = kwargs.pop('legend_params', {})
+            legend_kwargs.update(legend_params)
+            
+            # Create the legend
+            legend = ax.legend(**legend_kwargs)
         
-        # Add footer if specified
+        # Apply any remaining kwargs to the axis using matplotlib's set methods
+        for key, value in kwargs.items():
+            try:
+                # First try if it's a direct attribute
+                if hasattr(ax, key):
+                    setattr(ax, key, value)
+                # Then try as a setter method
+                else:
+                    setter = getattr(ax, f"set_{key}", None)
+                    if setter and callable(setter):
+                        setter(value)
+            except Exception as e:
+                print(f"Warning: Could not set axis parameter '{key}': {e}")
+        
+        # Add footer elements (line, source, logo)
         self._add_footer(fig, metadata, style)
-            
+        
+        # Apply tight layout, avoiding the footer area
+        fig.tight_layout(rect=[0, style.get("footer_height", 0.1), 1, 1])
+        
         return fig
+
+    def _ensure_list(self, value, length, default=None):
+        """
+        Ensure a value is a list of the specified length.
+        
+        Parameters:
+        -----------
+        value : any
+            The value to convert to a list
+        length : int
+            The desired length of the list
+        default : list, optional
+            Default list to use if value is None
+            
+        Returns:
+        --------
+        list
+            A list of the specified length
+        """
+        if value is None:
+            if default is None:
+                return [None] * length
+            return default
+        
+        if not isinstance(value, (list, tuple)):
+            return [value] * length
+        
+        # Ensure the list is long enough by cycling
+        result = list(value)
+        while len(result) < length:
+            result.extend(value[:length - len(result)])
+        
+        return result
         
     def bar_chart(self, x_data, y_data_list, metadata, stem: str) -> None:
         """Generate bar charts for both desktop and mobile."""
