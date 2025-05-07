@@ -160,6 +160,26 @@ class ChartView:
         if 'max_yticks' in axes_kwargs:
             ax.yaxis.set_major_locator(plt.MaxNLocator(axes_kwargs['max_yticks']))
         
+        # Set custom y-ticks to exclude zero
+        if axes_kwargs.get('hide_y_zero', False):
+            # Get current ticks
+            yticks = ax.get_yticks()
+            # Filter out zero (using a small threshold to handle floating point issues)
+            yticks = yticks[abs(yticks) > 1e-10]
+            # Apply the filtered ticks
+            ax.set_yticks(yticks)
+            
+        # Apply custom ticks if specified
+        if axes_kwargs.get('custom_xticks', False):
+            if 'xticks' in axes_kwargs:
+                ax.set_xticks(axes_kwargs['xticks'])
+                # If you want custom tick labels, you can set them here
+                if 'xtick_labels' in axes_kwargs:
+                    ax.set_xticklabels(axes_kwargs['xtick_labels'])
+                else:
+                    # Format as integers (no decimal points)
+                    ax.set_xticklabels([f"{int(x)}" for x in axes_kwargs['xticks']])
+        
         # Set grid
         grid = axes_kwargs.get('grid', style["grid"])
         ax.grid(grid)

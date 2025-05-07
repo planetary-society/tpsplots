@@ -16,6 +16,7 @@ class NASABudgetChart(ChartController):
     def generate_charts(self):
         """Generate all NASA budget charts."""
         self.nasa_historical_appropriation_pbr_inflation_adjusted()
+        self.nasa_by_presidential_administration()
     
     def nasa_historical_appropriation_pbr_inflation_adjusted(self):
         """Generate historical NASA budget chart."""
@@ -58,29 +59,33 @@ class NASABudgetChart(ChartController):
         df = self.data_source.data().dropna(subset=["PBR"])
         presidents = df["Presidential Administration"].unique()
         
-        for president in presidents[:4]:
+        for president in presidents:
             df_president = df[df["Presidential Administration"] == president]
-            x_data = df_president["Fiscal Year"]
+            x_data = df_president["Fiscal Year"].astype(int)
             y_data_list = [
                 df_president["PBR_adjusted_nnsi"],
                 df_president["Appropriation_adjusted_nnsi"]
             ]
             
-            x_limit = (int(x_data.max()) // 5 + 1) * 5
-            y_limit = (df["PBR_adjusted_nnsi"].max() // 10000000000 + 1) * 10000000000
+            y_limit = (df_president["PBR_adjusted_nnsi"].max() // 10000000000 + 1) * 10000000000
             
             # Prepare metadata
             metadata = {
                 "title": f"NASA budget during the {president} administration",
                 "labels": ["Presidential Budget Request", "Congressional Appropriation"],
                 "colors": [self.view.COLORS["light_blue"], self.view.COLORS["blue"]],
+                "source": f"NASA Budget Justifications, FYs {x_data.min()}-{x_data.max()+2}",
                 "formats": ["--", "-"],
                 "scale": "billions",
                 "mpl_args": {
                     "axes": {
-                        "xlim": (x_data.min()-1, x_limit),
-                        "ylim": (0, y_limit),
-                    }
+                        "xlim": (x_data.min(), x_data.max()),
+                        "ylim": (1e-10, y_limit),
+                        "custom_xticks": True,  # Enable custom x-ticks
+                        "xticks": x_data,       # Use the actual years as ticks
+                        "hide_y_zero": True
+                    },
+                    "max_xticks": (x_data.max() - x_data.min() + 1)
                 }
             }
         
