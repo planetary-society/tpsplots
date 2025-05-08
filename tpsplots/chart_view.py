@@ -1,17 +1,18 @@
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import matplotlib.image as mpimg
+from matplotlib.ticker import FuncFormatter
 import numpy as np
 import math
 from pathlib import Path
 import matplotlib.pyplot as plt
 from pywaffle import Waffle
-
+import warnings
 
 class ChartView:
     """View component for chart generation with desktop/mobile versions built in."""
-    
+    TPS_STYLE = Path(__file__).parent / "style" / "tps_base.mplstyle"
     # Load global style once at class initialization
-    plt.style.use(Path(__file__).parent / "style" / "tps_base.mplstyle")
+    plt.style.use(TPS_STYLE)
     
     # Shared color palette
     COLORS = {
@@ -553,21 +554,48 @@ class ChartView:
             'thousands': {'factor': 1e3, 'suffix': 'K'},
             'percentage': {'factor': 0.01, 'suffix': '%', 'prefix': ''}
         }
-        
-        if scale in scales:
-            scale_info = scales[scale]
-            factor = scale_info['factor']
-            suffix = scale_info.get('suffix', '')
-            prefix = scale_info.get('prefix', prefix)
-            
-            def formatter(x, pos):
-                return f'{prefix}{x/factor:.{decimals}f}{suffix}'
-                
-            from matplotlib.ticker import FuncFormatter
-            if axis in ('y', 'both'):
-                ax.yaxis.set_major_formatter(FuncFormatter(formatter))
-            if axis in ('x', 'both'):
-                ax.xaxis.set_major_formatter(FuncFormatter(formatter))
+
+        if scale not in scales:
+            warnings.warn(f"Scale '{scale}' not recognized. No formatter applied.")
+            return # Exit if scale is invalid
+
+        scale_info = scales[scale]
+        factor = scale_info['factor']
+        suffix = scale_info.get('suffix', '')
+        # Prioritize prefix from scale_info if it exists, otherwise use the default 'prefix' argument
+        prefix = scale_info.get('prefix', prefix)
+
+
+        def formatter(x, pos):
+            # --- Debugging and error handling inside the formatter ---
+            try:
+                # Ensure x is a finite number before proceeding
+                if not np.isfinite(x):
+                     return "Invalid" # Return a placeholder for non-finite values
+
+                # Handle potential division by zero if factor could be zero (unlikely with these scales)
+                if factor == 0:
+                     return "Div/0" # Placeholder
+
+                scaled_value = x / factor
+                # Use the f-string format specifier dynamically
+                format_spec = f'.{decimals}f'
+                formatted_num = f'{scaled_value:{format_spec}}'
+
+                # Combine prefix, formatted number, and suffix
+                return f'{prefix}{formatted_num}{suffix}'
+
+            except Exception as e:
+                print(f"Formatter error for value x={x}, pos={pos}: {e}")
+                # Return a placeholder string if formatting fails
+                return "Error"
+            # --- End of debugging and error handling ---
+
+        # Apply the formatter to the specified axis/axes
+        if axis in ('y', 'both'):
+            ax.yaxis.set_major_formatter(FuncFormatter(formatter))
+        if axis in ('x', 'both'):
+            ax.xaxis.set_major_formatter(FuncFormatter(formatter))
     
     def _add_footer(self, fig, metadata, style, bottom_margin=0.1):
         """
