@@ -557,9 +557,9 @@ class ScienceDivisions(NASABudget):
     # define COLUMNS / RENAMES / MONETARY_COLUMNS when ready
     # Example placeholders:
     COLUMNS = ["Fiscal Year", "Astrophysics", "Planetary Science", "Earth Science", "Heliophysics",
-               "Astrophysics_proposed", "Planetary Science_proposed", "Earth Science_proposed", "Heliophysics_proposed"]
+               "Astrophysics Proposed", "Planetary Science Proposed", "Earth Science Proposed", "Heliophysics Proposed"]
     MONETARY_COLUMNS = ["Astrophysics", "Planetary Science", "Earth Science", "Heliophysics",
-                        "Astrophysics_proposed", "Planetary Science_proposed", "Earth Science_proposed", "Heliophysics_proposed"]
+                        "Astrophysics Proposed", "Planetary Science Proposed", "Earth Science Proposed", "Heliophysics Proposed"]
 
     def __init__(self, *, cache_dir: Path | None = None) -> None:
         """
