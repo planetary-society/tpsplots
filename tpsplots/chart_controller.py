@@ -21,8 +21,6 @@ class ChartController(ABC):
             data_source: The data source (model) to use for chart data
             outdir: Output directory for chart files
         """
-        from chart_view import ChartView
-        
         # The data source (model)
         self.data_source = data_source
         
