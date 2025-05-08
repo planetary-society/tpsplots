@@ -1,8 +1,9 @@
 """Concrete NASA budget charts."""
 from pathlib import Path
 from chart_controller import ChartController
-from data_sources.nasa_budget_data_source import Historical, Directorates
-
+from subplot_view import SubplotView
+from data_sources.nasa_budget_data_source import Historical, Directorates, ScienceDivisions
+from matplotlib import pyplot as plt
 
 class NASABudgetChart(ChartController):
     """Controller for top-line NASA budget charts."""
@@ -91,7 +92,7 @@ class NASABudgetChart(ChartController):
         df = self.data_source.data().dropna(subset=["Science"]) # Drop rows without directorate data
         
         # Prepare data for view
-        fiscal_years = df["Fiscal Year"]  # Convert to int for x-axis
+        fiscal_years = df["Fiscal Year"]
         
         y_limit = (df["Deep Space Exploration Systems_adjusted_nnsi"].max() // 5000000000 + 1) * 5000000000
         
@@ -124,6 +125,29 @@ class NASABudgetChart(ChartController):
                 'handlelength': .8
             },
         )
+    
+    def nasa_science_divisions_by_year_inflation_adjusted(self):
+        self.data_source = ScienceDivisions()
+        self.view = SubplotView(outdir=Path("charts") / "science_divisions")
+        df = self.data_source.data().dropna(subset=["Fiscal Year"]) # Drop rows without fiscal year data
+        fiscal_years = df["Fiscal Year"]
+        print(df)
+        y_limit = (df["Planetary Science_adjusted_nnsi"].max() // 5000000000 + 1) * 5000000000
+
+
+
+        plt.style.use(Path(__file__).parent / "style" / "tps_base.mplstyle")
+        plt.subplot(221)
+        plt.plot( 'Fiscal Year', 'Planetary Science_adjusted_nnsi', data=df, linestyle='-')
+        plt.subplot(222)
+        plt.plot( 'Fiscal Year','Astrophysics_adjusted_nnsi', data=df, linestyle='-')
+        plt.subplot(223)
+        plt.plot( 'Fiscal Year','Earth Science_adjusted_nnsi', data=df, linestyle='-')
+        plt.subplot(224)
+        plt.plot( 'Fiscal Year','Heliophysics_adjusted_nnsi', data=df, linestyle='-')
+        #plt.show()
+        self.view.quadrants()
+
 
     def nasa_directorate_budget_waffle_chart(self):
         """ Generate NASA budget breakdown by directorate as a waffle chart."""
@@ -193,8 +217,9 @@ class NASABudgetChart(ChartController):
 if __name__ == "__main__":
     # Create and use the chart controller
     chart = NASABudgetChart()
-    chart.nasa_budget_by_year_inflation_adjusted()
+    #chart.nasa_budget_by_year_inflation_adjusted()
     #chart.nasa_by_presidential_administration()
     #chart.nasa_major_programs_by_year_inflation_adjusted()
     #chart.nasa_directorate_breakdown()
+    chart.nasa_science_divisions_by_year_inflation_adjusted()
     print("All done.")
