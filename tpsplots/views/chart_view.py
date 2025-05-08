@@ -19,9 +19,9 @@ class ChartView:
         "blue": "#037CC2",
         "purple": "#643788",
         "orange": "#FF5D47",
-        "light_blue": "#80BDE0",
-        "light_purple": "#B19BC3",
-        "lunar_dust": "#8C8C8C",
+        "light_blue": "#3696CE", # minimum for AA contrast on grey background
+        "light_purple": "#9C83B4", # minimum for AA contrast on grey background
+        "lunar_dust": "#8C8C8C", # meets minimum for graphics but not for text against grey background
         "dark_gray": "#414141",
         "medium_gray": "#C3C3C3",
         "light_gray": "#F5F5F5"
