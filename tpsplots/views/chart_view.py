@@ -10,7 +10,7 @@ import warnings
 
 class ChartView:
     """View component for chart generation with desktop/mobile versions built in."""
-    TPS_STYLE = Path(__file__).parent / "style" / "tps_base.mplstyle"
+    TPS_STYLE = Path(__file__).parent.parent / "style" / "tps_base.mplstyle"
     # Load global style once at class initialization
     plt.style.use(TPS_STYLE)
     
@@ -639,7 +639,7 @@ class ChartView:
             y_position = 0.06
         
         if color is None:
-            color = self.COLORS["medium_gray"]
+            color = "#545454"
         
         # Add the horizontal line
         fig.add_artist(plt.Line2D(
@@ -655,7 +655,7 @@ class ChartView:
         """Add The Planetary Society logo to the figure."""
         try:
             
-            logo_path = Path(__file__).parent.parent / "img" / "TPS_Logo_1Line-Black.png"
+            logo_path = Path(__file__).parent.parent.parent / "img" / "TPS_Logo_1Line-Black.png"
             if not logo_path.exists():
                 return
                 
@@ -668,7 +668,7 @@ class ChartView:
                 
                 # Create a color mask for the logo to better
                 # match the chart colors
-                hex_color = self.COLORS["lunar_dust"]
+                hex_color = "#545454"
                 rgb_color = np.array([
                     int(hex_color[1:3], 16) / 255.0,
                     int(hex_color[3:5], 16) / 255.0,
@@ -712,7 +712,7 @@ class ChartView:
             0.01,  # y position (bottom)
             f"Source: {source_text}".upper(),
             fontsize=11,
-            color=self.COLORS["lunar_dust"],
+            color="#545454",
             ha='left',
             va='bottom'
         )

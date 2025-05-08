@@ -1,8 +1,8 @@
 """Concrete NASA budget charts."""
 from pathlib import Path
-from chart_controller import ChartController
-from subplot_view import SubplotView
-from data_sources.nasa_budget_data_source import Historical, Directorates, ScienceDivisions
+from tpsplots.controllers.chart_controller import ChartController
+from tpsplots.views.subplot_view import SubplotView
+from tpsplots.data_sources.nasa_budget_data_source import Historical, Directorates, ScienceDivisions
 from matplotlib import pyplot as plt
 
 class NASABudgetChart(ChartController):
@@ -44,7 +44,7 @@ class NASABudgetChart(ChartController):
             stem="nasa_budget_by_year_inflation_adjusted",
             x=fiscal_years,
             y=[df["PBR_adjusted_nnsi"], df["Appropriation_adjusted_nnsi"]],
-            color=[self.view.COLORS["light_blue"], self.view.COLORS["blue"]],
+            color=["#3696CE", self.view.COLORS["blue"]],
             linestyle=["--", "-"],
             label=["Presidential Budget Request", "Congressional Appropriation"],
             xlim=(1958, x_limit),

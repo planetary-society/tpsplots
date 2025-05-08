@@ -1,4 +1,4 @@
-from chart_view import ChartView
+from tpsplots.views.chart_view import ChartView
 from pathlib import Path
 from matplotlib import pyplot as plt
 import matplotlib.ticker as ticker # Import the ticker module

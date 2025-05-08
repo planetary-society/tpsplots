@@ -2,7 +2,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from pathlib import Path
-from chart_view import ChartView
+from tpsplots.views.chart_view import ChartView
 
 class ChartController(ABC):
     """
