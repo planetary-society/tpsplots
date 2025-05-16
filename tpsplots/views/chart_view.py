@@ -1,3 +1,4 @@
+from tpsplots import TPS_STYLE_FILE
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import matplotlib.image as mpimg
 from matplotlib.ticker import FuncFormatter
@@ -8,11 +9,11 @@ import matplotlib.pyplot as plt
 from pywaffle import Waffle
 import warnings
 
+
 class ChartView:
     """View component for chart generation with desktop/mobile versions built in."""
-    TPS_STYLE = Path(__file__).parent.parent / "style" / "tps_base.mplstyle"
-    # Load global style once at class initialization
-    plt.style.use(TPS_STYLE)
+    
+    plt.style.use(TPS_STYLE_FILE)
     
     # Shared color palette
     COLORS = {

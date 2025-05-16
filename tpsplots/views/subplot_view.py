@@ -1,3 +1,4 @@
+from tpsplots import TPS_STYLE_FILE
 from tpsplots.views.chart_view import ChartView
 from pathlib import Path
 from matplotlib import pyplot as plt
@@ -23,7 +24,7 @@ class SubplotView(ChartView):
     
     def quadrants(self):
         #plt.show()
-        with plt.style.context(self.TPS_STYLE):
+        with plt.style.context(TPS_STYLE_FILE):
             fig = plt.gcf()
             all_axes = fig.get_axes()
 

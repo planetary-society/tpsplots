@@ -1,5 +1,6 @@
 """Concrete NASA budget charts."""
 from pathlib import Path
+from tpsplots import TPS_STYLE_FILE
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.views.subplot_view import SubplotView
 from tpsplots.data_sources.nasa_budget_data_source import Historical, Directorates, ScienceDivisions
@@ -136,7 +137,7 @@ class NASABudgetChart(ChartController):
 
 
 
-        plt.style.use(Path(__file__).parent / "style" / "tps_base.mplstyle")
+        plt.style.use(TPS_STYLE_FILE)
         plt.subplot(221)
         plt.plot( 'Fiscal Year', 'Planetary Science_adjusted_nnsi', data=df, linestyle='-')
         plt.subplot(222)
