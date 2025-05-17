@@ -324,7 +324,11 @@ class NASABudget:
         # then convert to float and multiply by 1,000,000 if M/B was present.
         for col in df.select_dtypes("object"):
             # Check if the column contains '$' characters (indicating currency)
-            if df[col].astype(str).str.contains(r"\$", na=False).any():
+            # OR if the column is listed in MONETARY_COLUMNS
+            if (
+            df[col].astype(str).str.contains(r"\$", na=False).any()
+            or (hasattr(self, "MONETARY_COLUMNS") and col in getattr(self, "MONETARY_COLUMNS", []))
+            ):
                 df[col] = (
                     df[col]
                     .astype(str) # Ensure column is string type for regex operations
@@ -406,9 +410,18 @@ class NASABudget:
         for col in mons:
             if col in df.columns: # Ensure the column exists in the DataFrame
                 # Calculate product. If multiplier is NaN, product is NaN.
-                product_nnsi = df[col] * nnsi_mult
-                product_gdp  = df[col] * gdp_mult
-
+                try:
+                    product_nnsi = df[col] * nnsi_mult
+                except TypeError as e:
+                    print(f"Can't multiply column '{col}': {e}")
+                    product_nnsi = pd.Series([pd.NA] * len(df[col]), index=df.index)
+                
+                try:
+                    product_gdp  = df[col] * gdp_mult
+                except TypeError as e:
+                    print(f"Can't multiply column '{col}': {e}")
+                    product_gdp = pd.Series([pd.NA] * len(df[col]), index=df.index)
+                    
                 # Where product is NaN (likely due to a NaN multiplier),
                 # fill with the original value from df[col].
                 # Then ensure the final column is of type float64.
@@ -609,3 +622,14 @@ class Directorates(NASABudget):
         # Call the base class constructor with the specific CSV URL
         super().__init__(self.CSV_URL, cache_dir=cache_dir)
 
+class Science(NASABudget):
+    CSV_URL = ("https://docs.google.com/spreadsheets/d/"
+               "1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/"
+               "export?format=csv&gid=1298630212")
+    
+    COLUMNS = ["Fiscal Year", "NASA Science (millions of $)","FY 2026 PBR"]
+    RENAMES = {"NASA Science (millions of $)": "NASA Science"}
+    MONETARY_COLUMNS = ["NASA Science", "FY 2026 PBR"]
+    
+    def __init__(self, *, cache_dir: Path | None = None) -> None:
+        super().__init__(self.CSV_URL, cache_dir=cache_dir)

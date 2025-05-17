@@ -3,7 +3,7 @@ from pathlib import Path
 from tpsplots import TPS_STYLE_FILE
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.views.subplot_view import SubplotView
-from tpsplots.data_sources.nasa_budget_data_source import Historical, Directorates, ScienceDivisions
+from tpsplots.data_sources.nasa_budget_data_source import Historical, Directorates, ScienceDivisions, Science
 from matplotlib import pyplot as plt
 
 class NASABudgetChart(ChartController):
@@ -52,6 +52,42 @@ class NASABudgetChart(ChartController):
             ylim=(0, y_limit),
             scale="billions"
         )
+
+    def nasa_science_by_year_inflation_adjusted(self):
+        """Generate historical NASA budget chart."""
+        # Get data from model
+        self.data_source = Science()
+        df = self.data_source.data() # Drop rows without directorate data
+
+        # Prepare data for view
+        fiscal_years = df["Fiscal Year"].astype(int)  # Convert to int for x-axis
+        
+        # Determine the closest year in the future that is a multiple of 5 and greater
+        # than the last year in the data to use as the x-axis limit
+        x_limit = (fiscal_years.max() // 5 + 1) * 5
+        y_limit = (df["NASA Science_adjusted_nnsi"].max() // 5000000000 + 1) * 5000000000
+        
+        # Prepare metadata
+        metadata = {
+            "source": f"NASA Budget Justifications, FYs 1980-{fiscal_years.max()}",
+        }
+        
+        # Generate charts via view
+        self.view.line_plot(
+            metadata=metadata,
+            title="NASA Science faces an exitential threat",
+            caption="Trump's proposal is the smallest science budget in 42 years",
+            stem="nasa_science_by_year_inflation_adjusted",
+            x=fiscal_years,
+            y=[df["NASA Science_adjusted_nnsi"], df["FY 2026 PBR"]],
+            color=[self.view.COLORS["blue"], self.view.TPS_COLORS["Rocket Flame"]],
+            linestyle=["-", "--"],
+            label=["NASA Science", "FY2026 Presidential Request"],
+            xlim=(1980, x_limit),
+            ylim=(0, y_limit),
+            scale="billions"
+        )
+
 
     def nasa_budget_by_presidential_administration(self):
         """Generate NASA budget by presidential administration chart."""
