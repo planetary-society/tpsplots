@@ -4,3 +4,4 @@ pywaffle
 certifi
 requests
 python-pptx
+boto3
