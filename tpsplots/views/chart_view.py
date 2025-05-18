@@ -8,7 +8,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from pywaffle import Waffle
 import warnings
-
+import pandas as pd
+import numpy as np
 
 class ChartView:
     """View component for chart generation with desktop/mobile versions built in."""
@@ -305,7 +306,7 @@ class ChartView:
             ax.legend(**legend_kwargs)
         
         # Add footer elements
-        self._add_footer(fig, metadata, style)
+        self._add_footer(fig, metadata)
         
         # Apply tight layout
         fig.tight_layout(rect=[0, style.get("footer_height", 0.1), 1, 1])
@@ -502,7 +503,7 @@ class ChartView:
                     title_obj.set_fontproperties(special_params['title_fontproperties'])
         
         # Add footer elements (line, source, logo)
-        self._add_footer(fig, metadata, style)
+        self._add_footer(fig, metadata)
 
         return fig
     
@@ -523,7 +524,6 @@ class ChartView:
         tuple
             (rows, columns) optimized for the aspect ratio
         """
-        import math
         
         # Extract width and height from figsize
         width, height = figsize
@@ -566,7 +566,6 @@ class ChartView:
         # Prioritize prefix from scale_info if it exists, otherwise use the default 'prefix' argument
         prefix = scale_info.get('prefix', prefix)
 
-
         def formatter(x, pos):
             # --- Debugging and error handling inside the formatter ---
             try:
@@ -598,7 +597,7 @@ class ChartView:
         if axis in ('x', 'both'):
             ax.xaxis.set_major_formatter(FuncFormatter(formatter))
     
-    def _add_footer(self, fig, metadata, style, bottom_margin=0.1):
+    def _add_footer(self, fig, metadata, bottom_margin=0.1):
         """
         Add footer elements to the figure: horizontal line, source text, and logo.
         Coordinates the placement of all footer elements.
