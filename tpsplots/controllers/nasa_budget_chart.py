@@ -1,8 +1,8 @@
-"""Concrete NASA budget charts."""
+"""Concrete NASA budget charts using specialized chart views."""
 from pathlib import Path
 from tpsplots import TPS_STYLE_FILE
 from tpsplots.controllers.chart_controller import ChartController
-from tpsplots.views.subplot_view import SubplotView
+from tpsplots.views import LineChartView, WaffleChartView  # Import specialized views
 from tpsplots.data_sources.nasa_budget_data_source import Historical, Directorates, ScienceDivisions, Science
 from matplotlib import pyplot as plt
 
@@ -10,43 +10,52 @@ class NASABudgetChart(ChartController):
     """Controller for top-line NASA budget charts."""
 
     def __init__(self):
-        # Initialize with data source and output directory
+        # Initialize with data source
         super().__init__(
-            data_source=Historical(), # Historical NASA budget data source
+            data_source=Historical(),  # Historical NASA budget data source
             outdir=Path("charts") / "nasa_budget"
         )
+        
+        # Initialize specialized chart views
+        self.line_view = LineChartView(self.outdir, TPS_STYLE_FILE)
+        waffle_view = WaffleChartView(self.outdir, TPS_STYLE_FILE)
 
     def generate_charts(self):
         """Generate all NASA budget charts."""
         self.nasa_budget_by_year_inflation_adjusted()
-        self.nasa_science_divisions_by_year_inflation_adjusted()
+        self.nasa_directorate_budget_waffle_chart()
+        self.nasa_major_programs_by_year_inflation_adjusted()
         self.nasa_science_by_year_inflation_adjusted()
     
     def nasa_budget_by_year_inflation_adjusted(self):
         """Generate historical NASA budget chart."""
+        
         # Get data from model
         df = self.data_source.data().dropna(subset=["PBR"])
         
         # Prepare data for view
         fiscal_years = df["Fiscal Year"].astype(int)  # Convert to int for x-axis
         
-        # Determine the closest year in the future that is a multiple of 5 and greater
-        # than the last year in the data to use as the x-axis limit
+        # Determine the closest year in the future that is a multiple of 5
         x_limit = (fiscal_years.max() // 5 + 1) * 5
         y_limit = (df["PBR_adjusted_nnsi"].max() // 5000000000 + 1) * 5000000000
         
         # Prepare metadata
         metadata = {
+            "title": "NASA Budget History (Inflation-Adjusted)",
             "source": f"NASA Budget Justifications, FYs 1961-{fiscal_years.max()}",
         }
         
-        # Generate charts via view
-        self.view.line_plot(
+        # Load the Line plotter view
+        line_view = self.get_view('Line')
+        
+        # Generate charts via the specialized line chart view
+        line_view.line_plot(
             metadata=metadata,
             stem="nasa_budget_by_year_inflation_adjusted",
             x=fiscal_years,
             y=[df["PBR_adjusted_nnsi"], df["Appropriation_adjusted_nnsi"]],
-            color=["#3696CE", self.view.COLORS["blue"]],
+            color=["#3696CE", self.line_view.COLORS["blue"]],
             linestyle=["--", "-"],
             label=["Presidential Budget Request", "Congressional Appropriation"],
             xlim=(1958, x_limit),
@@ -55,40 +64,40 @@ class NASABudgetChart(ChartController):
         )
 
     def nasa_science_by_year_inflation_adjusted(self):
-        """Generate historical NASA budget chart."""
+        """Generate historical NASA Science budget chart."""
         # Get data from model
         self.data_source = Science()
-        df = self.data_source.data() # Drop rows without directorate data
+        df = self.data_source.data()  # Drop rows without directorate data
 
         # Prepare data for view
         fiscal_years = df["Fiscal Year"].astype(int)  # Convert to int for x-axis
         
-        # Determine the closest year in the future that is a multiple of 5 and greater
-        # than the last year in the data to use as the x-axis limit
+        # Determine the closest year in the future that is a multiple of 5
         x_limit = (fiscal_years.max() // 5 + 1) * 5
         y_limit = (df["NASA Science_adjusted_nnsi"].max() // 5000000000 + 1) * 5000000000
         
         # Prepare metadata
         metadata = {
+            "title": "NASA Science faces an existential threat",
             "source": f"NASA Budget Justifications, FYs 1980-{fiscal_years.max()}",
         }
         
-        # Generate charts via view
-        self.view.line_plot(
+        # Plot as line chart
+        line_view = self.get_view('Line')
+        
+        # Generate charts via the specialized line chart view
+        line_view.line_plot(
             metadata=metadata,
-            title="NASA Science faces an exitential threat",
-            caption="Trump's proposal is the smallest science budget in 42 years",
             stem="nasa_science_by_year_inflation_adjusted",
             x=fiscal_years,
             y=[df["NASA Science_adjusted_nnsi"], df["FY 2026 PBR"]],
-            color=[self.view.COLORS["blue"], self.view.TPS_COLORS["Rocket Flame"]],
+            color=[self.line_view.COLORS["blue"], self.line_view.TPS_COLORS["Rocket Flame"]],
             linestyle=["-", "--"],
             label=["NASA Science", "FY2026 Presidential Request"],
             xlim=(1980, x_limit),
             ylim=(0, y_limit),
             scale="billions"
         )
-
 
     def nasa_budget_by_presidential_administration(self):
         """Generate NASA budget by presidential administration chart."""
@@ -108,13 +117,16 @@ class NASABudgetChart(ChartController):
                 "source": f"NASA Budget Justifications, FYs {fiscal_years.min()}-{fiscal_years.max()+2}"
             }
             
-            # Generate charts via view with direct kwargs
-            self.view.line_plot(
+            # Plot as line chart
+            line_view = self.get_view('Line')
+            
+            # Generate charts via the specialized line chart view
+            line_view.line_plot(
                 metadata=metadata,
                 stem=f"{president}_nasa_budget_inflation_adjusted",
                 x=fiscal_years,
                 y=[df_president["PBR_adjusted_nnsi"], df_president["Appropriation_adjusted_nnsi"]],
-                color=[self.view.COLORS["light_blue"], self.view.COLORS["blue"]],
+                color=[self.line_view.COLORS["light_blue"], self.line_view.COLORS["blue"]],
                 linestyle=["--", "-"],
                 label=["Presidential Request", "Congressional Appropriation"],
                 xlim=(fiscal_years.min(), fiscal_years.max()),
@@ -125,36 +137,37 @@ class NASABudgetChart(ChartController):
             )
 
     def nasa_major_programs_by_year_inflation_adjusted(self):
-        """ Line chart of NASA's directorate budgets from 2007 onwards."""
+        """Line chart of NASA's directorate budgets from 2007 onwards."""
         self.data_source = Directorates()
-        df = self.data_source.data().dropna(subset=["Science"]) # Drop rows without directorate data
+        df = self.data_source.data().dropna(subset=["Science"])  # Drop rows without directorate data
         
         # Prepare data for view
-        fiscal_years = df["Fiscal Year"]
+        fiscal_years = df["Fiscal Year"].astype(int)
         
         y_limit = (df["Deep Space Exploration Systems_adjusted_nnsi"].max() // 5000000000 + 1) * 5000000000
         
-        y_data = [df["Deep Space Exploration Systems_adjusted_nnsi"],df["Science_adjusted_nnsi"],
+        y_data = [df["Deep Space Exploration Systems_adjusted_nnsi"], df["Science_adjusted_nnsi"],
                   df["Aeronautics_adjusted_nnsi"], df["Space Technology_adjusted_nnsi"], df["STEM Education_adjusted_nnsi"],
                   df["LEO Space Operations_adjusted_nnsi"], df["Infrastructure/Overhead_adjusted_nnsi"]
                   ]
-        labels = ["Deep Space Exploration Systems","Science Mission Directorate",
+        labels = ["Deep Space Exploration Systems", "Science Mission Directorate",
                   "Aeronautics", "Space Technology", "STEM Education",
                   "LEO Space Operations", "SSMS/CECR (Overhead)"]
         # Prepare metadata
         metadata = {
+            "title": "NASA Program Areas (Inflation-Adjusted)",
             "source": f"NASA Budget Justifications, FYs 2007-{fiscal_years.max()}",
         }
-        
-        # Generate charts via view
-        self.view.line_plot(
+        # Generate charts via the specialized line chart view
+        line_view = self.get_view('Line')
+        line_view.line_plot(
             metadata=metadata,
             stem="nasa_major_programs_by_year_inflation_adjusted",
             x=fiscal_years,
             y=y_data,
-            linestyle=["-"],
+            linestyle="-",
             label=labels,
-            xlim=("2008", fiscal_years.max()),
+            xlim=(2008, max(fiscal_years)),
             ylim=(1e-10, y_limit),
             scale="billions",
             legend={
@@ -163,42 +176,25 @@ class NASABudgetChart(ChartController):
                 'handlelength': .8
             },
         )
-    
-    def nasa_science_divisions_by_year_inflation_adjusted(self):
-        self.data_source = ScienceDivisions()
-        self.view = SubplotView(outdir=Path("charts") / "science_divisions")
-        df = self.data_source.data().dropna(subset=["Fiscal Year"]) # Drop rows without fiscal year data
-        fiscal_years = df["Fiscal Year"]
-        y_limit = (df["Planetary Science_adjusted_nnsi"].max() // 5000000000 + 1) * 5000000000
-
         
-        plt.style.use(TPS_STYLE_FILE)
-        plt.subplot(221)
-        plt.plot( 'Fiscal Year', 'Planetary Science_adjusted_nnsi', data=df, linestyle='-')
-        plt.subplot(222)
-        plt.plot( 'Fiscal Year','Astrophysics_adjusted_nnsi', data=df, linestyle='-')
-        plt.subplot(223)
-        plt.plot( 'Fiscal Year','Earth Science_adjusted_nnsi', data=df, linestyle='-')
-        plt.subplot(224)
-        plt.plot( 'Fiscal Year','Heliophysics_adjusted_nnsi', data=df, linestyle='-')
-        
-        self.view.quadrants()
-
-
     def nasa_directorate_budget_waffle_chart(self):
-        """ Generate NASA budget breakdown by directorate as a waffle chart."""
+        """Generate NASA budget breakdown by directorate as a waffle chart."""
+        
+        # Load View for Waffle Charts
+        waffle_view = self.get_view('Waffle')
+        
         self.data_source = Directorates()
-        df = self.data_source.data().dropna(subset=["Science"]) # Drop rows without directorate data
+        df = self.data_source.data().dropna(subset=["Science"])  # Drop rows without directorate data
         
         available_years = sorted(df["Fiscal Year"].unique())
         prior_fy = available_years[-2]
         
-        # Convert the row where Fiscal Year is 2025 into a dictionary
+        # Convert the row where Fiscal Year is the prior FY into a dictionary
         nasa_directorates = df[df["Fiscal Year"] == prior_fy].iloc[0].drop(
             labels=["Fiscal Year"] + [col for col in df.columns if "adjusted" in col]
         ).to_dict()
         
-        # Define block value - each block represents $100M
+        # Define block value - each block represents $50M
         block_value = 50000000
 
         # Scale values to represent blocks ($50M each)
@@ -207,7 +203,7 @@ class NASABudgetChart(ChartController):
         # Order directorates so largest values are first
         sorted_directorates = dict(sorted(scaled_directorates.items(), key=lambda item: item[1], reverse=True))
 
-        # Calculate relative percentages for labels and sort from largest to smallest
+        # Calculate relative percentages for labels
         repartition = [
             f"{k} ({v / sum(nasa_directorates.values()) * 100:.1f}%)" if v / sum(nasa_directorates.values()) * 100 < 1 
             else f"{k} ({int(v / sum(nasa_directorates.values()) * 100)}%)" 
@@ -222,21 +218,22 @@ class NASABudgetChart(ChartController):
         }
         
         category_colors = [
-            self.view.TPS_COLORS["Neptune Blue"],     # Strong blue for largest category
-            self.view.TPS_COLORS["Plasma Purple"],    # Rich purple for contrast
-            self.view.TPS_COLORS["Medium Neptune"],   # Lighter blue
-            self.view.TPS_COLORS["Rocket Flame"],     # Warm orange-red
-            self.view.TPS_COLORS["Medium Plasma"],    # Softer purple
-            self.view.TPS_COLORS["Lunar Soil"],       # Neutral gray
-            self.view.TPS_COLORS["Light Neptune"]     # Very light blue for smallest category
+            waffle_view.TPS_COLORS["Neptune Blue"],     # Strong blue for largest category
+            waffle_view.TPS_COLORS["Plasma Purple"],    # Rich purple for contrast
+            waffle_view.TPS_COLORS["Medium Neptune"],   # Lighter blue
+            waffle_view.TPS_COLORS["Rocket Flame"],     # Warm orange-red
+            waffle_view.TPS_COLORS["Medium Plasma"],    # Softer purple
+            waffle_view.TPS_COLORS["Lunar Soil"],       # Neutral gray
+            waffle_view.TPS_COLORS["Light Neptune"]     # Very light blue for smallest category
         ]
         
-        self.view.waffle_chart(
+        waffle_view.waffle_chart(
+            metadata=metadata,
+            stem="nasa_directorate_breakdown",
             values=sorted_directorates,
             labels=repartition, 
             colors=category_colors,
             vertical=True,
-            metadata=metadata,
             interval_ratio_x=0.11,
             interval_ratio_y=0.11,
             legend={
@@ -246,16 +243,5 @@ class NASABudgetChart(ChartController):
                 'fontsize': "medium",  # Readable size
                 'ncol': 4,
                 'handlelength': .8
-            },
-            stem="nasa_directorate_breakdown"
+            }
         )
-        
-if __name__ == "__main__":
-    # Create and use the chart controller
-    chart = NASABudgetChart()
-    #chart.nasa_budget_by_year_inflation_adjusted()
-    #chart.nasa_by_presidential_administration()
-    #chart.nasa_major_programs_by_year_inflation_adjusted()
-    #chart.nasa_directorate_breakdown()
-    chart.nasa_science_divisions_by_year_inflation_adjusted()
-    print("All done.")

@@ -2,7 +2,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from pathlib import Path
-from tpsplots.views.chart_view import ChartView
+from tpsplots.views import ChartView, LineChartView, WaffleChartView
 
 class ChartController(ABC):
     """
@@ -24,8 +24,21 @@ class ChartController(ABC):
         # The data source (model)
         self.data_source = data_source
         
-        # The chart generator (view)
-        self.view = ChartView(outdir)
+        # Write directory for output fiels
+        self.outdir = outdir
+
+        # The chart output generator (view)
+        # Set at the implemenation level using get_view()
+        self._views = {}
+        
+    def get_view(self, view_type):
+        """Get or create a view of the specified type."""
+        if view_type not in self._views:
+            if view_type == 'Line':
+                self._views[view_type] = LineChartView(self.outdir)
+            elif view_type == 'Waffle':
+                self._views[view_type] = WaffleChartView(self.outdir)
+        return self._views[view_type]
     
     @abstractmethod
     def generate_charts(self):
