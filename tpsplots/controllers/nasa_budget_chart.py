@@ -19,7 +19,8 @@ class NASABudgetChart(ChartController):
     def generate_charts(self):
         """Generate all NASA budget charts."""
         self.nasa_budget_by_year_inflation_adjusted()
-        self.nasa_by_presidential_administration()
+        self.nasa_science_divisions_by_year_inflation_adjusted()
+        self.nasa_science_by_year_inflation_adjusted()
     
     def nasa_budget_by_year_inflation_adjusted(self):
         """Generate historical NASA budget chart."""
@@ -168,11 +169,9 @@ class NASABudgetChart(ChartController):
         self.view = SubplotView(outdir=Path("charts") / "science_divisions")
         df = self.data_source.data().dropna(subset=["Fiscal Year"]) # Drop rows without fiscal year data
         fiscal_years = df["Fiscal Year"]
-        print(df)
         y_limit = (df["Planetary Science_adjusted_nnsi"].max() // 5000000000 + 1) * 5000000000
 
-
-
+        
         plt.style.use(TPS_STYLE_FILE)
         plt.subplot(221)
         plt.plot( 'Fiscal Year', 'Planetary Science_adjusted_nnsi', data=df, linestyle='-')
@@ -182,7 +181,7 @@ class NASABudgetChart(ChartController):
         plt.plot( 'Fiscal Year','Earth Science_adjusted_nnsi', data=df, linestyle='-')
         plt.subplot(224)
         plt.plot( 'Fiscal Year','Heliophysics_adjusted_nnsi', data=df, linestyle='-')
-        #plt.show()
+        
         self.view.quadrants()
 
 

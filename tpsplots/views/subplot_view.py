@@ -23,7 +23,6 @@ class SubplotView(ChartView):
         super().__init__()
     
     def quadrants(self):
-        #plt.show()
         with plt.style.context(TPS_STYLE_FILE):
             fig = plt.gcf()
             all_axes = fig.get_axes()
