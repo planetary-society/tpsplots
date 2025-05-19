@@ -45,6 +45,9 @@ from urllib.error import URLError
 # Assumed external library for inflation adjustments
 from .inflation import NNSI, GDP
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 # ─────────────────────────── base class ────────────────────────────
 class NASABudget:
@@ -273,16 +276,16 @@ class NASABudget:
             self._cache_dir.mkdir(parents=True, exist_ok=True)
             dest = self._cache_dir / Path(self._csv_source).name
             if dest.exists():
-                print(f"Reading from cache: {dest}") # Added for visibility
+                logger.info(f"Reading from cache: {dest}") # Added for visibility
                 return pd.read_csv(dest)
 
-        print(f"Reading from source: {self._csv_source}") # Added for visibility
+        logger.info(f"Reading from source: {self._csv_source}") # Added for visibility
         try:
             # Try reading directly (works for local files and some URLs)
             df = pd.read_csv(self._csv_source)
         except (URLError, ssl.SSLError):
             # If direct read fails (often for HTTPS URLs), use requests
-            print("Direct read failed, attempting with requests...") # Added for visibility
+            logger.warning("Direct read failed, attempting with requests...") # Added for visibility
             try:
                 # Fetch content using requests, verifying SSL certs
                 response = requests.get(self._csv_source, timeout=30, verify=certifi.where())
@@ -291,13 +294,13 @@ class NASABudget:
                 # Read the text content into a DataFrame
                 df = pd.read_csv(io.StringIO(text))
             except requests.exceptions.RequestException as e:
-                print(f"Error fetching data with requests: {e}") # Added for visibility
-                raise # Re-raise the exception after printing
+                logger.error(f"Error fetching data with requests: {e}") # Added for visibility
+                raise 
 
         # If caching is enabled, save the downloaded DataFrame to the cache
         if self._cache_dir:
             cache_path = Path(self._cache_dir, Path(self._csv_source).name)
-            print(f"Caching data to: {cache_path}") # Added for visibility
+            logger.info(f"Caching data to: {cache_path}") # Added for visibility
             cache_path.write_bytes(
                 df.to_csv(index=False).encode() # Convert DataFrame to CSV string, then bytes
             )
@@ -413,13 +416,13 @@ class NASABudget:
                 try:
                     product_nnsi = df[col] * nnsi_mult
                 except TypeError as e:
-                    print(f"Can't multiply column '{col}': {e}")
+                    logger.error(f"Can't multiply column '{col}': {e}")
                     product_nnsi = pd.Series([pd.NA] * len(df[col]), index=df.index)
                 
                 try:
                     product_gdp  = df[col] * gdp_mult
                 except TypeError as e:
-                    print(f"Can't multiply column '{col}': {e}")
+                    logger.error(f"Can't multiply column '{col}': {e}")
                     product_gdp = pd.Series([pd.NA] * len(df[col]), index=df.index)
                     
                 # Where product is NaN (likely due to a NaN multiplier),
