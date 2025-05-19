@@ -3,7 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
 from .chart_view import ChartView
+import logging
 
+logger = logging.getLogger(__name__)
 
 class LineChartView(ChartView):
     """Specialized view for line charts with a focus on exposing matplotlib's API."""
@@ -75,23 +77,6 @@ class LineChartView(ChartView):
             x_data = x
             y_data = y
 
-        import matplotlib.dates as mdates
-
-        # If x_data is a pandas Series or numpy array of datetime64, or a list of datetime objects
-        if x_data is not None:
-            # Convert pandas Series to numpy array for type checking
-            if isinstance(x_data, pd.Series):
-                x_array = x_data.values
-            else:
-                x_array = np.array(x_data)
-
-            # Check for datetime types
-            if np.issubdtype(x_array.dtype, np.datetime64) or (
-                len(x_array) > 0 and hasattr(x_array[0], 'year') and hasattr(x_array[0], 'month')
-            ):
-                ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-                ax.xaxis.set_major_locator(mdates.YearLocator())
-
         # Handle single y series
         if y_data is None and isinstance(x_data, (list, tuple, np.ndarray)):
             y_data = [x_data]
@@ -111,7 +96,7 @@ class LineChartView(ChartView):
         label = kwargs.pop('label', kwargs.pop('labels', None))
         
         # Apply standard styling to the axes
-        self._apply_axes_styling(ax, metadata, style, **kwargs)
+        self._apply_axes_styling(ax, metadata, style, x_data=x_data, **kwargs)
         
         # Plot each data series
         if x_data is not None and y_data is not None:
@@ -172,8 +157,8 @@ class LineChartView(ChartView):
         Apply consistent styling to the axes.
         
         Args:
-            ax: Matplotlib axes
-            metadata: Chart metadata
+            ax: Matplotlib axes object
+            metadata: Chart metadata dictionary 
             style: Style dictionary (DESKTOP or MOBILE)
             **kwargs: Additional styling parameters
         """
@@ -183,6 +168,7 @@ class LineChartView(ChartView):
         xticks = kwargs.pop('xticks', None)
         xticklabels = kwargs.pop('xticklabels', None)
         max_xticks = kwargs.pop('max_xticks', style.get("max_ticks"))
+        x_data = kwargs.pop('x_data', None)
         
         # Extract other styling parameters
         grid = kwargs.pop('grid', style["grid"])
@@ -210,9 +196,21 @@ class LineChartView(ChartView):
         # Apply grid setting
         ax.grid(grid)
         
-        # Apply tick formatting
-        plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
-        plt.setp(ax.get_yticklabels(), fontsize=tick_size)
+        # Check if we should use fiscal year tick formatting
+        fiscal_year_ticks = kwargs.pop('fiscal_year_ticks', True)
+        
+        # Apply appropriate tick formatting
+        if fiscal_year_ticks and x_data is not None and self._contains_dates(x_data):
+            # Apply special FY formatting
+            self._apply_fiscal_year_ticks(ax, tick_size=tick_size)
+        else:
+            # Apply standard tick formatting
+            plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
+            plt.setp(ax.get_yticklabels(), fontsize=tick_size)
+            
+            # Set tick locators if needed
+            if max_xticks:
+                ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
         
         # Apply scale formatter if specified
         if scale:
@@ -231,10 +229,6 @@ class LineChartView(ChartView):
                 ax.set_xticklabels(xticklabels)
             elif all(isinstance(x, (int, float)) and float(x).is_integer() for x in xticks):
                 ax.set_xticklabels([f"{int(x)}" for x in xticks])
-        
-        # Set tick locators
-        if max_xticks:
-            ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
         
         # Handle legend
         if legend:

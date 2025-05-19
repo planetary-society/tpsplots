@@ -134,6 +134,76 @@ class ChartView:
         """
         raise NotImplementedError("Subclasses must implement _create_chart")
     
+    
+    def _apply_fiscal_year_ticks(self, ax, tick_size=None):
+        """
+        Apply consistent fiscal year tick formatting to the x-axis.
+        
+        Sets major ticks at decade boundaries (years ending in 0),
+        minor ticks at each year, and formats all labels horizontally.
+        
+        Args:
+            ax: Matplotlib axes object
+            tick_size: Optional font size for tick labels
+        """
+        # Set major ticks at decade boundaries (years divisible by 10)
+        ax.xaxis.set_major_locator(mdates.YearLocator(5))  # Every 5 years
+        ax.xaxis.set_minor_locator(mdates.YearLocator(1))   # Every year
+
+        # Format to show only the year
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+
+        # Hide labels for non-decade years by customizing the formatter
+        def decade_label(year, pos):
+            year_int = int(mdates.num2date(year).year)
+            return str(year_int) if year_int % 10 == 0 else ""
+
+        ax.xaxis.set_major_formatter(FuncFormatter(decade_label))
+
+        # Make minor ticks visible but unlabeled
+        ax.tick_params(which='minor', length=4, color='gray', width=1)
+        ax.tick_params(which='major', length=8, width=1.2)
+
+        # Set tick labels horizontal and apply font size if provided
+        plt.setp(ax.get_xticklabels(), rotation=0, fontsize=tick_size)
+        
+        return ax
+
+    # Helper to detect if x_data contains dates
+    def _contains_dates(self, x_data):
+        """
+        Check if x_data contains date-like objects.
+        
+        Args:
+            x_data: The x-axis data to check
+            
+        Returns:
+            bool: True if the data appears to contain dates
+        """
+        if x_data is None or len(x_data) == 0:
+            return False
+            
+        # Check if x_data contains datetime objects
+        first_elem = x_data[0]
+        
+        # Check for datetime-like objects
+        if hasattr(first_elem, 'year') and hasattr(first_elem, 'month'):
+            return True
+            
+        # Check for numpy datetime64
+        if hasattr(first_elem, 'dtype') and np.issubdtype(first_elem.dtype, np.datetime64):
+            return True
+            
+        # Check for integer years (1980, 1990, etc.)
+        if isinstance(first_elem, int) and 1900 <= first_elem <= 2100:
+            return True
+            
+        # Check for string years ("1980", "1990", etc.)
+        if isinstance(first_elem, str) and first_elem.isdigit() and 1900 <= int(first_elem) <= 2100:
+            return True
+            
+        return False
+    
     def _apply_scale_formatter(self, ax, scale='billions', axis='y', decimals=0, prefix='$'):
         """
         Apply scale formatting to axis.

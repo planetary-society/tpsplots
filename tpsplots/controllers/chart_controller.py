@@ -48,7 +48,7 @@ class ChartController(ABC):
         """
         pass
 
-    def _get_axis_limit_y(self, max_value: float, multiple: float = 5000000000, always_extend: bool = True) -> float:
+    def _get_rounded_axis_limit_y(self, max_value: float, multiple: float = 5000000000, always_extend: bool = True) -> float:
         """
         Returns a reasonable upper boundary for the y-axis based on the maximum value in the data.
         
@@ -83,34 +83,32 @@ class ChartController(ABC):
         # Otherwise, round up to the next multiple
         return (whole_multiples + 1) * multiple
 
-    def _get_axis_limit_x(self, start_year: int, end_year: int, multiple: int = 5, always_extend: bool = False) -> int:
+    def _get_rounded_axis_limit_x(self, upper_value: int, multiple: int = 10, always_extend: bool = False) -> int:
         """ Returns the next highest integer divisible by the multiple given a 
-        start year and exceeding the limit of the end_year
+        beyond the given upper_value
 
-        Example: If NASA's budget begins in 1959 and we have data through 2026,
-        and we want the next highest year that is divisible by 5, the method will
-        return 2029.
+        Example: If we have data through FY 2026, and we want the next highest year that is
+        divisible by 10, the method will return 2030.
 
         This is helpful for ensuring clean and consistent x-axes for charts.
 
         Args:
-            start_year (int): Starting point for fiscal year range
-            end_year (int): End point for fiscal year with actual data
-            multiple (int): The multiplier. Defaults to 5.
-            always_extend (bool): When True, always adds at least one multiple beyond end_year,
-                                even if end_year already falls on a multiple boundary.
+            upper_value (int): End point for fiscal year with actual data
+            multiple (int): The multiplier. Defaults to 10.
+            always_extend (bool): When True, always adds at least one multiple beyond upper_value,
+                                even if upper_value already falls on a multiple boundary.
                                 When False, only extends if needed.
 
         Returns:
-            int: The next year after end_year where (year - start_year) % multiple == 0
+            int: The next year after upper_value where % multiple == 0
         """
-        # Find the remainder when dividing the difference by multiple
-        remainder = (end_year - start_year) % multiple
+        # Find the remainder
+        remainder = upper_value % multiple
 
-        # If the remainder is 0, end_year is already at a multiple boundary
+        # If the remainder is 0, upper_value is already at a multiple boundary
         if remainder == 0:
             # If always_extend is True or we're on a boundary, add a full multiple
-            return end_year + multiple if always_extend else end_year
+            return upper_value + multiple if always_extend else upper_value
 
         # Otherwise, add the difference needed to reach the next multiple boundary
-        return end_year + (multiple - remainder)
+        return upper_value + (multiple - remainder)
