@@ -10,6 +10,7 @@ Example
 ---------------------------------------------------------------------------
 >>> nnsi = NNSI(year="2025")   # target FY 2025
 >>> nnsi.calc("2014", 10)      # 10 → 13.59   (multiplied by 1.359)
+>>> nnsi.calc(datetime(2014, 1, 1), 10)  # Also handles datetime objects
 
 """
 
@@ -17,8 +18,9 @@ from __future__ import annotations
 import io
 import numpy as np
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Union
 import os, json
+from datetime import datetime
 import requests, certifi, pandas as pd
 
 
@@ -38,7 +40,7 @@ class Inflation:
 
     Public API
     ----------
-    calc(from_year: str, value: float) -> float
+    calc(from_year: Union[str, datetime, int], value: float) -> float
         Return *value* adjusted from *from_year* → *self.year*.
     """
 
@@ -71,13 +73,44 @@ class Inflation:
     # ------------------------------------------------------------------ #
     #  Public helper                                                     #
     # ------------------------------------------------------------------ #
-    def calc(self, from_year: str, value: float) -> float:
+    def calc(self, from_year: Union[str, datetime, int], value: float) -> float:
         """
         Multiply *value* by the correct factor for *from_year*.
         Falls back to *identity* (multiplier == 1.0) if no entry exists.
+        
+        Args:
+            from_year: The fiscal year to adjust from, can be a string, datetime object, or integer.
+            value: The value to adjust.
+            
+        Returns:
+            float: The inflation-adjusted value.
         """
-        mult = self._table.get(self._normalise_key(from_year), 1.0)
+        key = self._convert_year_to_key(from_year)
+        mult = self._table.get(self._normalise_key(key), 1.0)
         return value * mult
+        
+    def _convert_year_to_key(self, year_input: Union[str, datetime, int]) -> str:
+        """
+        Convert various year input formats to a standard string key format.
+        
+        Args:
+            year_input: The year as a string, datetime object, or integer.
+            
+        Returns:
+            str: The year as a standardized string.
+        """
+        if isinstance(year_input, datetime):
+            # Extract the year from the datetime object
+            return str(year_input.year)
+        elif isinstance(year_input, int):
+            # Convert integer to string
+            return str(year_input)
+        elif isinstance(year_input, str) and "TQ" in year_input.upper():
+            # Preserve special TQ (Transition Quarter) formatting
+            return year_input
+        else:
+            # Return as-is for other string formats
+            return str(year_input)
 
     def inflation_adjustment_year(self) -> str:
         """
@@ -96,7 +129,7 @@ class NNSI(Inflation):
     """
     NASA New-Start Index (NNSI) adjustment.
 
-    * Handles the special **Transition Quarter** row (“FROM TQ”).
+    * Handles the special **Transition Quarter** row ("FROM TQ").
     * Automatically downloads the latest Google-Sheets CSV unless a local
       path is provided.
     """
@@ -146,7 +179,7 @@ class NNSI(Inflation):
         if target_col not in df.columns:
             raise ValueError(f"NNSI table has no column for FY {self.year}")
 
-        # Produce mapping; normalise keys (“FROM 2014”, “FROM TQ”) → FY string
+        # Produce mapping; normalise keys ("FROM 2014", "FROM TQ") → FY string
         mapping: dict[str, float] = {}
         col = df[target_col]
 
@@ -168,7 +201,6 @@ class NNSI(Inflation):
         return "TQ" if s.endswith("TQ") or s == "TQ" else s
 
 
-
 class GDP(Inflation):
     """
     Inflation adjuster using BEA's *implicit GDP price deflator, annual*.
@@ -184,6 +216,7 @@ class GDP(Inflation):
     --------
     >>> gdp = GDP(year="2024")          # target FY 2024
     >>> gdp.calc("2013", 25)            # => adjusted 2024 dollars
+    >>> gdp.calc(datetime(2013, 1, 1), 25)  # Same as above
     """
 
     # ---------- raw BEA request helpers ---------------------------------

@@ -1,30 +1,51 @@
 """
-nasa_budget.py
-==============
+NASA Budget Data Source Documentation
+=====================================
 
-Provides a base class and concrete implementations for loading, cleaning, and
-accessing NASA budget data from CSV sources, including inflation adjustments.
+This module provides classes for handling NASA budget data from various sources.
+It supports both string and datetime fiscal year representations and provides
+automatic inflation adjustments.
 
-The module handles:
-- Loading data from local files or remote URLs.
-- Caching downloaded data locally.
-- Cleaning and renaming DataFrame columns.
-- Preserving the special "1976 TQ" fiscal year value.
-- Adding columns for inflation-adjusted monetary values using NNSI and GDP
-  indices, adjusted to the prior fiscal year.
-- Auto-generating attribute-style getters for raw and adjusted monetary columns.
+Key Classes
+----------
+- NASABudget: Base class for handling NASA budget data
+- Historical: Concrete class for historical NASA budget data
+- Directorates: Concrete class for NASA directorate budget data
+- Science: Concrete class for NASA Science Mission Directorate budget data
 
-Classes:
-    NASABudget: Base class for handling NASA budget data.
-    Historical: Concrete class for historical NASA budget data.
-    Science: Concrete class for NASA Science Directorate budget data.
-    Directorates: Concrete class for NASA Directorate budget data.
+Usage Example
+------------
+```python
+from tpsplots.data_sources.nasa_budget_data_source import Historical
 
-Dependencies:
-    pandas: For data manipulation.
-    requests: For downloading data from URLs.
-    certifi: For SSL certificates when downloading.
-    inflation: A custom library (assumed) providing NNSI and GDP adjusters.
+# Create a data source instance
+budget = Historical()
+
+# Get the cleaned and processed DataFrame
+df = budget.data()
+
+# Access values via attribute-style getters
+fy = budget.fiscal_year  # Returns list of fiscal years
+requests = budget.pbr  # Returns list of presidential budget requests
+
+# Get inflation-adjusted values
+adj_requests = budget.pbr_adjusted_nnsi  # Adjusted using NASA New-Start Index
+```
+
+Working with Fiscal Years
+------------------------
+The module handles fiscal years in both string and datetime formats:
+
+- When loading data from CSV sources, the fiscal year column is automatically
+  converted to datetime objects for easier plotting and manipulation.
+  
+- Special cases like the "1976 TQ" (Transition Quarter) are preserved as strings.
+
+- Inflation adjustment calculations can use either string or datetime inputs
+  and will produce consistent results with either format.
+
+- When converting fiscal years to strings for display, use standard string
+  formatting: `f"{fiscal_year:%Y}"` for a four-digit year representation.
 """
 
 from __future__ import annotations
@@ -391,11 +412,7 @@ class NASABudget:
         df = df.copy() # Work on a copy
         # Detect the fiscal year column to use for adjustments
         fy_col = self._detect_fy(df)
-        # Get the target fiscal year for adjustment (prior FY) - currently unused in the logic,
-        # as the adjusters are initialized with the target year.
-        # target = self._current_fy() # This seems incorrect, should be _prior_fy() if used.
-        # Let's rely on the adjusters being initialized correctly.
-
+        
         # Get the list of columns to adjust from the subclass
         mons = getattr(self.__class__, "MONETARY_COLUMNS", [])
 
@@ -404,10 +421,9 @@ class NASABudget:
             return df
 
         # Calculate the inflation multipliers for NNSI and GDP for each fiscal year in the DataFrame
-        # The calc method converts from the row's FY to the target FY (prior FY, set in _ADJUSTERS)
-        # Ensure the fiscal year value is passed as a string to the calc method
-        nnsi_mult = df[fy_col].apply(lambda v: _ADJUSTERS["nnsi"].calc(str(v), 1.0))
-        gdp_mult  = df[fy_col].apply(lambda v: _ADJUSTERS["gdp"].calc(str(v), 1.0))
+        # Pass the fiscal year values directly to the calc method - it now handles both strings and datetimes
+        nnsi_mult = df[fy_col].apply(lambda v: _ADJUSTERS["nnsi"].calc(v, 1.0))
+        gdp_mult = df[fy_col].apply(lambda v: _ADJUSTERS["gdp"].calc(v, 1.0))
 
         # Apply the multipliers to each monetary column and add the new adjusted columns
         for col in mons:
@@ -420,7 +436,7 @@ class NASABudget:
                     product_nnsi = pd.Series([pd.NA] * len(df[col]), index=df.index)
                 
                 try:
-                    product_gdp  = df[col] * gdp_mult
+                    product_gdp = df[col] * gdp_mult
                 except TypeError as e:
                     logger.error(f"Can't multiply column '{col}': {e}")
                     product_gdp = pd.Series([pd.NA] * len(df[col]), index=df.index)
@@ -429,7 +445,7 @@ class NASABudget:
                 # fill with the original value from df[col].
                 # Then ensure the final column is of type float64.
                 df[f"{col}_adjusted_nnsi"] = product_nnsi.fillna(df[col]).astype("float64")
-                df[f"{col}_adjusted_gdp"]  = product_gdp.fillna(df[col]).astype("float64")
+                df[f"{col}_adjusted_gdp"] = product_gdp.fillna(df[col]).astype("float64")
         return df
 
     # ── misc helpers ───────────────────────────────────────────────
