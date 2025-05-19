@@ -1,5 +1,7 @@
 """Base chart generation view component with desktop/mobile versions built in."""
 from pathlib import Path
+from datetime import datetime
+import csv
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
@@ -7,8 +9,10 @@ import matplotlib.image as mpimg
 from matplotlib.ticker import FuncFormatter
 import matplotlib.dates as mdates
 import warnings
+import logging
 from tpsplots import TPS_STYLE_FILE # custom mplstyle
 
+logger = logging.getLogger(__name__)
 
 class ChartView:
     """Base class for all chart views with shared functionality."""
@@ -104,11 +108,15 @@ class ChartView:
         Args:
             metadata: Chart metadata dictionary
             stem: Base filename for the chart
+            export: dataframe to export to CSV
             **kwargs: Additional parameters for chart creation
             
         Returns:
             dict: Dictionary with desktop and mobile figure objects
         """
+        
+        export_data = kwargs.pop("export_data")
+        
         # Create desktop version
         desktop_kwargs = kwargs.copy()
         desktop_kwargs['style'] = self.DESKTOP
@@ -120,6 +128,10 @@ class ChartView:
         mobile_kwargs['style'] = self.MOBILE
         mobile_fig = self._create_chart(metadata, **mobile_kwargs)
         self._save_chart(mobile_fig, f"{stem}_mobile", create_pptx=False)
+        
+        # Export CSV if export_data is present
+        if export_data is not None:
+            self._export_csv(export_data,metadata,stem)
         
         return {
             'desktop': desktop_fig,
@@ -143,6 +155,50 @@ class ChartView:
         """
         raise NotImplementedError("Subclasses must implement _create_chart")
     
+    def _export_csv(self, df, metadata, stem):
+        """
+        Export chart data as CSV with metadata header rows.
+        
+        Args:
+            df: The pandas DataFrame containing the chart data
+            metadata: Chart metadata dictionary
+            stem: Base filename for saving
+        """
+        csv_path = self.outdir / f"{stem}.csv"
+        
+        # Create a copy of the data to avoid modifying the original
+        csv_df = df.copy()
+        
+        # Prepare metadata rows
+        meta_rows = []
+        
+        # Add author and generation info
+        meta_rows.append(["Author", "The Planetary Society"])
+        meta_rows.append(["Website", "https://planetary.org"])
+        meta_rows.append(["Generated", datetime.now().strftime("%Y-%m-%d")])
+        
+        if 'source' in metadata:
+            meta_rows.append(["Data Source", metadata['source']])
+        
+        # Add a blank row between metadata and data
+        meta_rows.append([])
+        
+        # Write metadata and data to CSV
+        with open(csv_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            
+            # Write metadata rows
+            for row in meta_rows:
+                writer.writerow(row)
+            
+            # Write column names and data, converting NaN to empty strings
+            writer.writerow(csv_df.columns)
+            for _, row in csv_df.iterrows():
+                # Convert each value: if it's NaN, write '', else write the value
+                writer.writerow(['' if (isinstance(val, float) and np.isnan(val)) else val for val in row])
+        
+        print(f"✓ saved {csv_path.name}")
+        return csv_path
     
     def _apply_fiscal_year_ticks(self, ax, tick_size=None):
         """

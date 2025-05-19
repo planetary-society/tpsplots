@@ -6,6 +6,7 @@ from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.views import LineChartView, WaffleChartView  # Import specialized views
 from tpsplots.data_sources.nasa_budget_data_source import Historical, Directorates, ScienceDivisions, Science
 from matplotlib import pyplot as plt
+import pandas as pd
 
 class NASABudgetChart(ChartController):
     """Controller for top-line NASA budget charts."""
@@ -21,6 +22,23 @@ class NASABudgetChart(ChartController):
         self.line_view = LineChartView(self.outdir, TPS_STYLE_FILE)
         waffle_view = WaffleChartView(self.outdir, TPS_STYLE_FILE)
 
+    def _export_helper(self,original_df: pd.DataFrame, columns_to_export: list[str]) -> pd.DataFrame:
+        """ Helper method to prepare columns for export, assuming it will mostly be Fiscal Year and dollar amounts """
+        export_df = original_df[columns_to_export].copy()
+        
+        if "Fiscal Year" in columns_to_export:
+            try:
+                export_df["Fiscal Year"] = pd.to_datetime(export_df["Fiscal Year"]).dt.strftime('%Y')
+            except Exception as e:
+                export_df["Fiscal Year"] = export_df["Fiscal Year"].astype(str) # Fallback to string
+        
+        for col in columns_to_export:
+            if col == "Fiscal Year":
+                continue
+            numeric_series = pd.to_numeric(export_df[col], errors='coerce')
+            export_df[col] = numeric_series.round(2)
+        return export_df
+
     def generate_charts(self):
         """Generate all NASA budget charts."""
         self.nasa_budget_by_year_inflation_adjusted()
@@ -28,8 +46,8 @@ class NASABudgetChart(ChartController):
         self.nasa_major_programs_by_year_inflation_adjusted()
         self.nasa_science_by_year_inflation_adjusted()
     
-    def nasa_budget_by_year_inflation_adjusted(self):
-        """Generate historical NASA budget chart."""
+    def nasa_budget_pbr_appropriation_by_year_inflation_adjusted(self):
+        """Generate historical NASA budget chart with PBR and Appropriations."""
         
         # Get data from model
         df = self.data_source.data().dropna(subset=["PBR"])
@@ -37,9 +55,11 @@ class NASABudgetChart(ChartController):
         # Prepare data for view
         fiscal_years = df["Fiscal Year"]
         
-        max_fiscal_year = int(fiscal_years.max().strftime("%Y"))
+        # Prepare cleaned export data for CSV
+        export_df = self._export_helper(df, ["Fiscal Year", "PBR", "Appropriation", "PBR_adjusted_nnsi","Appropriation_adjusted_nnsi"])
 
         # Set x limit to be the the nearest multiple of 10 of x_min greater than x_max
+        max_fiscal_year = int(fiscal_years.max().strftime("%Y"))
         x_limit = self._get_rounded_axis_limit_x(max_fiscal_year,10,True)
         y_limit = self._get_rounded_axis_limit_y(df["PBR_adjusted_nnsi"].max(), 5000000000)
         
@@ -56,7 +76,7 @@ class NASABudgetChart(ChartController):
         # Generate charts via the specialized line chart view
         line_view.line_plot(
             metadata=metadata,
-            stem="nasa_budget_by_year_inflation_adjusted",
+            stem="nasa_budget_pbr_appropriation_by_year_inflation_adjusted",
             x=fiscal_years,
             y=[df["PBR_adjusted_nnsi"], df["Appropriation_adjusted_nnsi"]],
             color=["#3696CE", self.line_view.COLORS["blue"]],
@@ -64,7 +84,8 @@ class NASABudgetChart(ChartController):
             label=["Presidential Budget Request", "Congressional Appropriation"],
             xlim=(datetime(1958,1,1), datetime(x_limit,1,1)),
             ylim=(0, y_limit),
-            scale="billions"
+            scale="billions",
+            export_data=export_df,
         )
 
     def nasa_science_by_year_inflation_adjusted(self):
