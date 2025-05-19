@@ -41,7 +41,7 @@ class NASABudgetChart(ChartController):
 
         # Set x limit to be the the nearest multiple of 10 of x_min greater than x_max
         x_limit = self._get_rounded_axis_limit_x(max_fiscal_year,10,True)
-        y_limit = self._get_axis_limit_y(df["PBR_adjusted_nnsi"].max(), 5000000000)
+        y_limit = self._get_rounded_axis_limit_y(df["PBR_adjusted_nnsi"].max(), 5000000000)
         
         # Prepare metadata
         metadata = {
