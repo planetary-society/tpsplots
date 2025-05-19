@@ -32,7 +32,7 @@ from __future__ import annotations
 import io
 import re
 import ssl
-from datetime import date
+from datetime import date, datetime
 from functools import cached_property
 from pathlib import Path
 from typing import Callable, List, Any
@@ -359,7 +359,7 @@ class NASABudget:
             if "TQ" in s.upper():
                 return "1976 TQ" # Preserve the special '1976 TQ' string
             if s.isdigit() and len(s) == 4:
-                return s # Keep 4-digit years as strings
+                return datetime(int(s), 1, 1)
             return pd.NA # Return pandas NA for any other format
 
         for col in df.columns:

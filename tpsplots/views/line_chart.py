@@ -74,7 +74,24 @@ class LineChartView(ChartView):
         else:
             x_data = x
             y_data = y
-            
+
+        import matplotlib.dates as mdates
+
+        # If x_data is a pandas Series or numpy array of datetime64, or a list of datetime objects
+        if x_data is not None:
+            # Convert pandas Series to numpy array for type checking
+            if isinstance(x_data, pd.Series):
+                x_array = x_data.values
+            else:
+                x_array = np.array(x_data)
+
+            # Check for datetime types
+            if np.issubdtype(x_array.dtype, np.datetime64) or (
+                len(x_array) > 0 and hasattr(x_array[0], 'year') and hasattr(x_array[0], 'month')
+            ):
+                ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+                ax.xaxis.set_major_locator(mdates.YearLocator())
+
         # Handle single y series
         if y_data is None and isinstance(x_data, (list, tuple, np.ndarray)):
             y_data = [x_data]

@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import matplotlib.image as mpimg
 from matplotlib.ticker import FuncFormatter
+import matplotlib.dates as mdates
 import warnings
 from tpsplots import TPS_STYLE_FILE # custom mplstyle
 
@@ -50,7 +51,7 @@ class ChartView:
         "tick_size": 16,
         "legend_size": 12,
         "line_width": 4,
-        "marker_size": 5,
+        "marker_size": 6,
         "grid": True,
         "tick_rotation": 90,
         "add_logo": True,

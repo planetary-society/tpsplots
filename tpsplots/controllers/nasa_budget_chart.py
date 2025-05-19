@@ -1,5 +1,6 @@
 """Concrete NASA budget charts using specialized chart views."""
 from pathlib import Path
+from datetime import datetime
 from tpsplots import TPS_STYLE_FILE
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.views import LineChartView, WaffleChartView  # Import specialized views
@@ -34,11 +35,13 @@ class NASABudgetChart(ChartController):
         df = self.data_source.data().dropna(subset=["PBR"])
         
         # Prepare data for view
-        fiscal_years = df["Fiscal Year"].astype(int)  # Convert to int for x-axis
+        fiscal_years = df["Fiscal Year"]
         
-        # Determine the closest year in the future that is a multiple of 5
-        x_limit = (fiscal_years.max() // 5 + 1) * 5
-        y_limit = (df["PBR_adjusted_nnsi"].max() // 5000000000 + 1) * 5000000000
+        max_fiscal_year = int(fiscal_years.max().strftime("%Y"))
+
+        # Set x limit to be the the nearest multiple of 5 of x_min greater than x_max
+        x_limit = self._get_axis_limit_x(1959,max_fiscal_year,5,True)
+        y_limit = self._get_axis_limit_y(df["PBR_adjusted_nnsi"].max(), 5000000000)
         
         # Prepare metadata
         metadata = {
@@ -58,7 +61,7 @@ class NASABudgetChart(ChartController):
             color=["#3696CE", self.line_view.COLORS["blue"]],
             linestyle=["--", "-"],
             label=["Presidential Budget Request", "Congressional Appropriation"],
-            xlim=(1958, x_limit),
+            xlim=(datetime(1959,1,1), datetime(x_limit,1,1)),
             ylim=(0, y_limit),
             scale="billions"
         )
