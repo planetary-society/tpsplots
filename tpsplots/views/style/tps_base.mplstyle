@@ -31,5 +31,6 @@ xaxis.labellocation : right
 
 # --- Tick direction ---
 xtick.direction     : out
-ytick.direction     : out
+ytick.direction     : in
 xtick.minor.visible : True
+ytick.minor.visible : True

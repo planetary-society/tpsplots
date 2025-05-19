@@ -45,8 +45,9 @@ class NASABudgetChart(ChartController):
         
         # Prepare metadata
         metadata = {
-            "title": "NASA Budget History (Inflation-Adjusted)",
-            "source": f"NASA Budget Justifications, FYs 1961-{fiscal_years.max()}",
+            "title": "How NASA's budget has changed over time",
+            "subtitle": "After peaking during Project Apollo, NASA's inflation-adjusted budget has held mostly steady for decades.",
+            "source": f"NASA Budget Justifications, FYs 1961-{fiscal_years.max():%Y}",
         }
         
         # Load the Line plotter view
@@ -59,7 +60,7 @@ class NASABudgetChart(ChartController):
             x=fiscal_years,
             y=[df["PBR_adjusted_nnsi"], df["Appropriation_adjusted_nnsi"]],
             color=["#3696CE", self.line_view.COLORS["blue"]],
-            linestyle=["--", "-"],
+            linestyle=[":", "-"],
             label=["Presidential Budget Request", "Congressional Appropriation"],
             xlim=(datetime(1958,1,1), datetime(x_limit,1,1)),
             ylim=(0, y_limit),

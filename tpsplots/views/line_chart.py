@@ -55,6 +55,15 @@ class LineChartView(ChartView):
         dpi = kwargs.pop('dpi', style["dpi"])
         fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
         
+        
+        # Intercept title and subtitle parameters
+        # So we do our own custom title processing
+        # in header and footer
+        for text in ["title","subtitle"]:
+            if kwargs.get(text):
+                metadata[text] = kwargs.pop(text)
+        
+        
         # Extract data and handle DataFrame input if provided
         data = kwargs.pop('data', kwargs.pop('df', None))
         x = kwargs.pop('x', None)
@@ -94,9 +103,6 @@ class LineChartView(ChartView):
         marker = kwargs.pop('marker', None)
         alpha = kwargs.pop('alpha', None)
         label = kwargs.pop('label', kwargs.pop('labels', None))
-        
-        # Apply standard styling to the axes
-        self._apply_axes_styling(ax, metadata, style, x_data=x_data, **kwargs)
         
         # Plot each data series
         if x_data is not None and y_data is not None:
@@ -140,15 +146,14 @@ class LineChartView(ChartView):
                 series_key = f"series_{i}"
                 if series_key in kwargs:
                     plot_kwargs.update(kwargs.pop(series_key))
-                
+
                 # Plot this series
                 ax.plot(x_data, y_series, **plot_kwargs)
+                # Apply standard styling to the axes
         
-        # Add footer elements
-        self._add_footer(fig, metadata, style)
+        self._apply_axes_styling(ax, metadata, style, x_data=x_data, **kwargs)
         
-        # Apply tight layout
-        fig.tight_layout(rect=[0, style.get("footer_height", 0.1), 1, 1])
+        self._adjust_layout_for_header_footer(fig, metadata, style)
         
         return fig
     
@@ -181,12 +186,7 @@ class LineChartView(ChartView):
         
         # Handle legend parameter
         legend = kwargs.pop('legend', True)
-        
-        # Apply title from metadata
-        title = metadata.get('title')
-        if title:
-            ax.set_title(title, fontweight='bold', fontsize=style["title_size"])
-        
+
         # Apply axis labels if provided
         if xlabel:
             ax.set_xlabel(xlabel, fontsize=style["label_size"])
@@ -195,6 +195,11 @@ class LineChartView(ChartView):
         
         # Apply grid setting
         ax.grid(grid)
+        
+        # Explicitly set tick sizes
+        tick_size = kwargs.pop('tick_size', style["tick_size"])
+        ax.tick_params(axis='x', labelsize=tick_size)
+        ax.tick_params(axis='y', labelsize=tick_size)
         
         # Check if we should use fiscal year tick formatting
         fiscal_year_ticks = kwargs.pop('fiscal_year_ticks', True)
@@ -229,8 +234,9 @@ class LineChartView(ChartView):
                 ax.set_xticklabels(xticklabels)
             elif all(isinstance(x, (int, float)) and float(x).is_integer() for x in xticks):
                 ax.set_xticklabels([f"{int(x)}" for x in xticks])
-        
-        # Handle legend
+            # Apply legend explicitly using the line objects and their labels
+    
+        #Handle legend
         if legend:
             legend_kwargs = {'fontsize': style["legend_size"]}
             if isinstance(legend, dict):

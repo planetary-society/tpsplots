@@ -44,9 +44,9 @@ class ChartView:
 
     # Device-specific visual settings
     DESKTOP = {
-        "figsize": (16, 9),
+        "figsize": (16, 10),
         "dpi": 300,
-        "title_size": 20,
+        "title_size": 26,
         "label_size": 15,
         "tick_size": 16,
         "legend_size": 12,
@@ -56,21 +56,30 @@ class ChartView:
         "tick_rotation": 90,
         "add_logo": True,
         "max_ticks": 25,
+        "footer": True,
+        "footer_height": 0.1,
+        "header": True,
+        "header_height": 0.1,
+        "subtitle_offset": 0.93, # y position of subtitle
     }
     
     MOBILE = {
-        "figsize": (8, 8),
+        "figsize": (8, 9),
         "dpi": 300,
-        "title_size": 18,
-        "label_size": 15,
-        "tick_size": 15,
+        "title_size": 16,
+        "label_size": 12,
+        "tick_size": 12,
         "legend_size": 9,
         "line_width": 3,
         "marker_size": 5,
         "grid": True,
-        "tick_rotation": 0,
-        "max_ticks": 5,
+        "tick_rotation": 90,
         "add_logo": True,
+        "footer": True,
+        "footer_height": 0.1,
+        "header": True,
+        "header_height": 0.08,
+        "subtitle_offset": 0.94
     }
     
     def __init__(self, outdir: Path = Path("charts"), style_file=TPS_STYLE_FILE):
@@ -261,7 +270,50 @@ class ChartView:
         if axis in ('x', 'both'):
             ax.xaxis.set_major_formatter(FuncFormatter(formatter))
     
-    def _add_footer(self, fig, metadata, style, bottom_margin=0.1):
+    def _add_header(self, fig, metadata, style, top_margin=0.2):
+        """
+        Add header elements to the figure: title and subtitle with left alignment.
+        
+        Args:
+            fig: The matplotlib Figure object
+            metadata: Chart metadata dictionary
+            style: Style dictionary (DESKTOP or MOBILE)
+            top_margin: Top margin to reserve for the header
+        """
+        # Check if header should be displayed
+        if metadata.get('header') == False:
+            return
+        
+        # Reserve space at the top for header
+        fig.subplots_adjust(top=(1.0 - top_margin))
+        
+        # Add title if provided
+        title = metadata.get('title')
+        if title:
+            fig.text(
+                0.01,  # x position (left side)
+                0.98,  # y position (top)
+                title,
+                fontsize=style["title_size"],
+                fontweight='bold',
+                ha='left',
+                va='top'
+            )
+        
+        # Add subtitle if provided
+        subtitle = metadata.get('subtitle')
+        if subtitle:
+            fig.text(
+                0.01,  # x position (left side)
+                style.get("subtitle_offset",0.93),  # y position (below title)
+                subtitle,
+                fontsize=style["title_size"] * 0.7,
+                ha='left',
+                va='top'
+            )
+
+
+    def _add_footer(self, fig, metadata, style, bottom_margin):
         """
         Add footer elements to the figure: horizontal line, source text, and logo.
         
@@ -272,7 +324,7 @@ class ChartView:
             bottom_margin: Bottom margin to reserve for the footer
         """
         # Check if footer should be displayed
-        if metadata.get('footer', True) == False:
+        if metadata.get('footer') == False:
             return
         
         # Reserve space at the bottom for footer
@@ -290,6 +342,43 @@ class ChartView:
         # Add logo if enabled in the style
         if style.get('add_logo', True):
             self._add_logo(fig)
+    
+    
+    def _adjust_layout_for_header_footer(self, fig, metadata, style):
+        """
+        Adjust figure layout to accommodate headers and footers.
+        
+        This method handles the spacing and layout adjustments needed for
+        headers and footers, and applies tight_layout with appropriate margins.
+        
+        Args:
+            fig: The matplotlib Figure object
+            metadata: Chart metadata dictionary
+            style: Style dictionary (DESKTOP or MOBILE, etc)
+        """
+        # Determine if header should be displayed
+        show_header = style.get("header") or metadata.get("header")
+        
+        # Determine if footer should be displayed
+        show_footer = style.get("footer") or metadata.get("footer")
+        
+        # Add header if enabled
+        if show_header:
+            self._add_header(fig, metadata, style, style["header_height"])
+        
+        # Add footer if enabled
+        if show_footer:
+            self._add_footer(fig, metadata, style, style["footer_height"])
+        
+        # Calculate layout bounds based on header/footer presence
+        header_height = style.get("header_height", 0) if show_header else 0
+        footer_height = style.get("footer_height", 0) if show_footer else 0
+        
+        # Apply tight layout with adjusted rectangle
+        fig.tight_layout(rect=[0, footer_height, 1, 1 - header_height])
+        
+        return fig
+    
     
     def _add_horizontal_spacer(self, fig, y_position=None, color=None, linewidth=0.5, extent=(0.02, 0.98)):
         """
