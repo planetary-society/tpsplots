@@ -208,6 +208,12 @@ class LineChartView(ChartView):
         if fiscal_year_ticks and x_data is not None and self._contains_dates(x_data):
             # Apply special FY formatting
             self._apply_fiscal_year_ticks(ax, tick_size=tick_size)
+        elif x_data is not None and self._contains_dates(x_data):
+            import matplotlib.dates as mdates
+            ax.xaxis.set_major_locator(mdates.YearLocator())
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+            plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
+            plt.setp(ax.get_yticklabels(), fontsize=tick_size)
         else:
             # Apply standard tick formatting
             plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
