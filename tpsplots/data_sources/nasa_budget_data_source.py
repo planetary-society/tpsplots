@@ -548,7 +548,7 @@ class Historical(NASABudget):
     )
     # Define the specific columns to load from the source CSV
     COLUMNS = [
-        "Year",
+        "Fiscal Year",
         "Presidential Administration",
         "White House Budget Release Date",
         "White House Budget Submission",
@@ -558,7 +558,7 @@ class Historical(NASABudget):
         "% of U.S. Discretionary Spending",
     ]
     # Define how to rename columns after loading
-    RENAMES = {"Year": "Fiscal Year", "White House Budget Submission": "PBR"}
+    RENAMES = {"White House Budget Submission": "PBR"}
     # Define which columns contain monetary values that need inflation adjustment
     MONETARY_COLUMNS = ["PBR", "Appropriation", "Outlays"]
 

@@ -118,6 +118,8 @@ class NASABudgetChart(ChartController):
             if len(fiscal_years) < 3:
                 continue
             
+            export_df = self._export_helper(df_president,["Fiscal Year","PBR","Appropriation", "PBR_adjusted_nnsi","Appropriation_adjusted_nnsi"])
+            
             y_limit = self._get_rounded_axis_limit_y(df_president["PBR_adjusted_nnsi"].max(),20e9)
             
             first_value = df_president["Appropriation_adjusted_nnsi"].iloc[0]
@@ -161,8 +163,9 @@ class NASABudgetChart(ChartController):
                 xlim=(fiscal_years.min(), fiscal_years.max()),
                 ylim=(0, y_limit),
                 scale="billions",
-                fiscal_year_ticks = False
-                #max_xticks=(fiscal_years.max() - fiscal_years.min() + 1)
+                fiscal_year_ticks = False,
+                max_xticks=(len(fiscal_years) + 1),
+                export_data=export_df
             )
 
     def nasa_major_programs_by_year_inflation_adjusted(self):

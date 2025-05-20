@@ -116,7 +116,7 @@ class ChartController(ABC):
     
     def _export_helper(self,original_df: pd.DataFrame, columns_to_export: list[str]) -> pd.DataFrame:
         """ Helper method to prepare columns for export, assuming it will mostly be Fiscal Year and dollar amounts """
-        export_df = original_df[columns_to_export].copy()
+        export_df = original_df[columns_to_export].copy().reset_index(drop=True)
         
         if "Fiscal Year" in columns_to_export:
             try:
