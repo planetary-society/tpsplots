@@ -176,7 +176,7 @@ class LineChartView(ChartView):
         x_data = kwargs.pop('x_data', None)
         
         # Extract other styling parameters
-        grid = kwargs.pop('grid', style["grid"])
+        grid = kwargs.pop('grid',None)
         tick_rotation = kwargs.pop('tick_rotation', style["tick_rotation"])
         tick_size = kwargs.pop('tick_size', style["tick_size"])
         xlabel = kwargs.pop('xlabel', None)
@@ -194,7 +194,12 @@ class LineChartView(ChartView):
             ax.set_ylabel(ylabel, fontsize=style["label_size"])
         
         # Apply grid setting
-        ax.grid(grid)
+        if (grid or style.get("grid")):
+            if grid:
+                ax.grid(grid)
+            else:
+                grid_args = {"axis":style.get("grid_axis")}
+                ax.grid(**grid_args)
         
         # Explicitly set tick sizes
         tick_size = kwargs.pop('tick_size', style["tick_size"])
@@ -207,7 +212,7 @@ class LineChartView(ChartView):
         # Apply appropriate tick formatting
         if fiscal_year_ticks and x_data is not None and self._contains_dates(x_data):
             # Apply special FY formatting
-            self._apply_fiscal_year_ticks(ax, tick_size=tick_size)
+            self._apply_fiscal_year_ticks(ax, style, tick_size=tick_size)
         elif x_data is not None and self._contains_dates(x_data):
             import matplotlib.dates as mdates
             ax.xaxis.set_major_locator(mdates.YearLocator())
@@ -229,9 +234,15 @@ class LineChartView(ChartView):
         
         # Apply custom limits
         if xlim:
-            ax.set_xlim(xlim)
+            if isinstance(xlim,dict):
+                ax.set_xlim(**xlim)
+            else:
+                ax.set_xlim(xlim)
         if ylim:
-            ax.set_ylim(ylim)
+            if isinstance(ylim,dict):
+                ax.set_ylim(**ylim)
+            else:
+                ax.set_ylim(ylim)
         
         # Apply custom ticks
         if xticks is not None:

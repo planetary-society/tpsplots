@@ -59,7 +59,7 @@ class NASABudgetChart(ChartController):
             export_data=export_df,
         )
 
-    def nasa_budget_appropriation_by_year_inflation_adjusted(self):
+    def nasa_budget_by_year_with_projection_inflation_adjusted(self):
         """Generate historical NASA budget chart with single appropriation line."""
         
         # Get data from model
@@ -69,7 +69,10 @@ class NASABudgetChart(ChartController):
         fiscal_years = df["Fiscal Year"]
         
         # Prepare cleaned export data for CSV
-        export_df = self._export_helper(df, ["Fiscal Year", "Appropriation", "Appropriation_adjusted_nnsi"])
+        export_df = self._export_helper(df, ["Fiscal Year", "Appropriation", "White House Budget Projection","Appropriation_adjusted_nnsi"])
+
+        # Remove "White House Budget Proposal" values where "Appropriation" is present, for clarity
+        export_df.loc[df["Appropriation"].notna(), "White House Budget Projection"] = pd.NA
 
         # Set x limit to be the the nearest multiple of 10 of x_min greater than x_max
         max_fiscal_year = int(fiscal_years.max().strftime("%Y"))
@@ -79,7 +82,7 @@ class NASABudgetChart(ChartController):
         # Prepare metadata
         metadata = {
             "title": "How NASA's budget has changed over time",
-            "subtitle": "After peaking during Project Apollo, NASA's inflation-adjusted budget has held mostly steady for decades.",
+            "subtitle": "After its peak during Apollo, NASA's inflation-adjusted budget has held relatively steady, though that may change.",
             "source": f"NASA Budget Justifications, FYs 1961-{fiscal_years.max():%Y}",
         }
         
@@ -89,15 +92,17 @@ class NASABudgetChart(ChartController):
         # Generate charts via the specialized line chart view
         line_view.line_plot(
             metadata=metadata,
-            stem="nasa_budget_appropriation_by_year_inflation_adjusted",
+            stem="nasa_budget_by_year_with_projection_inflation_adjusted",
             x=fiscal_years,
-            y=df["Appropriation_adjusted_nnsi"],
-            color=line_view.COLORS["blue"],
-            linestyle="-",
-            label="Congressional Appropriation",
+            y=[df["Appropriation_adjusted_nnsi"],df["White House Budget Projection"]],
+            color=[line_view.COLORS["blue"], line_view.TPS_COLORS["Rocket Flame"]],
+            linestyle=["-","-"],
+            marker=["","o"],
+            label=["","Proposed"],
             xlim=(datetime(1958,1,1), datetime(x_limit,1,1)),
-            ylim=(0, y_limit),
+            ylim={"bottom":0, "top":y_limit},
             scale="billions",
+            legend={"loc":"lower right"},
             export_data=export_df,
         )
 

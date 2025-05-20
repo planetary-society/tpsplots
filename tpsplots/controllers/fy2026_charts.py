@@ -48,7 +48,7 @@ class FY2026Charts(ChartController):
             stem="nasa_science_by_year_inflation_adjusted_fy2026_threat",
             x=fiscal_years,
             y=[df["NASA Science_adjusted_nnsi"], df["FY 2026 PBR"]],
-            color=[self.line_view.COLORS["blue"], self.line_view.TPS_COLORS["Rocket Flame"]],
+            color=[line_view.COLORS["blue"], line_view.TPS_COLORS["Rocket Flame"]],
             linestyle=["-", ":"],
             label=["NASA Science (inflation adjusted)", "FY 2026 Presidential Proposal"],
             xlim=(datetime(1980,1,1), datetime(x_limit,1,1)),

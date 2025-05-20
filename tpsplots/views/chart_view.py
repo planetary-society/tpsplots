@@ -10,6 +10,8 @@ from matplotlib.ticker import FuncFormatter
 import matplotlib.dates as mdates
 import warnings
 import logging
+import textwrap
+
 from tpsplots import TPS_STYLE_FILE # custom mplstyle
 
 logger = logging.getLogger(__name__)
@@ -51,39 +53,43 @@ class ChartView:
         "figsize": (16, 10),
         "dpi": 300,
         "title_size": 26,
-        "label_size": 15,
-        "tick_size": 16,
-        "legend_size": 12,
+        "label_size": 20,
+        "tick_size": 20,
+        "legend_size": 20,
         "line_width": 4,
         "marker_size": 6,
         "grid": True,
-        "tick_rotation": 90,
+        "grid_axis": "both",
+        "tick_rotation": 0,
         "add_logo": True,
         "max_ticks": 25,
         "footer": True,
-        "footer_height": 0.1,
+        "footer_height": 0.08,
         "header": True,
         "header_height": 0.1,
         "subtitle_offset": 0.93, # y position of subtitle
+        "subtitle_wrap_length": 120
     }
     
     MOBILE = {
         "figsize": (8, 9),
         "dpi": 300,
-        "title_size": 18,
-        "label_size": 12,
-        "tick_size": 12,
-        "legend_size": 9,
-        "line_width": 3,
+        "title_size": 24,
+        "label_size": 20,
+        "tick_size": 20,
+        "legend_size": 16,
+        "line_width": 4,
         "marker_size": 5,
         "grid": True,
+        "grid_axis": "y",
         "tick_rotation": 90,
         "add_logo": True,
         "footer": True,
-        "footer_height": 0.1,
+        "footer_height": 0.08,
         "header": True,
-        "header_height": 0.08,
-        "subtitle_offset": 0.94
+        "header_height": 0.14,
+        "subtitle_offset": 0.93,
+        "subtitle_wrap_length": 64
     }
     
     def __init__(self, outdir: Path = Path("charts"), style_file=TPS_STYLE_FILE):
@@ -200,7 +206,7 @@ class ChartView:
         logger.info(f"✓ saved {csv_path.name}")
         return csv_path
     
-    def _apply_fiscal_year_ticks(self, ax, tick_size=None):
+    def _apply_fiscal_year_ticks(self, ax, style, tick_size=None):
         """
         Apply consistent fiscal year tick formatting to the x-axis.
         
@@ -209,6 +215,7 @@ class ChartView:
         
         Args:
             ax: Matplotlib axes object
+            style: dict of MOBILE or DESKTOP style options
             tick_size: Optional font size for tick labels
         """
         # Set major ticks at decade boundaries (years divisible by 10)
@@ -229,8 +236,12 @@ class ChartView:
         ax.tick_params(which='minor', length=4, color='gray', width=1)
         ax.tick_params(which='major', length=8, width=1.2)
 
+        # Allow override on tick size
+        if tick_size is None:
+            tick_size = style.get("tick_size")
+
         # Set tick labels horizontal and apply font size if provided
-        plt.setp(ax.get_xticklabels(), rotation=0, fontsize=tick_size)
+        plt.setp(ax.get_xticklabels(), rotation=style.get("tick_rotation",0), fontsize=tick_size)
         
         return ax
 
@@ -276,7 +287,7 @@ class ChartView:
     def _apply_scale_formatter(self, ax, scale='billions', axis='y', decimals=0, prefix='$'):
         """
         Apply scale formatting to axis.
-        
+
         Args:
             ax: The matplotlib Axes object to format
             scale: Scale to apply ('billions', 'millions', 'thousands', 'percentage')
@@ -293,38 +304,29 @@ class ChartView:
 
         if scale not in scales:
             warnings.warn(f"Scale '{scale}' not recognized. No formatter applied.")
-            return # Exit if scale is invalid
+            return
 
         scale_info = scales[scale]
         factor = scale_info['factor']
         suffix = scale_info.get('suffix', '')
-        # Prioritize prefix from scale_info if it exists, otherwise use the default 'prefix' argument
         prefix = scale_info.get('prefix', prefix)
 
         def formatter(x, pos):
             try:
-                # Ensure x is a finite number before proceeding
                 if not np.isfinite(x):
-                     return "Invalid" # Return a placeholder for non-finite values
-
-                # Handle potential division by zero if factor could be zero (unlikely with these scales)
+                    return ""
+                if x == 0:
+                    return ""
                 if factor == 0:
-                     return "Div/0" # Placeholder
-
+                    return ""
                 scaled_value = x / factor
-                # Use the f-string format specifier dynamically
                 format_spec = f'.{decimals}f'
                 formatted_num = f'{scaled_value:{format_spec}}'
-
-                # Combine prefix, formatted number, and suffix
                 return f'{prefix}{formatted_num}{suffix}'
-
             except Exception as e:
                 logger.error(f"Formatter error for value x={x}, pos={pos}: {e}")
-                # Return a placeholder string if formatting fails
-                return "Error"
+                return ""
 
-        # Apply the formatter to the specified axis/axes
         if axis in ('y', 'both'):
             ax.yaxis.set_major_formatter(FuncFormatter(formatter))
         if axis in ('x', 'both'):
@@ -360,16 +362,17 @@ class ChartView:
                 va='top'
             )
         
-        # Add subtitle if provided
+        # Add subtitle if provided, with word wrapping at 68 characters
         subtitle = metadata.get('subtitle')
         if subtitle:
+            wrapped_subtitle = "\n".join(textwrap.wrap(subtitle, width=style.get("subtitle_wrap_length", 65)))
             fig.text(
-                0.01,  # x position (left side)
-                style.get("subtitle_offset",0.93),  # y position (below title)
-                subtitle,
-                fontsize=style["title_size"] * 0.7,
-                ha='left',
-                va='top'
+            0.01,  # x position (left side)
+            style.get("subtitle_offset", 0.93),  # y position (below title)
+            wrapped_subtitle,
+            fontsize=style["title_size"] * 0.7,
+            ha='left',
+            va='top'
             )
 
 
@@ -556,12 +559,17 @@ class ChartView:
         svg_path = self.outdir / f"{filename}.svg"
         png_path = self.outdir / f"{filename}.png"
         
+        if "_desktop" in str(png_path):
+            base_png_path = str(png_path).replace("_desktop","")
+            fig.savefig(base_png_path, format="png", dpi=300)
+            
+        
         fig.savefig(svg_path, format="svg", dpi=300)
         fig.savefig(png_path, format="png", dpi=300)
         logger.info(f"✓ saved {svg_path.name} and {png_path.name}")
         
         if create_pptx:
-            pptx_path = self.outdir / f"{filename}.pptx"
+            pptx_path = self.outdir / f"{filename.replace('_desktop','')}.pptx"
             self._create_pptx(png_path, pptx_path)
             logger.info(f"✓ saved {pptx_path.name}")
             
