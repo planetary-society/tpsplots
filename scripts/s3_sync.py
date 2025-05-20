@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-s3_sync.py - Utility script to sync the charts/ directory to an S3 bucket.
+s3_sync.py - Utility script to upload charts to an S3 bucket.
 
-This can be used to manually upload charts to S3 for testing
-before relying on the GitHub Action.
+This simplified version uploads local files to S3 without requiring list permissions.
+It supports only uploading files, not deleting those that don't exist locally.
 
 Prerequisites:
 - AWS CLI installed and configured with appropriate credentials
@@ -46,38 +46,16 @@ def get_content_type(file_path):
     }
     return content_types.get(extension, 'application/octet-stream')
 
-def sync_directory_to_s3(local_dir, bucket_name, s3_prefix, delete=False, dry_run=False):
-    """Sync a local directory to an S3 bucket."""
+def upload_directory_to_s3(local_dir, bucket_name, s3_prefix, dry_run=False):
+    """Upload files from a local directory to an S3 bucket without listing existing objects."""
     s3_client = boto3.client('s3')
     local_dir = Path(local_dir)
     
     if dry_run:
-        print(f"DRY RUN: Would sync {local_dir} to s3://{bucket_name}/{s3_prefix}")
-        
-    # Check if the bucket exists (even in dry-run mode to validate credentials)
-    try:
-        if not dry_run:
-            s3_client.head_bucket(Bucket=bucket_name)
-        print(f"Using bucket: {bucket_name}")
-    except ClientError as e:
-        print(f"Error: The bucket {bucket_name} does not exist or you don't have access to it.")
-        print(f"Error details: {e}")
-        return False
+        print(f"DRY RUN: Would upload files from {local_dir} to s3://{bucket_name}/{s3_prefix}")
     
-    # Get list of existing files in the S3 prefix if we need to delete files
-    existing_keys = set()
-    if delete and not dry_run:
-        try:
-            paginator = s3_client.get_paginator('list_objects_v2')
-            for page in paginator.paginate(Bucket=bucket_name, Prefix=s3_prefix):
-                if 'Contents' in page:
-                    existing_keys.update(item['Key'] for item in page['Contents'])
-        except ClientError as e:
-            print(f"Error listing objects in {s3_prefix}: {e}")
-            return False
-    
-    # Track which keys we've uploaded or kept
-    uploaded_keys = set()
+    # Track successful uploads
+    uploaded_count = 0
     
     # Upload all files in the local directory
     ALLOWED_TYPES = ['.csv', '.png', '.svg', '.pptx']
@@ -89,42 +67,24 @@ def sync_directory_to_s3(local_dir, bucket_name, s3_prefix, delete=False, dry_ru
             
             if dry_run:
                 print(f"DRY RUN: Would upload {file_path} to s3://{bucket_name}/{s3_key}")
-                uploaded_keys.add(s3_key)
+                uploaded_count += 1
             else:
                 print(f"Uploading {file_path} to s3://{bucket_name}/{s3_key}")
                 if upload_file(s3_client, str(file_path), bucket_name, s3_key):
-                    uploaded_keys.add(s3_key)
+                    uploaded_count += 1
     
-    # Delete files that exist in the bucket but not locally
-    if delete and not dry_run:
-        keys_to_delete = existing_keys - uploaded_keys
-        if keys_to_delete:
-            print(f"Deleting {len(keys_to_delete)} files from S3")
-            # Delete in batches of 1000 (S3 limit)
-            for i in range(0, len(keys_to_delete), 1000):
-                batch = list(keys_to_delete)[i:i+1000]
-                try:
-                    s3_client.delete_objects(
-                        Bucket=bucket_name,
-                        Delete={'Objects': [{'Key': key} for key in batch]}
-                    )
-                except ClientError as e:
-                    print(f"Error deleting objects: {e}")
-    elif delete and dry_run and existing_keys:
-        print(f"DRY RUN: Would delete any files in s3://{bucket_name}/{s3_prefix} that don't exist locally")
-    
+    # Report results
     if dry_run:
-        print(f"DRY RUN: Sync completed. Would upload {len(uploaded_keys)} files to s3://{bucket_name}/{s3_prefix}")
+        print(f"DRY RUN: Would upload {uploaded_count} files to s3://{bucket_name}/{s3_prefix}")
     else:
-        print(f"Sync completed. {len(uploaded_keys)} files uploaded to s3://{bucket_name}/{s3_prefix}")
+        print(f"Upload completed. {uploaded_count} files uploaded to s3://{bucket_name}/{s3_prefix}")
     return True
 
 def main():
-    parser = argparse.ArgumentParser(description="Sync a local directory to an S3 bucket")
-    parser.add_argument("--local-dir", default="charts", help="Local directory to sync (default: charts)")
+    parser = argparse.ArgumentParser(description="Upload files from a local directory to an S3 bucket")
+    parser.add_argument("--local-dir", default="charts", help="Local directory to upload (default: charts)")
     parser.add_argument("--bucket", default="planetary", help="S3 bucket name (default: planetary)")
     parser.add_argument("--prefix", default="assets/charts/", help="S3 prefix (default: assets/charts/)")
-    parser.add_argument("--delete", action="store_true", help="Delete files in the bucket that don't exist locally")
     parser.add_argument("--dry-run", action="store_true", help="Preview changes without uploading")
     
     args = parser.parse_args()
@@ -134,11 +94,10 @@ def main():
         print(f"Error: {local_dir} does not exist or is not a directory")
         return 1
     
-    success = sync_directory_to_s3(
+    success = upload_directory_to_s3(
         local_dir=args.local_dir,
         bucket_name=args.bucket,
         s3_prefix=args.prefix,
-        delete=args.delete,
         dry_run=args.dry_run
     )
     
