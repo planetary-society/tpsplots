@@ -36,12 +36,12 @@ class NASABudgetChart(ChartController):
             if col == "Fiscal Year":
                 continue
             numeric_series = pd.to_numeric(export_df[col], errors='coerce')
-            export_df[col] = numeric_series.round(2)
+            export_df[col] = numeric_series.round(0)
         return export_df
 
     def generate_charts(self):
         """Generate all NASA budget charts."""
-        self.nasa_budget_by_year_inflation_adjusted()
+        self.nasa_budget_pbr_appropriation_by_year_inflation_adjusted()
         self.nasa_directorate_budget_waffle_chart()
         self.nasa_major_programs_by_year_inflation_adjusted()
         self.nasa_science_by_year_inflation_adjusted()
@@ -65,8 +65,8 @@ class NASABudgetChart(ChartController):
         
         # Prepare metadata
         metadata = {
-            "title": "How NASA's budget has changed over time",
-            "subtitle": "After peaking during Project Apollo, NASA's inflation-adjusted budget has held mostly steady for decades.",
+            "title": "Presidential funding levels for NASA are mostly met by Congress",
+            "subtitle": "Except in the aftermath of Challenger, Congress has never exceeded a proposal by more than 10%.",
             "source": f"NASA Budget Justifications, FYs 1961-{fiscal_years.max():%Y}",
         }
         
@@ -88,23 +88,69 @@ class NASABudgetChart(ChartController):
             export_data=export_df,
         )
 
-    def nasa_science_by_year_inflation_adjusted(self):
+    def nasa_budget_appropriation_by_year_inflation_adjusted(self):
+        """Generate historical NASA budget chart with Actual spent."""
+        
+        # Get data from model
+        df = self.data_source.data().dropna(subset=["PBR"])
+        
+        # Prepare data for view
+        fiscal_years = df["Fiscal Year"]
+        
+        # Prepare cleaned export data for CSV
+        export_df = self._export_helper(df, ["Fiscal Year", "Appropriation", "Appropriation_adjusted_nnsi"])
+
+        # Set x limit to be the the nearest multiple of 10 of x_min greater than x_max
+        max_fiscal_year = int(fiscal_years.max().strftime("%Y"))
+        x_limit = self._get_rounded_axis_limit_x(max_fiscal_year,10,True)
+        y_limit = self._get_rounded_axis_limit_y(df["Appropriation_adjusted_nnsi"].max(), 5000000000)
+        
+        # Prepare metadata
+        metadata = {
+            "title": "How NASA's budget has changed over time",
+            "subtitle": "After peaking during Project Apollo, NASA's inflation-adjusted budget has held mostly steady for decades.",
+            "source": f"NASA Budget Justifications, FYs 1961-{fiscal_years.max():%Y}",
+        }
+        
+        # Load the Line plotter view
+        line_view = self.get_view('Line')
+        
+        # Generate charts via the specialized line chart view
+        line_view.line_plot(
+            metadata=metadata,
+            stem="nasa_budget_appropriation_by_year_inflation_adjusted",
+            x=fiscal_years,
+            y=df["Appropriation_adjusted_nnsi"],
+            color=self.line_view.COLORS["blue"],
+            linestyle="-",
+            label="Congressional Appropriation",
+            xlim=(datetime(1958,1,1), datetime(x_limit,1,1)),
+            ylim=(0, y_limit),
+            scale="billions",
+            export_data=export_df,
+        )
+
+    def nasa_science_by_year_inflation_adjusted_fy2026_threat(self):
         """Generate historical NASA Science budget chart."""
         # Get data from model
         self.data_source = Science()
         df = self.data_source.data()  # Drop rows without directorate data
 
         # Prepare data for view
-        fiscal_years = df["Fiscal Year"].astype(int)  # Convert to int for x-axis
+        # Only grab years through FY 2025
+        fiscal_years = df[df["Fiscal Year"] <= pd.to_datetime("2026-01-01")]["Fiscal Year"]
         
-        # Determine the closest year in the future that is a multiple of 5
-        x_limit = (fiscal_years.max() // 5 + 1) * 5
-        y_limit = (df["NASA Science_adjusted_nnsi"].max() // 5000000000 + 1) * 5000000000
+        # Prepare cleaned data for export
+        export_df = self._export_helper(df, ["Fiscal Year", "NASA Science", "NASA Science_adjusted_nnsi", "FY 2026 PBR"])
+        
+        x_limit = 2030
+        y_limit = self._get_rounded_axis_limit_y(df["NASA Science_adjusted_nnsi"].max(), 5000000000)
         
         # Prepare metadata
         metadata = {
-            "title": "NASA Science faces an existential threat",
-            "source": f"NASA Budget Justifications, FYs 1980-{fiscal_years.max()}",
+            "title": "NASA faces its worst science budget since 1984",
+            "subtitle": "Never in history has the agency's science programs faced such a rapid, severe cut.",
+            "source": f"NASA Budget Justifications, FYs 1980-{fiscal_years.max():%Y}",
         }
         
         # Plot as line chart
@@ -113,15 +159,16 @@ class NASABudgetChart(ChartController):
         # Generate charts via the specialized line chart view
         line_view.line_plot(
             metadata=metadata,
-            stem="nasa_science_by_year_inflation_adjusted",
+            stem="nasa_science_by_year_inflation_adjusted_fy2026_threat",
             x=fiscal_years,
             y=[df["NASA Science_adjusted_nnsi"], df["FY 2026 PBR"]],
             color=[self.line_view.COLORS["blue"], self.line_view.TPS_COLORS["Rocket Flame"]],
-            linestyle=["-", "--"],
-            label=["NASA Science", "FY2026 Presidential Request"],
-            xlim=(1980, x_limit),
+            linestyle=["-", ":"],
+            label=["NASA Science (inflation adjusted)", "FY 2026 Presidential Proposal"],
+            xlim=(datetime(1980,1,1), datetime(x_limit,1,1)),
             ylim=(0, y_limit),
-            scale="billions"
+            scale="billions",
+            export_data=export_df
         )
 
     def nasa_budget_by_presidential_administration(self):

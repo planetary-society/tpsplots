@@ -70,7 +70,7 @@ class ChartView:
     MOBILE = {
         "figsize": (8, 9),
         "dpi": 300,
-        "title_size": 16,
+        "title_size": 18,
         "label_size": 12,
         "tick_size": 12,
         "legend_size": 9,
