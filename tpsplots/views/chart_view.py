@@ -115,7 +115,7 @@ class ChartView:
             dict: Dictionary with desktop and mobile figure objects
         """
         
-        export_data = kwargs.pop("export_data")
+        export_data = kwargs.pop("export_data", None)
         
         # Create desktop version
         desktop_kwargs = kwargs.copy()
@@ -197,7 +197,7 @@ class ChartView:
                 # Convert each value: if it's NaN, write '', else write the value
                 writer.writerow(['' if (isinstance(val, float) and np.isnan(val)) else val for val in row])
         
-        print(f"✓ saved {csv_path.name}")
+        logger.info(f"✓ saved {csv_path.name}")
         return csv_path
     
     def _apply_fiscal_year_ticks(self, ax, tick_size=None):
@@ -249,7 +249,11 @@ class ChartView:
             return False
             
         # Check if x_data contains datetime objects
-        first_elem = x_data[0]
+        try:
+            first_elem = x_data.iloc[0] if hasattr(x_data, "iloc") else x_data[0]
+        except KeyError as e:
+            logger.warning(f"Cannot read first element in array to check date objects: {x_data}")
+            return False
         
         # Check for datetime-like objects
         if hasattr(first_elem, 'year') and hasattr(first_elem, 'month'):
@@ -316,7 +320,7 @@ class ChartView:
                 return f'{prefix}{formatted_num}{suffix}'
 
             except Exception as e:
-                print(f"Formatter error for value x={x}, pos={pos}: {e}")
+                logger.error(f"Formatter error for value x={x}, pos={pos}: {e}")
                 # Return a placeholder string if formatting fails
                 return "Error"
 
@@ -516,7 +520,7 @@ class ChartView:
             # This is important to prevent the logo from extending beyond the visible area
             fig.tight_layout(rect=[0, 0.09, 1, 1])
         except Exception as e:
-            print(f"Warning: Could not add logo: {e}")
+            logger.error(f"Warning: Could not add logo: {e}")
     
     def _add_source(self, fig, source_text):
         """
@@ -554,12 +558,12 @@ class ChartView:
         
         fig.savefig(svg_path, format="svg", dpi=300)
         fig.savefig(png_path, format="png", dpi=300)
-        print(f"✓ saved {svg_path.name} and {png_path.name}")
+        logger.info(f"✓ saved {svg_path.name} and {png_path.name}")
         
         if create_pptx:
             pptx_path = self.outdir / f"{filename}.pptx"
             self._create_pptx(png_path, pptx_path)
-            print(f"✓ saved {pptx_path.name}")
+            logger.info(f"✓ saved {pptx_path.name}")
             
         plt.close(fig)
 
