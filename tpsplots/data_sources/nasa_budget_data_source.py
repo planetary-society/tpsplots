@@ -623,14 +623,14 @@ class Directorates(NASABudget):
     COLUMNS = ["Fiscal Year", "Aeronautics", "HSF Exploration", "LEO Space Operations",
                "STMD", "SMD", "Education/STEM Outreach", "Cross Agency Support/CECR"]
     RENAMES = {
-            "Cross Agency Support/CECR": "Infrastructure/Overhead",
+            "Cross Agency Support/CECR": "Facilities, IT, & Salaries",
             "Education/STEM Outreach": "STEM Education",
             "STMD": "Space Technology",
             "HSF Exploration": "Deep Space Exploration Systems",
             "SMD": "Science",
         }
     MONETARY_COLUMNS = ["Aeronautics", "Space Technology", "Deep Space Exploration Systems", "LEO Space Operations",
-               "Science", "STEM Education", "Infrastructure/Overhead"]
+               "Science", "STEM Education", "Facilities, IT, & Salaries"]
 
     def __init__(self, *, cache_dir: Path | None = None) -> None:
         """

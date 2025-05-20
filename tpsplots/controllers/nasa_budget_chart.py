@@ -8,6 +8,10 @@ from tpsplots.data_sources.nasa_budget_data_source import Historical, Directorat
 from matplotlib import pyplot as plt
 import pandas as pd
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 class NASABudgetChart(ChartController):
     """Controller for top-line NASA budget charts."""
 
@@ -185,7 +189,7 @@ class NASABudgetChart(ChartController):
         
         y_data = [df["Deep Space Exploration Systems_adjusted_nnsi"], df["Science_adjusted_nnsi"],
                   df["Aeronautics_adjusted_nnsi"], df["Space Technology_adjusted_nnsi"], df["STEM Education_adjusted_nnsi"],
-                  df["LEO Space Operations_adjusted_nnsi"], df["Infrastructure/Overhead_adjusted_nnsi"]
+                  df["LEO Space Operations_adjusted_nnsi"], df["Facilities, IT, & Salaries_adjusted_nnsi"]
                   ]
         labels = ["Deep Space Exploration Systems", "Science Mission Directorate",
                   "Aeronautics", "Space Technology", "STEM Education",
@@ -213,7 +217,82 @@ class NASABudgetChart(ChartController):
                 'handlelength': .8
             },
         )
+    
+    def nasa_major_activites_donut_chart(self):
+        self.data_source = Directorates()
+        donut_view = self.get_view("Donut")
         
+        # Get data
+        df = self.data_source.data()
+        
+        # Calculate the last fiscal year
+        last_completed_fy = datetime(datetime.today().year - 1, 1, 1)
+        
+        # Filter to just that fiscal year
+        # First convert the Fiscal Year column to datetime if it's not already
+        if not pd.api.types.is_datetime64_any_dtype(df["Fiscal Year"]):
+            df["Fiscal Year"] = pd.to_datetime(df["Fiscal Year"])
+        
+        # Filter the DataFrame to the last completed fiscal year
+        year_df = df[df["Fiscal Year"].dt.year == last_completed_fy.year]
+        
+        # Check if we have data for the last completed fiscal year
+        if year_df.empty:
+            # Fall back to the most recent available year
+            latest_available_year = df["Fiscal Year"].max()
+            year_df = df[df["Fiscal Year"] == latest_available_year]
+            
+            # Provide a warning in the logs
+            logger.warning(f"No data found for FY {last_completed_fy.year}, falling back to {latest_available_year:%Y}")
+        
+        # Select only monetary columns (not fiscal year or adjusted columns)
+        labels = ["Science", "Aeronautics", "Deep Space Exploration Systems", "LEO Space Operations",
+                  "Space Technology", "Facilities, IT, & Salaries"]
+        
+        # Extract values from the single row
+        directorates_df = year_df[labels]
+        
+        values = directorates_df.iloc[0].tolist()
+        
+        # Sort values labels
+        sorted_data = list(zip(values, labels))
+        sorted_values, sorted_labels = zip(*sorted_data)
+        
+        # Create export dataframe
+        export_data = []
+        for label, value in zip(sorted_labels, sorted_values):
+            export_data.append({
+                "Directorate": label, 
+                f"FY {last_completed_fy.year} Budget ($)": value
+            })
+        export_data.append({
+                "Directorate": "STEM Education", 
+                f"FY {last_completed_fy.year} Budget ($)": year_df["STEM Education"].values[0]
+            }) # Add STEM Education back to export
+        export_df = pd.DataFrame(export_data)
+ 
+        # Prepare metadata
+        metadata = {
+            "title": "NASA's budget is subdivided by mission area",
+            "subtitle": "Directorates are responsible for distinct activities — from science to facilities — and they don't share funding.",
+            "source": f"FY {last_completed_fy:%Y} Congressional Appropriations",
+        }
+        
+        # Generate the donut chart
+        donut_view.donut_plot(
+            metadata=metadata,
+            stem="nasa_directorate_breakdown_donut_chart",
+            values=sorted_values,
+            labels=sorted_labels,
+            show_percentages=True,
+            label_wrap_length=15,
+            label_distance=1.1,
+            hole_size=0.6,
+            center_text="NASA",
+            center_color="white",
+            export_data=export_df
+        )
+    
     def nasa_directorate_budget_waffle_chart(self):
         """Generate NASA budget breakdown by directorate as a waffle chart."""
         

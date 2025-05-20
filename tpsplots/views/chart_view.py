@@ -55,7 +55,7 @@ class ChartView:
         "title_size": 26,
         "label_size": 20,
         "tick_size": 20,
-        "legend_size": 20,
+        "legend_size": 18,
         "line_width": 4,
         "marker_size": 6,
         "grid": True,
@@ -77,7 +77,7 @@ class ChartView:
         "title_size": 24,
         "label_size": 20,
         "tick_size": 20,
-        "legend_size": 16,
+        "legend_size": 15,
         "line_width": 4,
         "marker_size": 5,
         "grid": True,
@@ -179,15 +179,16 @@ class ChartView:
         meta_rows = []
         
         # Add author and generation info
-        meta_rows.append(["Author", "The Planetary Society"])
+        meta_rows.append(["Author", "Casey Dreier/The Planetary Society"])
         meta_rows.append(["Website", "https://planetary.org"])
         meta_rows.append(["Generated", datetime.now().strftime("%Y-%m-%d")])
         
         if 'source' in metadata:
             meta_rows.append(["Data Source", metadata['source']])
+        meta_rows.append(["License","CC BY 4.0"])
         
         # Add a blank row between metadata and data
-        meta_rows.append([])
+        meta_rows.append(["",""])
         
         # Write metadata and data to CSV
         with open(csv_path, 'w', newline='') as f:
