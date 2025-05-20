@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from pathlib import Path
 from tpsplots.views import ChartView, LineChartView, WaffleChartView
+import pandas as pd
 
 class ChartController(ABC):
     """
@@ -112,3 +113,44 @@ class ChartController(ABC):
 
         # Otherwise, add the difference needed to reach the next multiple boundary
         return upper_value + (multiple - remainder)
+    
+    def _export_helper(self,original_df: pd.DataFrame, columns_to_export: list[str]) -> pd.DataFrame:
+        """ Helper method to prepare columns for export, assuming it will mostly be Fiscal Year and dollar amounts """
+        export_df = original_df[columns_to_export].copy()
+        
+        if "Fiscal Year" in columns_to_export:
+            try:
+                export_df["Fiscal Year"] = pd.to_datetime(export_df["Fiscal Year"]).dt.strftime('%Y')
+            except Exception as e:
+                export_df["Fiscal Year"] = export_df["Fiscal Year"].astype(str) # Fallback to string
+        
+        for col in columns_to_export:
+            if col == "Fiscal Year":
+                continue
+            numeric_series = pd.to_numeric(export_df[col], errors='coerce')
+            export_df[col] = numeric_series.round(0)
+        return export_df
+
+    @staticmethod
+    def round_to_millions(amount: float) -> str:
+        """Format money amount with commas and 2 decimal places, display as millions or billions based on the amount."""
+        if amount < 0:
+            is_neg = True
+            amount = amount * -1
+        else:
+            is_neg = False
+        
+        if amount >= 1_000_000_000:
+            formatted = "${:,.0f} billion".format(amount / 1_000_000_000)
+        elif amount >= 10_000_000:
+            formatted =  "${:,.0f} million".format(amount / 1_000_000)
+        elif amount >= 1_000_000:
+            formatted =  "${:,.0f} million".format(amount / 1_000_000)
+        else:
+            formatted = "${:,.2f}".format(amount)
+        
+        if is_neg:
+            formatted = "-" + formatted
+        
+        return formatted
+
