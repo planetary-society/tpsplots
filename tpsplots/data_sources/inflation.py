@@ -165,7 +165,7 @@ class NNSI(Inflation):
                     return np.nan
             return perc_str # Return the original value if it's not a percentage string
         
-        df = df.applymap(percentage_to_float)
+        df = df.map(percentage_to_float)
         
         # Remove any rows with only NaN values
         df = df.dropna(how="all")
