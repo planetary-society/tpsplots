@@ -127,13 +127,13 @@ class ChartView:
         desktop_kwargs = kwargs.copy()
         desktop_kwargs['style'] = self.DESKTOP
         desktop_fig = self._create_chart(metadata, **desktop_kwargs)
-        self._save_chart(desktop_fig, f"{stem}_desktop", create_pptx=True)
+        self._save_chart(desktop_fig, f"{stem}_desktop", metadata, create_pptx=True)
         
         # Create mobile version
         mobile_kwargs = kwargs.copy()
         mobile_kwargs['style'] = self.MOBILE
         mobile_fig = self._create_chart(metadata, **mobile_kwargs)
-        self._save_chart(mobile_fig, f"{stem}_mobile", create_pptx=False)
+        self._save_chart(mobile_fig, f"{stem}_mobile", metadata, create_pptx=False)
         
         # Export CSV if export_data is present
         if export_data is not None:
@@ -511,7 +511,7 @@ class ChartView:
                         
             ab = AnnotationBbox(
                 imagebox, 
-                xy=(0.99, 0),  # Position at right, bottom corner
+                xy=(0.99, 0.001),  # Position at right, bottom corner
                 xycoords='figure fraction',
                 box_alignment=(1, 0),  # Align the right edge of the logo with the xy point
                 frameon=False,
@@ -547,15 +547,18 @@ class ChartView:
             va='bottom'
         )
 
-    def _save_chart(self, fig, filename, create_pptx=False):
+    def _save_chart(self, fig, filename, metadata, create_pptx=False):
         """
         Save chart as SVG, PNG, and optionally PPTX.
         
         Args:
             fig: The matplotlib Figure object
             filename: Base filename for saving
+            metadata: title, source, etc context for chart
             create_pptx: Whether to create a PowerPoint file
         """
+        
+        clean_filename = filename.replace("_desktop","").replace("_mobile","")
         svg_path = self.outdir / f"{filename}.svg"
         png_path = self.outdir / f"{filename}.png"
         
@@ -563,9 +566,16 @@ class ChartView:
             base_png_path = str(png_path).replace("_desktop","")
             fig.savefig(base_png_path, format="png", dpi=300)
             
+        metadata = {
+            "Title": metadata.get("title",clean_filename.replace("_"," ")),
+            "Creator": "Casey Dreier/The Planetary Society",
+            "Date": datetime.today().strftime("%Y-%m-%d"),
+            "Rights": "CC BY 4.0",
+            "Source": metadata.get("source")
+        }
         
-        fig.savefig(svg_path, format="svg", dpi=300)
-        fig.savefig(png_path, format="png", dpi=300)
+        fig.savefig(svg_path, metadata=metadata, format="svg", dpi=150, bbox_inches='tight', pad_inches=0.25)
+        fig.savefig(png_path, metadata=metadata, format="png", dpi=300)
         logger.info(f"✓ saved {svg_path.name} and {png_path.name}")
         
         if create_pptx:
