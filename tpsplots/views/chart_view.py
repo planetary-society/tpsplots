@@ -240,12 +240,16 @@ class ChartView:
         except Exception:
             year_range = 0
 
+        # if the range is greater than 20 years, show only decade labels
         if year_range > 20:
-            # Hide labels for non-decade years by customizing the formatter
             def decade_label(year, pos):
                 year_int = int(mdates.num2date(year).year)
                 return str(year_int) if year_int % 10 == 0 else ""
             ax.xaxis.set_major_formatter(FuncFormatter(decade_label))
+        elif year_range < 10:
+            # If the range is less than 10 years, show all years
+            ax.xaxis.set_major_locator(mdates.YearLocator(1))
+
 
         # Make minor ticks visible but unlabeled
         ax.tick_params(which='minor', length=4, color='gray', width=1)
