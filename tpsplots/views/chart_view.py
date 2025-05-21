@@ -575,7 +575,7 @@ class ChartView:
             "Source": metadata.get("source")
         }
         
-        fig.savefig(svg_path, metadata=metadata, format="svg", dpi=150, bbox_inches='tight', pad_inches=0.25)
+        fig.savefig(svg_path, metadata=metadata, format="svg", dpi=150)
         fig.savefig(png_path, metadata=metadata, format="png", dpi=300)
         logger.info(f"✓ saved {svg_path.name} and {png_path.name}")
         
