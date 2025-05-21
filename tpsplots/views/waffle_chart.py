@@ -76,8 +76,6 @@ class WaffleChartView(ChartView):
             # Reduce number of columns for mobile
             if 'ncol' in legend:
                 legend['ncol'] = math.ceil(legend['ncol'] / 2) + 1
-            # Use smaller font for mobile
-            legend['fontsize'] = "small"
             
             # Adjust position if using bbox_to_anchor
             if 'bbox_to_anchor' in legend:
@@ -91,30 +89,7 @@ class WaffleChartView(ChartView):
             **kwargs
         )
         
-        # Apply title from metadata
-        title = metadata.get('title', '')
-        if title:
-            fig.suptitle(
-                title,
-                fontsize=style["title_size"],
-                fontweight='bold',
-                y=0.98
-            )
-        
-        # Apply subtitle if present
-        subtitle = metadata.get('subtitle', '')
-        if subtitle:
-            fig.text(
-                0.5, 0.92,  # Position just below the title
-                subtitle,
-                fontsize=style["title_size"] * 0.5,
-                ha='center',
-                style='italic'
-            )
-        
-        # Add footer elements (line, source, logo)
-        self._add_footer(fig, metadata, style)
-        
+        self._adjust_layout_for_header_footer(fig, metadata, style)
         return fig
     
     def _calculate_waffle_dimensions(self, total_blocks, figsize):
