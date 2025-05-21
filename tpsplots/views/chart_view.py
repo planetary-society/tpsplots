@@ -50,6 +50,7 @@ class ChartView:
 
     # Device-specific visual settings
     DESKTOP = {
+        "type": "desktop",
         "figsize": (16, 10),
         "dpi": 300,
         "title_size": 26,
@@ -68,10 +69,12 @@ class ChartView:
         "header": True,
         "header_height": 0.1,
         "subtitle_offset": 0.93, # y position of subtitle
-        "subtitle_wrap_length": 120
+        "subtitle_wrap_length": 120,
+        "label_wrap_length": 30
     }
     
     MOBILE = {
+        "type": "mobile",
         "figsize": (8, 9),
         "dpi": 300,
         "title_size": 24,
@@ -89,7 +92,8 @@ class ChartView:
         "header": True,
         "header_height": 0.14,
         "subtitle_offset": 0.93,
-        "subtitle_wrap_length": 64
+        "subtitle_wrap_length": 64,
+        "label_wrap_length": 15
     }
     
     def __init__(self, outdir: Path = Path("charts"), style_file=TPS_STYLE_FILE):
@@ -366,7 +370,7 @@ class ChartView:
         # Add subtitle if provided, with word wrapping at 68 characters
         subtitle = metadata.get('subtitle')
         if subtitle:
-            wrapped_subtitle = "\n".join(textwrap.wrap(subtitle, width=style.get("subtitle_wrap_length", 65)))
+            wrapped_subtitle = "\n".join(textwrap.wrap(self._escape_svg_text(subtitle), width=style.get("subtitle_wrap_length", 65)))
             fig.text(
             0.01,  # x position (left side)
             style.get("subtitle_offset", 0.93),  # y position (below title)
@@ -606,3 +610,38 @@ class ChartView:
         slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank
         slide.shapes.add_picture(str(png_path), Inches(0.5), Inches(0.5), width=Inches(12.33))
         prs.save(pptx_path)
+
+    def _escape_svg_text(self, text):
+        """
+        Escape special characters for SVG text rendering in matplotlib.
+        
+        Args:
+            text: The text string to escape
+            
+        Returns:
+            The escaped text string
+        """
+        if text is None:
+            return None
+            
+        # Define replacements for special characters
+        replacements = {
+            '$': '\$',
+            '%': '\%',
+            '&': '\&',
+            '<': '\<',
+            '>': '\>',
+            '#': '\#',
+            '^': '\^',
+            '_': '\_',
+            '{': '\{',
+            '}': '\}',
+            '|': '\|',
+            '~': '\~'
+        }
+        
+        # Apply all replacements
+        for char, replacement in replacements.items():
+            text = text.replace(char, replacement)
+            
+        return text

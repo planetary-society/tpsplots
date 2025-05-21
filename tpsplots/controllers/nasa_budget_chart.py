@@ -285,7 +285,6 @@ class NASABudgetChart(ChartController):
             values=sorted_values,
             labels=sorted_labels,
             show_percentages=True,
-            label_wrap_length=15,
             label_distance=1.1,
             hole_size=0.6,
             center_text="NASA",
@@ -362,13 +361,13 @@ class NASABudgetChart(ChartController):
             }
         )
     
-    def nasa_budget_comparison(self):
-        """Generate NASA budget breakdown by directorate as a waffle chart."""
+    def nasa_spending_as_part_of_annual_us_expenditures(self):
+        """Generate NASA's portion of U.S. spending using a waffle chart."""
         
         # Load View for Waffle Charts
         waffle_view = self.get_view('Waffle')
         
-        comparisons = {"Remainder of U.S. Government Spending": 68e12, "NASA": 25e9}
+        comparisons = {"Non-NASA U.S. Spending": 6_800_000_000_000, "NASA": 25_000_000_000}
         
         # Define block value
         block_value = 25_000_000_000
@@ -388,8 +387,8 @@ class NASABudgetChart(ChartController):
 
         # Add block value explanation to the title or subtitle
         metadata = {
-            "title": f"NASA in context of annual U.S. spending",
-            "subtitle": "Each block represents $25 billion.",
+            "title": f"NASA is a fraction of U.S. spending",
+            "subtitle": "One small block for NASA ($25 billion), one giant expenditure for everything else ($6.8 trillion).",
             "source": f"Congressional Budget Office, FY 2024",
         }
         
@@ -398,24 +397,29 @@ class NASABudgetChart(ChartController):
             waffle_view.TPS_COLORS["Comet Dust"],
         ]
         
+        export_df = pd.DataFrame({
+            "Category": ["NASA", "U.S. Total Outlays"],
+            "FY 2024 Spending ($)": [v * block_value for v in sorted_directorates.values()]
+        })
+        
         waffle_view.waffle_chart(
             metadata=metadata,
-            stem="nasa_comparison",
+            stem="nasa_spending_as_part_of_annual_us_expenditures",
             values=sorted_directorates,
             labels=labels, 
             colors=category_colors,
             vertical=True,
-            starting_location='NW',
+            starting_location='SW',
             interval_ratio_x=0.25,
             interval_ratio_y=0.25,
             legend={
                 'loc': 'lower left',
                 'frameon': False,  # No border
-                'bbox_to_anchor': (0,-0.07),
-                'fontsize': "large",
-                'ncol': 1,
+                'bbox_to_anchor': (0,-0.09),
+                'ncol': 2,
                 'handlelength': .8
-            }
+            },
+            export_data=export_df
         )
         
     def generate_charts(self):

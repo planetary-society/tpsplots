@@ -54,6 +54,7 @@ class DonutChartView(ChartView):
         Returns:
             List of wrapped label strings
         """
+        
         wrapped_labels = []
         for label in labels:
             if len(label) > max_length:
@@ -98,9 +99,9 @@ class DonutChartView(ChartView):
         # Extract styling parameters
         labels = kwargs.pop('labels', None)
         colors = kwargs.pop('colors', None)
-        label_wrap_length = kwargs.pop('label_wrap_length', 15)
+        label_wrap_length = kwargs.pop('label_wrap_length', style.get("label_wrap_length"))
         label_distance = kwargs.pop('label_distance', 1.4)  # Increased for less overlap
-        
+ 
         # Wrap long labels
         if labels:
             # Convert to list if it's a tuple (which doesn't have copy method)
@@ -214,7 +215,7 @@ class DonutChartView(ChartView):
             top_right = adjust_positions(top_right, 0.1)
             top_left = adjust_positions(top_left,0.22)
             bottom_left = adjust_positions(bottom_left, -0.3)  # Negative for bottom sections
-            bottom_right = adjust_positions(bottom_right, -0.3)  # Negative for bottom sections
+            bottom_right = adjust_positions(bottom_right, -0.4)  # Negative for bottom sections
             
             # Combine all adjusted positions
             adjusted_positions = top_right + top_left + bottom_left + bottom_right
@@ -230,7 +231,7 @@ class DonutChartView(ChartView):
                     va = 'top' if y < 0 else 'bottom'
                 
                 # Add the label with percentage
-                label_text = f"{label} ({pct})" if show_percentages else label
+                label_text = f"{label}\n({pct})" if show_percentages else label
                 
                 ax.text(
                     x, y, 

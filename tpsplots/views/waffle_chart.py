@@ -59,6 +59,9 @@ class WaffleChartView(ChartView):
         if not values:
             raise ValueError("The 'values' parameter is required for waffle_chart")
         
+        if 'legend' in kwargs and isinstance(kwargs['legend'], dict):
+            kwargs["legend"]["fontsize"] = int(style.get("legend_size",15))
+        
         # Handle rows and columns calculation if not provided
         if 'rows' not in kwargs and 'columns' not in kwargs:
             total_blocks = sum(values.values())
@@ -80,9 +83,10 @@ class WaffleChartView(ChartView):
             # Adjust position if using bbox_to_anchor
             if 'bbox_to_anchor' in legend:
                 bbox = legend['bbox_to_anchor']
-                legend['bbox_to_anchor'] = (bbox[0], bbox[1] - 0.03)
+                legend['bbox_to_anchor'] = (bbox[0], bbox[1] + 0.02)
                 legend['borderpad'] = 0
-        
+            kwargs['legend'] = legend
+
         # Create the waffle chart
         fig = plt.figure(
             FigureClass=Waffle,
