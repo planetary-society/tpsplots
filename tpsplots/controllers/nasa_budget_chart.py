@@ -178,6 +178,12 @@ class NASABudgetChart(ChartController):
         self.data_source = Directorates()
         df = self.data_source.data().dropna(subset=["Science"])  # Drop rows without directorate data
         
+        # Calculate the last fiscal year
+        last_completed_fy = datetime(datetime.today().year - 1, 1, 1)
+        
+        # Filter out df to only include years up to the last completed fiscal year
+        df = df[df["Fiscal Year"] <= last_completed_fy]
+        
         # Prepare data for view
         fiscal_years = df["Fiscal Year"]
         
@@ -190,6 +196,16 @@ class NASABudgetChart(ChartController):
         labels = ["Deep Space Exploration Systems", "Science Mission Directorate",
                   "Aeronautics", "Space Technology", "STEM Education",
                   "LEO Space Operations", "SSMS/CECR (Overhead)"]
+        
+        # Export data for CSV
+        export_df = self._export_helper(df, ["Fiscal Year", "Deep Space Exploration Systems", "Deep Space Exploration Systems_adjusted_nnsi",
+                                            "Science", "Science_adjusted_nnsi", "Aeronautics", "Aeronautics_adjusted_nnsi",
+                                            "Space Technology", "Space Technology_adjusted_nnsi",
+                                            "STEM Education", "STEM Education_adjusted_nnsi",
+                                            "LEO Space Operations", "LEO Space Operations_adjusted_nnsi",
+                                            "Facilities, IT, & Salaries", "Facilities, IT, & Salaries_adjusted_nnsi"])
+    
+        
         # Prepare metadata
         metadata = {
             "title": "NASA directorates can have diverging fortunes",
@@ -216,9 +232,11 @@ class NASABudgetChart(ChartController):
                 'ncol': 3,
                 'handlelength': .8
             },
+            export_data=export_df
         )
     
     def nasa_major_activites_donut_chart(self):
+        """ Generate donut chart breakdown of NASA directorate budgets for the last fiscal year."""
         self.data_source = Directorates()
         donut_view = self.get_view("Donut")
         
