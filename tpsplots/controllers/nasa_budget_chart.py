@@ -292,81 +292,8 @@ class NASABudgetChart(ChartController):
             export_data=export_df
         )
     
-    def nasa_directorate_budget_waffle_chart(self):
-        """Generate NASA budget breakdown by directorate as a waffle chart."""
-        
-        # Load View for Waffle Charts
-        waffle_view = self.get_view('Waffle')
-        
-        self.data_source = Directorates()
-        df = self.data_source.data().dropna(subset=["Science"])  # Drop rows without directorate data
-        
-        available_years = sorted(df["Fiscal Year"].unique())
-        prior_fy = available_years[-2]
-        
-        # Convert the row where Fiscal Year is the prior FY into a dictionary
-        nasa_directorates = df[df["Fiscal Year"] == prior_fy].iloc[0].drop(
-            labels=["Fiscal Year"] + [col for col in df.columns if "adjusted" in col]
-        ).to_dict()
-        
-        # Define block value - each block represents $50M
-        block_value = 50000000
-
-        # Scale values to represent blocks ($50M each)
-        scaled_directorates = {k: round(v / block_value) for k, v in nasa_directorates.items()}
-        
-        # Order directorates so largest values are first
-        sorted_directorates = dict(sorted(scaled_directorates.items(), key=lambda item: item[1], reverse=True))
-
-        # Calculate relative percentages for labels
-        repartition = [
-            f"{k} ({v / sum(nasa_directorates.values()) * 100:.1f}%)" if v / sum(nasa_directorates.values()) * 100 < 1 
-            else f"{k} ({int(v / sum(nasa_directorates.values()) * 100)}%)" 
-            for k, v in sorted(nasa_directorates.items(), key=lambda item: item[1], reverse=True)
-        ]
-
-        # Add block value explanation to the title or subtitle
-        metadata = {
-            "title": f"NASA Budget by Directorate, FY {prior_fy}",
-            "subtitle": "Each block represents $50 million",
-            "source": f"FY{prior_fy} NASA Budget Justification",
-        }
-        
-        category_colors = [
-            waffle_view.TPS_COLORS["Neptune Blue"],     # Strong blue for largest category
-            waffle_view.TPS_COLORS["Plasma Purple"],    # Rich purple for contrast
-            waffle_view.TPS_COLORS["Medium Neptune"],   # Lighter blue
-            waffle_view.TPS_COLORS["Rocket Flame"],     # Warm orange-red
-            waffle_view.TPS_COLORS["Medium Plasma"],    # Softer purple
-            waffle_view.TPS_COLORS["Lunar Soil"],       # Neutral gray
-            waffle_view.TPS_COLORS["Light Neptune"]     # Very light blue for smallest category
-        ]
-        
-        waffle_view.waffle_chart(
-            metadata=metadata,
-            stem="nasa_directorate_breakdown",
-            values=sorted_directorates,
-            labels=repartition, 
-            colors=category_colors,
-            vertical=True,
-            interval_ratio_x=0.11,
-            interval_ratio_y=0.11,
-            legend={
-                'loc': 'lower left',
-                'frameon': False,  # No border
-                'bbox_to_anchor': (0, -0.10),
-                'fontsize': "medium",  # Readable size
-                'ncol': 4,
-                'handlelength': .8
-            }
-        )
-    
-    
-        
     def generate_charts(self):
         """Generate all NASA budget charts."""
         self.nasa_budget_pbr_appropriation_by_year_inflation_adjusted()
-        self.nasa_directorate_budget_waffle_chart()
         self.nasa_major_programs_by_year_inflation_adjusted()
         self.nasa_major_activites_donut_chart()
-    
