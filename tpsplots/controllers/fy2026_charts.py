@@ -30,7 +30,7 @@ class FY2026Charts(ChartController):
         export_df = self._export_helper(df, ["Fiscal Year", "NASA Science", "NASA Science_adjusted_nnsi", "FY 2026 PBR"])
         
         x_limit = 2030
-        y_limit = self._get_rounded_axis_limit_y(df["NASA Science_adjusted_nnsi"].max(), 5000000000)
+        y_limit = self._get_rounded_axis_limit_y(df["NASA Science_adjusted_nnsi"].max(), 5_000_000_000)
         
         # Prepare metadata
         metadata = {
