@@ -223,6 +223,7 @@ class ChartView:
             style: dict of MOBILE or DESKTOP style options
             tick_size: Optional font size for tick labels
         """
+       
         # Set major ticks at decade boundaries (years divisible by 10)
         ax.xaxis.set_major_locator(mdates.YearLocator(5))  # Every 5 years
         ax.xaxis.set_minor_locator(mdates.YearLocator(1))   # Every year
@@ -230,12 +231,21 @@ class ChartView:
         # Format to show only the year
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
 
-        # Hide labels for non-decade years by customizing the formatter
-        def decade_label(year, pos):
-            year_int = int(mdates.num2date(year).year)
-            return str(year_int) if year_int % 10 == 0 else ""
+        # Only apply decade_label if x-axis range is greater than 20 years
+        xlim = ax.get_xlim()
+        try:
+            start_year = mdates.num2date(xlim[0]).year
+            end_year = mdates.num2date(xlim[1]).year
+            year_range = abs(end_year - start_year)
+        except Exception:
+            year_range = 0
 
-        ax.xaxis.set_major_formatter(FuncFormatter(decade_label))
+        if year_range > 20:
+            # Hide labels for non-decade years by customizing the formatter
+            def decade_label(year, pos):
+                year_int = int(mdates.num2date(year).year)
+                return str(year_int) if year_int % 10 == 0 else ""
+            ax.xaxis.set_major_formatter(FuncFormatter(decade_label))
 
         # Make minor ticks visible but unlabeled
         ax.tick_params(which='minor', length=4, color='gray', width=1)

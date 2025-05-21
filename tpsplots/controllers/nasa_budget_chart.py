@@ -1,11 +1,7 @@
 """Concrete NASA budget charts using specialized chart views."""
-from pathlib import Path
 from datetime import datetime
-from tpsplots import TPS_STYLE_FILE
 from tpsplots.controllers.chart_controller import ChartController
-from tpsplots.views import LineChartView, WaffleChartView  # Import specialized views
 from tpsplots.data_sources.nasa_budget_data_source import Historical, Directorates, ScienceDivisions, Science
-from matplotlib import pyplot as plt
 import pandas as pd
 
 import logging
@@ -178,12 +174,12 @@ class NASABudgetChart(ChartController):
             )
 
     def nasa_major_programs_by_year_inflation_adjusted(self):
-        """Line chart of NASA's directorate budgets from 2007 onwards."""
+        """Line chart of NASA's directorate budgets from 2007 until the last fiscal year."""
         self.data_source = Directorates()
         df = self.data_source.data().dropna(subset=["Science"])  # Drop rows without directorate data
         
         # Prepare data for view
-        fiscal_years = df["Fiscal Year"].astype(int)
+        fiscal_years = df["Fiscal Year"]
         
         y_limit = (df["Deep Space Exploration Systems_adjusted_nnsi"].max() // 5000000000 + 1) * 5000000000
         
@@ -196,8 +192,9 @@ class NASABudgetChart(ChartController):
                   "LEO Space Operations", "SSMS/CECR (Overhead)"]
         # Prepare metadata
         metadata = {
-            "title": "NASA Program Areas (Inflation-Adjusted)",
-            "source": f"NASA Budget Justifications, FYs 2007-{fiscal_years.max()}",
+            "title": "NASA directorates can have diverging fortunes",
+            "subtitle": "Each major activity gets its own budget from Congress, and they don't always grow together.",
+            "source": f"NASA Budget Justifications, FYs 2007-{fiscal_years.max():%Y}",
         }
         # Generate charts via the specialized line chart view
         line_view = self.get_view('Line')
@@ -208,12 +205,15 @@ class NASABudgetChart(ChartController):
             y=y_data,
             linestyle="-",
             label=labels,
-            xlim=(2008, max(fiscal_years)),
-            ylim=(1e-10, y_limit),
+            xlim=(datetime(2008,1,1), fiscal_years.max()),
+            ylim=(0, y_limit),
+            fiscal_year_ticks=True,
+            tick_rotation=0,
             scale="billions",
             legend={
                 'loc': 'upper right',
-                'ncol': 2,
+                'fontsize': "medium",  # Readable size
+                'ncol': 3,
                 'handlelength': .8
             },
         )
@@ -368,5 +368,5 @@ class NASABudgetChart(ChartController):
         self.nasa_budget_pbr_appropriation_by_year_inflation_adjusted()
         self.nasa_directorate_budget_waffle_chart()
         self.nasa_major_programs_by_year_inflation_adjusted()
-        self.nasa_science_by_year_inflation_adjusted()
+        self.nasa_major_activites_donut_chart()
     
