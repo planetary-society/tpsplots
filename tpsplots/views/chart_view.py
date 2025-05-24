@@ -342,9 +342,7 @@ class ChartView:
                     decimals = 0
             except Exception:
                 decimals = 0
-        
-        
-        
+
         def formatter(x, pos):
             try:
                 if not np.isfinite(x):
@@ -354,7 +352,13 @@ class ChartView:
                 if factor == 0:
                     return ""
                 scaled_value = x / factor
-                format_spec = f'.{decimals}f'
+                # If range_value < 10, only show whole numbers
+                if axis in ('y', 'both') and decimals == 1 and range_value < 10:
+                    if not np.isclose(scaled_value, round(scaled_value)):
+                        return ""
+                    format_spec = '.0f'
+                else:
+                    format_spec = f'.{decimals}f'
                 formatted_num = f'{scaled_value:{format_spec}}'
                 return f'{prefix}{formatted_num}{suffix}'
             except Exception as e:
