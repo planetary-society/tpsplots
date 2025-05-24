@@ -11,6 +11,7 @@ import matplotlib.dates as mdates
 import warnings
 import logging
 import textwrap
+from typing import Optional
 
 from tpsplots import TPS_STYLE_FILE # custom mplstyle
 
@@ -303,7 +304,7 @@ class ChartView:
             
         return False
     
-    def _apply_scale_formatter(self, ax, scale='billions', axis='y', decimals=0, prefix='$'):
+    def _apply_scale_formatter(self, ax, scale :str ='billions', axis :str = 'y', decimals: Optional[int] = None, prefix :Optional[str] = '$'):
         """
         Apply scale formatting to axis.
 
@@ -324,12 +325,26 @@ class ChartView:
         if scale not in scales:
             warnings.warn(f"Scale '{scale}' not recognized. No formatter applied.")
             return
-
+        
         scale_info = scales[scale]
         factor = scale_info['factor']
         suffix = scale_info.get('suffix', '')
         prefix = scale_info.get('prefix', prefix)
-
+        
+        # Determine the number of decimals for smaller scales
+        if decimals is None and axis in ('y', 'both'):
+            ylim = ax.get_ylim()
+            try:
+                range_value = (abs(ylim[1] - ylim[0]))/factor
+                if range_value < 10:
+                    decimals = 1
+                else:
+                    decimals = 0
+            except Exception:
+                decimals = 0
+        
+        
+        
         def formatter(x, pos):
             try:
                 if not np.isfinite(x):

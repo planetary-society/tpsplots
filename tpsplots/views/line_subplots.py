@@ -242,7 +242,7 @@ class LineSubplotsView(ChartView):
         ylabel = kwargs.get('ylabel', None)
         grid = kwargs.get('grid', style.get("grid"))
         grid_axis = kwargs.get('grid_axis', style.get("grid_axis", "both"))
-        tick_size = kwargs.get('tick_size', style["tick_size"] * 0.8)  # Slightly smaller for subplots
+        tick_size = kwargs.get('tick_size', style["tick_size"] * 0.5)  # Scale smaller for subplots
         tick_rotation = kwargs.get('tick_rotation', style.get("tick_rotation", 0))
         xticks = kwargs.get('xticks', None)
         xticklabels = kwargs.get('xticklabels', None)

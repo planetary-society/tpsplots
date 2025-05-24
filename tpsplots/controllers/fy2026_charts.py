@@ -240,9 +240,9 @@ class FY2026Charts(ChartController):
             xlim=(pd.to_datetime("1990-01-01"), pd.to_datetime("2030-01-01")),
             ylim=(0, y_limit),
             scale="billions",
-            shared_x=True,
+            shared_x=False,
             shared_y=True,
-            legend=True,
+            legend=False,
             subplot_title_size=14,
             export_data=export_df
         )
