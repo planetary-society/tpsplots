@@ -640,18 +640,7 @@ class ChartView:
             
         # Define replacements for special characters
         replacements = {
-            '$': '\$',
-            '%': '\%',
-            '&': '\&',
-            '<': '\<',
-            '>': '\>',
-            '#': '\#',
-            '^': '\^',
-            '_': '\_',
-            '{': '\{',
-            '}': '\}',
-            '|': '\|',
-            '~': '\~'
+            '$': r'\$'
         }
         
         # Apply all replacements
