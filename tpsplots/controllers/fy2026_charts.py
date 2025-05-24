@@ -4,7 +4,7 @@ from datetime import datetime
 import numpy as np
 from tpsplots import TPS_STYLE_FILE
 from tpsplots.controllers.chart_controller import ChartController
-from tpsplots.views import LineChartView, WaffleChartView  # Import specialized views
+from tpsplots.views import LineChartView, LineSubplotsView, WaffleChartView  # Import specialized views
 from tpsplots.data_sources.nasa_budget_data_source import Historical, Directorates, ScienceDivisions, Science
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -121,8 +121,134 @@ class FY2026Charts(ChartController):
             hline_linestyle=["--"],
             hline_linewidth=[2]
         )
+    
+    def nasa_science_divisions_quad_plot_with_fy2026_proposed(self):
+        """Generate quad plot showing NASA's four science divisions with historical and proposed budgets."""
+        # Load ScienceDivisions data
+        self.data_source = ScienceDivisions()
+        df = self.data_source.data()
+        
+        # Filter data from 1990 to 2025
+        df_filtered = df[
+            (df["Fiscal Year"] >= pd.to_datetime("1990-01-01")) & 
+            (df["Fiscal Year"] <= pd.to_datetime("2025-01-01"))
+        ].copy()
+        
+        # Define the four science divisions
+        divisions = ["Astrophysics", "Planetary Science", "Earth Science", "Heliophysics"]
+        
+        # For each division, set the 2025 proposed value to match the adjusted value
+        # and set a placeholder for 2026
+        for division in divisions:
+            adjusted_col = f"{division}_adjusted_nnsi"
+            proposed_col = f"{division} Proposed"
+            
+            # Find the 2025 row
+            mask_2025 = df_filtered["Fiscal Year"] == pd.to_datetime("2025-01-01")
+            if mask_2025.any():
+                # Set 2025 proposed value to match adjusted value
+                df_filtered.loc[mask_2025, proposed_col] = df_filtered.loc[mask_2025, adjusted_col].values[0]
+        
+        # Add a 2026 row with placeholder values if it doesn't exist
+        if not (df_filtered["Fiscal Year"] == pd.to_datetime("2026-01-01")).any():
+            # Create a new row for 2026
+            new_row = pd.Series()
+            new_row["Fiscal Year"] = pd.to_datetime("2026-01-01")
+            
+            # Set all division values to NaN except the proposed columns
+            for division in divisions:
+                new_row[division] = np.nan
+                new_row[f"{division}_adjusted_nnsi"] = np.nan
+                new_row[f"{division}_adjusted_gdp"] = np.nan
+            
+            
+            new_row = {
+                "Fiscal Year": pd.to_datetime("2026-01-01"),
+                "Astrophysics Proposed": 487_000_000,
+                "Planetary Science Proposed": 1_929_000_000,
+                "Earth Science Proposed": 1_033_000_000,
+                "Heliophysics Proposed": 455_000_000
+                }
+        
+            # Append the new row
+            df_filtered = pd.concat([df_filtered, pd.DataFrame([new_row])], ignore_index=True)
+        
+        # Sort by fiscal year to ensure proper ordering
+        df_filtered = df_filtered.sort_values("Fiscal Year")
+        
+        # Prepare data for each subplot
+        subplot_data = []
+        colors = [self.get_view('Line').COLORS["blue"], self.get_view('Line').TPS_COLORS["Rocket Flame"]]
+        
+        for division in divisions:
+            # Get fiscal years
+            fiscal_years = df_filtered["Fiscal Year"]
+            
+            # Get adjusted values (historical data)
+            adjusted_values = df_filtered[f"{division}_adjusted_nnsi"]
+            
+            # Get proposed values (only for 2025-2026)
+            proposed_values = df_filtered[f"{division} Proposed"]
+            
+            subplot_data.append({
+                'x': fiscal_years,
+                'y': [adjusted_values, proposed_values],
+                'title': division,
+                'labels': ['Historical (inflation adjusted)', 'Proposed'],
+                'colors': colors,
+                'linestyles': ['-'],
+                'linewidths': [4,4],
+                'title_fontsize': 'medium',
+                'legend': False
+            })
+        
+        # Calculate y-axis limit based on max value across all divisions
+        max_value = 0
+        for division in divisions:
+            div_max = df_filtered[f"{division}_adjusted_nnsi"].max()
+            if not pd.isna(div_max):
+                max_value = max(max_value, div_max)
+        
+        y_limit = self._get_rounded_axis_limit_y(max_value, 1_000_000_000)  # Round to nearest billion
+        
+        # Prepare metadata
+        metadata = {
+            "title": "NASA's science divisions face uncertain futures",
+            "subtitle": "Each division has grown at different rates, but all may face cuts in FY 2026.",
+            "source": "NASA Budget Justifications, FYs 1990-2025",
+        }
+        
+        # Prepare export data
+        export_columns = ["Fiscal Year"]
+        for division in divisions:
+            export_columns.extend([
+                division,
+                f"{division}_adjusted_nnsi",
+                f"{division} Proposed"
+            ])
+        export_df = self._export_helper(df_filtered, export_columns)
+        
+        # Get the LineSubplotsView
+        subplots_view = self.get_view('LineSubplots')
+        
+        # Generate the quad plot
+        subplots_view.line_subplots(
+            metadata=metadata,
+            stem="nasa_science_divisions_quad_plot",
+            subplot_data=subplot_data,
+            grid_shape=(2, 2),
+            xlim=(pd.to_datetime("1990-01-01"), pd.to_datetime("2030-01-01")),
+            ylim=(0, y_limit),
+            scale="billions",
+            shared_x=True,
+            shared_y=True,
+            legend={'loc': 'upper left', 'fontsize': 'small'},
             export_data=export_df
         )
     
     def generate_charts(self):
+        """Generate all FY2026 charts."""
+        self.nasa_budget_historical_with_fy_2026_proposed()
         self.nasa_science_by_year_inflation_adjusted_fy2026_threat()
+        self.nasa_science_divisions_quad_plot_with_fy2026_proposed()
+        
