@@ -32,12 +32,12 @@ class NASABudgetChart(ChartController):
         # Set x limit to be the the nearest multiple of 10 of x_min greater than x_max
         max_fiscal_year = int(fiscal_years.max().strftime("%Y"))
         x_limit = self._get_rounded_axis_limit_x(max_fiscal_year,10,True)
-        y_limit = self._get_rounded_axis_limit_y(df["PBR_adjusted_nnsi"].max(), 5000000000)
+        y_limit = self._get_rounded_axis_limit_y(df["PBR"].max(), 5000000000)
         
         # Prepare metadata
         metadata = {
-            "title": "Presidential funding levels for NASA are mostly met by Congress",
-            "subtitle": "Except in the aftermath of Challenger, Congress has never exceeded a proposal by more than 10%.",
+            "title": "The President's budget proposal sets the tone",
+            "subtitle": "Except in the aftermath of Challenger, Congress has never exceeded a NASA budget proposal by more than 9%.",
             "source": f"NASA Budget Justifications, FYs 1961-{fiscal_years.max():%Y}",
         }
         
@@ -47,15 +47,16 @@ class NASABudgetChart(ChartController):
         # Generate charts via the specialized line chart view
         line_view.line_plot(
             metadata=metadata,
-            stem="nasa_budget_pbr_appropriation_by_year_inflation_adjusted",
+            stem="nasa_budget_pbr_appropriation_by_year",
             x=fiscal_years,
-            y=[df["PBR_adjusted_nnsi"], df["Appropriation_adjusted_nnsi"]],
+            y=[df["PBR"], df["Appropriation"]],
             color=["#3696CE", line_view.COLORS["blue"]],
             linestyle=[":", "-"],
-            label=["Presidential Budget Request", "Congressional Appropriation"],
+            label=["NASA Budget Request", "Congressional Appropriation"],
             xlim=(datetime(1958,1,1), datetime(x_limit,1,1)),
             ylim=(0, y_limit),
             scale="billions",
+            legend={"loc":"lower right"},
             export_data=export_df,
         )
 
