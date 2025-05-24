@@ -122,7 +122,7 @@ class FY2026Charts(ChartController):
             hline_linewidth=[2]
         )
     
-    def nasa_science_divisions_quad_plot_with_fy2026_proposed(self):
+    def nasa_science_divisions_quad_plot_fy2026_threat(self):
         """Generate quad plot showing NASA's four science divisions with historical and proposed budgets."""
         # Load ScienceDivisions data
         self.data_source = ScienceDivisions()
@@ -194,12 +194,13 @@ class FY2026Charts(ChartController):
                 'x': fiscal_years,
                 'y': [adjusted_values, proposed_values],
                 'title': division,
-                'labels': ['Historical (inflation adjusted)', 'Proposed'],
+                'labels': ['Division funding', 'Proposed'],
                 'colors': colors,
                 'linestyles': ['-'],
                 'markers': ['', 'o'],
                 'linewidths': [3],
-                'legend': False
+                'legend': True,
+                'share_legent': True
             })
         
         # Calculate y-axis limit based on max value across all divisions
@@ -213,9 +214,9 @@ class FY2026Charts(ChartController):
         
         # Prepare metadata
         metadata = {
-            "title": "NASA's science divisions face uncertain futures",
-            "subtitle": "Each division has grown at different rates, but all may face cuts in FY 2026.",
-            "source": "NASA Budget Justifications, FYs 1990-2025",
+            "title": "All NASA sciences face severe cuts in 2026",
+            "subtitle": "The White House would slash each division from 30% to 70%, reducing some to historic lows when adjusted for inflation.",
+            "source": "NASA Presidential Budget Requests, FYs 1990-2026",
         }
         
         # Prepare export data
@@ -234,15 +235,16 @@ class FY2026Charts(ChartController):
         # Generate the quad plot
         subplots_view.line_subplots(
             metadata=metadata,
-            stem="nasa_science_divisions_quad_plot",
+            stem="nasa_science_divisions_quad_plot_fy2026_threat",
             subplot_data=subplot_data,
             grid_shape=(2, 2),
             xlim=(pd.to_datetime("1990-01-01"), pd.to_datetime("2030-01-01")),
             ylim=(0, y_limit),
             scale="billions",
             shared_x=False,
-            shared_y=True,
-            legend=False,
+            shared_y=False,
+            shared_legend=True,
+            legend=True,
             subplot_title_size=14,
             export_data=export_df
         )
@@ -251,5 +253,5 @@ class FY2026Charts(ChartController):
         """Generate all FY2026 charts."""
         self.nasa_budget_historical_with_fy_2026_proposed()
         self.nasa_science_by_year_inflation_adjusted_fy2026_threat()
-        self.nasa_science_divisions_quad_plot_with_fy2026_proposed()
+        self.nasa_science_divisions_quad_plot_fy2026_threat()
         

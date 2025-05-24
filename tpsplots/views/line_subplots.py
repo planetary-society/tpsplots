@@ -58,6 +58,8 @@ class LineSubplotsView(ChartView):
         """
         return self.generate_chart(metadata, stem, **kwargs)
     
+    # Add this method to your LineSubplotsView class
+
     def _create_chart(self, metadata, style, **kwargs):
         """
         Create line subplots with appropriate styling.
@@ -96,6 +98,8 @@ class LineSubplotsView(ChartView):
         global_xlim = kwargs.pop('xlim', None)
         global_ylim = kwargs.pop('ylim', None)
         global_legend = kwargs.pop('legend', True)
+        shared_legend = kwargs.pop('shared_legend', False)  # NEW: Control shared legend
+        legend_position = kwargs.pop('legend_position', (0.5, -0.05))  # NEW: Position for shared legend
         subplot_title_size = kwargs.pop('subplot_title_size', None)
         
         # Keep remaining kwargs for passing to subplot styling
@@ -113,6 +117,10 @@ class LineSubplotsView(ChartView):
         
         # Flatten axes array for easier iteration
         axes_flat = axes.flatten()
+        
+        # Collect handles and labels for shared legend
+        all_handles = []
+        all_labels = []
         
         # Plot data in each subplot
         for idx, (ax, plot_data) in enumerate(zip(axes_flat[:len(subplot_data)], subplot_data)):
@@ -141,7 +149,6 @@ class LineSubplotsView(ChartView):
                     y_array = np.array(y_series)
                     
                     # Remove NaN/NaT values
-                    # Create a mask for valid values (not NaN and not NaT)
                     valid_mask = ~pd.isna(y_array)
                     
                     # Also check for NaT in x if it's datetime
@@ -179,10 +186,17 @@ class LineSubplotsView(ChartView):
                         plot_kwargs['marker'] = markers
                     
                     # Handle labels
+                    current_label = None
                     if isinstance(labels, (list, tuple)) and i < len(labels):
-                        plot_kwargs['label'] = labels[i]
+                        current_label = labels[i]
                     elif labels is not None and i == 0:
-                        plot_kwargs['label'] = labels
+                        current_label = labels
+                    
+                    # For shared legend, only set label on first subplot to avoid duplicates
+                    if shared_legend and idx == 0 and current_label:
+                        plot_kwargs['label'] = current_label
+                    elif not shared_legend and current_label:
+                        plot_kwargs['label'] = current_label
                     
                     # Set line properties
                     plot_kwargs['linewidth'] = style["line_width"]
@@ -190,7 +204,12 @@ class LineSubplotsView(ChartView):
                         plot_kwargs['markersize'] = style.get("marker_size", 5)
                     
                     # Plot the line with valid data only
-                    ax.plot(x_valid, y_valid, **plot_kwargs)
+                    line = ax.plot(x_valid, y_valid, **plot_kwargs)
+                    
+                    # Collect handles and labels for shared legend from first subplot
+                    if shared_legend and idx == 0 and current_label:
+                        all_handles.extend(line)
+                        all_labels.append(current_label)
             
             # Set subplot title
             title_fontsize = subplot_title_size if subplot_title_size is not None else style["label_size"]
@@ -205,8 +224,8 @@ class LineSubplotsView(ChartView):
             })
             self._apply_subplot_styling(ax, style, **subplot_kwargs)
             
-            # Add legend if requested and labels were provided
-            if global_legend and labels is not None:
+            # Add individual legend if requested and not using shared legend
+            if global_legend and not shared_legend and labels is not None:
                 legend_kwargs = {'fontsize': style["legend_size"] * 0.8}
                 if isinstance(global_legend, dict):
                     legend_kwargs.update(global_legend)
@@ -215,6 +234,22 @@ class LineSubplotsView(ChartView):
         # Hide any unused subplots
         for idx in range(len(subplot_data), len(axes_flat)):
             axes_flat[idx].set_visible(False)
+        
+        # Add shared legend if requested
+        if shared_legend and global_legend and all_handles and all_labels:
+            legend_kwargs = {
+                'fontsize': style["legend_size"],
+                'loc': 'center',
+                'bbox_to_anchor': legend_position,
+                'ncol': len(all_labels),  # Horizontal layout by default
+                'frameon': True
+            }
+            
+            # Allow customization of shared legend
+            if isinstance(global_legend, dict):
+                legend_kwargs.update(global_legend)
+            
+            fig.legend(all_handles, all_labels, **legend_kwargs)
         
         # Apply tight layout before header/footer adjustment
         plt.tight_layout()
