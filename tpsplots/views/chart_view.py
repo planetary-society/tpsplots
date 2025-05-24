@@ -604,7 +604,7 @@ class ChartView:
             base_png_path = str(png_path).replace("_desktop","")
             fig.savefig(base_png_path, format="png", dpi=300)
             
-        metadata = {
+        svg_metadata = {
             "Title": metadata.get("title",clean_filename.replace("_"," ")),
             "Creator": "Casey Dreier/The Planetary Society",
             "Date": datetime.today().strftime("%Y-%m-%d"),
@@ -612,36 +612,95 @@ class ChartView:
             "Source": metadata.get("source")
         }
         
-        fig.savefig(svg_path, metadata=metadata, format="svg", dpi=150)
-        fig.savefig(png_path, metadata=metadata, format="png", dpi=300)
+        fig.savefig(svg_path, metadata=svg_metadata, format="svg", dpi=150)
+        fig.savefig(png_path, metadata=svg_metadata, format="png", dpi=300)
         logger.info(f"✓ saved {svg_path.name} and {png_path.name}")
         
         if create_pptx:
             pptx_path = self.outdir / f"{filename.replace('_desktop','')}.pptx"
-            self._create_pptx(png_path, pptx_path)
+            self._create_pptx(png_path, pptx_path, metadata)
             logger.info(f"✓ saved {pptx_path.name}")
             
         plt.close(fig)
 
-    def _create_pptx(self, png_path, pptx_path):
+    def _create_pptx(self, png_path, pptx_path, metadata = {}):
         """
-        Create a PowerPoint file with the chart.
-        
+        Create a PowerPoint file with the chart, scaled by height to fit completely in a 16x9 slide.
+
         Args:
             png_path: Path to the PNG image to include
             pptx_path: Path for the output PowerPoint file
         """
         from pptx import Presentation
         from pptx.util import Inches
-        
+        from PIL import Image
+        from pptx.dml.color import RGBColor
+
         prs = Presentation()
-        
-        # Set slide size to 16x9
-        prs.slide_width = Inches(13.33)  # 16 inches wide
-        prs.slide_height = Inches(7.5)  # 9 inches tall
-        
+        # Set slide size to 16x9 (in inches)
+        prs.slide_width = Inches(13.33)
+        prs.slide_height = Inches(7.5)
+
         slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank
-        slide.shapes.add_picture(str(png_path), Inches(0.5), Inches(0.5), width=Inches(12.33))
+
+        # Set slide background color to self.TPS_COLORS['Slushy Brine']
+        
+        bg_color = self.TPS_COLORS['Slushy Brine']
+        # Convert hex bg_color to RGB
+        if isinstance(bg_color, str) and bg_color.startswith('#'):
+            bg_color = bg_color.lstrip('#')
+            bg_color = RGBColor(int(bg_color[0:2], 16), int(bg_color[2:4], 16), int(bg_color[4:6], 16))
+        
+        fill = slide.background.fill
+        fill.solid()
+        fill.fore_color.rgb = bg_color
+
+        # Get image size in inches
+        with Image.open(png_path) as img:
+            img_width_px, img_height_px = img.size
+            img_dpi = img.info.get('dpi', (300, 300))[0]
+            img_width_in = img_width_px / img_dpi
+            img_height_in = img_height_px / img_dpi
+
+        # Scale image by height to fit slide
+        target_height_in = prs.slide_height / Inches(1)
+        scale = target_height_in / img_height_in
+        scaled_width_in = img_width_in * scale
+        scaled_height_in = img_height_in * scale
+
+        # Center the image horizontally
+        left = (prs.slide_width - Inches(scaled_width_in)) / 2
+        top = 0  # Top align
+
+        slide.shapes.add_picture(
+            str(png_path),
+            left,
+            top,
+            width=Inches(scaled_width_in),
+            height=Inches(scaled_height_in)
+        )
+        
+        
+        # Prepare title, subtitle, and source text
+        notes = []
+        notes.append(metadata.get("title"))
+        notes.append(metadata.get("subtitle"))
+        notes.append("\n")
+        if "source" in metadata:
+            notes.append("Source: " + metadata.get("source",""))
+        notes.append(f"Author: {metadata.get('Creator', 'Casey Dreier/The Planetary Society')}\nGenerated: {datetime.now().strftime('%Y-%m-%d')}")
+        notes.append(f"License: CC BY 4.0")
+
+        # Clear notes of None or empty strings
+        notes = [note for note in notes if note and note.strip()]
+        if notes:
+            # Add to text frame
+            # Add title and source text to the notes section of the slide
+            notes_slide = slide.notes_slide
+            text_frame = notes_slide.notes_text_frame
+            text_frame.text = "\n".join(notes)
+    
+        # Save    
         prs.save(pptx_path)
 
     def _escape_svg_text(self, text):

@@ -19,7 +19,7 @@ class NASABudgetChart(ChartController):
 
     def nasa_budget_pbr_appropriation_by_year_inflation_adjusted(self):
         """Generate historical NASA budget chart with PBR and Appropriations."""
-        
+        self.data_source = Historical()  # Reset data source to Historical for this chart
         # Get data from model
         df = self.data_source.data().dropna(subset=["PBR"])
         
@@ -62,7 +62,7 @@ class NASABudgetChart(ChartController):
 
     def nasa_budget_by_year_with_projection_inflation_adjusted(self):
         """Generate historical NASA budget chart with single appropriation line."""
-        
+        self.data_source = Historical()  # Reset data source to Historical for this chart
         # Get data from model
         df = self.data_source.data().dropna(subset=["PBR"])
         
@@ -70,7 +70,7 @@ class NASABudgetChart(ChartController):
         fiscal_years = df["Fiscal Year"]
         
         # Prepare cleaned export data for CSV
-        export_df = self._export_helper(df, ["Fiscal Year", "Appropriation", "White House Budget Projection","Appropriation_adjusted_nnsi"])
+        export_df = self._export_helper(df, ["Fiscal Year", "Appropriation", "White House Budget Projection", "Appropriation_adjusted_nnsi"])
 
         # Remove "White House Budget Proposal" values where "Appropriation" is present, for clarity
         export_df.loc[df["Appropriation"].notna(), "White House Budget Projection"] = pd.NA
@@ -109,6 +109,7 @@ class NASABudgetChart(ChartController):
 
     def nasa_budget_by_presidential_administration(self):
         """Generate NASA budget by presidential administration chart."""
+        self.data_source = Historical()  # Reset data source to Historical for this chart
         # Get data from model
         df = self.data_source.data().dropna(subset=["PBR"])
         presidents = df["Presidential Administration"].unique()
@@ -312,7 +313,9 @@ class NASABudgetChart(ChartController):
         )
     
     def generate_charts(self):
-        """Generate all NASA budget charts."""
+        """Generate every chart in the class."""
         self.nasa_budget_pbr_appropriation_by_year_inflation_adjusted()
         self.nasa_major_programs_by_year_inflation_adjusted()
         self.nasa_major_activites_donut_chart()
+        self.nasa_budget_by_year_with_projection_inflation_adjusted()
+        #self.nasa_budget_by_presidential_administration()
