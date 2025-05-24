@@ -1,6 +1,7 @@
 """Concrete NASA budget charts using specialized chart views."""
 from pathlib import Path
 from datetime import datetime
+import numpy as np
 from tpsplots import TPS_STYLE_FILE
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.views import LineChartView, WaffleChartView  # Import specialized views
@@ -44,7 +45,8 @@ class FY2026Charts(ChartController):
             "subtitle": "The White House proposed a 24% cut in 2026, the smallest budget requested since 1961, when adjusted for inflation.",
             "source": f"NASA Budget Justifications, FYs 1961-{fiscal_years.max():%Y}",
         }
-        
+                
+
         # Load the Line plotter view
         line_view = self.get_view('Line')
         
@@ -63,6 +65,12 @@ class FY2026Charts(ChartController):
             scale="billions",
             legend={"loc":"lower right"},
             export_data=export_df,
+            hlines=[18_800_000_000],
+            hline_labels=["Lowest since 1961"],
+            hline_label_position="center",
+            hline_colors=[line_view.TPS_COLORS["Crater Shadow"]],
+            hline_linestyle=["--"],
+            hline_linewidth=[2]
         )
         
     def nasa_science_by_year_inflation_adjusted_fy2026_threat(self):
@@ -105,6 +113,14 @@ class FY2026Charts(ChartController):
             ylim=(0, y_limit),
             scale="billions",
             legend={"loc":"lower right"},
+            export_data=export_df,
+            hlines=[3_900_000_000],
+            hline_labels=["Lowest since 1984"],
+            hline_label_position="center",
+            hline_colors=[line_view.TPS_COLORS["Crater Shadow"]],
+            hline_linestyle=["--"],
+            hline_linewidth=[2]
+        )
             export_data=export_df
         )
     
