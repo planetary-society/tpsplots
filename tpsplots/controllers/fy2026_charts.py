@@ -197,8 +197,8 @@ class FY2026Charts(ChartController):
                 'labels': ['Historical (inflation adjusted)', 'Proposed'],
                 'colors': colors,
                 'linestyles': ['-'],
-                'linewidths': [4,4],
-                'title_fontsize': 'medium',
+                'markers': ['', 'o'],
+                'linewidths': [3],
                 'legend': False
             })
         
@@ -242,7 +242,8 @@ class FY2026Charts(ChartController):
             scale="billions",
             shared_x=True,
             shared_y=True,
-            legend={'loc': 'upper left', 'fontsize': 'small'},
+            legend=True,
+            subplot_title_size=14,
             export_data=export_df
         )
     

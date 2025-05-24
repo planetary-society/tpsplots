@@ -30,15 +30,26 @@ class LineSubplotsView(ChartView):
                 - title: subplot title
                 - labels: list of labels for each line (optional)
                 - colors: list of colors for each line (optional)
-            - grid_shape: tuple (rows, cols) for subplot grid
+                - linestyles: list of line styles (optional)
+                - markers: list of markers for each line (optional)
+            - grid_shape: tuple (rows, cols) for subplot grid (optional, auto-calculated if not provided)
             
-            Optional parameters:
+            Optional parameters (applied to all subplots):
             - scale: str - Apply scale formatting ('billions', 'millions', etc.)
+            - axis_scale: str - Which axis to scale ('x', 'y', or 'both', default: 'y')
             - shared_x: bool - Share x-axis across subplots (default: True)
             - shared_y: bool - Share y-axis across subplots (default: True)
             - legend: bool/dict - Legend display and parameters
             - xlim: tuple - X-axis limits applied to all subplots
             - ylim: tuple - Y-axis limits applied to all subplots
+            - fiscal_year_ticks: bool - Use fiscal year formatting (default: True)
+            - max_xticks: int - Maximum number of x-axis ticks
+            - tick_rotation: float - Rotation angle for tick labels
+            - xlabel: str - X-axis label
+            - ylabel: str - Y-axis label
+            - subplot_title_size: float - Font size for subplot titles (optional, defaults to label_size)
+            - grid: bool - Show grid
+            - grid_axis: str - Which axes to show grid on ('x', 'y', 'both')
             
         Returns:
         --------
@@ -79,10 +90,16 @@ class LineSubplotsView(ChartView):
         # Extract subplot parameters
         shared_x = kwargs.pop('shared_x', True)
         shared_y = kwargs.pop('shared_y', True)
-        scale = kwargs.pop('scale', None)
-        xlim = kwargs.pop('xlim', None)
-        ylim = kwargs.pop('ylim', None)
-        legend = kwargs.pop('legend', True)
+        
+        # Extract global parameters that apply to all subplots
+        global_scale = kwargs.pop('scale', None)
+        global_xlim = kwargs.pop('xlim', None)
+        global_ylim = kwargs.pop('ylim', None)
+        global_legend = kwargs.pop('legend', True)
+        subplot_title_size = kwargs.pop('subplot_title_size', None)
+        
+        # Keep remaining kwargs for passing to subplot styling
+        styling_kwargs = kwargs.copy()
         
         # Create figure and subplots
         fig, axes = plt.subplots(
@@ -106,6 +123,7 @@ class LineSubplotsView(ChartView):
             labels = plot_data.get('labels', None)
             colors = plot_data.get('colors', None)
             linestyles = plot_data.get('linestyles', None)
+            markers = plot_data.get('markers', None)
             
             # Handle single y series
             if y is not None and not isinstance(y, (list, tuple)):
@@ -154,6 +172,12 @@ class LineSubplotsView(ChartView):
                     else:
                         plot_kwargs['linestyle'] = '-'
                     
+                    # Handle markers
+                    if isinstance(markers, (list, tuple)) and i < len(markers):
+                        plot_kwargs['marker'] = markers[i]
+                    elif markers is not None and not isinstance(markers, (list, tuple)):
+                        plot_kwargs['marker'] = markers
+                    
                     # Handle labels
                     if isinstance(labels, (list, tuple)) and i < len(labels):
                         plot_kwargs['label'] = labels[i]
@@ -162,21 +186,30 @@ class LineSubplotsView(ChartView):
                     
                     # Set line properties
                     plot_kwargs['linewidth'] = style["line_width"]
+                    if 'marker' in plot_kwargs and plot_kwargs['marker']:
+                        plot_kwargs['markersize'] = style.get("marker_size", 5)
                     
                     # Plot the line with valid data only
                     ax.plot(x_valid, y_valid, **plot_kwargs)
             
             # Set subplot title
-            ax.set_title(subplot_title, fontsize=style["label_size"], pad=10)
+            title_fontsize = subplot_title_size if subplot_title_size is not None else style["label_size"]
+            ax.set_title(subplot_title, fontsize=title_fontsize, pad=10)
             
-            # Apply styling to this subplot
-            self._apply_subplot_styling(ax, style, scale=scale, xlim=xlim, ylim=ylim)
+            # Apply styling to this subplot with all kwargs
+            subplot_kwargs = styling_kwargs.copy()
+            subplot_kwargs.update({
+                'scale': global_scale,
+                'xlim': global_xlim,
+                'ylim': global_ylim
+            })
+            self._apply_subplot_styling(ax, style, **subplot_kwargs)
             
             # Add legend if requested and labels were provided
-            if legend and labels is not None:
+            if global_legend and labels is not None:
                 legend_kwargs = {'fontsize': style["legend_size"] * 0.8}
-                if isinstance(legend, dict):
-                    legend_kwargs.update(legend)
+                if isinstance(global_legend, dict):
+                    legend_kwargs.update(global_legend)
                 ax.legend(**legend_kwargs)
         
         # Hide any unused subplots
@@ -191,48 +224,93 @@ class LineSubplotsView(ChartView):
         
         return fig
     
-    def _apply_subplot_styling(self, ax, style, scale=None, xlim=None, ylim=None):
+    def _apply_subplot_styling(self, ax, style, **kwargs):
         """
-        Apply consistent styling to each subplot.
+        Apply consistent styling to each subplot, matching LineChart functionality.
         
         Args:
             ax: Matplotlib axes object
             style: Style dictionary (DESKTOP or MOBILE)
-            scale: Scale formatter to apply
-            xlim: X-axis limits
-            ylim: Y-axis limits
+            **kwargs: Additional styling parameters
         """
-        # Apply grid
-        if style.get("grid"):
-            ax.grid(axis=style.get("grid_axis", "both"), alpha=0.3)
+        # Extract parameters with defaults
+        scale = kwargs.get('scale', None)
+        axis_scale = kwargs.get('axis_scale', 'y')
+        xlim = kwargs.get('xlim', None)
+        ylim = kwargs.get('ylim', None)
+        xlabel = kwargs.get('xlabel', None)
+        ylabel = kwargs.get('ylabel', None)
+        grid = kwargs.get('grid', style.get("grid"))
+        grid_axis = kwargs.get('grid_axis', style.get("grid_axis", "both"))
+        tick_size = kwargs.get('tick_size', style["tick_size"] * 0.8)  # Slightly smaller for subplots
+        tick_rotation = kwargs.get('tick_rotation', style.get("tick_rotation", 0))
+        xticks = kwargs.get('xticks', None)
+        xticklabels = kwargs.get('xticklabels', None)
+        max_xticks = kwargs.get('max_xticks', style.get("max_ticks"))
+        fiscal_year_ticks = kwargs.get('fiscal_year_ticks', True)
+        
+        # Apply axis labels if provided
+        if xlabel:
+            ax.set_xlabel(xlabel, fontsize=style["label_size"] * 0.9)
+        if ylabel:
+            ax.set_ylabel(ylabel, fontsize=style["label_size"] * 0.9)
+        
+        # Apply grid setting
+        if grid:
+            ax.grid(axis=grid_axis, alpha=0.3)
         
         # Set tick sizes
-        tick_size = style["tick_size"] * 0.8  # Slightly smaller for subplots
-        ax.tick_params(axis='both', labelsize=tick_size)
+        ax.tick_params(axis='x', labelsize=tick_size)
+        ax.tick_params(axis='y', labelsize=tick_size)
         
-        # Apply fiscal year formatting if x-axis contains dates
-        xlim_data = ax.get_xlim()
-        if self._contains_dates_from_limits(xlim_data):
+        # Get x-axis data for date detection
+        lines = ax.get_lines()
+        x_data = None
+        if lines:
+            x_data = lines[0].get_xdata()
+        
+        # Apply appropriate tick formatting
+        if fiscal_year_ticks and x_data is not None and self._contains_dates(x_data):
+            # Apply special FY formatting
             self._apply_fiscal_year_ticks(ax, style, tick_size=tick_size)
+        elif x_data is not None and self._contains_dates(x_data):
+            # Standard date formatting
+            import matplotlib.dates as mdates
+            ax.xaxis.set_major_locator(mdates.YearLocator())
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+            plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
+        else:
+            # Standard tick formatting
+            plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
+            
+            # Set tick locators if needed
+            if max_xticks:
+                ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
         
         # Apply scale formatter if specified
         if scale:
-            self._apply_scale_formatter(ax, scale, axis='y')
+            self._apply_scale_formatter(ax, scale, axis=axis_scale)
         
-        # Apply axis limits
+        # Apply custom limits
         if xlim:
-            ax.set_xlim(xlim)
+            if isinstance(xlim, dict):
+                ax.set_xlim(**xlim)
+            else:
+                ax.set_xlim(xlim)
         if ylim:
-            ax.set_ylim(ylim)
+            if isinstance(ylim, dict):
+                ax.set_ylim(**ylim)
+            else:
+                ax.set_ylim(ylim)
         
-        # Rotate x-axis labels for mobile
-        if style == self.MOBILE:
+        # Apply custom ticks
+        if xticks is not None:
+            ax.set_xticks(xticks)
+            if xticklabels is not None:
+                ax.set_xticklabels(xticklabels)
+            elif all(isinstance(x, (int, float)) and float(x).is_integer() for x in xticks):
+                ax.set_xticklabels([f"{int(x)}" for x in xticks])
+        
+        # Special rotation for mobile
+        if style == self.MOBILE and tick_rotation == 0:
             plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
-    
-    def _contains_dates_from_limits(self, xlim):
-        """Check if x-axis limits suggest date data."""
-        try:
-            # Check if limits are in matplotlib date format (large numbers)
-            return xlim[0] > 10000 and xlim[1] > 10000
-        except:
-            return False
