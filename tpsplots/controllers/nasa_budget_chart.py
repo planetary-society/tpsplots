@@ -64,7 +64,7 @@ class NASABudgetChart(ChartController):
         """Generate historical NASA budget chart with single appropriation line."""
         self.data_source = Historical()  # Reset data source to Historical for this chart
         # Get data from model
-        df = self.data_source.data().dropna(subset=["PBR"])
+        df = self.data_source.data()
         
         # Prepare data for view
         fiscal_years = df["Fiscal Year"]
@@ -77,7 +77,7 @@ class NASABudgetChart(ChartController):
 
         # Set x limit to be the the nearest multiple of 10 of x_min greater than x_max
         max_fiscal_year = int(fiscal_years.max().strftime("%Y"))
-        x_limit = self._get_rounded_axis_limit_x(max_fiscal_year,10,True)
+        x_limit = self._get_rounded_axis_limit_x(max_fiscal_year,10,False)
         y_limit = self._get_rounded_axis_limit_y(df["Appropriation_adjusted_nnsi"].max(), 5000000000)
         
         # Prepare metadata
@@ -100,7 +100,7 @@ class NASABudgetChart(ChartController):
             linestyle=["-","-"],
             marker=["","o"],
             label=["","Proposed"],
-            xlim=(datetime(1958,1,1), datetime(x_limit,1,1)),
+            xlim=(datetime(1958,1,1), datetime(2035,1,1)),
             ylim={"bottom":0, "top":y_limit},
             scale="billions",
             legend={"loc":"lower right"},
