@@ -4,8 +4,8 @@ from datetime import datetime
 import numpy as np
 from tpsplots import TPS_STYLE_FILE
 from tpsplots.controllers.chart_controller import ChartController
-from tpsplots.views import LineChartView, LineSubplotsView, WaffleChartView  # Import specialized views
 from tpsplots.data_sources.nasa_budget_data_source import Historical, Directorates, ScienceDivisions, Science
+from tpsplots.data_sources.missions import Missions
 from matplotlib import pyplot as plt
 import pandas as pd
 
@@ -114,7 +114,7 @@ class FY2026Charts(ChartController):
             scale="billions",
             legend={"loc":"lower right"},
             export_data=export_df,
-            hlines=[3_900_000_000],
+            hlines=[3_907_600_000],
             hline_labels=["Lowest since 1984"],
             hline_label_position="center",
             hline_colors=[line_view.TPS_COLORS["Crater Shadow"]],
@@ -164,10 +164,10 @@ class FY2026Charts(ChartController):
             
             new_row = {
                 "Fiscal Year": pd.to_datetime("2026-01-01"),
-                "Astrophysics Proposed": 487_000_000,
-                "Planetary Science Proposed": 1_929_000_000,
-                "Earth Science Proposed": 1_033_000_000,
-                "Heliophysics Proposed": 455_000_000
+                "Astrophysics Proposed": 523_000_000,
+                "Planetary Science Proposed": 1_891_300_000,
+                "Earth Science Proposed": 1_035_900_000,
+                "Heliophysics Proposed": 432_500_000
                 }
         
             # Append the new row
@@ -215,7 +215,7 @@ class FY2026Charts(ChartController):
         # Prepare metadata
         metadata = {
             "title": "All NASA sciences face severe cuts in 2026",
-            "subtitle": "The White House would slash each division from 30% to 70%, reducing some to historic lows when adjusted for inflation.",
+            "subtitle": "The White House would slash each division from 30% to 65%, reducing some to historic lows when adjusted for inflation.",
             "source": "NASA Presidential Budget Requests, FYs 1990-2026",
         }
         
@@ -246,6 +246,122 @@ class FY2026Charts(ChartController):
             shared_legend=True,
             legend=True,
             subplot_title_size=14,
+            export_data=export_df
+        )
+    
+    def cancelled_missions_lollipop_chart(self):
+        data_source = Missions()
+        df = data_source.data()
+        
+        # Add explicit cancellation date
+        df["Cancellation Date"] = datetime(2026, 1, 1)
+        
+        df["Launch Year"] = df["Launch Date"].dt.year
+        df["End Year"] = df["Cancellation Date"].dt.year
+        # Safely extract year, accounting for NaT/NaN values
+        df['Formulation Start Year'] = df["Formulation Start"].apply(lambda x: pd.to_datetime(x).year if pd.notnull(x) else pd.NA)
+        
+        # Calculate 'Duration (years)' only for valid rows
+        df['Duration (years)'] = (df['End Year'] - df['Launch Year']).fillna(0)
+        
+        df['Development Time (years)'] = (df['Launch Year'] - df['Formulation Start Year']).fillna(0)
+        
+        # Filter by only NASA-led missions
+        df = df[df["NASA Led?"].isin([True])]
+        
+        # Copy for use in 2nd chart
+        df_dev = df.copy()
+        
+        # Filter to active missions led by NASA
+        df = df[df["Status"].isin(["Prime Mission", "Extended Mission"])]
+        
+        total_development_time = round(df['Development Time (years)'].sum())
+        total_value = self.round_to_millions(df['LCC'].sum())
+        total_projects = len(df)
+        
+        # Rename every mission to just use the values if parentheses (if present)
+        # If the mission name contains parentheses, extract the text inside; otherwise, keep the original name
+        df["Mission"] = df["Mission"].str.extract(r"\(([^)]+)\)", expand=False).fillna(df["Mission"])
+        
+        
+        # Prepare export data
+        export_df = df.copy().drop(columns=["NASA Led?"])
+        
+        # Prepare metadata
+        metadata = {
+            "title": f"{total_projects} active science missions cancelled",
+            "subtitle": f"These projects reflect more than {total_value} of investment by U.S. taxpayers and {total_development_time} of combined years to build.",
+            "source": "FY 2026 White House NASA Request"
+        }
+        
+        lollipop_view = self.get_view("Lollipop")
+        
+        # Generate the chart
+        lollipop_view.lollipop_plot(
+            metadata=metadata,
+            stem="fy_2026_proposed_mission_cancellations",
+            categories=df['Mission'],
+            start_values=df['Launch Year'],
+            end_values=df['End Year'],
+            sort_by='start',  # Sort by start year
+            sort_ascending=False,
+            colors=lollipop_view.TPS_COLORS["Neptune Blue"],
+            xlim=(1990, 2027),
+            start_value_labels=True,
+            xlabel=None,
+            grid=True,
+            y_axis_position='right',  # Category labels on the right
+            hide_y_spine=True,
+            grid_axis='x',
+            tick_size=12,
+            end_marker_style='X',
+            end_marker_color='red',
+            marker_size=11,
+            value_labels=False,  # Don't show individual year labels
+            range_labels=False,   # Show duration in years
+            category_wrap_length=25,
+            export_data=export_df
+        )
+        
+        # Generate the 2nd chart of development missions
+        
+        # Prepare metadata
+        metadata = {
+            "title": f"{len(df_dev)} future science projects cancelled",
+            "subtitle": f"The FY 2026 budget proposal ends most future mission work.",
+            "source": "FY 2026 White House NASA Request"
+        }
+        
+        # Filter by missions in development
+        df_dev = df_dev[df_dev["Status"].isin(["Development"])].reset_index(drop=True)
+        # Filter out entries where "Formulation Start Year" is NA
+        df_dev = df_dev[df_dev["Formulation Start Year"].notna()].reset_index(drop=True)
+        
+        # Count the number of entries in df_dev
+        num_dev_projects = len(df_dev)
+        lollipop_view.lollipop_plot(
+            metadata=metadata,
+            stem="fy_2026_proposed_in_development_cancellations",
+            categories=df_dev['Mission'],
+            start_values=df_dev['Formulation Start Year'],
+            end_values=df_dev['End Year'],
+            sort_by='start',  # Sort by start year
+            sort_ascending=False,
+            colors=lollipop_view.TPS_COLORS["Neptune Blue"],
+            xlim=(2010, 2027),
+            start_value_labels=True,
+            xlabel=None,
+            grid=True,
+            y_axis_position='right',  # Category labels on the right
+            hide_y_spine=True,
+            grid_axis='x',
+            tick_size=12,
+            end_marker_style='X',
+            end_marker_color='red',
+            marker_size=11,
+            value_labels=False,  # Don't show individual year labels
+            range_labels=False,   # Show duration in years
+            category_wrap_length=25,
             export_data=export_df
         )
     

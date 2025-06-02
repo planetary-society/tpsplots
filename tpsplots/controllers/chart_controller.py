@@ -2,7 +2,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from pathlib import Path
-from tpsplots.views import LineChartView, WaffleChartView, DonutChartView, LineSubplotsView
+from tpsplots.views import LineChartView, WaffleChartView, DonutChartView, LineSubplotsView, LollipopChartView
 import pandas as pd
 
 class ChartController(ABC):
@@ -32,6 +32,7 @@ class ChartController(ABC):
         # Set at the implemenation level using get_view()
         self._views = {}
         
+    
     def get_view(self, view_type):
         """Get or create a view of the specified type."""
         if view_type not in self._views:
@@ -43,6 +44,8 @@ class ChartController(ABC):
                 self._views[view_type] = DonutChartView(self.outdir)
             elif view_type == 'LineSubplots':
                 self._views[view_type] = LineSubplotsView(self.outdir)
+            elif view_type == 'Lollipop':
+                self._views[view_type] = LollipopChartView(self.outdir)
         return self._views[view_type]
     
     @abstractmethod

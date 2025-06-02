@@ -412,6 +412,8 @@ class NASABudget:
         df = df.copy() # Work on a copy
         # Detect the fiscal year column to use for adjustments
         fy_col = self._detect_fy(df)
+        if not fy_col:
+            return df
         
         # Get the list of columns to adjust from the subclass
         mons = getattr(self.__class__, "MONETARY_COLUMNS", [])
@@ -473,7 +475,9 @@ class NASABudget:
                 "year",
             }:
                 return c
-        raise ValueError("No fiscal-year column detected.")
+            else:
+                return None
+        logger.warning("No fiscal-year column detected.")
 
     def _fy_col(self) -> str:
         """

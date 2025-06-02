@@ -5,6 +5,7 @@ from .donut_chart import DonutChartView
 from .line_chart import LineChartView
 from .line_subplots import LineSubplotsView
 from .waffle_chart import WaffleChartView
+from .lollipop_chart import LollipopChartView
 
 # Export these classes as the public API
 __all__ = [
@@ -13,4 +14,5 @@ __all__ = [
     'LineChartView',
     'LineSubplotsView',
     'WaffleChartView',
+    'LollipopChartView',
 ]
