@@ -344,6 +344,9 @@ class NASABudget:
         """
         df = df.copy() # Work on a copy to avoid modifying the original DataFrame
 
+        # Get MONETARY_COLUMNS directly from the class to avoid triggering __getattr__
+        monetary_columns = getattr(self.__class__, "MONETARY_COLUMNS", [])
+
         # Clean currency-like columns: remove symbols, commas, and M/B suffixes,
         # then convert to float and multiply by 1,000,000 if M/B was present.
         for col in df.select_dtypes("object"):
@@ -351,7 +354,7 @@ class NASABudget:
             # OR if the column is listed in MONETARY_COLUMNS
             if (
             df[col].astype(str).str.contains(r"\$", na=False).any()
-            or (hasattr(self, "MONETARY_COLUMNS") and col in getattr(self, "MONETARY_COLUMNS", []))
+            or col in monetary_columns  # Use the class attribute directly
             ):
                 df[col] = (
                     df[col]
@@ -362,6 +365,7 @@ class NASABudget:
                     .astype("float64")
                 )
 
+        # Rest of the method remains the same...
         # Clean date-style columns: convert to datetime objects.
         # Identifies columns ending with 'date', 'signed', or 'updated' (case-insensitive).
         for col in df.columns:
@@ -654,6 +658,16 @@ class Science(NASABudget):
     COLUMNS = ["Fiscal Year", "NASA Science (millions of $)","FY 2026 PBR"]
     RENAMES = {"NASA Science (millions of $)": "NASA Science"}
     MONETARY_COLUMNS = ["NASA Science", "FY 2026 PBR"]
+    
+    def __init__(self, *, cache_dir: Path | None = None) -> None:
+        super().__init__(self.CSV_URL, cache_dir=cache_dir)
+
+class Workforce(NASABudget):
+    CSV_URL = ("https://docs.google.com/spreadsheets/d/"
+               "1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/"
+               "export?format=csv&gid=479410406")
+    
+    COLUMNS = ["Fiscal Year", "Full-time Permanent (FTP)", "Full-time Equivalent (FTE)"]
     
     def __init__(self, *, cache_dir: Path | None = None) -> None:
         super().__init__(self.CSV_URL, cache_dir=cache_dir)

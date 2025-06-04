@@ -4,7 +4,7 @@ from datetime import datetime
 import numpy as np
 from tpsplots import TPS_STYLE_FILE
 from tpsplots.controllers.chart_controller import ChartController
-from tpsplots.data_sources.nasa_budget_data_source import Historical, Directorates, ScienceDivisions, Science
+from tpsplots.data_sources.nasa_budget_data_source import Historical, ScienceDivisions, Science, Workforce
 from tpsplots.data_sources.missions import Missions
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -81,7 +81,7 @@ class FY2026Charts(ChartController):
 
         # Prepare data for view
         # Only grab years through FY 2025
-        fiscal_years = df[df["Fiscal Year"] <= pd.to_datetime("2026-01-01")]["Fiscal Year"]
+        fiscal_years = df[df["Fiscal Year"] < pd.to_datetime("2026-01-01")]["Fiscal Year"]
         
         # Prepare cleaned data for export
         export_df = self._export_helper(df, ["Fiscal Year", "NASA Science", "NASA Science_adjusted_nnsi", "FY 2026 PBR"])
@@ -363,6 +363,156 @@ class FY2026Charts(ChartController):
             range_labels=False,   # Show duration in years
             category_wrap_length=25,
             export_data=export_df
+        )
+    
+    def nasa_center_workforce_map(self):
+        """Generate a map showing workforce breakdown at NASA centers."""
+        
+        pie_data = {
+            'HQ': {
+                'values': [1366, 475],  
+                'labels': ['Cut','Retained'],
+                'colors': ['#037CC2', '#FF5D47'],
+            },
+            'ARC': {
+                'values': [755, 470],
+                'labels': ['Cut','Retained'],
+                'colors': ['#037CC2', '#FF5D47'],
+            },
+            'AFRC': {
+                'values': [309, 191],
+                'labels': ['Cut','Retained'],
+                'colors': ['#037CC2', '#FF5D47'],
+            },
+            'GRC': {
+                'values': [837, 554],
+                'labels': ['Cut','Retained'],
+                'colors': ['#037CC2', '#FF5D47'],
+            },
+            'GSFC': {
+                'values': [1549, 1335],
+                'labels': ['Cut','Retained'],
+                'colors': ['#037CC2', '#FF5D47'],
+            },
+            'JSC': {
+                'values': [2594, 698],
+                'labels': ['Cut','Retained'],
+                'colors': ['#037CC2', '#FF5D47'],
+            },
+            'KSC': {
+                'values': [1506, 510],
+                'labels': ['Cut','Retained'],
+                'colors': ['#037CC2', '#FF5D47'],
+            },
+            'LaRC': {
+                'values': [1058, 672],
+                'labels': ['Cut','Retained'],
+                'colors': ['#037CC2', '#FF5D47'],
+            },
+            'MSFC': {
+                'values': [1714, 526],
+                'labels': ['Cut','Retained'],
+                'colors': ['#037CC2', '#FF5D47'],
+            },
+            'SSC': {
+                'values': [166, 108],
+                'labels': ['Cut','Retained'],
+                'colors': ['#037CC2', '#FF5D47'],
+            }
+        }
+        
+        # Create export data
+        export_data = []
+        for center, data in pie_data.items():
+            for label, value in zip(data['labels'], data['values']):
+                export_data.append({
+                    'NASA Center': center,
+                    'Job Category': label,
+                    'Number of Employees': value
+                })
+        
+        export_df = pd.DataFrame(export_data)
+        
+        metadata = {
+            "title": "NASA's workforce reflects each center's specialization",
+            "subtitle": "From astronauts at Johnson to scientists at Goddard, each center's staffing matches its mission focus.",
+            "source": "NASA Workforce Data FY 2024 (Example Data)",
+        }
+        
+        map_view = self.get_view('USMapPie')
+        
+        map_view.us_map_pie_plot(
+            metadata=metadata,
+            stem="nasa_center_map",
+            pie_data=pie_data,
+            show_percentages=True,
+            show_pie_labels=True,
+            base_pie_size=4000,
+            show_state_boundaries=True,
+            export_data=export_df
+        )
+    
+    def fy2026_nasa_workforce_projections(self):
+        df = Workforce().data()
+        
+        # Limit fiscal years to those through FY 2025
+        fiscal_years = df[df["Fiscal Year"] <= pd.to_datetime("2026-01-01")]["Fiscal Year"]
+
+        # Convert strings with commans into integers before plotting
+        for col in ["Full-time Permanent (FTP)", "Full-time Equivalent (FTE)"]:
+            if col in df.columns:
+                # Remove commas and convert to int
+                df[col] = pd.to_numeric(df[col].astype(str).str.replace(",", ""), errors="coerce").astype("Int64")
+
+        # Add a column for FY2026 Projection with projected workforce size for FY 2026
+        df["FY2026 Projection"] = np.where(
+            df["Fiscal Year"] == pd.to_datetime("2026-01-01"),
+            int(11853),
+            np.nan
+        )
+        
+        # Copy Workforce value for 2025-01-01 to the Projection column to ensure clean ploting
+        df.loc[df["Fiscal Year"] == pd.to_datetime("2025-01-01"), "FY2026 Projection"] = df.loc[df["Fiscal Year"] == pd.to_datetime("2025-01-01"), "Full-time Equivalent (FTE)"]
+
+        # Prepare cleaned export data for CSV
+        export_df = self._export_helper(df, ["Fiscal Year", "Full-time Equivalent (FTE)", "FY2026 Projection"])
+
+        # Set x limit to be the the nearest multiple of 10 of x_min greater than x_max
+        x_limit = 2027
+        y_limit = 40_000
+        
+        # Prepare metadata
+        metadata = {
+            "title": "The smallest NASA workforce since 1960",
+            "subtitle": "The White House's 2026 budget proposal cuts NASA's workforce to levels not seen since the dawn of the space age.",  
+            "source": f"NASA FTE Workforce Reporting, FYs 1960-2026",
+        }
+                
+
+        # Load the Line plotter view
+        line_view = self.get_view('Line')
+        
+        # Generate charts via the specialized line chart view
+        line_view.line_plot(
+            metadata=metadata,
+            stem="fy2026_nasa_workforce_cuts",
+            x=fiscal_years,
+            y=[df["Full-time Equivalent (FTE)"],df["FY2026 Projection"]],
+            color=[line_view.COLORS["blue"], line_view.TPS_COLORS["Rocket Flame"]],
+            linestyle=["-","-"],
+            marker=["","o"],
+            label=["","2026 White House proposal"],
+            xlim=(datetime(1958,1,1), datetime(x_limit,1,1)),
+            ylim={"bottom":0, "top":y_limit},
+            legend={"loc":"lower right"},
+            export_data=export_df,
+            hlines=[11853],
+            hline_labels=["Lowest since 1960"],
+            hline_label_position="center",
+            hline_colors=[line_view.TPS_COLORS["Crater Shadow"]],
+            hline_linestyle=["--"],
+            hline_linewidth=[2],
+            ticksize=15
         )
     
     def generate_charts(self):
