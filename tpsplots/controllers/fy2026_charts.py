@@ -4,7 +4,7 @@ from datetime import datetime
 import numpy as np
 from tpsplots import TPS_STYLE_FILE
 from tpsplots.controllers.chart_controller import ChartController
-from tpsplots.data_sources.nasa_budget_data_source import Historical, ScienceDivisions, Science, Workforce
+from tpsplots.data_sources.nasa_budget_data_source import Historical, ScienceDivisions, Science, Workforce, Directorates
 from tpsplots.data_sources.missions import Missions
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -515,6 +515,74 @@ class FY2026Charts(ChartController):
             hline_linestyle=["--"],
             hline_linewidth=[2],
             ticksize=15
+        )
+    
+    
+    def directorate_changes_stacked_bar_chart(self):
+        """Example: Horizontal stacked bar chart comparing mission costs."""
+        df = Directorates().data()
+        
+        # Remove any column from df that has "(2025)" in the column name
+        df = df[[col for col in df.columns if all(x not in col for x in ["(2025)", "gdp", "nnsi"])]]
+        
+        # Filter the DataFrame to just FY2025/26
+        year_df = df[df["Fiscal Year"].dt.year == (datetime(2025,1,1).year or datetime(2026,1,1).year)]
+        
+        # Sample data - Mission costs by category
+        categories = [col for col in year_df.columns if "Fiscal Year" not in col]
+        # Rename categories using the provided mapping
+        category_rename = {
+            'Aeronautics': 'Aero',
+            'Deep Space Exploration Systems': 'Exploration',
+            'LEO Space Operations': 'Space Ops',
+            'Space Technology': 'STMD',
+            'Science': 'SMD',
+            'STEM Education': 'STEM',
+            'Facilities, IT, & Salaries': 'SSMS/CECR'
+        }
+        categories = [category_rename.get(cat, cat) for cat in categories]
+        # Calculate difference between FY 2025 and 2026:
+        fy2025_row = df[df["Fiscal Year"].dt.year == datetime(2025,1,1).year].iloc[0]
+        fy2026_row = df[df["Fiscal Year"].dt.year == datetime(2026,1,1).year].iloc[0]
+        diff_list = [-(fy2026_row[col] - fy2025_row[col]) for col in df.columns if col not in ["Fiscal Year"]]
+        # Remove "Fiscal Year" from the data rows
+        fy2025_values = [fy2025_row[col] for col in df.columns if col != "Fiscal Year"]
+        fy2026_values = [fy2026_row[col] for col in df.columns if col != "Fiscal Year"]
+        diff_values = [-(fy2026_row[col] - fy2025_row[col]) if (fy2026_row[col] - fy2025_row[col]) < 0 else 0 for col in df.columns if col != "Fiscal Year"]
+        # Sort fy2026_values from large to small, and apply the same order to diff_values and categories
+        sorted_indices = np.argsort(fy2026_values)[::-1]
+        fy2026_values = [fy2026_values[i] for i in sorted_indices]
+        diff_values = [diff_values[i] for i in sorted_indices]
+        categories = [categories[i] for i in sorted_indices]
+        data = {
+            "FY26": fy2026_values,
+            "FY26 Diff": diff_values
+        }
+
+        metadata = {
+            "title": "Major cuts are facing nearly every directorate",
+            "subtitle": "The FY 2026 White House budget would cut every part of NASA — except human spaceflight beyond Earth.",
+            "source": "NASA Mission Cost Estimates"
+        }
+
+        stacked_view = self.get_view('StackedBar')
+        
+        stacked_view.stacked_bar_plot(
+            metadata=metadata,
+            stem="fy2026_directorate_changes",
+            categories=categories,
+            values=data,
+            labels=["FY2026 Proposed","Amount Cut from FY 2025"],
+            orientation='vertical',
+            show_values=True,
+            value_format='monetary',
+            value_threshold=0,  # Only show values for segments >= 8% of total
+            value_fontsize=11,
+            stack_labels=False,
+            stack_label_format='monetary',
+            scale='billions',
+            colors=['#037CC2', '#FF5D47'],  # Custom TPS colors
+            legend={'loc': 'upper right'}
         )
     
     def generate_charts(self):
