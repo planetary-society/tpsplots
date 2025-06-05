@@ -434,9 +434,9 @@ class FY2026Charts(ChartController):
         export_df = pd.DataFrame(export_data)
         
         metadata = {
-            "title": "NASA's workforce reflects each center's specialization",
-            "subtitle": "From astronauts at Johnson to scientists at Goddard, each center's staffing matches its mission focus.",
-            "source": "NASA Workforce Data FY 2024 (Example Data)",
+            "title": "NASA faces nation-wide workforce losses",
+            "subtitle": "The White House's 2026 budget would reduce the staff at its 10 field centers by 20% - 40%.",
+            "source": "NASA FY 2026 Budget Request",
         }
         
         map_view = self.get_view('USMapPie')
@@ -445,10 +445,13 @@ class FY2026Charts(ChartController):
             metadata=metadata,
             stem="nasa_center_map",
             pie_data=pie_data,
-            show_percentages=True,
+            show_percentages=False,
             show_pie_labels=True,
-            base_pie_size=4000,
+            base_pie_size=5000,
             show_state_boundaries=True,
+            offset_line_color='#666666',
+            offset_line_style='-.',
+            offset_line_width=2,
             export_data=export_df
         )
     
@@ -488,7 +491,6 @@ class FY2026Charts(ChartController):
             "source": f"NASA FTE Workforce Reporting, FYs 1960-2026",
         }
                 
-
         # Load the Line plotter view
         line_view = self.get_view('Line')
         

@@ -42,6 +42,10 @@ class USMapPieChartView(ChartView):
         'Dryden Flight Research Center': {'lat': 34.9593, 'lon': -117.8825, 'state': 'CA'},  # Former name for AFRC
     }
     
+    # Centers that should be offset to avoid overlap
+    OFFSET_CENTERS = {'GSFC', 'LaRC', 'HQ', 'Goddard Space Flight Center', 
+                      'Langley Research Center', 'NASA Headquarters'}
+    
     def us_map_pie_plot(self, metadata, stem, **kwargs):
         """
         Generate US map with pie charts at specified locations for both desktop and mobile.
@@ -71,11 +75,14 @@ class USMapPieChartView(ChartView):
             - min_pie_size: float - Minimum size for pie charts when using proportional sizing (default: 400)
             - custom_locations: dict - Custom location coordinates to override defaults
             - show_state_boundaries: bool - Whether to show state boundaries (default: True)
-            - show_pie_labels: bool - Whether to show labels on pie charts (default: False)
+            - show_pie_labels: bool - Whether to show labels on pie charts (default: True)
             - show_percentages: bool - Whether to show percentage values on pie segments (default: False)
             - legend_location: str - Location for legend (default: 'lower left')
             - pie_edge_color: str - Edge color for pie charts (default: 'white')
             - pie_edge_width: float - Edge width for pie charts (default: 2)
+            - offset_line_color: str - Color for connecting lines (default: 'gray')
+            - offset_line_style: str - Style for connecting lines (default: '--')
+            - offset_line_width: float - Width for connecting lines (default: 1.5)
             
         Returns:
         --------
@@ -108,11 +115,14 @@ class USMapPieChartView(ChartView):
         min_pie_size = kwargs.pop('min_pie_size', 400)
         custom_locations = kwargs.pop('custom_locations', {})
         show_state_boundaries = kwargs.pop('show_state_boundaries', True)
-        show_pie_labels = kwargs.pop('show_pie_labels', False)
+        show_pie_labels = kwargs.pop('show_pie_labels', True)
         show_percentages = kwargs.pop('show_percentages', False)
         legend_location = kwargs.pop('legend_location', 'lower left')
         pie_edge_color = kwargs.pop('pie_edge_color', 'white')
         pie_edge_width = kwargs.pop('pie_edge_width', 2)
+        offset_line_color = kwargs.pop('offset_line_color', 'gray')
+        offset_line_style = kwargs.pop('offset_line_style', '--')
+        offset_line_width = kwargs.pop('offset_line_width', 1.5)
         
         # Extract figure parameters
         figsize = kwargs.pop('figsize', style["figsize"])
@@ -158,6 +168,17 @@ class USMapPieChartView(ChartView):
         pie_sizes = self._calculate_pie_sizes(pie_data, pie_size_column, 
                                             base_pie_size, min_pie_size, max_pie_size)
         
+        # Set map bounds with proper geographic aspect ratio
+        # Extend the right boundary to accommodate offset pie charts
+        ax.set_xlim(-125, -60)  # Extended right boundary
+        ax.set_ylim(20, 50)
+        
+        # Use appropriate aspect ratio for continental US (not equal)
+        ax.set_aspect(1.3)  # Adjust this value to get the right map proportions
+        
+        # Calculate offset positions for the centers that need to be displaced
+        offset_positions = self._calculate_offset_positions(pie_data, all_locations, ax)
+        
         # Create pie charts at each location using scatter-based approach
         legend_elements = []
         legend_labels = set()
@@ -168,7 +189,38 @@ class USMapPieChartView(ChartView):
                 continue
             
             location_info = all_locations[location_name]
-            lat, lon = location_info['lat'], location_info['lon']
+            original_lat, original_lon = location_info['lat'], location_info['lon']
+            
+            # Debug logging
+            if location_name in self.OFFSET_CENTERS:
+                logger.info(f"Processing offset center: {location_name}")
+                if location_name in offset_positions:
+                    logger.info(f"  Offset position: {offset_positions[location_name]}")
+                else:
+                    logger.info(f"  No offset position calculated")
+            
+            # Check if this location should be offset
+            if location_name in self.OFFSET_CENTERS and location_name in offset_positions:
+                # Use offset position
+                lon, lat = offset_positions[location_name]
+                
+                # Draw connecting line from original position to offset position
+                ax.plot([original_lon, lon], [original_lat, lat], 
+                       color=offset_line_color, 
+                       linestyle=offset_line_style, 
+                       linewidth=offset_line_width,
+                       alpha=0.7,
+                       zorder=5)
+                
+                # Add a small marker at the original location
+                ax.scatter(original_lon, original_lat, 
+                          s=30, 
+                          color=offset_line_color, 
+                          alpha=0.7, 
+                          zorder=6)
+            else:
+                # Use original position
+                lat, lon = original_lat, original_lon
             
             # Get pie chart data
             values = data.get('values', [])
@@ -184,6 +236,16 @@ class USMapPieChartView(ChartView):
             # Draw pie chart using scatter-based method
             self._draw_pie(values, lon, lat, pie_size, colors, ax, show_percentages)
             
+            # Add center name label if requested
+            if show_pie_labels:
+                # Place label at the center of the pie chart
+                ax.text(lon, lat, location_name, 
+                       ha='center', va='center', 
+                       fontsize=9, fontweight='bold',
+                       color='black',
+                       bbox=dict(boxstyle="round,pad=0.2", facecolor='white', alpha=0.9, edgecolor='none'),
+                       zorder=20)  # Ensure label appears on top
+            
             # Collect legend information (avoid duplicates)
             for label, color in zip(labels, colors):
                 if label not in legend_labels:
@@ -192,17 +254,16 @@ class USMapPieChartView(ChartView):
         
         # Add legend
         if legend_elements:
-            ax.legend(legend_elements, list(legend_labels), 
-                     loc=legend_location, fontsize=style.get("legend_size", 12),
+            # Reverse the order to match the visual (Cut first, then Retained)
+            legend_elements.reverse()
+            legend_labels_list = list(legend_labels)
+            legend_labels_list.reverse()
+            
+            ax.legend(legend_elements, legend_labels_list, 
+                     loc='lower left', 
+                     bbox_to_anchor=(0.02, 0.02),
+                     fontsize=style.get("legend_size", 12),
                      frameon=True, fancybox=True, shadow=True)
-        
-        # Set map bounds with proper geographic aspect ratio
-        ax.set_xlim(-125, -66.5)
-        ax.set_ylim(20, 50)
-        
-        # Use appropriate aspect ratio for continental US (not equal)
-        # Continental US is roughly 2.5:1 width to height ratio
-        ax.set_aspect(1.3)  # Adjust this value to get the right map proportions
         
         # Remove axes for cleaner look
         ax.set_xticks([])
@@ -214,6 +275,58 @@ class USMapPieChartView(ChartView):
         self._adjust_layout_for_header_footer(fig, metadata, style)
         
         return fig
+    
+    def _calculate_offset_positions(self, pie_data, all_locations, ax):
+        """
+        Calculate offset positions for centers that need to be displaced.
+        Places them vertically aligned on the right side of the map.
+        
+        Args:
+            pie_data: Dictionary of pie chart data
+            all_locations: Dictionary of all location coordinates
+            ax: Matplotlib axes
+            
+        Returns:
+            Dictionary of offset positions {location_name: (lon, lat)}
+        """
+        offset_positions = {}
+        
+        # Get centers that need offsetting and are in the pie_data
+        centers_to_offset = []
+        for name in pie_data.keys():
+            if name in self.OFFSET_CENTERS and name in all_locations:
+                centers_to_offset.append(name)
+        
+        if not centers_to_offset:
+            return offset_positions
+        
+        # Sort centers by their original latitude (north to south)
+        centers_to_offset.sort(key=lambda x: all_locations[x]['lat'], reverse=True)
+        
+        # Calculate offset positions
+        # Place them to the right of the map, outside the main map area
+        offset_lon = -64  # Further right, outside the map bounds
+        
+        # Calculate vertical spacing based on number of centers
+        # Increase spacing to accommodate labels
+        if len(centers_to_offset) == 1:
+            positions = [35]  # Center vertically
+        elif len(centers_to_offset) == 2:
+            positions = [40, 28]  # More spread out vertically
+        elif len(centers_to_offset) == 3:
+            positions = [43, 35, 27]  # Specific positions for 3 centers
+        else:  # 4 or more
+            # Evenly space them with more room
+            top_lat = 44
+            bottom_lat = 26
+            spacing = (top_lat - bottom_lat) / (len(centers_to_offset) - 1)
+            positions = [top_lat - i * spacing for i in range(len(centers_to_offset))]
+        
+        # Assign positions
+        for center_name, lat in zip(centers_to_offset, positions):
+            offset_positions[center_name] = (offset_lon, lat)
+        
+        return offset_positions
     
     def _draw_pie(self, values, xpos, ypos, size, colors, ax, show_percentages=False):
         """
@@ -241,6 +354,22 @@ class USMapPieChartView(ChartView):
         
         # Start angle offset to align all pies the same way (90 degrees = 12 o'clock)
         start_angle_offset = np.pi / 2  # 90 degrees in radians
+        
+        # Calculate the pie radius in data coordinates
+        # This is needed for consistent percentage label placement
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        
+        # Approximate conversion from scatter size to data coordinates
+        # This ensures consistent relative positioning across different figure sizes
+        fig_width_inches = ax.figure.get_figwidth()
+        fig_height_inches = ax.figure.get_figheight()
+        data_width = xlim[1] - xlim[0]
+        data_height = ylim[1] - ylim[0]
+        
+        # Calculate approximate pie radius in data coordinates
+        # Adjust the scaling factor to get consistent label placement
+        pie_radius_data = np.sqrt(size / 800) * 2.5  # Normalized radius in data coords
         
         # Draw each pie segment
         for i, (r1, r2) in enumerate(zip(pie[:-1], pie[1:])):
@@ -270,15 +399,22 @@ class USMapPieChartView(ChartView):
                 # Calculate percentage
                 percentage = (values[i] / total) * 100
                 
-                # Only show percentages for segments > 5% to avoid clutter
-                if percentage >= 5:
+                # Show percentages for all segments
+                if percentage >= 1:  # Show even small percentages
                     # Calculate the middle angle of this segment for label positioning
                     mid_angle = (2 * np.pi * r1 + 2 * np.pi * r2) / 2 + start_angle_offset
                     
-                    # Calculate label position (slightly inside the pie chart)
-                    label_radius = 0.4  # Position at 60% of the radius
-                    label_x = xpos + label_radius * (size / 1000) * np.cos(mid_angle)
-                    label_y = ypos + label_radius * (size / 1000) * np.sin(mid_angle)
+                    # Calculate label position using consistent radius
+                    # Use different radius factor based on segment size for better placement
+                    if percentage >= 20:
+                        radius_factor = 0.4  # Closer to center for larger segments
+                    else:
+                        radius_factor = 0.6  # Further out for smaller segments
+                    
+                    # Use the calculated pie radius for consistent positioning
+                    label_radius = pie_radius_data * radius_factor
+                    label_x = xpos + label_radius * np.cos(mid_angle)
+                    label_y = ypos + label_radius * np.sin(mid_angle)
                     
                     # Add percentage text
                     ax.text(
@@ -286,7 +422,7 @@ class USMapPieChartView(ChartView):
                         f"{percentage:.0f}%",
                         ha='center',
                         va='center',
-                        fontsize=10,
+                        fontsize=9 if percentage < 10 else 10,
                         fontweight='bold',
                         color='white',
                         zorder=15
@@ -347,4 +483,4 @@ class USMapPieChartView(ChartView):
             self.TPS_COLORS["Medium Plasma"],
             self.TPS_COLORS["Crater Shadow"]
         ]
-        return [colors[i % len(colors)] for i in range(num_segments)] 
+        return [colors[i % len(colors)] for i in range(num_segments)]

@@ -5,3 +5,4 @@ certifi
 requests
 python-pptx
 boto3
+geopandas
