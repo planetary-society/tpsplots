@@ -443,9 +443,9 @@ class FY2026Charts(ChartController):
         
         map_view.us_map_pie_plot(
             metadata=metadata,
-            stem="nasa_center_map",
+            stem="fy2026_nasa_center_workforce_reductions",
             pie_data=pie_data,
-            show_percentages=False,
+            show_percentages=True,
             show_pie_labels=True,
             base_pie_size=5000,
             show_state_boundaries=True,
@@ -535,8 +535,8 @@ class FY2026Charts(ChartController):
             'Aeronautics': 'Aero',
             'Deep Space Exploration Systems': 'Exploration',
             'LEO Space Operations': 'Space Ops',
-            'Space Technology': 'STMD',
-            'Science': 'SMD',
+            'Space Technology': 'Tech',
+            'Science': 'Science',
             'STEM Education': 'STEM',
             'Facilities, IT, & Salaries': 'SSMS/CECR'
         }
@@ -559,30 +559,38 @@ class FY2026Charts(ChartController):
             "FY26 Diff": diff_values
         }
 
+        # Create an exportable dataframe of categories and fy2025 and 2026 values
+        export_df = pd.DataFrame({
+            "Category": categories,
+            "FY2025": [fy2025_row[col] for col in df.columns if col != "Fiscal Year"],
+            "FY2026": fy2026_values
+        })
+        
         metadata = {
-            "title": "Major cuts are facing nearly every directorate",
-            "subtitle": "The FY 2026 White House budget would cut every part of NASA — except human spaceflight beyond Earth.",
-            "source": "NASA Mission Cost Estimates"
+            "title": "Cuts are proposed across NASA",
+            "subtitle": "The FY 2026 White House budget impacts all parts of NASA — except human exploration beyond Earth.",
+            "source": "NASA FY 2026 Budget Request"
         }
 
         stacked_view = self.get_view('StackedBar')
         
         stacked_view.stacked_bar_plot(
             metadata=metadata,
-            stem="fy2026_directorate_changes",
+            stem="fy2026_directorate_cuts",
             categories=categories,
             values=data,
             labels=["FY2026 Proposed","Amount Cut from FY 2025"],
             orientation='vertical',
             show_values=True,
             value_format='monetary',
-            value_threshold=0,  # Only show values for segments >= 8% of total
-            value_fontsize=11,
+            value_threshold=0,
+            value_fontsize=10,
             stack_labels=False,
             stack_label_format='monetary',
             scale='billions',
-            colors=['#037CC2', '#FF5D47'],  # Custom TPS colors
-            legend={'loc': 'upper right'}
+            colors=['#037CC2', '#FF5D47'],
+            legend={'loc': 'upper right'},
+            export_data=export_df
         )
     
     def generate_charts(self):
