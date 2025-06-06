@@ -355,21 +355,65 @@ class StackedBarChartView(ChartView):
         grid_axis = kwargs.pop('grid_axis', 'y' if orientation == 'vertical' else 'x')
         tick_size = kwargs.pop('tick_size', style.get("tick_size", 12))
         tick_rotation = kwargs.pop('tick_rotation', 
-                                 style.get("tick_rotation", 45 if orientation == 'vertical' else 0))
+                                style.get("tick_rotation", 45 if orientation == 'vertical' else 0))
         
         # Apply axis labels
+        label_size = style.get("label_size", 12)
+        if style["type"] == "mobile":
+            label_size = label_size * .8
+            tick_size = tick_size * .8
+        
         if xlabel:
-            ax.set_xlabel(xlabel, fontsize=style.get("label_size", 14))
+            ax.set_xlabel(xlabel, fontsize=label_size)
         if ylabel:
-            ax.set_ylabel(ylabel, fontsize=style.get("label_size", 14))
+            ax.set_ylabel(ylabel, fontsize=label_size)
         
         # Apply grid
         if grid:
             ax.grid(axis=grid_axis, alpha=0.3, linestyle='--', linewidth=0.5)
         
+        # Disable minor ticks for both axes
+        ax.xaxis.set_minor_locator(plt.NullLocator())
+        ax.yaxis.set_minor_locator(plt.NullLocator())
+        ax.tick_params(which='minor', left=False, right=False, top=False, bottom=False)
+        
         # Set tick sizes and rotation
         ax.tick_params(axis='x', labelsize=tick_size, rotation=tick_rotation)
         ax.tick_params(axis='y', labelsize=tick_size)
+        
+        # Ensure category labels are centered under bars with proper alignment for rotation
+        if orientation == 'vertical':
+            # For vertical bars, x-axis labels should be centered under bars
+            x_positions = np.arange(len(ax.get_xticklabels()))
+            ax.set_xticks(x_positions)
+            
+            # Adjust alignment based on rotation angle
+            if abs(tick_rotation) == 90:
+                # For 90-degree rotation, use left alignment (labels hang down from tick)
+                ha = 'center'
+                va = 'top'
+            elif tick_rotation != 0:
+                # For other rotations (like 45 degrees), use right alignment
+                ha = 'right'
+                va = 'top'
+            else:
+                # For no rotation, center the labels
+                ha = 'center'
+                va = 'top'
+            
+            # Apply the alignment to all x-axis labels
+            for tick in ax.get_xticklabels():
+                tick.set_horizontalalignment(ha)
+                tick.set_verticalalignment(va)
+                
+        else:  # horizontal
+            # For horizontal bars, y-axis labels should be centered next to bars
+            y_positions = np.arange(len(ax.get_yticklabels()))
+            ax.set_yticks(y_positions)
+            # Horizontal bars typically don't rotate y-labels, so keep them centered
+            for tick in ax.get_yticklabels():
+                tick.set_verticalalignment('center')
+                tick.set_horizontalalignment('right')
         
         # Apply scale formatter if specified
         if scale:
