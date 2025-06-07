@@ -447,7 +447,7 @@ class FY2026Charts(ChartController):
             pie_data=pie_data,
             show_percentages=True,
             show_pie_labels=True,
-            base_pie_size=5000,
+            base_pie_size=4500,
             show_state_boundaries=True,
             offset_line_color='#666666',
             offset_line_style='-.',
@@ -598,4 +598,7 @@ class FY2026Charts(ChartController):
         self.nasa_budget_historical_with_fy_2026_proposed()
         self.nasa_science_by_year_inflation_adjusted_fy2026_threat()
         self.nasa_science_divisions_quad_plot_fy2026_threat()
+        self.fy2026_nasa_workforce_projections()
+        self.cancelled_missions_lollipop_chart()
+        self.directorate_changes_stacked_bar_chart()
         

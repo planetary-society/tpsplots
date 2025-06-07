@@ -1,4 +1,4 @@
-"""US Map with pie charts visualization specialized view using geopandas and scatter-based pie charts."""
+"""Improved US Map with pie charts visualization with fixed percentage positioning and auto-scaling."""
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -83,6 +83,9 @@ class USMapPieChartView(ChartView):
             - offset_line_color: str - Color for connecting lines (default: 'gray')
             - offset_line_style: str - Style for connecting lines (default: '--')
             - offset_line_width: float - Width for connecting lines (default: 1.5)
+            - auto_expand_bounds: bool - Automatically expand figure bounds to fit all pies (default: True)
+            - padding_factor: float - Extra padding around pies as fraction of pie radius 
+                                (default: 0.15 for desktop, 0.3 for mobile)
             
         Returns:
         --------
@@ -123,6 +126,8 @@ class USMapPieChartView(ChartView):
         offset_line_color = kwargs.pop('offset_line_color', 'gray')
         offset_line_style = kwargs.pop('offset_line_style', '--')
         offset_line_width = kwargs.pop('offset_line_width', 1.5)
+        auto_expand_bounds = kwargs.pop('auto_expand_bounds', True)
+        padding_factor = kwargs.pop('padding_factor', 0.1  if style.get("type") == "desktop" else 0.2)
         
         # Extract figure parameters
         figsize = kwargs.pop('figsize', style["figsize"])
@@ -164,20 +169,54 @@ class USMapPieChartView(ChartView):
         # Combine default locations with custom ones
         all_locations = {**self.NASA_CENTERS, **custom_locations}
         
+        # Apply desktop scaling factor to pie sizes
+        if style.get("type") == "desktop":
+            desktop_scale_factor = 2.0
+            scaled_base_pie_size = base_pie_size * desktop_scale_factor
+            scaled_min_pie_size = min_pie_size * desktop_scale_factor
+            scaled_max_pie_size = max_pie_size * desktop_scale_factor
+        else:
+            scaled_base_pie_size = base_pie_size
+            scaled_min_pie_size = min_pie_size
+            scaled_max_pie_size = max_pie_size
+        
         # Calculate pie sizes if using proportional sizing
         pie_sizes = self._calculate_pie_sizes(pie_data, pie_size_column, 
-                                            base_pie_size, min_pie_size, max_pie_size)
+                                            scaled_base_pie_size, scaled_min_pie_size, scaled_max_pie_size)
         
-        # Set map bounds with proper geographic aspect ratio
-        # Extend the right boundary to accommodate offset pie charts
-        ax.set_xlim(-125, -60)  # Extended right boundary
-        ax.set_ylim(20, 50)
-        
-        # Use appropriate aspect ratio for continental US (not equal)
-        ax.set_aspect(1.3)  # Adjust this value to get the right map proportions
+        # Set initial map bounds
+        base_xlim = (-125, -60)
+        base_ylim = (20, 50)
+        ax.set_xlim(base_xlim)
+        ax.set_ylim(base_ylim)
         
         # Calculate offset positions for the centers that need to be displaced
         offset_positions = self._calculate_offset_positions(pie_data, all_locations, ax)
+        
+        # Calculate actual pie positions and sizes for bounds checking
+        pie_positions_and_sizes = []
+        for location_name, data in pie_data.items():
+            if location_name not in all_locations:
+                continue
+                
+            location_info = all_locations[location_name]
+            original_lat, original_lon = location_info['lat'], location_info['lon']
+            
+            # Determine final position
+            if location_name in self.OFFSET_CENTERS and location_name in offset_positions:
+                lon, lat = offset_positions[location_name]
+            else:
+                lat, lon = original_lat, original_lon
+            
+            pie_size = pie_sizes.get(location_name, scaled_base_pie_size)
+            pie_positions_and_sizes.append((lon, lat, pie_size))
+        
+        # Auto-expand bounds if requested
+        if auto_expand_bounds:
+            self._expand_bounds_for_pies(ax, pie_positions_and_sizes, padding_factor)
+        
+        # Use appropriate aspect ratio for continental US (not equal)
+        ax.set_aspect(1.3)  # Adjust this value to get the right map proportions
         
         # Create pie charts at each location using scatter-based approach
         legend_elements = []
@@ -190,14 +229,6 @@ class USMapPieChartView(ChartView):
             
             location_info = all_locations[location_name]
             original_lat, original_lon = location_info['lat'], location_info['lon']
-            
-            # Debug logging
-            if location_name in self.OFFSET_CENTERS:
-                logger.info(f"Processing offset center: {location_name}")
-                if location_name in offset_positions:
-                    logger.info(f"  Offset position: {offset_positions[location_name]}")
-                else:
-                    logger.info(f"  No offset position calculated")
             
             # Check if this location should be offset
             if location_name in self.OFFSET_CENTERS and location_name in offset_positions:
@@ -233,8 +264,8 @@ class USMapPieChartView(ChartView):
             # Get pie size
             pie_size = pie_sizes.get(location_name, base_pie_size)
             
-            # Draw pie chart using scatter-based method
-            self._draw_pie(values, lon, lat, pie_size, colors, ax, show_percentages)
+            # Draw pie chart using improved scatter-based method
+            self._draw_pie_improved(values, lon, lat, pie_size, colors, ax, show_percentages, figsize, dpi, style)
             
             # Add center name label if requested
             if show_pie_labels:
@@ -275,6 +306,200 @@ class USMapPieChartView(ChartView):
         self._adjust_layout_for_header_footer(fig, metadata, style)
         
         return fig
+    
+    def _expand_bounds_for_pies(self, ax, pie_positions_and_sizes, padding_factor):
+        """
+        Expand the axis bounds to ensure all pie charts fit within the figure.
+        
+        Args:
+            ax: Matplotlib axes
+            pie_positions_and_sizes: List of tuples (lon, lat, pie_size)
+            padding_factor: Extra padding as fraction of pie radius
+        """
+        current_xlim = ax.get_xlim()
+        current_ylim = ax.get_ylim()
+        
+        min_x, max_x = current_xlim
+        min_y, max_y = current_ylim
+        
+        # Track whether we actually need to expand bounds
+        bounds_changed = False
+        
+        # Calculate the maximum radius in data coordinates
+        for lon, lat, pie_size in pie_positions_and_sizes:
+            # Estimate pie radius in data coordinates using the same method as the drawing function
+            estimated_radius = self._calculate_consistent_pie_radius(pie_size, figsize=None, dpi=None, style=None)
+            padding = estimated_radius * padding_factor
+            
+            # Check if pie extends beyond current bounds
+            pie_min_x = lon - estimated_radius - padding
+            pie_max_x = lon + estimated_radius + padding
+            pie_min_y = lat - estimated_radius - padding
+            pie_max_y = lat + estimated_radius + padding
+            
+            # Only expand bounds if necessary (pies extend beyond current bounds)
+            if pie_min_x < min_x:
+                min_x = pie_min_x
+                bounds_changed = True
+            if pie_max_x > max_x:
+                max_x = pie_max_x
+                bounds_changed = True
+            if pie_min_y < min_y:
+                min_y = pie_min_y
+                bounds_changed = True
+            if pie_max_y > max_y:
+                max_y = pie_max_y
+                bounds_changed = True
+        
+        # Only set bounds if they actually changed to avoid unnecessary padding
+        if bounds_changed:
+            # Add a small additional margin only if we expanded bounds
+            margin_x = (max_x - min_x) * 0.02  # 2% margin
+            margin_y = (max_y - min_y) * 0.02  # 2% margin
+            
+            ax.set_xlim(min_x - margin_x, max_x + margin_x)
+            ax.set_ylim(min_y - margin_y, max_y + margin_y)
+    
+    def _draw_pie_improved(self, values, xpos, ypos, size, colors, ax, show_percentages=False, figsize=None, dpi=None, style=None):
+        """
+        Draw a pie chart using scatter plots with improved percentage positioning.
+        
+        Args:
+            values: List of values for pie segments
+            xpos: X position (longitude)
+            ypos: Y position (latitude)
+            size: Size of the pie chart
+            colors: List of colors for each segment
+            ax: Matplotlib axes to draw on
+            show_percentages: Whether to show percentage labels on segments
+            figsize: Figure size tuple for consistent radius calculation
+            dpi: Figure DPI for consistent radius calculation
+            style: Style dictionary to determine if desktop or mobile
+        """
+        # Normalize values for pie slices
+        total = sum(values)
+        if total == 0:
+            return ax
+        
+        # Calculate cumulative proportions
+        cumsum = np.cumsum(values)
+        cumsum = cumsum / cumsum[-1]
+        pie = [0] + cumsum.tolist()
+        
+        # Start angle offset to align all pies the same way (90 degrees = 12 o'clock)
+        start_angle_offset = np.pi / 2  # 90 degrees in radians
+        
+        # Calculate consistent pie radius in data coordinates
+        # This ensures percentage labels are always positioned at 50% of radius
+        pie_radius_data = self._calculate_consistent_pie_radius(size, figsize, dpi, style)
+        
+        # Draw each pie segment
+        for i, (r1, r2) in enumerate(zip(pie[:-1], pie[1:])):
+            # Create angles for this segment, starting from 12 o'clock
+            angles = np.linspace(
+                2 * np.pi * r1 + start_angle_offset, 
+                2 * np.pi * r2 + start_angle_offset, 
+                50
+            )
+            
+            # Create pie wedge coordinates
+            x = [0] + np.cos(angles).tolist()
+            y = [0] + np.sin(angles).tolist()
+            
+            # Create marker from coordinates
+            xy = np.column_stack([x, y])
+            
+            # Use color from provided list or default
+            color = colors[i] if i < len(colors) else self._get_default_pie_colors(1)[0]
+            
+            # Draw the pie segment with exact positioning
+            ax.scatter([xpos], [ypos], marker=xy, s=size, color=color, alpha=0.85, 
+                      edgecolors='white', linewidths=0.5, zorder=10)
+            
+            # Add percentage label if requested
+            if show_percentages:
+                # Calculate percentage
+                percentage = (values[i] / total) * 100
+                
+                # Show percentages for segments >= 1%
+                if percentage >= 1:
+                    # Calculate the middle angle of this segment for label positioning
+                    mid_angle = (2 * np.pi * r1 + 2 * np.pi * r2) / 2 + start_angle_offset
+                    
+                    # Position label at exactly 50% of pie radius
+                    label_radius = pie_radius_data * 0.5
+                    label_x = xpos + label_radius * np.cos(mid_angle)
+                    label_y = ypos + label_radius * np.sin(mid_angle)
+                    
+                    # Adjust font size based on style type for better readability
+                    if style and style.get("type") == "desktop":
+                        base_fontsize = 12 if percentage < 10 else 14
+                    else:
+                        base_fontsize = 9 if percentage < 10 else 10
+                    
+                    # Add percentage text
+                    ax.text(
+                        label_x, label_y,
+                        f"{percentage:.0f}%",
+                        ha='center',
+                        va='center',
+                        fontsize=base_fontsize,
+                        fontweight='bold',
+                        color='white',
+                        zorder=15
+                    )
+        
+        return ax
+    
+    def _calculate_consistent_pie_radius(self, scatter_size, figsize=None, dpi=None, style=None):
+        """
+        Calculate a consistent pie radius in data coordinates that works across different figure sizes and DPI.
+        
+        Args:
+            scatter_size: The scatter plot size parameter (already scaled for desktop/mobile)
+            figsize: Figure size tuple (width, height)
+            dpi: Figure DPI
+            style: Style dictionary to determine scaling factors
+            
+        Returns:
+            float: Pie radius in data coordinates
+        """
+        # Base formula for converting scatter size to approximate radius
+        # scatter size is in points^2, so we take sqrt to get radius in points
+        radius_points = np.sqrt(scatter_size)
+        
+        # Convert points to data coordinates
+        # 1 point = 1/72 inch
+        radius_inches = radius_points / 72
+        
+        # Get current axis limits
+        try:
+            xlim = plt.gca().get_xlim()
+            ylim = plt.gca().get_ylim()
+        except:
+            # Fallback to default map bounds
+            xlim = (-125, -60)
+            ylim = (20, 50)
+        
+        # Calculate data units per inch based on current axis and figure
+        if figsize is not None:
+            data_width = xlim[1] - xlim[0]
+            data_height = ylim[1] - ylim[0]
+            
+            # Use the smaller dimension to be conservative
+            data_units_per_inch = min(data_width / figsize[0], data_height / figsize[1])
+        else:
+            # Use a reasonable default conversion factor
+            data_units_per_inch = 8
+        
+        # Convert radius from inches to data coordinates
+        radius_data = radius_inches * data_units_per_inch
+        
+        # Apply a normalization factor to ensure consistent visual positioning
+        # This accounts for the fact that matplotlib's scatter sizing may not be perfectly linear
+        normalization_factor = 0.8  # Adjust this if needed based on visual testing
+        
+        return radius_data * normalization_factor
     
     def _calculate_offset_positions(self, pie_data, all_locations, ax):
         """
@@ -327,108 +552,6 @@ class USMapPieChartView(ChartView):
             offset_positions[center_name] = (offset_lon, lat)
         
         return offset_positions
-    
-    def _draw_pie(self, values, xpos, ypos, size, colors, ax, show_percentages=False):
-        """
-        Draw a pie chart using scatter plots with custom markers.
-        Based on the scatter-pie approach from the baseline implementation.
-        
-        Args:
-            values: List of values for pie segments
-            xpos: X position (longitude)
-            ypos: Y position (latitude)
-            size: Size of the pie chart
-            colors: List of colors for each segment
-            ax: Matplotlib axes to draw on
-            show_percentages: Whether to show percentage labels on segments
-        """
-        # Normalize values for pie slices
-        total = sum(values)
-        if total == 0:
-            return ax
-        
-        # Calculate cumulative proportions
-        cumsum = np.cumsum(values)
-        cumsum = cumsum / cumsum[-1]
-        pie = [0] + cumsum.tolist()
-        
-        # Start angle offset to align all pies the same way (90 degrees = 12 o'clock)
-        start_angle_offset = np.pi / 2  # 90 degrees in radians
-        
-        # Calculate the pie radius in data coordinates
-        # This is needed for consistent percentage label placement
-        xlim = ax.get_xlim()
-        ylim = ax.get_ylim()
-        
-        # Approximate conversion from scatter size to data coordinates
-        # This ensures consistent relative positioning across different figure sizes
-        fig_width_inches = ax.figure.get_figwidth()
-        fig_height_inches = ax.figure.get_figheight()
-        data_width = xlim[1] - xlim[0]
-        data_height = ylim[1] - ylim[0]
-        
-        # Calculate approximate pie radius in data coordinates
-        # Adjust the scaling factor to get consistent label placement
-        pie_radius_data = np.sqrt(size / 800) * 2.5  # Normalized radius in data coords
-        
-        # Draw each pie segment
-        for i, (r1, r2) in enumerate(zip(pie[:-1], pie[1:])):
-            # Create angles for this segment, starting from 12 o'clock
-            angles = np.linspace(
-                2 * np.pi * r1 + start_angle_offset, 
-                2 * np.pi * r2 + start_angle_offset, 
-                50
-            )
-            
-            # Create pie wedge coordinates
-            x = [0] + np.cos(angles).tolist()
-            y = [0] + np.sin(angles).tolist()
-            
-            # Create marker from coordinates
-            xy = np.column_stack([x, y])
-            
-            # Use color from provided list or default
-            color = colors[i] if i < len(colors) else self._get_default_pie_colors(1)[0]
-            
-            # Draw the pie segment with exact positioning
-            ax.scatter([xpos], [ypos], marker=xy, s=size, color=color, alpha=0.85, 
-                      edgecolors='white', linewidths=0.5, zorder=10)
-            
-            # Add percentage label if requested
-            if show_percentages:
-                # Calculate percentage
-                percentage = (values[i] / total) * 100
-                
-                # Show percentages for all segments
-                if percentage >= 1:  # Show even small percentages
-                    # Calculate the middle angle of this segment for label positioning
-                    mid_angle = (2 * np.pi * r1 + 2 * np.pi * r2) / 2 + start_angle_offset
-                    
-                    # Calculate label position using consistent radius
-                    # Use different radius factor based on segment size for better placement
-                    if percentage >= 20:
-                        radius_factor = 0.4  # Closer to center for larger segments
-                    else:
-                        radius_factor = 0.6  # Further out for smaller segments
-                    
-                    # Use the calculated pie radius for consistent positioning
-                    label_radius = pie_radius_data * radius_factor
-                    label_x = xpos + label_radius * np.cos(mid_angle)
-                    label_y = ypos + label_radius * np.sin(mid_angle)
-                    
-                    # Add percentage text
-                    ax.text(
-                        label_x, label_y,
-                        f"{percentage:.0f}%",
-                        ha='center',
-                        va='center',
-                        fontsize=9 if percentage < 10 else 10,
-                        fontweight='bold',
-                        color='white',
-                        zorder=15
-                    )
-        
-        return ax
     
     def _create_fallback_map(self, ax):
         """Create a simple fallback map when geopandas is not available."""
