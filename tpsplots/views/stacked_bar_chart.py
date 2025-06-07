@@ -431,10 +431,6 @@ class StackedBarChartView(ChartView):
                 ax.set_ylim(**ylim)
             else:
                 ax.set_ylim(ylim)
-        
-        # Adjust layout to prevent label cutoff
-        if orientation == 'vertical' and tick_rotation != 0:
-            plt.setp(ax.get_xticklabels(), rotation=tick_rotation, ha='right')
     
     def _get_default_colors(self, num_colors):
         """Get default TPS color cycle."""
