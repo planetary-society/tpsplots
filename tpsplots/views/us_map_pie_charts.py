@@ -78,7 +78,7 @@ class USMapPieChartView(ChartView):
             - custom_locations: dict - Custom location coordinates to override defaults
             - show_state_boundaries: bool - Whether to show state boundaries (default: True)
             - show_pie_labels: bool - Whether to show labels on pie charts (default: True)
-            - show_percentages: bool - Whether to show percentage values on pie segments (default: False)
+            - show_percentages: bool or list(bool) - Whether to show percentage values on pie segments, or which ones to display
             - legend_location: str - Location for legend (default: 'lower left')
             - pie_edge_color: str - Edge color for pie charts (default: 'white')
             - pie_edge_width: float - Edge width for pie charts (default: 2)
@@ -362,6 +362,34 @@ class USMapPieChartView(ChartView):
             ax.set_xlim(min_x - margin_x, max_x + margin_x)
             ax.set_ylim(min_y - margin_y, max_y + margin_y)
     
+    def _calculate_position_independent_radius(self, scatter_size):
+        """
+        Calculate pie radius in data coordinates independent of chart position.
+        
+        This method provides consistent radius calculation regardless of where
+        the pie chart is positioned (original location vs offset location).
+        
+        Args:
+            scatter_size: The scatter plot size parameter
+            
+        Returns:
+            float: Pie radius in data coordinates
+        """
+        # Convert scatter size to radius using a fixed conversion factor
+        # This approach is independent of current axis limits or figure dimensions
+        
+        # scatter size is in points^2, so we take sqrt to get radius in points
+        radius_points = np.sqrt(scatter_size)
+        
+        # Use a fixed conversion factor from points to data coordinates
+        # This factor is calibrated for the typical US map coordinate system
+        # (longitude range ~65 degrees, latitude range ~30 degrees)
+        points_to_data_conversion = 0.02  # Adjust this value if needed
+        
+        radius_data = radius_points * points_to_data_conversion
+        
+        return radius_data
+
     def _draw_pie_improved(self, values, xpos, ypos, size, colors, ax, show_percentages=False, figsize=None, dpi=None, style=None):
         """
         Draw a pie chart using scatter plots with improved percentage positioning.
@@ -373,7 +401,8 @@ class USMapPieChartView(ChartView):
             size: Size of the pie chart
             colors: List of colors for each segment
             ax: Matplotlib axes to draw on
-            show_percentages: Whether to show percentage labels on segments
+            show_percentages: Either bool (True/False for all segments) or list of bools 
+                            (per-segment control, matching order of values)
             figsize: Figure size tuple for consistent radius calculation
             dpi: Figure DPI for consistent radius calculation
             style: Style dictionary to determine if desktop or mobile
@@ -382,6 +411,22 @@ class USMapPieChartView(ChartView):
         total = sum(values)
         if total == 0:
             return ax
+        
+        # Process show_percentages parameter
+        if isinstance(show_percentages, bool):
+            # Convert boolean to list for all segments
+            show_percentages_list = [show_percentages] * len(values)
+        elif isinstance(show_percentages, (list, tuple)):
+            # Use provided list, padding with False if too short
+            show_percentages_list = list(show_percentages)
+            # Pad with False if the list is shorter than values
+            while len(show_percentages_list) < len(values):
+                show_percentages_list.append(False)
+            # Truncate if the list is longer than values
+            show_percentages_list = show_percentages_list[:len(values)]
+        else:
+            # Fallback for invalid input
+            show_percentages_list = [False] * len(values)
         
         # Calculate cumulative proportions
         cumsum = np.cumsum(values)
@@ -392,8 +437,8 @@ class USMapPieChartView(ChartView):
         start_angle_offset = np.pi / 2  # 90 degrees in radians
         
         # Calculate consistent pie radius in data coordinates
-        # This ensures percentage labels are always positioned at 50% of radius
-        pie_radius_data = self._calculate_consistent_pie_radius(size, figsize, dpi, style)
+        # Use a simpler, position-independent approach
+        pie_radius_data = self._calculate_position_independent_radius(size)
         
         # Draw each pie segment
         for i, (r1, r2) in enumerate(zip(pie[:-1], pie[1:])):
@@ -416,10 +461,10 @@ class USMapPieChartView(ChartView):
             
             # Draw the pie segment with exact positioning
             ax.scatter([xpos], [ypos], marker=xy, s=size, color=color, alpha=0.85, 
-                      edgecolors='white', linewidths=0.5, zorder=10)
+                    edgecolors='white', linewidths=0.5, zorder=10)
             
-            # Add percentage label if requested
-            if show_percentages:
+            # Add percentage label if requested for this specific segment
+            if show_percentages_list[i]:
                 # Calculate percentage
                 percentage = (values[i] / total) * 100
                 
@@ -428,10 +473,28 @@ class USMapPieChartView(ChartView):
                     # Calculate the middle angle of this segment for label positioning
                     mid_angle = (2 * np.pi * r1 + 2 * np.pi * r2) / 2 + start_angle_offset
                     
-                    # Position label at exactly 50% of pie radius
-                    label_radius = pie_radius_data * 0.5
-                    label_x = xpos + label_radius * np.cos(mid_angle)
-                    label_y = ypos + label_radius * np.sin(mid_angle)
+                    # Adjust label radius based on segment size for better visual balance
+                    # Smaller segments get labels closer to center, larger segments farther out
+                    if percentage < 35:
+                        label_radius_factor = 2  # Closer to center for small segments
+                    elif percentage < 50:
+                        label_radius_factor = 3  # Medium distance for medium segments
+                    else:
+                        label_radius_factor = 3.5  # Farther out for large segments
+                    
+                    label_radius = pie_radius_data * label_radius_factor
+                    
+                    # Adjust for mobile display quirks
+                    if style and style.get("type") == "mobile":
+                        label_radius = label_radius * 1.3
+                    
+                    # Account for map aspect ratio to prevent horizontal shifting
+                    # The map uses aspect ratio 1.3, so longitude coordinates are compressed
+                    aspect_ratio = 1.3  # This should match the aspect ratio set in _create_chart
+                    
+                    # Calculate label position with aspect ratio correction
+                    label_x = xpos + (label_radius * np.cos(mid_angle)) / aspect_ratio
+                    label_y = (ypos + label_radius * np.sin(mid_angle)) * 0.98
                     
                     # Adjust font size based on style type for better readability
                     if style and style.get("type") == "desktop":
@@ -447,7 +510,8 @@ class USMapPieChartView(ChartView):
                         va='center',
                         fontsize=base_fontsize,
                         fontweight='bold',
-                        color='white',
+                        color=color,
+                        bbox=dict(boxstyle="round,pad=0.2", facecolor='white', edgecolor=color),
                         zorder=15
                     )
         

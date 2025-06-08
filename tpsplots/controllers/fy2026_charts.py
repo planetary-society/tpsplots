@@ -445,7 +445,7 @@ class FY2026Charts(ChartController):
             metadata=metadata,
             stem="fy2026_nasa_center_workforce_reductions",
             pie_data=pie_data,
-            show_percentages=True,
+            show_percentages=[False,True], # Only show cuts
             show_pie_labels=True,
             base_pie_size=4500,
             show_state_boundaries=True,
