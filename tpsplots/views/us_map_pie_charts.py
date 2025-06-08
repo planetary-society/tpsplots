@@ -129,7 +129,7 @@ class USMapPieChartView(ChartView):
         offset_line_style = kwargs.pop('offset_line_style', '--')
         offset_line_width = kwargs.pop('offset_line_width', 1.5)
         auto_expand_bounds = kwargs.pop('auto_expand_bounds', True)
-        padding_factor = kwargs.pop('padding_factor', 0.1  if style.get("type") == "desktop" else 0.2)
+        padding_factor = kwargs.pop('padding_factor', 0  if style.get("type") == "desktop" else 0.15)
         
         # Extract figure parameters
         figsize = kwargs.pop('figsize', style["figsize"])
@@ -187,8 +187,8 @@ class USMapPieChartView(ChartView):
                                             scaled_base_pie_size, scaled_min_pie_size, scaled_max_pie_size)
         
         # Set initial map bounds
-        base_xlim = (-125, -60)
-        base_ylim = (20, 50)
+        base_xlim = (-122, -65)
+        base_ylim = (22, 48)
         ax.set_xlim(base_xlim)
         ax.set_ylim(base_ylim)
         
@@ -288,15 +288,13 @@ class USMapPieChartView(ChartView):
         # Add legend
         if legend_elements:
             # Reverse the order to match the visual (Cut first, then Retained)
-            legend_elements.reverse()
             legend_labels_list = list(legend_labels)
             legend_labels_list.reverse()
             
             ax.legend(legend_elements, legend_labels_list, 
                      loc='lower left', 
-                     bbox_to_anchor=(0.02, 0.02),
                      fontsize=style.get("legend_size", 12),
-                     frameon=True, fancybox=True, shadow=True)
+                     frameon=True, fancybox=True)
         
         # Remove axes for cleaner look
         ax.set_xticks([])
@@ -356,8 +354,8 @@ class USMapPieChartView(ChartView):
         # Only set bounds if they actually changed to avoid unnecessary padding
         if bounds_changed:
             # Add a small additional margin only if we expanded bounds
-            margin_x = (max_x - min_x) * 0.02  # 2% margin
-            margin_y = (max_y - min_y) * 0.02  # 2% margin
+            margin_x = (max_x - min_x) * 0.01  # 2% margin
+            margin_y = (max_y - min_y) * 0.01  # 2% margin
             
             ax.set_xlim(min_x - margin_x, max_x + margin_x)
             ax.set_ylim(min_y - margin_y, max_y + margin_y)
@@ -544,8 +542,8 @@ class USMapPieChartView(ChartView):
             ylim = plt.gca().get_ylim()
         except:
             # Fallback to default map bounds
-            xlim = (-125, -60)
-            ylim = (20, 50)
+            xlim = (-122, -66)
+            ylim = (22, 48)
         
         # Calculate data units per inch based on current axis and figure
         if figsize is not None:

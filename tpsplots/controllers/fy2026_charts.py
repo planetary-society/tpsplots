@@ -435,7 +435,7 @@ class FY2026Charts(ChartController):
         
         metadata = {
             "title": "NASA faces nation-wide workforce losses",
-            "subtitle": "The White House's 2026 budget would reduce the staff at its 10 field centers by 20% - 40%.",
+            "subtitle": "The White House's 2026 budget slashes staffing at each of the agency's 10 field centers by 20% - 46%.",
             "source": "NASA FY 2026 Budget Request",
         }
         
