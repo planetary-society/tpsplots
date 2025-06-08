@@ -1,4 +1,4 @@
-"""Improved US Map with pie charts visualization with fixed percentage positioning and auto-scaling."""
+"""Improved US Map with pie charts visualization with expanded offset functionality."""
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -42,9 +42,11 @@ class USMapPieChartView(ChartView):
         'Dryden Flight Research Center': {'lat': 34.9593, 'lon': -117.8825, 'state': 'CA'},  # Former name for AFRC
     }
     
-    # Centers that should be offset to avoid overlap
+    # Centers that should be offset to avoid overlap - UPDATED to include JSC, ARC, and SSC
     OFFSET_CENTERS = {'GSFC', 'LaRC', 'HQ', 'Goddard Space Flight Center', 
-                      'Langley Research Center', 'NASA Headquarters'}
+                      'Langley Research Center', 'NASA Headquarters', 
+                      'JSC', 'Johnson Space Center', 'ARC', 'Ames Research Center',
+                      'SSC', 'Stennis Space Center'}
     
     def us_map_pie_plot(self, metadata, stem, **kwargs):
         """
@@ -191,7 +193,7 @@ class USMapPieChartView(ChartView):
         ax.set_ylim(base_ylim)
         
         # Calculate offset positions for the centers that need to be displaced
-        offset_positions = self._calculate_offset_positions(pie_data, all_locations, ax)
+        offset_positions = self._calculate_offset_positions(pie_data, all_locations, ax, pie_sizes, scaled_base_pie_size)
         
         # Calculate actual pie positions and sizes for bounds checking
         pie_positions_and_sizes = []
@@ -501,55 +503,131 @@ class USMapPieChartView(ChartView):
         
         return radius_data * normalization_factor
     
-    def _calculate_offset_positions(self, pie_data, all_locations, ax):
+    def _calculate_offset_positions(self, pie_data, all_locations, ax, pie_sizes, base_pie_size):
         """
         Calculate offset positions for centers that need to be displaced.
-        Places them vertically aligned on the right side of the map.
+        
+        This method handles different offset strategies:
+        - East Coast centers (HQ, GSFC, LaRC) are vertically aligned on the right side
+        - JSC is moved northwest by one pie diameter  
+        - ARC is moved north by one pie diameter
+        - SSC is moved south by half a pie diameter
         
         Args:
             pie_data: Dictionary of pie chart data
             all_locations: Dictionary of all location coordinates
             ax: Matplotlib axes
+            pie_sizes: Dictionary of pie sizes for each location
+            base_pie_size: Base pie size for radius calculations
             
         Returns:
             Dictionary of offset positions {location_name: (lon, lat)}
         """
         offset_positions = {}
         
-        # Get centers that need offsetting and are in the pie_data
-        centers_to_offset = []
+        # Define east coast centers that get vertical alignment
+        east_coast_centers = {'GSFC', 'LaRC', 'HQ', 'Goddard Space Flight Center', 
+                             'Langley Research Center', 'NASA Headquarters'}
+        
+        # Handle east coast centers first (existing logic)
+        centers_to_offset_east = []
         for name in pie_data.keys():
-            if name in self.OFFSET_CENTERS and name in all_locations:
-                centers_to_offset.append(name)
+            if name in east_coast_centers and name in all_locations:
+                centers_to_offset_east.append(name)
         
-        if not centers_to_offset:
-            return offset_positions
+        if centers_to_offset_east:
+            # Sort centers by their original latitude (north to south)
+            centers_to_offset_east.sort(key=lambda x: all_locations[x]['lat'], reverse=True)
+            
+            # Calculate offset positions for east coast centers
+            # Place them to the right of the map, outside the main map area
+            offset_lon = -64  # Further right, outside the map bounds
+            
+            # Calculate vertical spacing based on number of centers
+            if len(centers_to_offset_east) == 1:
+                positions = [35]  # Center vertically
+            elif len(centers_to_offset_east) == 2:
+                positions = [40, 28]  # More spread out vertically
+            elif len(centers_to_offset_east) == 3:
+                positions = [43, 35, 27]  # Specific positions for 3 centers
+            else:  # 4 or more
+                # Evenly space them with more room
+                top_lat = 44
+                bottom_lat = 26
+                spacing = (top_lat - bottom_lat) / (len(centers_to_offset_east) - 1)
+                positions = [top_lat - i * spacing for i in range(len(centers_to_offset_east))]
+            
+            # Assign positions to east coast centers
+            for center_name, lat in zip(centers_to_offset_east, positions):
+                offset_positions[center_name] = (offset_lon, lat)
         
-        # Sort centers by their original latitude (north to south)
-        centers_to_offset.sort(key=lambda x: all_locations[x]['lat'], reverse=True)
+        # Handle JSC offset (northwest by one pie diameter)
+        jsc_names = {'JSC', 'Johnson Space Center'}
+        for jsc_name in jsc_names:
+            if jsc_name in pie_data and jsc_name in all_locations:
+                original_location = all_locations[jsc_name]
+                original_lat, original_lon = original_location['lat'], original_location['lon']
+                
+                # Calculate pie radius in data coordinates
+                pie_size = pie_sizes.get(jsc_name, base_pie_size)
+                pie_radius_data = self._calculate_consistent_pie_radius(pie_size)
+                
+                # Move northwest by one pie diameter (2 * radius)
+                offset_distance = 1 * pie_radius_data
+                
+                # Northwest direction: negative longitude (west), positive latitude (north)
+                # Using 45-degree angle for northwest
+                angle_nw = np.pi * 3/4  # 135 degrees in radians (northwest)
+                
+                offset_lon = original_lon + offset_distance * np.cos(angle_nw)
+                offset_lat = original_lat + offset_distance * np.sin(angle_nw)
+                
+                offset_positions[jsc_name] = (offset_lon, offset_lat)
+                break  # Only process the first match
         
-        # Calculate offset positions
-        # Place them to the right of the map, outside the main map area
-        offset_lon = -64  # Further right, outside the map bounds
+        # Handle ARC offset (north by one pie diameter)
+        arc_names = {'ARC', 'Ames Research Center'}
+        for arc_name in arc_names:
+            if arc_name in pie_data and arc_name in all_locations:
+                original_location = all_locations[arc_name]
+                original_lat, original_lon = original_location['lat'], original_location['lon']
+                
+                # Calculate pie radius in data coordinates
+                pie_size = pie_sizes.get(arc_name, base_pie_size)
+                pie_radius_data = self._calculate_consistent_pie_radius(pie_size)
+                
+                # Move north by one pie diameter (2 * radius)
+                offset_distance = 1 * pie_radius_data
+                
+                # North direction: same longitude, positive latitude
+                offset_lon = original_lon
+                offset_lat = original_lat + offset_distance
+                
+                offset_positions[arc_name] = (offset_lon, offset_lat)
+                break  # Only process the first match
         
-        # Calculate vertical spacing based on number of centers
-        # Increase spacing to accommodate labels
-        if len(centers_to_offset) == 1:
-            positions = [35]  # Center vertically
-        elif len(centers_to_offset) == 2:
-            positions = [40, 28]  # More spread out vertically
-        elif len(centers_to_offset) == 3:
-            positions = [43, 35, 27]  # Specific positions for 3 centers
-        else:  # 4 or more
-            # Evenly space them with more room
-            top_lat = 44
-            bottom_lat = 26
-            spacing = (top_lat - bottom_lat) / (len(centers_to_offset) - 1)
-            positions = [top_lat - i * spacing for i in range(len(centers_to_offset))]
-        
-        # Assign positions
-        for center_name, lat in zip(centers_to_offset, positions):
-            offset_positions[center_name] = (offset_lon, lat)
+        # Handle SSC offset (south by half a pie diameter)
+        ssc_names = {'SSC', 'Stennis Space Center'}
+        for ssc_name in ssc_names:
+            if ssc_name in pie_data and ssc_name in all_locations:
+                original_location = all_locations[ssc_name]
+                original_lat, original_lon = original_location['lat'], original_location['lon']
+                
+                # Calculate pie radius in data coordinates
+                pie_size = pie_sizes.get(ssc_name, base_pie_size)
+                pie_radius_data = self._calculate_consistent_pie_radius(pie_size)
+                
+                # Move south by half a pie diameter (1 * radius)
+                offset_distance = pie_radius_data  # This is half the diameter
+                
+                # Southwestern direction
+                angle_nw = np.pi * 1.33
+                
+                offset_lon = original_lon + offset_distance * np.cos(angle_nw)
+                offset_lat = original_lat + offset_distance * np.sin(angle_nw)
+                
+                offset_positions[ssc_name] = (offset_lon, offset_lat)
+                break  # Only process the first match
         
         return offset_positions
     
