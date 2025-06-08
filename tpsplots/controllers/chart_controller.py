@@ -2,7 +2,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from pathlib import Path
-from tpsplots.views import LineChartView, WaffleChartView, DonutChartView, LineSubplotsView, LollipopChartView, USMapPieChartView, StackedBarChartView
+from tpsplots.views import LineChartView, WaffleChartView, DonutChartView, LineSubplotsView, LollipopChartView, USMapPieChartView, StackedBarChartView, BarChartView
 import pandas as pd
 
 class ChartController(ABC):
@@ -50,6 +50,8 @@ class ChartController(ABC):
                 self._views[view_type] = USMapPieChartView(self.outdir)
             elif view_type == 'StackedBar':
                 self._views[view_type] = StackedBarChartView(self.outdir)
+            elif view_type == 'Bar':
+                self._views[view_type] = BarChartView(self.outdir)
         return self._views[view_type]
     
     @abstractmethod

@@ -212,6 +212,40 @@ class ChartView:
         logger.info(f"✓ saved {csv_path.name}")
         return csv_path
     
+    def _get_fiscal_year_range_for_ticks(self, ax):
+        """
+        Extract fiscal year range from axis data for tick formatting.
+        
+        Default implementation for line charts that use continuous x-axis data.
+        Subclasses can override this method to handle different data types
+        (e.g., categorical data in bar charts).
+        
+        Args:
+            ax: Matplotlib axes object
+            
+        Returns:
+            tuple: (start_year, end_year, year_range) or None if not applicable
+        """
+        try:
+            # Default implementation for line charts
+            xlim = ax.get_xlim()
+            
+            try:
+                import matplotlib.dates as mdates
+                start_year = mdates.num2date(xlim[0]).year
+                end_year = mdates.num2date(xlim[1]).year
+                year_range = abs(end_year - start_year)
+                return (start_year, end_year, year_range)
+            except Exception:
+                # Fallback: assume xlim values are years directly
+                start_year = int(xlim[0])
+                end_year = int(xlim[1])
+                year_range = abs(end_year - start_year)
+                return (start_year, end_year, year_range)
+                
+        except Exception:
+            return None
+    
     def _apply_fiscal_year_ticks(self, ax, style, tick_size=None):
         """
         Apply consistent fiscal year tick formatting to the x-axis.
@@ -232,17 +266,21 @@ class ChartView:
         # Format to show only the year
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
 
-        # Only apply decade_label if x-axis range is greater than 20 years
-        xlim = ax.get_xlim()
-        try:
-            start_year = mdates.num2date(xlim[0]).year
-            end_year = mdates.num2date(xlim[1]).year
-            year_range = abs(end_year - start_year)
-        except Exception:
-            year_range = 0
+        # Get year range using overrideable method
+        year_info = self._get_fiscal_year_range_for_ticks(ax)
+        
+        if year_info is None:
+            # Fallback to standard formatting if year range can't be determined
+            if tick_size is None:
+                tick_size = style.get("tick_size")
+            plt.setp(ax.get_xticklabels(), rotation=style.get("tick_rotation", 0), fontsize=tick_size)
+            return ax
+        
+        start_year, end_year, year_range = year_info
 
         # if the range is greater than 20 years, show only decade labels
         if year_range > 20:
+            print("YEAR RANGE MORE THAN 20")
             def decade_label(year, pos):
                 year_int = int(mdates.num2date(year).year)
                 return str(year_int) if year_int % 10 == 0 else ""

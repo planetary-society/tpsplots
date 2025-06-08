@@ -8,6 +8,7 @@ from .waffle_chart import WaffleChartView
 from .lollipop_chart import LollipopChartView
 from .us_map_pie_charts import USMapPieChartView
 from .stacked_bar_chart import StackedBarChartView
+from .bar_chart import BarChartView
 
 # Export these classes as the public API
 __all__ = [
@@ -18,5 +19,6 @@ __all__ = [
     'WaffleChartView',
     'LollipopChartView',
     'USMapPieChartView',
-    'StackedBarChartView'
+    'StackedBarChartView',
+    'BarChartView'
 ]

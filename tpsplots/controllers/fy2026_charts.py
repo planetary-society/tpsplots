@@ -594,6 +594,47 @@ class FY2026Charts(ChartController):
             export_data=export_df
         )
     
+    def fy2026_budget_relative_proposed_change(self):
+        df = Historical().data().dropna(subset=["PBR"])
+        df = df[
+            (df["Fiscal Year"] <= pd.to_datetime("2026-01-01"))
+        ]
+    
+        # Calculate relative change of PBR to prior year's appropriations
+        df = df.sort_values("Fiscal Year").reset_index(drop=True)
+        df["Prior Year Appropriation"] = df["Appropriation"].shift(1)
+        df["Relative Change"] = ((df["PBR"] - df["Prior Year Appropriation"]) / df["Prior Year Appropriation"]) * 100
+    
+        # Extract FYs as a list
+        fiscal_years = df["Fiscal Year"].dt.year.to_list()
+        values = df["Relative Change"].to_list()
+        
+        # Create Export df
+        export_df = pd.DataFrame({
+            "Fiscal Year": fiscal_years,
+            "Relative Change (%)": values
+        })
+    
+        # Prepare metadata
+        metadata = {
+            "title": "The largest single-year cut to NASA ever proposed",
+            "subtitle": "The White House's 2026 budget proposes a 25% cut compared to the prior year's congressional appropriation, the largest ever for the space agency.",  
+            "source": f"NASA Budget Requests FYs 1960-2026",
+        }
+
+        bar_view = self.get_view('Bar')
+        bar_view.bar_plot(
+            metadata=metadata,
+            negative_color=bar_view.TPS_COLORS["Rocket Flame"],
+            stem="fy2026_largest_cut_in_nasa_history",
+            categories=df["Fiscal Year"],
+            values=values,
+            ylabel="Relative % change",
+            show_values=False,
+            value_format="percentage",
+            export_data=export_df
+        )
+    
     def generate_charts(self):
         """Generate all FY2026 charts."""
         self.nasa_budget_historical_with_fy_2026_proposed()
