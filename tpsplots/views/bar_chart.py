@@ -387,7 +387,7 @@ class BarChartView(ChartView):
         if categories_are_fiscal_years and orientation == 'vertical':
             # Apply special FY formatting using the base class method
             # but with bar chart-specific xlim calculation
-            self._apply_fiscal_year_ticks(ax, style, tick_size=tick_size)
+            self._apply_fiscal_year_bar_ticks(ax, style, tick_size=tick_size)
         else:
             # Apply standard tick formatting
             plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
@@ -454,56 +454,96 @@ class BarChartView(ChartView):
             tick.set_verticalalignment('center')
             tick.set_horizontalalignment('right')
             
-    def _get_fiscal_year_range_for_ticks(self, ax):
+    def _apply_fiscal_year_bar_ticks(self, ax, style, tick_size):
         """
-        Override base class method to extract fiscal year range from bar chart categories.
+        Apply fiscal year tick formatting specifically for bar charts.
         
-        This method overrides the base class implementation to work with 
-        categorical bar chart data instead of continuous line chart data.
-        Uses the original categories data instead of matplotlib's subsampled tick labels.
+        Unlike line charts which use continuous date axes, bar charts use
+        categorical positioning (0, 1, 2...) so we need different handling.
         
         Args:
             ax: Matplotlib axes object
-            
-        Returns:
-            tuple: (start_year, end_year, year_range) or None if not applicable
+            style: Style dictionary (DESKTOP or MOBILE)
+            tick_size: Font size for tick labels
         """
-        # Use the original categories we stored, not matplotlib's tick labels
+        # Get current tick labels (these are the fiscal year values)
+        labels = ax.get_xticklabels()
+        positions = ax.get_xticks()
+        
+        # Extract years from the stored original categories
         if not hasattr(self, '_original_categories') or self._original_categories is None:
-            return None
-            
+            # Fallback to standard formatting
+            plt.setp(labels, rotation=0, fontsize=tick_size)
+            return
+        
         try:
-            # Extract years from the original categories data
+            # Extract years from original categories
             years = []
-            for category in self._original_categories:
+            for i, category in enumerate(self._original_categories):
                 try:
                     if hasattr(category, 'year'):  # datetime object
-                        years.append(category.year)
+                        years.append((i, category.year))
                     else:
                         # Convert to string and try to parse
                         category_str = str(category).strip()
                         if category_str.isdigit() and len(category_str) == 4:
-                            years.append(int(category_str))
+                            years.append((i, int(category_str)))
                         else:
                             # Try to extract 4-digit year from string
                             import re
                             year_match = re.search(r'\b(19|20)\d{2}\b', category_str)
                             if year_match:
-                                years.append(int(year_match.group()))
+                                years.append((i, int(year_match.group())))
                 except (ValueError, AttributeError):
                     continue
             
-            if len(years) < 2:
-                return None
-                
-            min_year = min(years)
-            max_year = max(years)
-            year_range = abs(max_year - min_year)
+            if not years:
+                # No valid years found, use standard formatting
+                plt.setp(labels, rotation=0, fontsize=tick_size)
+                return
             
-            print(f"DEBUG: Extracted {len(years)} years from {min_year} to {max_year}, range: {year_range}")
+            # Determine year range
+            year_values = [y[1] for y in years]
+            min_year = min(year_values)
+            max_year = max(year_values)
+            year_range = max_year - min_year
             
-            return (min_year, max_year, year_range)
+            # Determine which years to show based on range
+            if year_range > 50:
+                # Show every 10 years
+                show_interval = 10
+            elif year_range > 20:
+                # Show every 5 years
+                show_interval = 5
+            elif year_range > 10:
+                # Show every 2 years
+                show_interval = 2
+            else:
+                # Show every year
+                show_interval = 1
+            
+            # Create new labels - only show years at the interval
+            new_labels = []
+            new_positions = []
+            
+            for pos, year in years:
+                if year % show_interval == 0:
+                    new_labels.append(str(year))
+                    new_positions.append(pos)
+            
+            # Set the new ticks and labels
+            ax.set_xticks(new_positions)
+            ax.set_xticklabels(new_labels)
+            
+            # Apply formatting
+            plt.setp(ax.get_xticklabels(), rotation=0, fontsize=tick_size)
+            
+            # Add minor ticks for all years (no labels)
+            all_positions = [y[0] for y in years]
+            ax.set_xticks(all_positions, minor=True)
+            ax.tick_params(which='minor', length=4, color='gray', width=1)
             
         except Exception as e:
-            print(f"DEBUG: Error in _get_fiscal_year_range_for_ticks: {e}")
-            return None
+            print(f"DEBUG: Error in _apply_fiscal_year_bar_ticks: {e}")
+            # Fallback to standard formatting
+            plt.setp(labels, rotation=0, fontsize=tick_size)
