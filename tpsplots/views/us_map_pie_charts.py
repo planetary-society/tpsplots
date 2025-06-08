@@ -87,7 +87,7 @@ class USMapPieChartView(ChartView):
             - offset_line_width: float - Width for connecting lines (default: 1.5)
             - auto_expand_bounds: bool - Automatically expand figure bounds to fit all pies (default: True)
             - padding_factor: float - Extra padding around pies as fraction of pie radius 
-                                (default: 0.15 for desktop, 0.3 for mobile)
+                                (default: 0 for desktop, 0.15 for mobile)
             
         Returns:
         --------
@@ -269,14 +269,19 @@ class USMapPieChartView(ChartView):
             # Draw pie chart using improved scatter-based method
             self._draw_pie_improved(values, lon, lat, pie_size, colors, ax, show_percentages, figsize, dpi, style)
             
+            if style and style.get("type") == "desktop":
+                font_size = 12
+            else:
+                font_size = 10.5       
+            
             # Add center name label if requested
             if show_pie_labels:
                 # Place label at the center of the pie chart
                 ax.text(lon, lat, location_name, 
                        ha='center', va='center', 
-                       fontsize=9, fontweight='bold',
+                       fontsize=font_size, fontweight='bold',
                        color='black',
-                       bbox=dict(boxstyle="round,pad=0.2", facecolor='white', alpha=0.9, edgecolor='none'),
+                       bbox=dict(boxstyle="round,pad=0.2", facecolor='white', edgecolor='none'),
                        zorder=20)  # Ensure label appears on top
             
             # Collect legend information (avoid duplicates)
@@ -287,7 +292,6 @@ class USMapPieChartView(ChartView):
         
         # Add legend
         if legend_elements:
-            # Reverse the order to match the visual (Cut first, then Retained)
             legend_labels_list = list(legend_labels)
             legend_labels_list.reverse()
             
@@ -353,12 +357,8 @@ class USMapPieChartView(ChartView):
         
         # Only set bounds if they actually changed to avoid unnecessary padding
         if bounds_changed:
-            # Add a small additional margin only if we expanded bounds
-            margin_x = (max_x - min_x) * 0.01  # 2% margin
-            margin_y = (max_y - min_y) * 0.01  # 2% margin
-            
-            ax.set_xlim(min_x - margin_x, max_x + margin_x)
-            ax.set_ylim(min_y - margin_y, max_y + margin_y)
+            ax.set_xlim(min_x, max_x)
+            ax.set_ylim(min_y, max_y)
     
     def _calculate_position_independent_radius(self, scatter_size):
         """

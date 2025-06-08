@@ -371,52 +371,52 @@ class FY2026Charts(ChartController):
         pie_data = {
             'HQ': {
                 'values': [1366, 475],  
-                'labels': ['Cut','Retained'],
+                'labels': ['Workforce Remaining','Proposed Staff Cuts'],
                 'colors': ['#037CC2', '#FF5D47'],
             },
             'ARC': {
                 'values': [755, 470],
-                'labels': ['Cut','Retained'],
+                'labels': ['Workforce Remaining','Proposed Staff Cuts'],
                 'colors': ['#037CC2', '#FF5D47'],
             },
             'AFRC': {
                 'values': [309, 191],
-                'labels': ['Cut','Retained'],
+                'labels': ['Workforce Remaining','Proposed Staff Cuts'],
                 'colors': ['#037CC2', '#FF5D47'],
             },
             'GRC': {
                 'values': [837, 554],
-                'labels': ['Cut','Retained'],
+                'labels': ['Workforce Remaining','Proposed Staff Cuts'],
                 'colors': ['#037CC2', '#FF5D47'],
             },
             'GSFC': {
                 'values': [1549, 1335],
-                'labels': ['Cut','Retained'],
+                'labels': ['Workforce Remaining','Proposed Staff Cuts'],
                 'colors': ['#037CC2', '#FF5D47'],
             },
             'JSC': {
                 'values': [2594, 698],
-                'labels': ['Cut','Retained'],
+                'labels': ['Workforce Remaining','Proposed Staff Cuts'],
                 'colors': ['#037CC2', '#FF5D47'],
             },
             'KSC': {
                 'values': [1506, 510],
-                'labels': ['Cut','Retained'],
+                'labels': ['Workforce Remaining','Proposed Staff Cuts'],
                 'colors': ['#037CC2', '#FF5D47'],
             },
             'LaRC': {
                 'values': [1058, 672],
-                'labels': ['Cut','Retained'],
+                'labels': ['Workforce Remaining','Proposed Staff Cuts'],
                 'colors': ['#037CC2', '#FF5D47'],
             },
             'MSFC': {
                 'values': [1714, 526],
-                'labels': ['Cut','Retained'],
+                'labels': ['Workforce Remaining','Proposed Staff Cuts'],
                 'colors': ['#037CC2', '#FF5D47'],
             },
             'SSC': {
                 'values': [166, 108],
-                'labels': ['Cut','Retained'],
+                'labels': ['Workforce Remaining','Proposed Staff Cuts'],
                 'colors': ['#037CC2', '#FF5D47'],
             }
         }
@@ -424,18 +424,19 @@ class FY2026Charts(ChartController):
         # Create export data
         export_data = []
         for center, data in pie_data.items():
-            for label, value in zip(data['labels'], data['values']):
-                export_data.append({
-                    'NASA Center': center,
-                    'Job Category': label,
-                    'Number of Employees': value
-                })
-        
+            fy2025_staffing = sum(data['values'])
+            proposed_fy2026_staffing = data['values'][0]
+            export_data.append({
+                "NASA Center": center,
+                "FY 2025 Staffing": fy2025_staffing,
+                "Proposed FY 2026 Staffing": proposed_fy2026_staffing
+            })
+            
         export_df = pd.DataFrame(export_data)
         
         metadata = {
-            "title": "NASA faces nation-wide workforce losses",
-            "subtitle": "The White House's 2026 budget slashes staffing at each of the agency's 10 field centers by 20% - 46%.",
+            "title": "NASA faces nation-wide workforce cuts",
+            "subtitle": "The White House's 2026 budget proposal slashes staffing at each of the agency's 10 field centers by 20% - 46%.",
             "source": "NASA FY 2026 Budget Request",
         }
         
