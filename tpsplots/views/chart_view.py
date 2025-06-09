@@ -280,7 +280,6 @@ class ChartView:
 
         # if the range is greater than 20 years, show only decade labels
         if year_range > 20:
-            print("YEAR RANGE MORE THAN 20")
             def decade_label(year, pos):
                 year_int = int(mdates.num2date(year).year)
                 return str(year_int) if year_int % 10 == 0 else ""
