@@ -604,15 +604,24 @@ class FY2026Charts(ChartController):
         df = df.sort_values("Fiscal Year").reset_index(drop=True)
         df["Prior Year Appropriation"] = df["Appropriation"].shift(1)
         df["Relative Change"] = ((df["PBR"] - df["Prior Year Appropriation"]) / df["Prior Year Appropriation"]) * 100
-    
-        # Extract FYs as a list
-        fiscal_years = df["Fiscal Year"].dt.year.to_list()
-        values = [round(val, 1) if pd.notnull(val) else val for val in df["Relative Change"].to_list()]
         
+        # Remove 1959 since there is no prior comparison
+        df = df[df["Fiscal Year"] != datetime(1959, 1, 1)]
+    
+        # Add empty rows to 2030 for display purposes
+        new_rows = pd.DataFrame({
+            "Fiscal Year": [datetime(2027, 1, 1), datetime(2028, 1, 1), datetime(2029, 1, 1), datetime(2030, 1, 1)],
+            "Relative Change": [0, 0, 0, 0]
+        })
+        df = pd.concat([df, new_rows], ignore_index=True).sort_values("Fiscal Year").reset_index(drop=True)
+        # Set fiscal years from 
+        fiscal_years = [str(round(val, 0)) if pd.notnull(val) else val for val in df["Fiscal Year"].dt.year.to_list()]
+        values = [round(val, 1) if pd.notnull(val) else val for val in df["Relative Change"].to_list()]
+    
         # Create Export df
         export_df = pd.DataFrame({
-            "Fiscal Year": fiscal_years,
-            "Relative Change (%)": values
+            "Fiscal Year": fiscal_years[:-4], # remove placeholder values for data output
+            "Relative Change (%)": values[:-4]
         })
     
         # Prepare metadata
@@ -629,6 +638,7 @@ class FY2026Charts(ChartController):
             stem="fy2026_largest_cut_in_nasa_history",
             categories=df["Fiscal Year"],
             values=values,
+            ylabel="% change of proposed budget from prior year",
             show_values=False,
             value_format="percentage",
             export_data=export_df

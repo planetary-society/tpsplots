@@ -378,16 +378,17 @@ class BarChartView(ChartView):
         baseline = kwargs.pop('baseline', 0)
         value_format = kwargs.pop('value_format', None)  # Extract value_format
         
-        # Apply axis labels
-        label_size = style.get("label_size", 12)
+        # Scale down tick size on mobile display
         if style["type"] == "mobile":
-            label_size = label_size * 0.7
-            tick_size = tick_size * 0.7
+            tick_size = tick_size * 0.8
+        
+        # Scale smaller y-axis labels
+        label_size = tick_size * 0.6
         
         if xlabel:
             ax.set_xlabel(xlabel, fontsize=label_size)
         if ylabel:
-            ax.set_ylabel(ylabel, fontsize=label_size)
+            ax.set_ylabel(ylabel, fontsize=label_size, loc="center", style='italic')
         
         # Apply grid
         if grid:
@@ -429,6 +430,7 @@ class BarChartView(ChartView):
             if max_xticks and orientation == 'vertical':
                 ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
         
+    
         # Apply custom limits
         if xlim:
             if isinstance(xlim, dict):
