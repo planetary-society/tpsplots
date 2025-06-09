@@ -423,12 +423,13 @@ class BarChartView(ChartView):
         else:
             # Apply standard tick formatting
             ax.tick_params(axis='x', labelsize=tick_size, rotation=tick_rotation)
-            ax.tick_params(axis='y', labelsize=(tick_size*2))
-            
             # Set tick locators if needed
             max_xticks = kwargs.pop('max_xticks', style.get("max_ticks"))
             if max_xticks and orientation == 'vertical':
                 ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
+        
+        # Always set y-axis tick size to ensure consistency
+        ax.tick_params(axis='y', labelsize=tick_size)
         
     
         # Apply custom limits
