@@ -359,8 +359,8 @@ class BarChartView(ChartView):
         # Apply axis labels
         label_size = style.get("label_size", 12)
         if style["type"] == "mobile":
-            label_size = label_size * 0.8
-            tick_size = tick_size * 0.8
+            label_size = label_size
+            tick_size = tick_size * 0.7
         
         if xlabel:
             ax.set_xlabel(xlabel, fontsize=label_size)
@@ -457,25 +457,21 @@ class BarChartView(ChartView):
     def _apply_fiscal_year_bar_ticks(self, ax, style, tick_size):
         """
         Apply fiscal year tick formatting specifically for bar charts.
-        
+
         Unlike line charts which use continuous date axes, bar charts use
         categorical positioning (0, 1, 2...) so we need different handling.
-        
+
         Args:
             ax: Matplotlib axes object
             style: Style dictionary (DESKTOP or MOBILE)
             tick_size: Font size for tick labels
         """
-        # Get current tick labels (these are the fiscal year values)
-        labels = ax.get_xticklabels()
-        positions = ax.get_xticks()
-        
         # Extract years from the stored original categories
         if not hasattr(self, '_original_categories') or self._original_categories is None:
             # Fallback to standard formatting
-            plt.setp(labels, rotation=0, fontsize=tick_size)
+            plt.setp(ax.get_xticklabels(), rotation=style.get("tick_rotation", 0), fontsize=tick_size)
             return
-        
+
         try:
             # Extract years from original categories
             years = []
@@ -496,54 +492,73 @@ class BarChartView(ChartView):
                                 years.append((i, int(year_match.group())))
                 except (ValueError, AttributeError):
                     continue
-            
+
             if not years:
                 # No valid years found, use standard formatting
-                plt.setp(labels, rotation=0, fontsize=tick_size)
+                plt.setp(ax.get_xticklabels(), rotation=style.get("tick_rotation", 0), fontsize=tick_size)
                 return
-            
+
             # Determine year range
             year_values = [y[1] for y in years]
             min_year = min(year_values)
             max_year = max(year_values)
             year_range = max_year - min_year
-            
-            # Determine which years to show based on range
-            if year_range > 50:
-                # Show every 10 years
-                show_interval = 10
-            elif year_range > 20:
-                # Show every 5 years
-                show_interval = 5
-            elif year_range > 10:
-                # Show every 2 years
-                show_interval = 2
-            else:
-                # Show every year
-                show_interval = 1
-            
-            # Create new labels - only show years at the interval
-            new_labels = []
-            new_positions = []
-            
-            for pos, year in years:
-                if year % show_interval == 0:
-                    new_labels.append(str(year))
-                    new_positions.append(pos)
-            
-            # Set the new ticks and labels
-            ax.set_xticks(new_positions)
-            ax.set_xticklabels(new_labels)
-            
-            # Apply formatting
-            plt.setp(ax.get_xticklabels(), rotation=0, fontsize=tick_size)
-            
-            # Add minor ticks for all years (no labels)
+
+            # For bar charts with categorical axes, set all year positions as ticks
+            # but only label some of them based on the year range
             all_positions = [y[0] for y in years]
-            ax.set_xticks(all_positions, minor=True)
-            ax.tick_params(which='minor', length=4, color='gray', width=1)
-            
+
+            # Determine which years should have labels
+            labels = []
+            labeled_positions = []
+            for pos, year in years:
+                if year_range > 20:
+                    # Show only decade labels
+                    if year % 10 == 0:
+                        labels.append(str(year))
+                        labeled_positions.append(pos)
+                    else:
+                        labels.append('')
+                elif year_range < 10:
+                    # Show all years
+                    labels.append(str(year))
+                    labeled_positions.append(pos)
+                else:
+                    # Show every 5 years
+                    if year % 5 == 0:
+                        labels.append(str(year))
+                        labeled_positions.append(pos)
+                    else:
+                        labels.append('')
+
+            # Set all positions as ticks
+            ax.set_xticks(all_positions)
+            ax.set_xticklabels(labels)
+
+            # Style the ticks - all will be visible as "major" ticks
+            # First, set all ticks to the shorter length
+            ax.tick_params(axis='x', which='major', length=4, width=1,
+                           rotation=style.get("tick_rotation", 0), labelsize=tick_size)
+
+            # Now, adjust tick line lengths:
+            # - For labeled ticks (e.g. every decade when year_range > 20), use longer ticks.
+            # - Additionally, if only every 10 years are labeled (year_range > 20),
+            #   make ticks for every 5-year mark slightly longer.
+            for i, tick in enumerate(ax.xaxis.get_major_ticks()):
+                if i < len(labels) and labels[i]:
+                    tick.tick1line.set_markersize(8)
+                    tick.tick2line.set_markersize(8)
+                    tick.tick1line.set_linewidth(4)
+                    tick.tick2line.set_linewidth(4)
+                elif year_range > 20 and i < len(years):
+                    year_val = years[i][1]
+                    if year_val % 5 == 0:
+                        tick.tick1line.set_markersize(6)
+                        tick.tick2line.set_markersize(6)
+                        tick.tick1line.set_linewidth(2)
+                        tick.tick2line.set_linewidth(2)
+
         except Exception as e:
             print(f"DEBUG: Error in _apply_fiscal_year_bar_ticks: {e}")
             # Fallback to standard formatting
-            plt.setp(labels, rotation=0, fontsize=tick_size)
+            plt.setp(ax.get_xticklabels(), rotation=style.get("tick_rotation", 0), fontsize=tick_size)

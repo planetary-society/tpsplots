@@ -607,7 +607,7 @@ class FY2026Charts(ChartController):
     
         # Extract FYs as a list
         fiscal_years = df["Fiscal Year"].dt.year.to_list()
-        values = df["Relative Change"].to_list()
+        values = [round(val, 1) if pd.notnull(val) else val for val in df["Relative Change"].to_list()]
         
         # Create Export df
         export_df = pd.DataFrame({
