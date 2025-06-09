@@ -617,8 +617,8 @@ class FY2026Charts(ChartController):
     
         # Prepare metadata
         metadata = {
-            "title": "The largest single-year cut to NASA ever proposed",
-            "subtitle": "The White House's 2026 budget proposes a 25% cut compared to the prior year's congressional appropriation, the largest ever for the space agency.",  
+            "title": "The largest cut to NASA ever proposed",
+            "subtitle": "The White House's 2026 budget proposes a 25% cut from the prior year — the largest ever.",  
             "source": f"NASA Budget Requests FYs 1960-2026",
         }
 
@@ -629,7 +629,6 @@ class FY2026Charts(ChartController):
             stem="fy2026_largest_cut_in_nasa_history",
             categories=df["Fiscal Year"],
             values=values,
-            ylabel="Relative % change",
             show_values=False,
             value_format="percentage",
             export_data=export_df

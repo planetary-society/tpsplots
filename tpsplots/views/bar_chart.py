@@ -1,7 +1,8 @@
-"""Bar chart visualization specialized view."""
+"""Enhanced bar chart with automatic percentage formatting for y-axis ticks."""
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
 from pathlib import Path
 from .chart_view import ChartView
 import logging
@@ -170,8 +171,9 @@ class BarChartView(ChartView):
                 value_offset, value_fontsize, value_color, value_weight, baseline
             )
         
-        # Apply styling
-        self._apply_bar_styling(ax, style, orientation, categories_are_fiscal_years, **kwargs)
+        # Apply styling (now includes percentage formatting)
+        self._apply_bar_styling(ax, style, orientation, categories_are_fiscal_years, 
+                               value_format=value_format, **kwargs)
         
         # Add legend if multiple colors are used and labels are provided
         legend = kwargs.pop('legend', False)
@@ -341,6 +343,25 @@ class BarChartView(ChartView):
         else:
             return f"{sign}${abs_value:.0f}"
     
+    def _apply_percentage_tick_formatter(self, ax, orientation):
+        """
+        Apply percentage formatting to the appropriate axis ticks.
+        
+        Args:
+            ax: Matplotlib axes object
+            orientation: Chart orientation ('vertical' or 'horizontal')
+        """
+        def percentage_formatter(x, pos):
+            """Format tick labels as percentages."""
+            return f"{x:.0f}%" if x != 0 else "0%"
+        
+        if orientation == 'vertical':
+            # For vertical bars, format y-axis (value axis)
+            ax.yaxis.set_major_formatter(FuncFormatter(percentage_formatter))
+        else:
+            # For horizontal bars, format x-axis (value axis)
+            ax.xaxis.set_major_formatter(FuncFormatter(percentage_formatter))
+    
     def _apply_bar_styling(self, ax, style, orientation, categories_are_fiscal_years, **kwargs):
         """Apply consistent styling to the bar chart."""
         # Extract styling parameters
@@ -355,11 +376,12 @@ class BarChartView(ChartView):
         tick_rotation = kwargs.pop('tick_rotation', 
                                 style.get("tick_rotation", 45 if orientation == 'vertical' else 0))
         baseline = kwargs.pop('baseline', 0)
+        value_format = kwargs.pop('value_format', None)  # Extract value_format
         
         # Apply axis labels
         label_size = style.get("label_size", 12)
         if style["type"] == "mobile":
-            label_size = label_size
+            label_size = label_size * 0.7
             tick_size = tick_size * 0.7
         
         if xlabel:
@@ -383,6 +405,15 @@ class BarChartView(ChartView):
         ax.yaxis.set_minor_locator(plt.NullLocator())
         ax.tick_params(which='minor', left=False, right=False, top=False, bottom=False)
         
+        # Apply percentage formatting if value_format is 'percentage'
+        if value_format == 'percentage':
+            self._apply_percentage_tick_formatter(ax, orientation)
+        
+        # Apply scale formatter if specified (but not if we already applied percentage formatting)
+        elif scale:
+            axis_to_scale = 'y' if orientation == 'vertical' else 'x'
+            self._apply_scale_formatter(ax, scale, axis=axis_to_scale)
+        
         # Apply appropriate tick formatting based on fiscal year detection
         if categories_are_fiscal_years and orientation == 'vertical':
             # Apply special FY formatting using the base class method
@@ -390,18 +421,13 @@ class BarChartView(ChartView):
             self._apply_fiscal_year_bar_ticks(ax, style, tick_size=tick_size)
         else:
             # Apply standard tick formatting
-            plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
-            plt.setp(ax.get_yticklabels(), fontsize=tick_size)
+            ax.tick_params(axis='x', labelsize=tick_size, rotation=tick_rotation)
+            ax.tick_params(axis='y', labelsize=(tick_size*2))
             
             # Set tick locators if needed
             max_xticks = kwargs.pop('max_xticks', style.get("max_ticks"))
             if max_xticks and orientation == 'vertical':
                 ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
-        
-        # Apply scale formatter if specified
-        if scale:
-            axis_to_scale = 'y' if orientation == 'vertical' else 'x'
-            self._apply_scale_formatter(ax, scale, axis=axis_to_scale)
         
         # Apply custom limits
         if xlim:
