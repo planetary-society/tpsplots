@@ -41,8 +41,8 @@ class FY2026Charts(ChartController):
         
         # Prepare metadata
         metadata = {
-            "title": "The largest cut to NASA ever proposed",
-            "subtitle": "The White House proposed a 24% cut in 2026, the smallest budget requested since 1961, when adjusted for inflation.",
+            "title": "The smallest NASA budget since 1961",
+            "subtitle": "The White House's proposed NASA budget, adjusted for inflation, is the lowest since the start of human spaceflight.",
             "source": f"NASA Budget Justifications, FYs 1961-{fiscal_years.max():%Y}",
         }
                 
