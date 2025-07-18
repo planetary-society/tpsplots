@@ -318,4 +318,5 @@ class NASABudgetChart(ChartController):
         self.nasa_major_programs_by_year_inflation_adjusted()
         self.nasa_major_activites_donut_chart()
         self.nasa_budget_by_year_with_projection_inflation_adjusted()
-        #self.nasa_budget_by_presidential_administration()
+        # Don't generate this chart by default, very expensive to generate
+        # self.nasa_budget_by_presidential_administration()

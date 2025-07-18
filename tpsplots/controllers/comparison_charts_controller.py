@@ -69,7 +69,3 @@ class ComparisonCharts(ChartController):
             },
             export_data=export_df
         )
-    
-    def generate_charts(self):
-        """Generate all charts in this controller."""
-        self.nasa_spending_as_part_of_annual_us_expenditures()
