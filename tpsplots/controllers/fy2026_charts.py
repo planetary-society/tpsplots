@@ -711,6 +711,10 @@ class FY2026Charts(ChartController):
         self.nasa_science_by_year_inflation_adjusted_fy2026_threat()
         self.nasa_science_divisions_quad_plot_fy2026_threat()
         self.fy2026_nasa_workforce_projections()
+        self.fy2026_budget_relative_proposed_change()
+        self.nasa_center_workforce_map()
         self.cancelled_missions_lollipop_chart()
         self.directorate_changes_stacked_bar_chart()
+        self.congressional_vs_white_house_nasa_budget_stacked_bar_chart()
+        
         
