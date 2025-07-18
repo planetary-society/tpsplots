@@ -81,7 +81,7 @@ class FY2026Charts(ChartController):
 
         # Prepare data for view
         # Only grab years through FY 2025
-        fiscal_years = df[df["Fiscal Year"] < pd.to_datetime("2026-01-01")]["Fiscal Year"]
+        fiscal_years = df[df["Fiscal Year"] <= pd.to_datetime("2026-01-01")]["Fiscal Year"]
         
         # Prepare cleaned data for export
         export_df = self._export_helper(df, ["Fiscal Year", "NASA Science", "NASA Science_adjusted_nnsi", "FY 2026 PBR"])
