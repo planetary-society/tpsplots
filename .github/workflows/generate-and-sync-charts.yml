@@ -13,16 +13,6 @@ on:
   # Schedule to run every 3 months on the 1st at 2 AM UTC
   schedule:
     - cron: '0 2 1 */3 *'
-  
-  # Run on pushes to main branch that affect chart generation
-  push:
-    branches: [ main ]
-    paths:
-      - 'tpsplots/**'
-      - 'generate_all.py'
-      - 'scripts/s3_sync.py'
-      - 'requirements.txt'
-      - '.github/workflows/generate-and-sync-charts.yml'
 
 env:
   # AWS configuration
@@ -60,7 +50,26 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-tps-charts-
           
-    - name: Install dependencies
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y fontconfig
+        
+    - name: Install Poppins font
+      run: |
+        # Create fonts directory
+        mkdir -p ~/.local/share/fonts
+        
+        # Copy Poppins fonts from the repository
+        cp fonts/Poppins/*.ttf ~/.local/share/fonts/
+        
+        # Update font cache
+        fc-cache -f -v
+        
+        # Verify Poppins is available
+        fc-list | grep -i poppins || echo "Warning: Poppins font not found"
+        
+    - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
