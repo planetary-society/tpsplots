@@ -10,9 +10,9 @@ on:
         default: false
         type: boolean
       
-  # Schedule to run daily at 2 AM UTC
+  # Schedule to run every 3 months on the 1st at 2 AM UTC
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '0 2 1 */3 *'
   
   # Run on pushes to main branch that affect chart generation
   push:
@@ -113,7 +113,7 @@ jobs:
           
     - name: Upload charts as artifacts
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: generated-charts
         path: charts/
@@ -121,7 +121,7 @@ jobs:
         
     - name: Upload logs on failure
       if: failure()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: error-logs
         path: |
