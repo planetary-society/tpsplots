@@ -1,0 +1,152 @@
+name: Generate and Sync Charts
+
+on:
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run in dry-run mode (generate charts but do not sync to S3)'
+        required: false
+        default: false
+        type: boolean
+      
+  # Schedule to run daily at 2 AM UTC
+  schedule:
+    - cron: '0 2 * * *'
+  
+  # Run on pushes to main branch that affect chart generation
+  push:
+    branches: [ main ]
+    paths:
+      - 'tpsplots/**'
+      - 'generate_all.py'
+      - 'scripts/s3_sync.py'
+      - 'requirements.txt'
+      - '.github/workflows/generate-and-sync-charts.yml'
+
+env:
+  # AWS configuration
+  AWS_DEFAULT_REGION: us-east-1
+  # S3 bucket configuration
+  S3_BUCKET: planetary
+  S3_PREFIX: assets/charts/
+
+jobs:
+  generate-and-sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Cache chart generation data
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/tps-charts
+        key: ${{ runner.os }}-tps-charts-${{ hashFiles('tpsplots/data_sources/**') }}
+        restore-keys: |
+          ${{ runner.os }}-tps-charts-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Generate all charts
+      run: |
+        echo "Starting chart generation..."
+        python generate_all.py
+        
+    - name: Display generation results
+      run: |
+        echo "Chart generation completed!"
+        echo "Files created:"
+        find charts -type f -name "*.png" -o -name "*.svg" -o -name "*.pptx" -o -name "*.csv" | wc -l
+        echo ""
+        echo "File breakdown:"
+        echo "PNG files: $(find charts -name "*.png" | wc -l)"
+        echo "SVG files: $(find charts -name "*.svg" | wc -l)"
+        echo "PPTX files: $(find charts -name "*.pptx" | wc -l)"
+        echo "CSV files: $(find charts -name "*.csv" | wc -l)"
+        echo ""
+        echo "Total size: $(du -sh charts | cut -f1)"
+        
+    - name: Configure AWS credentials
+      if: ${{ !inputs.dry_run }}
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_DEFAULT_REGION }}
+        
+    - name: Sync charts to S3 (dry run)
+      if: ${{ inputs.dry_run }}
+      run: |
+        echo "DRY RUN: Syncing charts to S3..."
+        python scripts/s3_sync.py \
+          --local-dir charts \
+          --bucket ${{ env.S3_BUCKET }} \
+          --prefix ${{ env.S3_PREFIX }} \
+          --dry-run
+          
+    - name: Sync charts to S3
+      if: ${{ !inputs.dry_run }}
+      run: |
+        echo "Syncing charts to S3..."
+        python scripts/s3_sync.py \
+          --local-dir charts \
+          --bucket ${{ env.S3_BUCKET }} \
+          --prefix ${{ env.S3_PREFIX }}
+          
+    - name: Upload charts as artifacts
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: generated-charts
+        path: charts/
+        retention-days: 7
+        
+    - name: Upload logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: error-logs
+        path: |
+          *.log
+          /tmp/*.log
+        retention-days: 7
+        if-no-files-found: ignore
+        
+    - name: Workflow summary
+      if: always()
+      run: |
+        echo "## Workflow Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Chart Generation Results" >> $GITHUB_STEP_SUMMARY
+        echo "- **Total files**: $(find charts -type f | wc -l)" >> $GITHUB_STEP_SUMMARY
+        echo "- **PNG files**: $(find charts -name "*.png" | wc -l)" >> $GITHUB_STEP_SUMMARY
+        echo "- **SVG files**: $(find charts -name "*.svg" | wc -l)" >> $GITHUB_STEP_SUMMARY
+        echo "- **PPTX files**: $(find charts -name "*.pptx" | wc -l)" >> $GITHUB_STEP_SUMMARY
+        echo "- **CSV files**: $(find charts -name "*.csv" | wc -l)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Total size**: $(du -sh charts | cut -f1)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ inputs.dry_run }}" = "true" ]; then
+          echo "### S3 Sync: DRY RUN" >> $GITHUB_STEP_SUMMARY
+          echo "Charts were generated but not uploaded to S3." >> $GITHUB_STEP_SUMMARY
+        else
+          echo "### S3 Sync: Completed" >> $GITHUB_STEP_SUMMARY
+          echo "Charts uploaded to s3://${{ env.S3_BUCKET }}/${{ env.S3_PREFIX }}" >> $GITHUB_STEP_SUMMARY
+        fi

@@ -14,7 +14,6 @@ import sys
 from pathlib import Path
 import time
 import os
-from datetime import datetime
 
 # Add the project root to the Python path
 project_root = Path(__file__).parent
@@ -84,7 +83,7 @@ def discover_controller_classes():
     package_path = Path(controllers_package.__file__).parent
     
     # Iterate through all modules in the controllers package
-    for importer, module_name, ispkg in pkgutil.iter_modules([str(package_path)]):
+    for _, module_name, ispkg in pkgutil.iter_modules([str(package_path)]):
         if ispkg:
             continue  # Skip sub-packages
             
