@@ -369,15 +369,31 @@ class ChartView:
         prefix = scale_info.get('prefix', prefix)
         
         # Determine the number of decimals for smaller scales
-        if decimals is None and axis in ('y', 'both'):
-            ylim = ax.get_ylim()
-            try:
-                range_value = (abs(ylim[1] - ylim[0]))/factor
-                if range_value < 10:
-                    decimals = 1
-                else:
+        range_value = None
+        if decimals is None:
+            if axis in ('y', 'both'):
+                ylim = ax.get_ylim()
+                try:
+                    range_value = (abs(ylim[1] - ylim[0]))/factor
+                    if range_value < 10:
+                        decimals = 1
+                    else:
+                        decimals = 0
+                except Exception:
                     decimals = 0
-            except Exception:
+                    range_value = None
+            elif axis == 'x':
+                xlim = ax.get_xlim()
+                try:
+                    range_value = (abs(xlim[1] - xlim[0]))/factor
+                    if range_value < 10:
+                        decimals = 1
+                    else:
+                        decimals = 0
+                except Exception:
+                    decimals = 0
+                    range_value = None
+            else:
                 decimals = 0
 
         def formatter(x, pos):
@@ -390,7 +406,7 @@ class ChartView:
                     return ""
                 scaled_value = x / factor
                 # If range_value < 10, only show whole numbers
-                if axis in ('y', 'both') and decimals == 1 and range_value < 10:
+                if axis in ('y', 'both') and decimals == 1 and range_value is not None and range_value < 10:
                     if not np.isclose(scaled_value, round(scaled_value)):
                         return ""
                     format_spec = '.0f'
