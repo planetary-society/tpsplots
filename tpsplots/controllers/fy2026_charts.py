@@ -574,7 +574,7 @@ class FY2026Charts(ChartController):
         }
 
         stacked_view = self.get_view('StackedBar')
-        
+
         stacked_view.stacked_bar_plot(
             metadata=metadata,
             stem="fy2026_directorate_cuts",
@@ -641,6 +641,67 @@ class FY2026Charts(ChartController):
             ylabel="% change of proposed budget from prior year",
             show_values=False,
             value_format="percentage",
+            export_data=export_df
+        )
+    
+    def congressional_vs_white_house_nasa_budget_stacked_bar_chart(self):
+        """Horizontal stacked bar chart comparing funding by major account."""
+
+        # These data are fixed for the FY 2026 budget request, so let's hardcode them here
+        
+        categories = [
+            "PBR",
+            "House",
+            "Senate"
+        ]
+        
+        # Account as key, then WH, House, Senate values listed in that order
+        # data = {
+        #     "Exploration": [8_312_900_000, 9_715_800_000, 7_900_000_000],
+        #     "Science": [3_907_600_000, 6_000_000_000, 7_300_000_000],
+        #     "Space Ops": [3_131_900_000, 4_150_000_000, 4_314_000_000],
+        #     "SSMS/CECR": [(2_111_830_000+140_100_000), (3_044_000_000+200_000_000), (3_107_100_000+275_000_000)],
+        #     "Tech": [568_900_000, 912_800_000, 975_000_000],
+        #     "Aero": [588_700_000, 775_000_000, 950_000_000],
+        #     "STEM": [0,84_000_000,148_000_000]
+        # }
+        
+        data = {
+            "NASA": [18_800_000_000, 24_838_300_000, 24_899_700_000]
+        }
+        
+
+        # Create an exportable dataframe of categories and fy2025 and 2026 values
+        export_df = pd.DataFrame({
+            "Proposal": categories,
+            "NASA FY 2026": data["NASA"],
+        })
+        
+        metadata = {
+            "title": "Congress rejects massive NASA cuts",
+            "subtitle": "The White House's FY 2026 budget proposal would cut NASA by 25% from the prior year, but Congress wants to maintain funding.",
+            "source": "NASA FY 2026 Budget Request"
+        }
+
+        stacked_view = self.get_view('StackedBar')
+        
+        stacked_view.stacked_bar_plot(
+            metadata=metadata,
+            stem="fy2026_congressional_vs_white_house_nasa_budgets",
+            categories=categories,
+            values=data,
+            labels=None,
+            orientation='vertical',
+            show_values=True,
+            value_format='monetary',
+            value_threshold=0,
+            value_fontsize=15,
+            width=0.5,
+            stack_labels=False,
+            stack_label_format='monetary',
+            scale='billions',
+            colors=['#037CC2'],
+            legend={'loc': 'upper right'},
             export_data=export_df
         )
     
