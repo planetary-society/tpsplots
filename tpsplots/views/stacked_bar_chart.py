@@ -354,8 +354,29 @@ class StackedBarChartView(ChartView):
         grid = kwargs.pop('grid', True)
         grid_axis = kwargs.pop('grid_axis', 'y' if orientation == 'vertical' else 'x')
         tick_size = kwargs.pop('tick_size', style.get("tick_size", 12))
-        tick_rotation = kwargs.pop('tick_rotation', 
-                                style.get("tick_rotation", 45 if orientation == 'vertical' else 0))
+        
+        # Auto-rotation logic for category labels
+        if orientation == 'vertical':
+            # Get current axis limits to calculate available width
+            xlim_current = ax.get_xlim()
+            chart_width = xlim_current[1] - xlim_current[0]
+            num_categories = len(ax.get_xticklabels())
+            
+            if num_categories > 0:
+                available_width_per_bar = chart_width / num_categories
+                categories = [label.get_text() for label in ax.get_xticklabels()]
+                
+                # Determine if labels should be rotated
+                should_rotate = self._should_rotate_labels(ax, categories, tick_size, available_width_per_bar)
+                tick_rotation = 90 if should_rotate else 0
+            else:
+                tick_rotation = 0
+        else:
+            # For horizontal charts, don't rotate y-axis labels
+            tick_rotation = 0
+        
+        # Allow manual override of tick rotation
+        tick_rotation = kwargs.pop('tick_rotation', tick_rotation)
         
         # Apply axis labels
         label_size = style.get("label_size", 12)
@@ -431,6 +452,36 @@ class StackedBarChartView(ChartView):
                 ax.set_ylim(**ylim)
             else:
                 ax.set_ylim(ylim)
+    
+    def _measure_text_width(self, ax, text, fontsize):
+        """Measure the rendered width of text in data coordinates."""
+        # Create a temporary text object to measure its extent
+        temp_text = ax.text(0, 0, text, fontsize=fontsize, transform=ax.transData)
+        
+        # Get the bounding box in display coordinates
+        bbox = temp_text.get_window_extent(renderer=ax.figure.canvas.get_renderer())
+        
+        # Convert to data coordinates
+        bbox_data = bbox.transformed(ax.transData.inverted())
+        width = bbox_data.width
+        
+        # Remove the temporary text
+        temp_text.remove()
+        
+        return width
+    
+    def _should_rotate_labels(self, ax, categories, tick_size, available_width_per_bar):
+        """Determine if category labels should be rotated based on text width."""
+        # Calculate 80% of available width as threshold
+        width_threshold = available_width_per_bar * 0.8
+        
+        # Check if any label exceeds the threshold
+        for category in categories:
+            text_width = self._measure_text_width(ax, str(category), tick_size)
+            if text_width > width_threshold:
+                return True
+        
+        return False
     
     def _get_default_colors(self, num_colors):
         """Get default TPS color cycle."""
