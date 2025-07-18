@@ -128,21 +128,29 @@ class ChartView:
         
         export_data = kwargs.pop("export_data", None)
         
-        # Create desktop version
-        desktop_kwargs = kwargs.copy()
-        desktop_kwargs['style'] = self.DESKTOP
-        desktop_fig = self._create_chart(metadata, **desktop_kwargs)
-        self._save_chart(desktop_fig, f"{stem}_desktop", metadata, create_pptx=True)
+        try:
+            # Create desktop version
+            desktop_kwargs = kwargs.copy()
+            desktop_kwargs['style'] = self.DESKTOP
+            desktop_fig = self._create_chart(metadata, **desktop_kwargs)
+            self._save_chart(desktop_fig, f"{stem}_desktop", metadata, create_pptx=True)
+            
+            # Create mobile version
+            mobile_kwargs = kwargs.copy()
+            mobile_kwargs['style'] = self.MOBILE
+            mobile_fig = self._create_chart(metadata, **mobile_kwargs)
+            self._save_chart(mobile_fig, f"{stem}_mobile", metadata, create_pptx=False)
+            
+            # Export CSV if export_data is present
+            if export_data is not None:
+                self._export_csv(export_data,metadata,stem)
         
-        # Create mobile version
-        mobile_kwargs = kwargs.copy()
-        mobile_kwargs['style'] = self.MOBILE
-        mobile_fig = self._create_chart(metadata, **mobile_kwargs)
-        self._save_chart(mobile_fig, f"{stem}_mobile", metadata, create_pptx=False)
+        except Exception as e:
+            logger.error(f"Error generating chart {stem}: {e}")
+            desktop_fig = None
+            mobile_fig = None    
         
-        # Export CSV if export_data is present
-        if export_data is not None:
-            self._export_csv(export_data,metadata,stem)
+        logger.info(f"✓ generated charts for {stem}")
         
         return {
             'desktop': desktop_fig,
@@ -209,7 +217,7 @@ class ChartView:
                 # Convert each value: if it's NaN, write '', else write the value
                 writer.writerow(['' if (isinstance(val, float) and np.isnan(val)) else val for val in row])
         
-        logger.info(f"✓ saved {csv_path.name}")
+        logger.debug(f"✓ saved {csv_path.name}")
         return csv_path
     
     def _get_fiscal_year_range_for_ticks(self, ax):
@@ -667,12 +675,12 @@ class ChartView:
         
         fig.savefig(svg_path, metadata=svg_metadata, format="svg", dpi=150)
         fig.savefig(png_path, metadata=svg_metadata, format="png", dpi=300)
-        logger.info(f"✓ saved {svg_path.name} and {png_path.name}")
+        logger.debug(f"✓ saved {svg_path.name} and {png_path.name}")
         
         if create_pptx:
             pptx_path = self.outdir / f"{filename.replace('_desktop','')}.pptx"
             self._create_pptx(png_path, pptx_path, metadata)
-            logger.info(f"✓ saved {pptx_path.name}")
+            logger.debug(f"✓ saved {pptx_path.name}")
             
         plt.close(fig)
 

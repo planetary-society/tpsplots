@@ -325,10 +325,10 @@ class NASABudget:
             self._cache_dir.mkdir(parents=True, exist_ok=True)
             dest = self._cache_dir / Path(self._csv_source).name
             if dest.exists():
-                logger.info(f"Reading from cache: {dest}") # Added for visibility
+                logger.debug(f"Reading from cache: {dest}") # Added for visibility
                 return pd.read_csv(dest)
 
-        logger.info(f"Reading from source: {self._csv_source}") # Added for visibility
+        logger.debug(f"Reading from source: {self._csv_source}") # Added for visibility
         
         # Check if it's a URL or local file
         if self._csv_source.startswith(('http://', 'https://')):
