@@ -53,7 +53,7 @@ from __future__ import annotations
 import io
 import re
 import ssl
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from functools import cached_property
 from pathlib import Path
 from typing import Callable, List, Any
@@ -62,6 +62,13 @@ import certifi
 import pandas as pd
 import requests
 from urllib.error import URLError
+from cachier import cachier
+
+# Configure caching
+try:
+    from ..config import cache_config
+except ImportError:
+    pass  # Cache config is optional
 
 # Assumed external library for inflation adjustments
 from .inflation import NNSI, GDP
@@ -275,6 +282,27 @@ class NASABudget:
         return self._add_adjusted_cols(cleaned)
 
     # ── I/O helpers ────────────────────────────────────────────────
+    @staticmethod
+    @cachier(stale_after=timedelta(hours=24))
+    def _fetch_url_content(url: str) -> str:
+        """
+        Fetch content from a URL with caching.
+        
+        Args:
+            url: The URL to fetch
+            
+        Returns:
+            The text content of the response
+        """
+        try:
+            # Try direct read first
+            return pd.read_csv(url).to_csv(index=False)
+        except (URLError, ssl.SSLError):
+            # If direct read fails, use requests
+            response = requests.get(url, timeout=30, verify=certifi.where())
+            response.raise_for_status()
+            return response.text
+    
     def _read_csv(self) -> pd.DataFrame:
         """
         Reads the CSV data from the source, potentially using a cache.
@@ -301,22 +329,15 @@ class NASABudget:
                 return pd.read_csv(dest)
 
         logger.info(f"Reading from source: {self._csv_source}") # Added for visibility
-        try:
-            # Try reading directly (works for local files and some URLs)
-            df = pd.read_csv(self._csv_source)
-        except (URLError, ssl.SSLError):
-            # If direct read fails (often for HTTPS URLs), use requests
-            logger.warning("Direct read failed, attempting with requests...") # Added for visibility
-            try:
-                # Fetch content using requests, verifying SSL certs
-                response = requests.get(self._csv_source, timeout=30, verify=certifi.where())
-                response.raise_for_status() # Raise an exception for bad status codes
-                text = response.text
-                # Read the text content into a DataFrame
-                df = pd.read_csv(io.StringIO(text))
-            except requests.exceptions.RequestException as e:
-                logger.error(f"Error fetching data with requests: {e}") # Added for visibility
-                raise 
+        
+        # Check if it's a URL or local file
+        if self._csv_source.startswith(('http://', 'https://')):
+            # Use cached URL fetching
+            text = self._fetch_url_content(self._csv_source)
+            df = pd.read_csv(io.StringIO(text))
+        else:
+            # Local file - read directly
+            df = pd.read_csv(self._csv_source) 
 
         # If caching is enabled, save the downloaded DataFrame to the cache
         if self._cache_dir:

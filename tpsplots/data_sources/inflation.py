@@ -20,8 +20,15 @@ import numpy as np
 from pathlib import Path
 from typing import Any, Mapping, Union
 import os, json
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests, certifi, pandas as pd
+from cachier import cachier
+
+# Configure caching
+try:
+    from ..config import cache_config
+except ImportError:
+    pass  # Cache config is optional
 
 
 # ────────────────────────────── Base class ──────────────────────────────────
@@ -142,6 +149,7 @@ class NNSI(Inflation):
     )
 
     # ---------- step 1: fetch raw file ----------------------------------
+    @cachier(stale_after=timedelta(weeks=1))
     def _load_raw(self) -> pd.DataFrame:
         path_or_url = self.source or self.DEFAULT_CSV
         if Path(path_or_url).is_file():
@@ -235,6 +243,7 @@ class GDP(Inflation):
     _FRED_CSV = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=GDPDEF"
 
     # ---------- hook #1 --------------------------------------------------
+    @cachier(stale_after=timedelta(hours=24))
     def _load_raw(self) -> pd.DataFrame:
         key = os.getenv("BEA_API_KEY")
         if key:                      # try BEA first
