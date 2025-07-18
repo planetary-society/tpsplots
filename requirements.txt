@@ -1,8 +1,9 @@
-pandas
-matplotlib
-pywaffle
-certifi
-requests
-python-pptx
-boto3
-geopandas
+pandas==2.3.1
+matplotlib==3.10.3
+pywaffle==1.1.1
+certifi==2025.4.26
+requests==2.32.3
+python-pptx==1.0.2
+boto3==1.38.19
+geopandas==1.1.1
+cachier==4.1.0
