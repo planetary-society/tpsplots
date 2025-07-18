@@ -250,6 +250,10 @@ class FY2026Charts(ChartController):
         )
     
     def cancelled_missions_lollipop_chart(self):
+        """
+        Generate a lollipop chart showing the launch date to end of all NASA missions
+        proposed as cancelled in FY 2026.
+        """
         data_source = Missions()
         df = data_source.data()
         
@@ -268,9 +272,6 @@ class FY2026Charts(ChartController):
         
         # Filter by only NASA-led missions
         df = df[df["NASA Led?"].isin([True])]
-        
-        # Copy for use in 2nd chart
-        df_dev = df.copy()
         
         # Filter to active missions led by NASA
         df = df[df["Status"].isin(["Prime Mission", "Extended Mission"])]
@@ -306,49 +307,7 @@ class FY2026Charts(ChartController):
             sort_by='start',  # Sort by start year
             sort_ascending=False,
             colors=lollipop_view.TPS_COLORS["Neptune Blue"],
-            xlim=(1990, 2027),
-            start_value_labels=True,
-            xlabel=None,
-            grid=True,
-            y_axis_position='right',  # Category labels on the right
-            hide_y_spine=True,
-            grid_axis='x',
-            tick_size=12,
-            end_marker_style='X',
-            end_marker_color='red',
-            marker_size=11,
-            value_labels=False,  # Don't show individual year labels
-            range_labels=False,   # Show duration in years
-            category_wrap_length=25,
-            export_data=export_df
-        )
-        
-        # Generate the 2nd chart of development missions
-        
-        # Prepare metadata
-        metadata = {
-            "title": f"{len(df_dev)} future science projects cancelled",
-            "subtitle": f"The FY 2026 budget proposal ends most future mission work.",
-            "source": "FY 2026 White House NASA Request"
-        }
-        
-        # Filter by missions in development
-        df_dev = df_dev[df_dev["Status"].isin(["Development"])].reset_index(drop=True)
-        # Filter out entries where "Formulation Start Year" is NA
-        df_dev = df_dev[df_dev["Formulation Start Year"].notna()].reset_index(drop=True)
-        
-        # Count the number of entries in df_dev
-        num_dev_projects = len(df_dev)
-        lollipop_view.lollipop_plot(
-            metadata=metadata,
-            stem="fy_2026_proposed_in_development_cancellations",
-            categories=df_dev['Mission'],
-            start_values=df_dev['Formulation Start Year'],
-            end_values=df_dev['End Year'],
-            sort_by='start',  # Sort by start year
-            sort_ascending=False,
-            colors=lollipop_view.TPS_COLORS["Neptune Blue"],
-            xlim=(2010, 2027),
+            xlim=(1997, 2027),
             start_value_labels=True,
             xlabel=None,
             grid=True,
