@@ -679,8 +679,8 @@ class FY2026Charts(ChartController):
         
         metadata = {
             "title": "Congress rejects massive NASA cuts",
-            "subtitle": "The White House's FY 2026 budget proposal would cut NASA by 25% from the prior year, but Congress wants to maintain funding.",
-            "source": "NASA FY 2026 Budget Request"
+            "subtitle": "The President's Budget Request (PBR) proposed the largest cut in history, but Congress wants to maintain funding.",
+            "source": "NASA FY 2026 PBR, HAC-CJS, SAC-CJS"
         }
 
         stacked_view = self.get_view('StackedBar')
