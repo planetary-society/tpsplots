@@ -12,25 +12,218 @@ class LineChartView(ChartView):
     
     def line_plot(self, metadata, stem, **kwargs):
         """
-        Generate line charts for both desktop and mobile.
+        Generate line charts for both desktop and mobile versions.
         
-        Parameters:
-        -----------
+        Parameters
+        ----------
         metadata : dict
-            Chart metadata (title, source, etc.)
-        stem : str
-            Base filename for outputs
-        **kwargs : dict
-            Keyword arguments passed directly to matplotlib's plotting functions.
-            This includes all standard matplotlib parameters for line plots.
-            Special parameters:
-            - scale: str - Apply scale formatting ('billions', 'millions', etc.)
-            - legend: bool/dict - Legend display and parameters
+            Chart metadata containing:
+            - title : str - Main chart title
+            - subtitle : str - Chart subtitle (optional)
+            - source : str - Data source attribution (optional)
             
-        Returns:
-        --------
+        stem : str
+            Base filename for output files (without extension)
+            
+        **kwargs : dict
+            Additional parameters for customizing the chart:
+            
+            Data Parameters:
+            ----------------
+            x : array-like or str
+                X-axis data. Can be:
+                - List/array of values for x-axis
+                - Column name if 'data' DataFrame is provided
+                - If None, uses indices for y data
+                
+            y : array-like, list of arrays, or str/list of str
+                Y-axis data. Can be:
+                - Single array for one line
+                - List of arrays for multiple lines
+                - Column name(s) if 'data' DataFrame is provided
+                
+            data : pd.DataFrame (optional)
+                DataFrame containing the data columns
+                Also accepts 'df' as parameter name
+                
+            Styling Parameters:
+            -------------------
+            color : str, list of str
+                Line colors. Can be single color or list for multiple lines
+                Accepts standard matplotlib colors or ChartView.COLORS keys
+                Also accepts 'c' as parameter name
+                
+            linestyle : str, list of str
+                Line styles ('-', '--', ':', '-.', etc.)
+                Also accepts 'ls' as parameter name
+                
+            linewidth : float
+                Width of lines (default from style)
+                Also accepts 'lw' as parameter name
+                
+            marker : str, list of str
+                Marker styles ('o', 's', '^', None, etc.)
+                Can be single marker or list for multiple lines
+                
+            markersize : float
+                Size of markers (default from style)
+                Also accepts 'ms' as parameter name
+                
+            alpha : float, list of float
+                Transparency (0=transparent, 1=opaque)
+                Can be single value or list for multiple lines
+                
+            label : str, list of str
+                Legend labels for lines
+                Also accepts 'labels' as parameter name
+                
+            Axis Configuration:
+            -------------------
+            xlim : tuple or dict
+                X-axis limits (min, max) or dict with kwargs for set_xlim
+                
+            ylim : tuple or dict
+                Y-axis limits (min, max) or dict with kwargs for set_ylim
+                
+            xlabel : str
+                Label for x-axis
+                
+            ylabel : str
+                Label for y-axis
+                
+            xticks : array-like
+                Custom x-axis tick positions
+                
+            xticklabels : list of str
+                Custom x-axis tick labels
+                
+            max_xticks : int
+                Maximum number of x-axis ticks (for automatic spacing)
+                
+            tick_rotation : float
+                Rotation angle for x-axis tick labels (default from style)
+                
+            tick_size : float
+                Font size for tick labels (default from style)
+                
+            Grid and Formatting:
+            --------------------
+            grid : bool
+                Whether to show grid lines
+                
+            scale : str
+                Apply scale formatting to axis ('billions', 'millions', 'thousands')
+                
+            axis_scale : str
+                Which axis to apply scale to ('x', 'y', or 'both', default='y')
+                
+            fiscal_year_ticks : bool
+                Whether to format x-axis dates as fiscal years (default=True)
+                
+            Legend:
+            -------
+            legend : bool or dict
+                Show legend (True/False) or dict with legend kwargs:
+                - loc : str - Legend location
+                - fontsize : int - Legend font size
+                - title : str - Legend title
+                - ncol : int - Number of columns
+                - frameon : bool - Show legend frame
+                
+            Horizontal Lines:
+            -----------------
+            hlines : float, list, or dict
+                Y-values for horizontal reference lines
+                Can be:
+                - Single value
+                - List of values
+                - Dict mapping y-values to line kwargs
+                Also accepts 'horizontal_lines' as parameter name
+                
+            hline_colors : str or list
+                Colors for horizontal lines
+                
+            hline_styles : str or list
+                Line styles for horizontal lines
+                
+            hline_widths : float or list
+                Line widths for horizontal lines
+                
+            hline_labels : str or list
+                Labels for horizontal lines (displayed directly on plot)
+                
+            hline_alpha : float or list
+                Alpha values for horizontal lines
+                
+            hline_label_position : str
+                Position for line labels ('right', 'left', 'center')
+                
+            hline_label_offset : float
+                Horizontal offset for labels from edge (fraction of plot width)
+                
+            hline_label_fontsize : int
+                Font size for line labels
+                
+            hline_label_bbox : bool
+                Whether to add background box to line labels
+                
+            Export and Output:
+            ------------------
+            export_data : pd.DataFrame
+                DataFrame to export as CSV alongside charts
+                
+            figsize : tuple
+                Figure size (width, height) in inches
+                
+            dpi : int
+                Dots per inch for output resolution
+                
+            series_<n> : dict
+                Override parameters for specific series (e.g., series_0, series_1)
+                
+        Returns
+        -------
         dict
-            Dictionary containing the generated figure objects {'desktop': fig, 'mobile': fig}
+            Dictionary containing generated figure objects:
+            - 'desktop' : matplotlib.figure.Figure - Desktop version
+            - 'mobile' : matplotlib.figure.Figure - Mobile version
+            
+        Examples
+        --------
+        Basic line chart with two series:
+        
+        >>> line_view.line_plot(
+        ...     metadata={'title': 'Sales Over Time'},
+        ...     stem='sales_chart',
+        ...     x=['Jan', 'Feb', 'Mar'],
+        ...     y=[[100, 150, 130], [80, 110, 140]],
+        ...     label=['Product A', 'Product B'],
+        ...     color=['blue', 'red']
+        ... )
+        
+        Using DataFrame input:
+        
+        >>> df = pd.DataFrame({'Month': ['Jan', 'Feb', 'Mar'],
+        ...                    'Sales': [100, 150, 130]})
+        >>> line_view.line_plot(
+        ...     metadata={'title': 'Monthly Sales'},
+        ...     stem='monthly_sales',
+        ...     data=df,
+        ...     x='Month',
+        ...     y='Sales'
+        ... )
+        
+        With horizontal reference line:
+        
+        >>> line_view.line_plot(
+        ...     metadata={'title': 'Performance vs Target'},
+        ...     stem='performance',
+        ...     x=months,
+        ...     y=values,
+        ...     hlines=100,
+        ...     hline_labels='Target',
+        ...     hline_colors='red'
+        ... )
         """
         return self.generate_chart(metadata, stem, **kwargs)
     
@@ -179,6 +372,7 @@ class LineChartView(ChartView):
         grid = kwargs.pop('grid',None)
         tick_rotation = kwargs.pop('tick_rotation', style["tick_rotation"])
         tick_size = kwargs.pop('tick_size', style["tick_size"])
+        label_size = kwargs.pop('label_size', style["label_size"])
         xlabel = kwargs.pop('xlabel', None)
         ylabel = kwargs.pop('ylabel', None)
         scale = kwargs.pop('scale', None)
@@ -189,9 +383,9 @@ class LineChartView(ChartView):
 
         # Apply axis labels if provided
         if xlabel:
-            ax.set_xlabel(xlabel, fontsize=style["label_size"])
+            ax.set_xlabel(xlabel, fontsize=label_size)
         if ylabel:
-            ax.set_ylabel(ylabel, fontsize=style["label_size"])
+            ax.set_ylabel(ylabel, fontsize=label_size)
         
         # Apply grid setting
         if (grid or style.get("grid")):
@@ -224,9 +418,19 @@ class LineChartView(ChartView):
             plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
             plt.setp(ax.get_yticklabels(), fontsize=tick_size)
             
+            # Check if x_data is categorical (strings)
+            is_categorical = x_data is not None and len(x_data) > 0 and isinstance(x_data[0], str)
+            
             # Set tick locators if needed
-            if max_xticks:
+            if max_xticks and not is_categorical:
+                # Only apply MaxNLocator for numeric data
                 ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
+            elif is_categorical and max_xticks and len(x_data) > max_xticks:
+                # For categorical data, thin the ticks by showing every nth tick
+                step = len(x_data) // max_xticks + 1
+                tick_positions = list(range(0, len(x_data), step))
+                ax.set_xticks(tick_positions)
+                ax.set_xticklabels([x_data[i] for i in tick_positions])
         
         # Apply scale formatter if specified
         if scale:
