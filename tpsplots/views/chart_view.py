@@ -660,10 +660,6 @@ class ChartView:
         clean_filename = filename.replace("_desktop","").replace("_mobile","")
         svg_path = self.outdir / f"{filename}.svg"
         png_path = self.outdir / f"{filename}.png"
-        
-        if "_desktop" in str(png_path):
-            base_png_path = str(png_path).replace("_desktop","")
-            fig.savefig(base_png_path, format="png", dpi=300)
             
         svg_metadata = {
             "Title": metadata.get("title",clean_filename.replace("_"," ")),
