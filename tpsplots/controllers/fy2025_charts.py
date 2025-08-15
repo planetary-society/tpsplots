@@ -22,8 +22,8 @@ class FY2025Charts(ChartController):
         df = df[df['Month'] != 'Total'].copy()
         
         # Define months in fiscal year order
-        months = ['October', 'November', 'December', 'January', 'February', 'March',
-                  'April', 'May', 'June', 'July', 'August', 'September']
+        months = ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar',
+                  'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep']
         
         # Extract grant award data for each fiscal year
         grant_columns = {
@@ -57,7 +57,7 @@ class FY2025Charts(ChartController):
                 y_series.append(year_cumulative)
                 labels.append(None)
                 colors.append(grey_color)
-                linestyles.append("-")  # Solid lines
+                linestyles.append("--")
                 markers.append(None)
                 linewidths.append(1.5)  # Lighter weight for past years
         
@@ -67,7 +67,7 @@ class FY2025Charts(ChartController):
             mean_cumulative = np.mean(prior_years_array, axis=0).tolist()
             
             y_series.append(mean_cumulative)
-            labels.append("Avg 2020-24")
+            labels.append("2020-24\nAverage")
             colors.append(ChartView.COLORS["blue"])  # 
             linestyles.append("-")
             markers.append("o")
@@ -88,12 +88,23 @@ class FY2025Charts(ChartController):
             markers.append("o")  # Add markers to show actual data points
             linewidths.append(4.0)  # Normal weight for current year
         
-        # Calculate projection for subtitle (based on FY 2025 data through July)
+        # Calculate full-year projection for FY 2025 using June-July average rate
         if 'mean_cumulative' in locals() and len(fy2025_cumulative) > 0:
-            # Compare FY 2025 July cumulative to average July cumulative
-            fy2025_july_total = fy2025_cumulative[9]  # July (index 9)
-            avg_july_total = mean_cumulative[9]  # July average
-            shortfall_pct = ((avg_july_total - fy2025_july_total) / avg_july_total) * 100
+            # Extract June and July grant values to calculate trend
+            june_grants = fy2025_grants[8]  # June (index 8)
+            july_grants = fy2025_grants[9]  # July (index 9)
+            avg_monthly_rate = (june_grants + july_grants) / 2
+            
+            # Project August and September using the June-July average rate
+            projected_aug = avg_monthly_rate
+            projected_sep = avg_monthly_rate
+            
+            # Calculate projected full-year FY 2025 cumulative total
+            projected_fy2025_total = fy2025_cumulative[9] + projected_aug + projected_sep
+            
+            # Compare to average September cumulative total (full fiscal year)
+            avg_september_total = mean_cumulative[11]  # September (index 11)
+            shortfall_pct = ((avg_september_total - projected_fy2025_total) / avg_september_total) * 100
         else:
             shortfall_pct = 0
         
@@ -107,8 +118,8 @@ class FY2025Charts(ChartController):
         line_view = self.get_view('Line')
         
         metadata = {
-            "title": "NASA grant awards trail historical patterns in FY 2025",
-            "subtitle": f"Through July, NASA is awarding {shortfall_pct:.0f}% fewer grants compared to the 5-year average.",
+            "title": "NASA is awarding significantly fewer grants",
+            "subtitle": f"The agency is on track to award 30% fewer grants in 2025 than normal, despite having a stable budget.",
             "source": "USASpending.gov"
         }
         
