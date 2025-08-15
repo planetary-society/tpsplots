@@ -678,10 +678,10 @@ class LineChartView(ChartView):
             bbox_props = None
             if add_bbox:
                 bbox_props = dict(
-                    boxstyle="round,pad=0.3",
+                    boxstyle="round,pad=0.2",
                     facecolor='white',
                     edgecolor=color,
-                    alpha=0.9,
+                    alpha=0.8,
                     linewidth=1
                 )
             
@@ -745,7 +745,7 @@ class LineChartView(ChartView):
         if add_bbox:
             # Define the style for the bounding box
             bbox_props = dict(
-                boxstyle="round,pad=0.3", facecolor='white', edgecolor=color, alpha=0.9, linewidth=1
+                boxstyle="round,pad=0.2", facecolor='white', edgecolor=color, alpha=0.8, linewidth=1
             )
 
         # Create a temporary, invisible text object on the axes to measure it
@@ -892,7 +892,7 @@ class LineChartView(ChartView):
                 bbox_props = None
                 if add_bbox:
                     bbox_props = dict(
-                        boxstyle="round,pad=0.3", facecolor='white', edgecolor=color, alpha=0.8, linewidth=1
+                        boxstyle="round,pad=0.2", facecolor='white', edgecolor=color, alpha=0.8, linewidth=1
                     )
 
                 ax.text(
@@ -913,8 +913,9 @@ class LineChartView(ChartView):
         """Calculates position for simple modes using point offsets (DPI-aware)."""
 
         # Define offset in points (marker radius + desired gap)
-        gap_points = 6 # Heuristic gap
-        offset_points = (markersize_points / 2.0) + gap_points
+        gap_points = 8  # Increased gap for better visual separation
+        minimum_offset_points = 12  # Ensure minimum distance from endpoint
+        offset_points = max((markersize_points / 2.0) + gap_points, minimum_offset_points)
 
         # Use offset_copy to create a transformation that shifts by points
         # This is DPI-aware and handled by Matplotlib.
@@ -991,11 +992,12 @@ class LineChartView(ChartView):
         # 2. Define Offsets in Pixels (DPI-Aware)
         dpi = ax.get_figure().get_dpi()
         
-        # Gap heuristic: 6 points (visual separation between marker edge and label edge)
-        gap_points = 6
+        # Gap heuristic: 8 points (increased for better visual separation)
+        gap_points = 8
+        minimum_offset_points = 12  # Ensure minimum distance from endpoint
         
-        # Total distance from center = marker radius + gap
-        offset_points = (markersize_points / 2.0) + gap_points
+        # Total distance from center = max of (marker radius + gap) or minimum offset
+        offset_points = max((markersize_points / 2.0) + gap_points, minimum_offset_points)
         offset_px = offset_points * (dpi / 72.0) # Convert points to pixels
 
         text_width_px = text_bbox.width
