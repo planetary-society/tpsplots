@@ -1,15 +1,11 @@
 """Concrete NASA budget charts using specialized chart views."""
-from pathlib import Path
-from datetime import datetime
 import numpy as np
 from tpsplots import TPS_STYLE_FILE
 from tpsplots.controllers.chart_controller import ChartController
-from tpsplots.data_sources.nasa_budget_data_source import Historical, ScienceDivisions, Science, Workforce, Directorates
-from tpsplots.data_sources.missions import Missions
-from matplotlib import pyplot as plt
+from tpsplots.data_sources.nasa_budget_data_source import Science
 import pandas as pd
 
-class FY2026Charts(ChartController):
+class FY2025Charts(ChartController):
     
     def __init__(self):
         # Initialize with data source
@@ -101,12 +97,13 @@ class FY2026Charts(ChartController):
             color=[ChartView.COLORS["blue"], ChartView.TPS_COLORS["Rocket Flame"]],
             linestyle=["--", "-"],
             marker=["o", "o"],  # Add markers to FY2025 to show actual data points
-            label=["FY 2024 New Grant Awards", "FY 2025 New Grant Awards"],
+            label=["FY 2024", "FY 2025"],
             ylim=(0, 2500),  # Scale for cumulative totals
             ylabel="Cumulative Number of Grants Awarded",
             label_size=13,
             tick_size=14,
-            legend=True,
+            direct_line_labels=True,  # Use direct line labels instead of legend
+            legend=False,             # Disable traditional legend
             grid=True,
             export_data=export_df
         )
