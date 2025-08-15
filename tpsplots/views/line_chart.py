@@ -328,7 +328,7 @@ class LineChartView(ChartView):
                     series_color = ax._get_lines.get_next_color()
                     plot_kwargs['color'] = series_color
 
-                # Handle linestyle, marker, alpha
+                # Handle linestyle, marker, alpha, linewidth
                 if isinstance(linestyle, (list, tuple)) and i < len(linestyle):
                     plot_kwargs['linestyle'] = linestyle[i]
                 elif linestyle is not None:
@@ -343,6 +343,12 @@ class LineChartView(ChartView):
                     plot_kwargs['alpha'] = alpha[i]
                 elif alpha is not None:
                     plot_kwargs['alpha'] = alpha
+                
+                # Handle per-series linewidth
+                if isinstance(linewidth, (list, tuple)) and i < len(linewidth):
+                    plot_kwargs['linewidth'] = linewidth[i]
+                elif linewidth is not None:
+                    plot_kwargs['linewidth'] = linewidth
                 
                 # Handle labels
                 if isinstance(label, (list, tuple)) and i < len(label):
@@ -360,13 +366,12 @@ class LineChartView(ChartView):
                         series_label = None
 
                 
-                # Store for direct labeling (only if label exists)
-                if series_label:
-                    line_colors.append(series_color)
-                    line_labels.append(series_label)
+                # Always store for direct labeling to maintain alignment with y_series
+                # (None labels will be skipped during actual label placement)
+                line_colors.append(series_color)
+                line_labels.append(series_label)
                 
-                # Set linewidth and markersize
-                plot_kwargs['linewidth'] = linewidth
+                # Set markersize (linewidth is handled above per-series)
                 plot_kwargs['markersize'] = markersize
                 
                 # Apply any series-specific overrides
@@ -842,6 +847,10 @@ class LineChartView(ChartView):
         existing_labels_bboxes = []  # List of Bbox objects in display coordinates
 
         for i, (y_series, label_text, color) in enumerate(zip(y_data, labels, colors)):
+            # Skip series with None labels
+            if label_text is None:
+                continue
+                
             # Find the last non-None/finite point in the series
             last_x_idx = -1
             last_y = None
