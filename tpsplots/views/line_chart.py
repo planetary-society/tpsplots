@@ -1,3 +1,4 @@
+# line_chart.py
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -5,6 +6,10 @@ from pathlib import Path
 from .chart_view import ChartView
 import logging
 import math
+# Imports for advanced geometry and transformations
+import matplotlib.transforms
+from matplotlib.transforms import Bbox
+import matplotlib.path as mpath
 
 logger = logging.getLogger(__name__)
 
@@ -242,18 +247,6 @@ class LineChartView(ChartView):
     def _create_chart(self, metadata, style, **kwargs):
         """
         Create a line plot with appropriate styling.
-        
-        This method creates a basic figure and axes, applies consistent styling,
-        and then lets matplotlib handle the actual plotting, using the provided
-        kwargs directly.
-        
-        Args:
-            metadata: Chart metadata dictionary
-            style: Style dictionary (DESKTOP or MOBILE)
-            **kwargs: Arguments passed directly to matplotlib
-            
-        Returns:
-            matplotlib.figure.Figure: The created figure
         """
         # Extract figure parameters
         figsize = kwargs.pop('figsize', style["figsize"])
@@ -262,8 +255,6 @@ class LineChartView(ChartView):
         
         
         # Intercept title and subtitle parameters
-        # So we do our own custom title processing
-        # in header and footer
         for text in ["title","subtitle"]:
             if kwargs.get(text):
                 metadata[text] = kwargs.pop(text)
@@ -292,18 +283,23 @@ class LineChartView(ChartView):
             y_data = y
 
         # Handle single y series
-        if y_data is None and isinstance(x_data, (list, tuple, np.ndarray)):
+        if y_data is None and isinstance(x_data, (list, tuple, np.ndarray, pd.Series)):
             y_data = [x_data]
             x_data = np.arange(len(x_data))
             
-        # Make sure y_data is a list for consistent handling
+        # Make sure y_data is a list of series for consistent handling
         if y_data is not None and not isinstance(y_data, (list, tuple)):
-            y_data = [y_data]
+             # If it's a single series (like a numpy array or pandas Series)
+            if isinstance(y_data, (pd.Series, np.ndarray)):
+                 y_data = [y_data]
+
             
         # Extract styling parameters
         color = kwargs.pop('color', kwargs.pop('c', None))
         linestyle = kwargs.pop('linestyle', kwargs.pop('ls', None)) 
         linewidth = kwargs.pop('linewidth', kwargs.pop('lw', style["line_width"]))
+        
+        # Extract markersize, crucial for label placement calculations
         markersize = kwargs.pop('markersize', kwargs.pop('ms', style["marker_size"]))
         marker = kwargs.pop('marker', None)
         alpha = kwargs.pop('alpha', None)
@@ -319,16 +315,20 @@ class LineChartView(ChartView):
                 # Build plot kwargs for this series
                 plot_kwargs = {}
                 
-                # Handle list parameters for each series
+                # Handle colors
                 if isinstance(color, (list, tuple)) and i < len(color):
                     plot_kwargs['color'] = color[i]
                     series_color = color[i]
-                elif color is not None:
+                elif color is not None and isinstance(color, str):
+                    # Apply single color to all if it's a string
                     plot_kwargs['color'] = color
                     series_color = color
                 else:
-                    series_color = f"C{i}"  # Default matplotlib color cycle
-                    
+                    # Use default matplotlib color cycle
+                    series_color = ax._get_lines.get_next_color()
+                    plot_kwargs['color'] = series_color
+
+                # Handle linestyle, marker, alpha
                 if isinstance(linestyle, (list, tuple)) and i < len(linestyle):
                     plot_kwargs['linestyle'] = linestyle[i]
                 elif linestyle is not None:
@@ -343,22 +343,29 @@ class LineChartView(ChartView):
                     plot_kwargs['alpha'] = alpha[i]
                 elif alpha is not None:
                     plot_kwargs['alpha'] = alpha
-                    
+                
+                # Handle labels
                 if isinstance(label, (list, tuple)) and i < len(label):
                     plot_kwargs['label'] = label[i]
                     series_label = label[i]
-                elif label is not None and i == 0:
+                elif label is not None and i == 0 and isinstance(label, str):
                     plot_kwargs['label'] = label
                     series_label = label
                 else:
-                    plot_kwargs['label'] = f"Series {i+1}"
-                    series_label = f"Series {i+1}"
+                    # Only assign default label if 'label' parameter was not provided at all
+                    if label is None:
+                        series_label = f"Series {i+1}"
+                        plot_kwargs['label'] = series_label
+                    else:
+                        series_label = None
+
                 
-                # Store for direct labeling
-                line_colors.append(series_color)
-                line_labels.append(series_label)
+                # Store for direct labeling (only if label exists)
+                if series_label:
+                    line_colors.append(series_color)
+                    line_labels.append(series_label)
                 
-                # Set linewidth and markersize from style
+                # Set linewidth and markersize
                 plot_kwargs['linewidth'] = linewidth
                 plot_kwargs['markersize'] = markersize
                 
@@ -369,26 +376,20 @@ class LineChartView(ChartView):
 
                 # Plot this series
                 ax.plot(x_data, y_series, **plot_kwargs)
-                # Apply standard styling to the axes
-        
+
+        # Apply standard styling to the axes
         self._apply_axes_styling(ax, metadata, style, x_data=x_data, y_data=y_data, 
-                               line_colors=line_colors, line_labels=line_labels, **kwargs)
+                               line_colors=line_colors, line_labels=line_labels, markersize=markersize, fig=fig, **kwargs)
         
         self._adjust_layout_for_header_footer(fig, metadata, style)
         
         return fig
     
-    def _apply_axes_styling(self, ax, metadata, style, **kwargs):
+    def _apply_axes_styling(self, ax, metadata, style, fig=None, **kwargs):
         """
         Apply consistent styling to the axes.
-        
-        Args:
-            ax: Matplotlib axes object
-            metadata: Chart metadata dictionary 
-            style: Style dictionary (DESKTOP or MOBILE)
-            **kwargs: Additional styling parameters
         """
-        # Extract axis-specific parameters
+        # Extract parameters
         xlim = kwargs.pop('xlim', None)
         ylim = kwargs.pop('ylim', None)
         xticks = kwargs.pop('xticks', None)
@@ -396,7 +397,6 @@ class LineChartView(ChartView):
         max_xticks = kwargs.pop('max_xticks', style.get("max_ticks"))
         x_data = kwargs.pop('x_data', None)
         
-        # Extract other styling parameters
         grid = kwargs.pop('grid',None)
         tick_rotation = kwargs.pop('tick_rotation', style["tick_rotation"])
         tick_size = kwargs.pop('tick_size', style["tick_size"])
@@ -406,38 +406,38 @@ class LineChartView(ChartView):
         scale = kwargs.pop('scale', None)
         axis_scale = kwargs.pop('axis_scale', 'y')
         
-        # Handle legend and direct line labels parameters
         legend = kwargs.pop('legend', True)
         direct_line_labels = kwargs.pop('direct_line_labels', False)
         y_data = kwargs.pop('y_data', None)
         line_colors = kwargs.pop('line_colors', [])
         line_labels = kwargs.pop('line_labels', [])
+        # Ensure markersize is available (passed from _create_chart)
+        markersize = kwargs.get('markersize', style.get("marker_size", 6))
 
-        # Apply axis labels if provided
+
+        # Apply axis labels, grid, tick params
         if xlabel:
             ax.set_xlabel(xlabel, fontsize=label_size)
         if ylabel:
             ax.set_ylabel(ylabel, fontsize=label_size)
         
-        # Apply grid setting
         if (grid or style.get("grid")):
             if grid:
-                ax.grid(grid)
+                if isinstance(grid, bool):
+                     ax.grid(grid)
+                else:
+                     ax.grid(**grid)
             else:
                 grid_args = {"axis":style.get("grid_axis")}
                 ax.grid(**grid_args)
         
-        # Explicitly set tick sizes
-        tick_size = kwargs.pop('tick_size', style["tick_size"])
         ax.tick_params(axis='x', labelsize=tick_size)
         ax.tick_params(axis='y', labelsize=tick_size)
         
-        # Check if we should use fiscal year tick formatting
+        # Apply appropriate tick formatting
         fiscal_year_ticks = kwargs.pop('fiscal_year_ticks', True)
         
-        # Apply appropriate tick formatting
         if fiscal_year_ticks and x_data is not None and self._contains_dates(x_data):
-            # Apply special FY formatting
             self._apply_fiscal_year_ticks(ax, style, tick_size=tick_size)
         elif x_data is not None and self._contains_dates(x_data):
             import matplotlib.dates as mdates
@@ -446,29 +446,28 @@ class LineChartView(ChartView):
             plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
             plt.setp(ax.get_yticklabels(), fontsize=tick_size)
         else:
-            # Apply standard tick formatting
             plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
             plt.setp(ax.get_yticklabels(), fontsize=tick_size)
             
-            # Check if x_data is categorical (strings)
-            is_categorical = x_data is not None and len(x_data) > 0 and isinstance(x_data[0], str)
+            is_categorical = x_data is not None and len(x_data) > 0 and isinstance(list(x_data)[0], str)
             
-            # Set tick locators if needed
             if max_xticks and not is_categorical:
-                # Only apply MaxNLocator for numeric data
                 ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
             elif is_categorical and max_xticks and len(x_data) > max_xticks:
-                # For categorical data, thin the ticks by showing every nth tick
                 step = len(x_data) // max_xticks + 1
                 tick_positions = list(range(0, len(x_data), step))
                 ax.set_xticks(tick_positions)
-                ax.set_xticklabels([x_data[i] for i in tick_positions])
+                # Handle potential indexing issues if x_data is not a standard list
+                try:
+                    ax.set_xticklabels([list(x_data)[i] for i in tick_positions])
+                except Exception:
+                    logger.warning("Could not set categorical xticklabels.")
+
         
-        # Apply scale formatter if specified
+        # Apply scale formatter, custom limits, custom ticks
         if scale:
             self._apply_scale_formatter(ax, scale, axis_scale)
         
-        # Apply custom limits
         if xlim:
             if isinstance(xlim,dict):
                 ax.set_xlim(**xlim)
@@ -480,35 +479,45 @@ class LineChartView(ChartView):
             else:
                 ax.set_ylim(ylim)
         
-        # Apply custom ticks
         if xticks is not None:
             ax.set_xticks(xticks)
             if xticklabels is not None:
                 ax.set_xticklabels(xticklabels)
             elif all(isinstance(x, (int, float)) and float(x).is_integer() for x in xticks):
                 ax.set_xticklabels([f"{int(x)}" for x in xticks])
-            # Apply legend explicitly using the line objects and their labels
     
         # Apply horizontal lines if specified
         self._apply_horizontal_lines(ax, **kwargs)
     
         # Handle labeling - either direct line labels or traditional legend
         if direct_line_labels and y_data is not None and line_colors and line_labels:
+            
+            # CRITICAL: We must finalize the layout and draw the canvas to get the renderer 
+            # and accurate transformations before calculating label positions in display coordinates.
+            if fig:
+                try:
+                    # Applying a preliminary tight_layout helps finalize axes positions before drawing.
+                    # _adjust_layout_for_header_footer will apply the final layout later.
+                    fig.tight_layout(rect=[0, 0.0, 1, 1.0]) 
+                    fig.canvas.draw()
+                except Exception as e:
+                    logger.warning(f"Failed to draw canvas before label placement: {e}")
+
             # Use direct line endpoint labels instead of legend
+            # MODIFIED: Pass fig and kwargs (which contains markersize)
             self._add_direct_line_endpoint_labels(
                 ax, x_data, y_data, line_labels, line_colors, style, 
-                direct_line_labels=direct_line_labels
+                fig=fig, direct_line_labels=direct_line_labels, **kwargs
             )
         elif legend:
             # Use traditional legend
             legend_kwargs = {'fontsize': style["legend_size"]}
             if isinstance(legend, dict):
                 legend_kwargs.update(legend)
-            ax.legend(**legend_kwargs)
-
-    # Add this method to your LineChartView class in tpsplots/views/line_chart.py
-
-    # Enhanced _apply_horizontal_lines method with direct labeling
+            # Check if there are handles to display
+            handles, labels = ax.get_legend_handles_labels()
+            if handles:
+                ax.legend(**legend_kwargs)
 
     def _apply_horizontal_lines(self, ax, **kwargs):
         """
@@ -622,7 +631,7 @@ class LineChartView(ChartView):
             self._add_direct_line_labels(ax, labeled_y_values, labeled_info, 
                                     label_position, label_offset, label_fontsize, label_bbox)
 
-    def _add_direct_line_labels(self, ax, y_values, label_info, position='right', 
+    def _add_direct_line_labels(self, ax, y_values, label_info, position='right',
                             offset=0.02, fontsize=12, add_bbox=True):
         """
         Add labels directly on horizontal lines.
@@ -695,6 +704,7 @@ class LineChartView(ChartView):
                 connect_x = x_pos + (0.01 * x_range if ha == 'right' else -0.01 * x_range)
                 ax.plot([connect_x, x_pos], [y_val, adj_y], 
                     color=color, linewidth=1, alpha=0.5, zorder=5)
+        
 
     def _adjust_label_positions(self, y_positions, min_spacing):
         """
@@ -723,414 +733,426 @@ class LineChartView(ChartView):
                 adjusted.append(current_y)
         
         return adjusted
+
+
     
-    def _add_direct_line_endpoint_labels(self, ax, x_data, y_data, labels, colors, style, **kwargs):
+    def _get_text_bbox_display(self, text, fontsize, color, add_bbox, renderer, ax):
+        """Creates a temporary text object and returns its bounding box in display coordinates (pixels)."""
+        if renderer is None:
+            return None
+
+        bbox_props = None
+        if add_bbox:
+            # Define the style for the bounding box
+            bbox_props = dict(
+                boxstyle="round,pad=0.3", facecolor='white', edgecolor=color, alpha=0.9, linewidth=1
+            )
+
+        # Create a temporary, invisible text object on the axes to measure it
+        # We must attach it to the axes to inherit the correct styles and renderer context.
+        temp_text = ax.text(0, 0, text, fontsize=fontsize, fontweight='bold', bbox=bbox_props, visible=False)
+
+        try:
+            # Get the bounding box in display coordinates using the renderer
+            # This accurately measures the text including font rendering and bbox padding.
+            bbox = temp_text.get_window_extent(renderer=renderer)
+        except Exception as e:
+            logger.warning(f"Could not get window extent for label '{text}': {e}")
+            bbox = None
+        finally:
+            # Clean up the temporary object
+            temp_text.remove()
+
+        return bbox
+
+    def _add_direct_line_endpoint_labels(self, ax, x_data, y_data, labels, colors, style, fig=None, **kwargs):
         """
-        Add labels directly on chart near line endpoints instead of using a legend.
-        
-        Args:
-            ax: Matplotlib axes object
-            x_data: X-axis data
-            y_data: List of y-data arrays for each line
-            labels: List of label texts for each line
-            colors: List of colors for each line
-            style: Style dictionary (DESKTOP or MOBILE)
-            **kwargs: Direct line label configuration options
+        Add labels directly on chart near line endpoints. Uses display coordinates for robust placement.
         """
         # Extract configuration options
         config = kwargs.get('direct_line_labels', {})
         if not isinstance(config, dict):
-            config = {}  # Use defaults if just True was passed
-            
-        position = config.get('position', 'auto')
-        offset = config.get('offset', 0.02)  # Fraction of plot width
+            config = {}
+
+        position_mode = config.get('position', 'auto')
         add_bbox = config.get('bbox', True)
         fontsize = config.get('fontsize', style.get('legend_size', 12))
-        avoid_edges = config.get('avoid_edges', True)
-        
-        # Get axis limits
-        xlim = ax.get_xlim()
-        ylim = ax.get_ylim()
-        x_range = xlim[1] - xlim[0]
-        y_range = ylim[1] - ylim[0]
-        
-        # Prepare line data for collision detection
-        all_line_data = []
-        for y_series in y_data:
-            # Convert categorical x_data to numeric indices for collision detection
-            if isinstance(x_data, (list, tuple)):
-                numeric_x = list(range(len(x_data)))
-            else:
-                numeric_x = x_data
-            all_line_data.append((numeric_x, y_series))
-        
+        # Retrieve markersize passed down from _create_chart
+        markersize_points = kwargs.get('markersize', style.get("marker_size", 6))
+
+        if fig is None:
+            return
+
+        renderer = None
+        try:
+            # Renderer should be available because we called fig.canvas.draw() in _apply_axes_styling
+            renderer = fig.canvas.get_renderer()
+        except Exception:
+            logger.warning("Renderer not available. Cannot perform accurate direct labeling.")
+            # If auto mode relies on the renderer, we must exit if it's not available.
+            if position_mode == 'auto':
+                return
+
+        # Handle X data conversion (Categorical to Numeric Indices for transformations)
+        if x_data is None:
+             if y_data and len(y_data) > 0 and len(y_data[0]) > 0:
+                numeric_x = np.arange(len(y_data[0]))
+             else:
+                 return
+        # Check if the first element of x_data is a string
+        elif len(x_data) > 0 and isinstance(list(x_data)[0], str):
+            numeric_x = np.arange(len(x_data))
+        else:
+            # Attempt conversion to numpy array for consistency
+            try:
+                numeric_x = np.array(x_data)
+            except Exception:
+                logger.error("Could not process x_data for direct labeling.")
+                return
+
+
+        # Prepare line data in display coordinates for collision detection (only if auto mode)
+        all_line_data_display = []
+        if position_mode == 'auto' and renderer:
+            for y_series in y_data:
+                points = []
+                # Ensure y_series is iterable
+                y_series_list = list(y_series)
+                
+                # Iterate through the data points
+                min_len = min(len(numeric_x), len(y_series_list))
+                for i in range(min_len):
+                    x = numeric_x[i]
+                    y = y_series_list[i]
+                    if x is not None and y is not None:
+                        try:
+                            # Ensure numeric and finite values before transformation
+                            x_val, y_val = float(x), float(y)
+                            if np.isfinite(x_val) and np.isfinite(y_val):
+                                points.append((x_val, y_val))
+                        except (TypeError, ValueError):
+                            continue
+
+                if points:
+                    # Transform the entire line path to pixels
+                    pixels = ax.transData.transform(points)
+                    all_line_data_display.append(pixels)
+
         # Collect endpoint information and find optimal positions
-        label_positions = []
-        existing_labels = []  # Track placed labels for collision avoidance
-        
+        existing_labels_bboxes = []  # List of Bbox objects in display coordinates
+
         for i, (y_series, label_text, color) in enumerate(zip(y_data, labels, colors)):
-            # Find the last non-None point in the series
-            last_x_idx = len(y_series) - 1
-            last_y = y_series[last_x_idx]
-            
-            # Handle None values at the end (like our FY2025 September data)
-            while last_y is None and last_x_idx > 0:
-                last_x_idx -= 1
-                last_y = y_series[last_x_idx]
-            
-            if last_y is None:
-                continue  # Skip if entire series is None
-                
-            # Get the x position for this endpoint
-            if isinstance(x_data, (list, tuple)):
-                last_x = last_x_idx  # Use index position for categorical data
-            else:
-                last_x = x_data[last_x_idx]
-            
-            # Use advanced positioning if position is 'auto', otherwise use simple positioning
-            if position == 'auto':
-                # Find optimal position using collision detection
-                optimal_pos = self._find_optimal_label_position(
-                    last_x, last_y, label_text, all_line_data, 
-                    existing_labels, xlim, ylim, offset, style
+            # Find the last non-None/finite point in the series
+            last_x_idx = -1
+            last_y = None
+            y_series_list = list(y_series)
+
+            # Iterate backwards to find the last valid point
+            for idx in range(len(y_series_list) - 1, -1, -1):
+                y_val = y_series_list[idx]
+                # Check if the corresponding x value is also valid
+                if idx < len(numeric_x) and numeric_x[idx] is not None and y_val is not None:
+                    try:
+                        # Check finiteness if numeric
+                        y_val_float = float(y_val)
+                        if np.isfinite(y_val_float):
+                            last_x_idx = idx
+                            last_y = y_val_float
+                            break
+                    except (TypeError, ValueError):
+                        continue
+
+            if last_x_idx == -1:
+                continue
+
+            last_x = numeric_x[last_x_idx]
+
+            # --- Placement Logic ---
+
+            # 1. Get the bounding box of the text in display coordinates
+            text_bbox = self._get_text_bbox_display(label_text, fontsize, color, add_bbox, renderer, ax)
+
+            if text_bbox is None:
+                continue
+
+            # 2. Determine position
+            # We focus on 'auto' as per the main requirement, but keep simple positioning available if configured.
+            if position_mode == 'auto':
+                optimal_pos = self._find_optimal_label_position_display(
+                    last_x, last_y, text_bbox, all_line_data_display, existing_labels_bboxes,
+                    ax, markersize_points
                 )
-                
-                label_x = optimal_pos['x']
-                label_y = optimal_pos['y']
-                ha = optimal_pos['ha']
-                va = optimal_pos['va']
-                
-                # Store bounding box for future collision detection  
-                base_text_size = offset * min(x_range, y_range)
-                text_width = len(label_text) * 0.5 * base_text_size
-                text_height = 1.0 * base_text_size
-                
-                if ha == 'left':
-                    bbox_x1, bbox_x2 = label_x, label_x + text_width
-                elif ha == 'right':
-                    bbox_x1, bbox_x2 = label_x - text_width, label_x
-                else:
-                    bbox_x1, bbox_x2 = label_x - text_width/2, label_x + text_width/2
-                    
-                if va == 'bottom':
-                    bbox_y1, bbox_y2 = label_y, label_y + text_height
-                elif va == 'top':
-                    bbox_y1, bbox_y2 = label_y - text_height, label_y
-                else:
-                    bbox_y1, bbox_y2 = label_y - text_height/2, label_y + text_height/2
-                
-                # Add to existing labels for next iteration
-                existing_labels.append({
-                    'bbox_x1': bbox_x1, 'bbox_y1': bbox_y1,
-                    'bbox_x2': bbox_x2, 'bbox_y2': bbox_y2
-                })
-                
             else:
-                # Use simple positioning for non-auto modes
-                if position == 'right':
-                    label_x = last_x + (offset * x_range)
-                    label_y = last_y
-                    ha = 'left'
-                    va = 'center'
-                elif position == 'left':
-                    label_x = last_x - (offset * x_range)
-                    label_y = last_y
-                    ha = 'right'
-                    va = 'center'
-                elif position == 'above':
-                    label_x = last_x
-                    label_y = last_y + (offset * y_range)
-                    ha = 'center'
-                    va = 'bottom'
-                else:  # below
-                    label_x = last_x
-                    label_y = last_y - (offset * y_range)
-                    ha = 'center'
-                    va = 'top'
-            
-            # Store position info
-            label_positions.append({
-                'x': label_x,
-                'y': label_y,
-                'text': label_text,
-                'color': color,
-                'ha': ha,
-                'va': va,
-                'original_y': last_y
-            })
-        
-        # Add labels to the plot
-        for pos_info in label_positions:
-            # Create bbox styling if requested
-            bbox_props = None
-            if add_bbox:
-                bbox_props = dict(
-                    boxstyle="round,pad=0.3",
-                    facecolor='white',
-                    edgecolor=pos_info['color'],
-                    alpha=0.9,
-                    linewidth=1
+                optimal_pos = self._get_simple_label_position(
+                    last_x, last_y, text_bbox, position_mode, ax, markersize_points
                 )
-            
-            # Add the text label
-            ax.text(
-                pos_info['x'], pos_info['y'],
-                pos_info['text'],
-                fontsize=fontsize,
-                ha=pos_info['ha'],
-                va=pos_info['va'],
-                color=pos_info['color'],
-                fontweight='bold',
-                bbox=bbox_props,
-                zorder=10  # Make sure labels appear on top
-            )
-    
-    def _avoid_label_collisions(self, label_positions, min_spacing):
+
+            # 3. Place the text and store the resulting bbox
+            if optimal_pos:
+                bbox_props = None
+                if add_bbox:
+                    bbox_props = dict(
+                        boxstyle="round,pad=0.3", facecolor='white', edgecolor=color, alpha=0.8, linewidth=1
+                    )
+
+                ax.text(
+                    optimal_pos['x_data'], optimal_pos['y_data'],
+                    label_text,
+                    fontsize=fontsize,
+                    ha=optimal_pos['ha'],
+                    va=optimal_pos['va'],
+                    color=color,
+                    fontweight='bold',
+                    bbox=bbox_props,
+                    zorder=10
+                )
+                # Store the actual placed bbox for subsequent collision detection
+                existing_labels_bboxes.append(optimal_pos['bbox_display'])
+
+    def _get_simple_label_position(self, x_data, y_data, text_bbox, position_mode, ax, markersize_points):
+        """Calculates position for simple modes using point offsets (DPI-aware)."""
+
+        # Define offset in points (marker radius + desired gap)
+        gap_points = 6 # Heuristic gap
+        offset_points = (markersize_points / 2.0) + gap_points
+
+        # Use offset_copy to create a transformation that shifts by points
+        # This is DPI-aware and handled by Matplotlib.
+        transform = matplotlib.transforms.offset_copy(ax.transData, fig=ax.get_figure(),
+                                                      x=0, y=0, units='points')
+
+        # Set the offset based on the desired position
+        if position_mode == 'right':
+            transform.x = offset_points
+            ha, va = 'left', 'center'
+        elif position_mode == 'left':
+            transform.x = -offset_points
+            ha, va = 'right', 'center'
+        elif position_mode == 'above' or position_mode == 'top':
+            transform.y = offset_points
+            ha, va = 'center', 'bottom'
+        elif position_mode == 'below' or position_mode == 'bottom':
+            transform.y = -offset_points
+            ha, va = 'center', 'top'
+        else:
+            # Default fallback
+            transform.x = offset_points
+            ha, va = 'left', 'center'
+
+        # Calculate anchor location in display coords
+        anchor_display = transform.transform((x_data, y_data))
+        # Transform back to data coordinates for ax.text()
+        anchor_data = ax.transData.inverted().transform(anchor_display)
+
+        # Calculate the final bounding box in display coordinates for collision tracking
+        width, height = text_bbox.width, text_bbox.height
+        x0, y0 = anchor_display[0], anchor_display[1]
+
+        # Determine the starting corner (x_start, y_start) based on alignment
+        if ha == 'left':
+            x_start = x0
+        elif ha == 'right':
+            x_start = x0 - width
+        else: # center
+            x_start = x0 - width / 2
+
+        # Display coordinates (0,0) at bottom-left.
+        if va == 'bottom':
+            y_start = y0
+        elif va == 'top':
+            y_start = y0 - height
+        else: # center
+            y_start = y0 - height / 2
+
+        final_bbox = Bbox.from_bounds(x_start, y_start, width, height)
+
+        return {
+            'x_data': anchor_data[0],
+            'y_data': anchor_data[1],
+            'ha': ha,
+            'va': va,
+            'bbox_display': final_bbox
+        }
+
+    def _find_optimal_label_position_display(self, x_data, y_data, text_bbox,
+                                             all_line_data_display, existing_labels_bboxes,
+                                             ax, markersize_points):
         """
-        Adjust label positions to prevent overlapping, focusing on y-axis collisions.
-        
-        Args:
-            label_positions: List of position dictionaries
-            min_spacing: Minimum spacing between labels
-            
-        Returns:
-            List of adjusted position dictionaries
+        Finds the optimal label position using a clockwise search strategy in display coordinates.
         """
-        if len(label_positions) <= 1:
-            return label_positions
+        # 1. Get endpoint in pixels
+        try:
+            endpoint_px = ax.transData.transform([(x_data, y_data)])[0]
+            ep_x_px, ep_y_px = endpoint_px[0], endpoint_px[1]
+        except Exception as e:
+            logger.error(f"Error transforming endpoint coordinates: {e}")
+            return None
+
+        # 2. Define Offsets in Pixels (DPI-Aware)
+        dpi = ax.get_figure().get_dpi()
         
-        # Sort by y-position to handle overlaps systematically
-        sorted_positions = sorted(label_positions, key=lambda x: x['y'])
+        # Gap heuristic: 6 points (visual separation between marker edge and label edge)
+        gap_points = 6
         
-        # Adjust positions to prevent overlap
-        for i in range(1, len(sorted_positions)):
-            current = sorted_positions[i]
-            previous = sorted_positions[i-1]
-            
-            # Check if labels are too close vertically
-            if abs(current['y'] - previous['y']) < min_spacing:
-                # Move current label up to maintain spacing
-                current['y'] = previous['y'] + min_spacing
-                current['va'] = 'bottom'  # Adjust vertical alignment
+        # Total distance from center = marker radius + gap
+        offset_points = (markersize_points / 2.0) + gap_points
+        offset_px = offset_points * (dpi / 72.0) # Convert points to pixels
+
+        text_width_px = text_bbox.width
+        text_height_px = text_bbox.height
+
+        # 3. Get Axes bounds in pixels
+        # We rely on the renderer being initialized (canvas drawn) before this function is called.
+        renderer = ax.get_figure().canvas.get_renderer()
         
-        return sorted_positions
-    
-    def _find_optimal_label_position(self, endpoint_x, endpoint_y, text, all_line_data, 
-                                   existing_labels, xlim, ylim, offset, style=None):
-        """
-        Find optimal label position using clockwise search from right position.
-        
-        Args:
-            endpoint_x, endpoint_y: Line endpoint coordinates
-            text: Label text for size estimation
-            all_line_data: List of (x_data, y_data) tuples for all lines
-            existing_labels: Previously placed label positions
-            xlim, ylim: Chart axis limits (tuples)
-            offset: Distance from endpoint as fraction of plot size
-            style: Style dictionary for marker size info
-            
-        Returns:
-            dict: Optimal position with coordinates and alignment
-        """
-        x_range = xlim[1] - xlim[0]
-        y_range = ylim[1] - ylim[0]
-        
-        # Convert offset to actual distance with modest spacing improvement
-        base_distance = offset * min(x_range, y_range)
-        
-        # Small increase for better visual separation without going overboard
-        offset_distance = base_distance * 1.2
-        
-        # Estimate text dimensions (more conservative for better spacing)
-        text_width = len(text) * 0.5 * base_distance  # Rough character width
-        text_height = 1.0 * base_distance  # Rough text height
-        
+        # get_window_extent provides the bounds of the plotting area.
+        ax_bbox = ax.get_window_extent(renderer=renderer)
+
+
+        # 4. Search Strategy: Clockwise starting from Right (0 degrees)
+        # Define 8 cardinal directions. Angles are standard mathematical (CCW from right).
+        # (Angle, HA, VA) - Ordered by preference.
+        priority_directions = [
+            (0, 'left', 'center'),      # Right (Preferred)
+            (315, 'left', 'top'),       # Bottom-Right
+            (270, 'center', 'top'),     # Bottom
+            (225, 'right', 'top'),      # Bottom-Left
+            (180, 'right', 'center'),   # Left
+            (135, 'right', 'bottom'),   # Top-Left
+            (90, 'center', 'bottom'),   # Top
+            (45, 'left', 'bottom')      # Top-Right
+        ]
+
         best_position = None
         best_score = float('inf')
-        
-        # Try positions in 5-degree increments, starting from right (0°)
-        for angle_deg in range(0, 360, 5):
+
+        # Iterate through the directions in order of preference.
+        for pref_order, (angle_deg, ha, va) in enumerate(priority_directions):
             angle_rad = math.radians(angle_deg)
-            
-            # Calculate position coordinates
-            label_x = endpoint_x + offset_distance * math.cos(angle_rad)
-            label_y = endpoint_y + offset_distance * math.sin(angle_rad)
-            
-            # Determine text alignment based on angle
-            if -45 <= angle_deg <= 45 or 315 <= angle_deg <= 360:
-                ha = 'left'
-            elif 135 <= angle_deg <= 225:
-                ha = 'right'
-            else:
-                ha = 'center'
-                
-            if 45 <= angle_deg <= 135:
-                va = 'bottom'
-            elif 225 <= angle_deg <= 315:
-                va = 'top'
-            else:
-                va = 'center'
-            
-            # Calculate label bounding box
+
+            # Calculate the anchor position coordinates
+            anchor_x_px = ep_x_px + offset_px * math.cos(angle_rad)
+            anchor_y_px = ep_y_px + offset_px * math.sin(angle_rad)
+
+            # Calculate the full bounding box (in pixels) of the label at this position
+            # Determine the bottom-left corner (bbox_x1, bbox_y1) based on alignment
             if ha == 'left':
-                bbox_x1, bbox_x2 = label_x, label_x + text_width
+                bbox_x1 = anchor_x_px
             elif ha == 'right':
-                bbox_x1, bbox_x2 = label_x - text_width, label_x
-            else:  # center
-                bbox_x1, bbox_x2 = label_x - text_width/2, label_x + text_width/2
-                
+                bbox_x1 = anchor_x_px - text_width_px
+            else: # center
+                bbox_x1 = anchor_x_px - text_width_px / 2
+
+            # Display coordinates (0,0) at bottom-left.
             if va == 'bottom':
-                bbox_y1, bbox_y2 = label_y, label_y + text_height
+                bbox_y1 = anchor_y_px
             elif va == 'top':
-                bbox_y1, bbox_y2 = label_y - text_height, label_y
-            else:  # center
-                bbox_y1, bbox_y2 = label_y - text_height/2, label_y + text_height/2
-            
+                bbox_y1 = anchor_y_px - text_height_px
+            else: # center
+                bbox_y1 = anchor_y_px - text_height_px / 2
+
+            bbox_x2 = bbox_x1 + text_width_px
+            bbox_y2 = bbox_y1 + text_height_px
+
+            # Create a Bbox object
+            label_bbox = Bbox.from_extents(bbox_x1, bbox_y1, bbox_x2, bbox_y2)
+
             # Score this position
-            score = self._score_label_position(
-                bbox_x1, bbox_y1, bbox_x2, bbox_y2,
-                endpoint_x, endpoint_y, all_line_data, existing_labels,
-                xlim, ylim, angle_deg
+            score = self._score_label_position_display(
+                label_bbox, pref_order, all_line_data_display, existing_labels_bboxes, ax_bbox
             )
-            
+
             # Track best position
             if score < best_score:
                 best_score = score
+                # Convert best pixel coordinates back to data coordinates for placement
+                anchor_data = ax.transData.inverted().transform([(anchor_x_px, anchor_y_px)])[0]
                 best_position = {
-                    'x': label_x,
-                    'y': label_y,
+                    'x_data': anchor_data[0],
+                    'y_data': anchor_data[1],
                     'ha': ha,
                     'va': va,
                     'score': score,
-                    'angle': angle_deg
+                    'bbox_display': label_bbox
                 }
-        
-        # If all positions are bad, use fallback (below position)
-        if best_score > 100:  # Arbitrary threshold for "very bad"
-            fallback_position = {
-                'x': endpoint_x,
-                'y': endpoint_y - offset_distance,
-                'ha': 'center',
-                'va': 'top',
-                'score': best_score,
-                'angle': 270
-            }
-            return fallback_position
-            
+
+            # Early exit if score is perfect (0) - means it's the preferred spot (Right) and has no collisions.
+            if score == 0:
+                break
+
+        # Fallback if optimization fails completely (e.g. endpoint is off-screen or area is too crowded)
+        if best_position is None:
+             logger.warning("Could not find an optimal position for the label. Falling back to 'right'.")
+             return self._get_simple_label_position(x_data, y_data, text_bbox, 'right', ax, markersize_points)
+
         return best_position
-    
-    def _score_label_position(self, bbox_x1, bbox_y1, bbox_x2, bbox_y2,
-                            endpoint_x, endpoint_y, all_line_data, existing_labels,
-                            xlim, ylim, angle_deg):
-        """
-        Score a label position based on various collision and preference factors.
-        
-        Args:
-            bbox_x1, bbox_y1, bbox_x2, bbox_y2: Label bounding box
-            endpoint_x, endpoint_y: Line endpoint coordinates
-            all_line_data: List of (x_data, y_data) tuples for all lines
-            existing_labels: Previously placed label positions
-            xlim, ylim: Chart axis limits
-            angle_deg: Angle from right position in degrees
-            
-        Returns:
-            float: Score (lower is better)
-        """
+
+
+    def _score_label_position_display(self, label_bbox, pref_order, all_line_data_display, existing_labels_bboxes, ax_bbox):
+        """Scores the label position in pixel coordinates. Lower is better."""
         score = 0
+
+        # 1. Penalty based on preference order (Clockwise from Right)
+        # pref_order starts at 0 for 'Right'. This enforces the priority.
+        score += pref_order * 5
+
+        # 2. Heavy penalty for going outside axes bounds.
+        # Use a small padding (e.g., 5 pixels) from the edge of the axes.
+        padding = 5
+        if label_bbox.x0 < ax_bbox.x0 + padding or label_bbox.x1 > ax_bbox.x1 - padding or \
+           label_bbox.y0 < ax_bbox.y0 + padding or label_bbox.y1 > ax_bbox.y1 - padding:
+            score += 200
+
+        # 3. Penalty for overlapping with existing labels.
+        # Add a small buffer between labels (e.g. 4 pixels)
+        buffer = 4
         
-        # Penalty for distance from preferred right position (0°)
-        angle_penalty = min(angle_deg, 360 - angle_deg) / 5.0  # 1 point per 5°
-        score += angle_penalty
-        
-        # Heavy penalty for going outside chart bounds
-        if (bbox_x1 < xlim[0] or bbox_x2 > xlim[1] or 
-            bbox_y1 < ylim[0] or bbox_y2 > ylim[1]):
+        # Expand the bbox slightly for the overlap check to enforce the buffer
+        try:
+            buffered_bbox = label_bbox.expanded(1 + buffer/label_bbox.width, 1 + buffer/label_bbox.height)
+        except ZeroDivisionError:
+            buffered_bbox = label_bbox # Handle case where bbox might have zero width/height
+
+        for existing_bbox in existing_labels_bboxes:
+            if buffered_bbox.overlaps(existing_bbox):
+                score += 100
+
+        # 4. Penalty for overlapping with line segments.
+        if self._label_intersects_line_display(label_bbox, all_line_data_display):
             score += 50
-        
-        # Penalty for overlapping with existing labels
-        for existing_label in existing_labels:
-            if self._boxes_overlap(bbox_x1, bbox_y1, bbox_x2, bbox_y2,
-                                 existing_label.get('bbox_x1', 0),
-                                 existing_label.get('bbox_y1', 0),
-                                 existing_label.get('bbox_x2', 0),
-                                 existing_label.get('bbox_y2', 0)):
-                score += 20
-        
-        # Penalty for overlapping with line segments
-        for x_data, y_data in all_line_data:
-            if self._label_intersects_line(bbox_x1, bbox_y1, bbox_x2, bbox_y2,
-                                         x_data, y_data):
-                score += 10
-        
-        # Penalty for being too close to the endpoint (encourage more separation)
-        label_center_x = (bbox_x1 + bbox_x2) / 2
-        label_center_y = (bbox_y1 + bbox_y2) / 2
-        distance_to_endpoint = math.sqrt((label_center_x - endpoint_x)**2 + 
-                                       (label_center_y - endpoint_y)**2)
-        
-        # Increased minimum distance to ensure clear separation from endpoints
-        min_distance = 0.12 * min(xlim[1] - xlim[0], ylim[1] - ylim[0])
-        if distance_to_endpoint < min_distance:
-            score += 50  # Strong penalty to force labels away from endpoints
-        
+
         return score
-    
-    def _boxes_overlap(self, x1a, y1a, x2a, y2a, x1b, y1b, x2b, y2b):
-        """Check if two rectangular boxes overlap."""
-        return not (x2a < x1b or x2b < x1a or y2a < y1b or y2b < y1a)
-    
-    def _label_intersects_line(self, bbox_x1, bbox_y1, bbox_x2, bbox_y2, x_data, y_data):
-        """
-        Check if label bounding box intersects with any line segments.
+
+    def _label_intersects_line_display(self, bbox, all_line_data_display):
+        """Checks if the bounding box intersects any lines using pixel coordinates and Path intersection."""
         
-        This is a simplified check - we test if any line points fall within the bbox
-        or if the line crosses through the bbox boundaries.
-        """
-        # Simple point-in-box check for line vertices
-        for i, (x, y) in enumerate(zip(x_data, y_data)):
-            if y is None:  # Skip None values
+        # Define the bounding box as a Path
+        try:
+            # Use bbox.corners() which returns the vertices of the rectangle.
+            # closed=True ensures it's treated as a polygon.
+            bbox_path = mpath.Path(bbox.corners(), closed=True)
+        except Exception as e:
+            logger.warning(f"Could not create bbox path for intersection check: {e}")
+            return False
+
+        for line_pixels in all_line_data_display:
+            if len(line_pixels) < 2:
                 continue
-            if bbox_x1 <= x <= bbox_x2 and bbox_y1 <= y <= bbox_y2:
-                return True
-        
-        # Check if any line segment crosses the bounding box
-        # (Simplified - just check if line crosses box center)
-        box_center_x = (bbox_x1 + bbox_x2) / 2
-        box_center_y = (bbox_y1 + bbox_y2) / 2
-        
-        for i in range(len(x_data) - 1):
-            if y_data[i] is None or y_data[i+1] is None:
-                continue
+
+            try:
+                # Create a Path for the line
+                line_path = mpath.Path(line_pixels)
+
+                # Check if the line path intersects the interior of the bounding box
+                # filled=True treats bbox_path as a filled area, which is robust for detection.
+                if bbox_path.intersects_path(line_path, filled=True):
+                    return True
                 
-            x1, y1 = x_data[i], y_data[i]
-            x2, y2 = x_data[i+1], y_data[i+1]
-            
-            # Simple distance check to box center
-            dist_to_line = self._point_to_line_distance(
-                box_center_x, box_center_y, x1, y1, x2, y2
-            )
-            
-            # If line passes close to label center, consider it a collision
-            if dist_to_line < min(bbox_x2 - bbox_x1, bbox_y2 - bbox_y1) / 3:
-                return True
-        
+                # Also explicitly check if any line points are inside the bbox
+                if bbox.contains_points(line_pixels).any():
+                     return True
+
+            except Exception as e:
+                logger.debug(f"Line path intersection check failed: {e}")
+
         return False
-    
-    def _point_to_line_distance(self, px, py, x1, y1, x2, y2):
-        """Calculate perpendicular distance from point to line segment."""
-        # Line segment length
-        line_length_sq = (x2 - x1)**2 + (y2 - y1)**2
-        
-        if line_length_sq == 0:
-            # Point-to-point distance
-            return math.sqrt((px - x1)**2 + (py - y1)**2)
-        
-        # Parameter t for projection of point onto line
-        t = max(0, min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / line_length_sq))
-        
-        # Closest point on line segment
-        closest_x = x1 + t * (x2 - x1)
-        closest_y = y1 + t * (y2 - y1)
-        
-        # Distance from point to closest point
-        return math.sqrt((px - closest_x)**2 + (py - closest_y)**2)
