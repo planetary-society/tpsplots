@@ -327,7 +327,7 @@ class ChartView:
         # Check if x_data contains datetime objects
         try:
             first_elem = x_data.iloc[0] if hasattr(x_data, "iloc") else x_data[0]
-        except KeyError as e:
+        except KeyError:
             logger.warning(f"Cannot read first element in array to check date objects: {x_data}")
             return False
         
@@ -746,7 +746,7 @@ class ChartView:
         if "source" in metadata:
             notes.append("Source: " + metadata.get("source",""))
         notes.append(f"Author: {metadata.get('Creator', 'Casey Dreier/The Planetary Society')}\nGenerated: {datetime.now().strftime('%Y-%m-%d')}")
-        notes.append(f"License: CC BY 4.0")
+        notes.append("License: CC BY 4.0")
 
         # Clear notes of None or empty strings
         notes = [note for note in notes if note and note.strip()]

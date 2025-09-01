@@ -2,9 +2,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from pathlib import Path
 from .chart_view import ChartView
-import matplotlib.dates as mdates
 import logging
 
 logger = logging.getLogger(__name__)

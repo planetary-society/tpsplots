@@ -1,6 +1,5 @@
 """Concrete NASA budget charts using specialized chart views."""
 import numpy as np
-from tpsplots import TPS_STYLE_FILE
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.data_sources.new_awards import NewNASAAwards
 from tpsplots.views.chart_view import ChartView

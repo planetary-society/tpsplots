@@ -1,7 +1,5 @@
 """Waffle chart visualization specialized view."""
-import numpy as np
 import matplotlib.pyplot as plt
-from pathlib import Path
 import math
 from pywaffle import Waffle
 from .chart_view import ChartView

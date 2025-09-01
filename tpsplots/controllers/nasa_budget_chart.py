@@ -1,7 +1,7 @@
 """Concrete NASA budget charts using specialized chart views."""
 from datetime import datetime
 from tpsplots.controllers.chart_controller import ChartController
-from tpsplots.data_sources.nasa_budget_data_source import Historical, Directorates, ScienceDivisions, Science
+from tpsplots.data_sources.nasa_budget_data_source import Historical, Directorates
 import pandas as pd
 
 import logging

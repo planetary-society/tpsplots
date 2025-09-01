@@ -1,12 +1,9 @@
 """Concrete NASA budget charts using specialized chart views."""
-from pathlib import Path
 from datetime import datetime
 import numpy as np
-from tpsplots import TPS_STYLE_FILE
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.data_sources.nasa_budget_data_source import Historical, ScienceDivisions, Science, Workforce, Directorates
 from tpsplots.data_sources.missions import Missions
-from matplotlib import pyplot as plt
 import pandas as pd
 
 class FY2026Charts(ChartController):
@@ -448,7 +445,7 @@ class FY2026Charts(ChartController):
         metadata = {
             "title": "The smallest NASA workforce since 1960",
             "subtitle": "The White House's 2026 budget proposal cuts NASA's workforce to levels not seen since the dawn of the space age.",  
-            "source": f"NASA FTE Workforce Reporting, FYs 1960-2026",
+            "source": "NASA FTE Workforce Reporting, FYs 1960-2026",
         }
                 
         # Load the Line plotter view
@@ -587,7 +584,7 @@ class FY2026Charts(ChartController):
         metadata = {
             "title": "The largest cut to NASA ever proposed",
             "subtitle": "The White House's 2026 budget proposes a 25% cut from the prior year — the largest ever.",  
-            "source": f"NASA Budget Requests FYs 1960-2026",
+            "source": "NASA Budget Requests FYs 1960-2026",
         }
 
         bar_view = self.get_view('Bar')

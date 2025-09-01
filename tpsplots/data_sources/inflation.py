@@ -18,10 +18,13 @@ from __future__ import annotations
 import io
 import numpy as np
 from pathlib import Path
-from typing import Any, Mapping, Union
-import os, json
+from typing import Mapping, Union
+import os
+import json
 from datetime import datetime, timedelta
-import requests, certifi, pandas as pd
+import requests
+import certifi
+import pandas as pd
 from cachier import cachier
 
 # Configure caching

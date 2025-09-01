@@ -1,8 +1,6 @@
 """Improved US Map with pie charts visualization with expanded offset functionality."""
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-from pathlib import Path
 from .chart_view import ChartView
 import logging
 

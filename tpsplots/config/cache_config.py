@@ -4,7 +4,6 @@ Cache configuration for tpsplots data retrieval.
 This module sets up cachier to cache external data fetches in a consistent location.
 """
 
-import os
 from pathlib import Path
 from cachier import set_default_params
 

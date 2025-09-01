@@ -1,7 +1,5 @@
 """Concrete NASA budget charts using specialized chart views."""
 from tpsplots.controllers.chart_controller import ChartController
-from tpsplots.data_sources.nasa_budget_data_source import Historical, Directorates, ScienceDivisions, Science
-from matplotlib import pyplot as plt
 import pandas as pd
 
 import logging
@@ -35,9 +33,9 @@ class ComparisonCharts(ChartController):
 
         # Add block value explanation to the title or subtitle
         metadata = {
-            "title": f"NASA is a fraction of U.S. spending",
+            "title": "NASA is a fraction of U.S. spending",
             "subtitle": "One small block for NASA ($25 billion), one giant expenditure for everything else ($6.8 trillion).",
-            "source": f"Congressional Budget Office, FY 2024",
+            "source": "Congressional Budget Office, FY 2024",
         }
         
         category_colors = [

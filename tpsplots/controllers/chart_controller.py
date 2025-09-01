@@ -1,6 +1,6 @@
 """tpsplots.base – shared chart infrastructure"""
 from __future__ import annotations
-from abc import ABC, abstractmethod
+from abc import ABC
 from pathlib import Path
 from tpsplots.views import LineChartView, WaffleChartView, DonutChartView, LineSubplotsView, LollipopChartView, USMapPieChartView, StackedBarChartView, BarChartView
 import pandas as pd
@@ -186,7 +186,7 @@ class ChartController(ABC):
         if "Fiscal Year" in columns_to_export:
             try:
                 export_df["Fiscal Year"] = pd.to_datetime(export_df["Fiscal Year"]).dt.strftime('%Y')
-            except Exception as e:
+            except Exception:
                 export_df["Fiscal Year"] = export_df["Fiscal Year"].astype(str) # Fallback to string
         
         for col in columns_to_export:

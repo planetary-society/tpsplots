@@ -10,7 +10,6 @@ Prerequisites:
 - The boto3 Python package (pip install boto3)
 """
 
-import os
 import sys
 import argparse
 import boto3

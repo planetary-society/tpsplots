@@ -2,9 +2,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import textwrap
-from pathlib import Path
 from .chart_view import ChartView
-import matplotlib.patches as mpatches
 
 class DonutChartView(ChartView):
     """Specialized view for donut charts with a focus on exposing matplotlib's API."""

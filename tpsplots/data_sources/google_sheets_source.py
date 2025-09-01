@@ -41,7 +41,7 @@ import logging
 from datetime import timedelta
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
 import pandas as pd
 import requests
