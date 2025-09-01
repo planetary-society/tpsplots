@@ -1,49 +1,74 @@
 # GitHub Actions Workflows
 
-## Generate and Sync Charts
+## Two-Step Chart Deployment Process
 
-The `generate-and-sync-charts.yml` workflow automatically generates charts and syncs them to S3.
+This repository uses a two-step process for chart deployment to provide a review window before charts go live.
+
+## Step 1: Generate Charts
+
+The `generate-and-sync-charts.yml` workflow generates charts and saves them as artifacts.
 
 ### Triggers
+- **Manual**: Can be triggered manually anytime
+- **Scheduled**: Runs quarterly (every 3 months) at 2 AM UTC
 
-- **Manual**: Can be triggered manually with optional dry-run mode
-- **Scheduled**: Runs daily at 2 AM UTC
-- **Push**: Runs on pushes to main branch that affect chart generation
+### What it does
+1. Generates all charts using the latest data
+2. Saves charts as GitHub artifacts (available for 7 days)
+3. Provides generation statistics and summary
+
+### Outputs
+- **Artifacts**: `generated-charts` containing all chart files
+- **Logs**: Error logs if generation fails
+- **Summary**: File counts and generation statistics
+
+## Step 2: Upload Charts to S3
+
+The `upload-charts-to-s3.yml` workflow uploads previously generated charts to S3.
+
+### Triggers
+- **Manual**: Can be triggered manually with specific run ID
+- **Scheduled**: Runs 1 day after chart generation (quarterly + 1 day)
+
+### What it does
+1. Downloads charts from artifacts of a previous generation run
+2. Uploads charts to S3 bucket
+3. Provides upload summary and statistics
 
 ### Required Secrets
-
-The workflow requires the following GitHub Secrets to be configured:
-
 - `AWS_ACCESS_KEY_ID`: AWS access key for S3 upload
 - `AWS_SECRET_ACCESS_KEY`: AWS secret key for S3 upload
 
 ### Configuration
-
-The workflow uses these default settings:
 - **S3 Bucket**: `planetary`
 - **S3 Prefix**: `assets/charts/`
 - **AWS Region**: `us-east-1`
 
-These can be modified in the workflow file if needed.
+## Review Process
+
+### Automatic (Quarterly)
+1. **Day 1**: Charts are generated and saved as artifacts
+2. **Day 2**: Charts are automatically uploaded to S3
+3. **Review window**: 24 hours to inspect charts before they go live
+
+### Manual Process
+1. **Generate**: Run "Generate Charts" workflow
+2. **Review**: Download and inspect artifacts
+3. **Deploy**: Run "Upload Charts to S3" workflow when ready
 
 ### Manual Execution
 
-To run the workflow manually:
+**To generate charts:**
+1. Go to Actions → "Generate Charts" → "Run workflow"
 
-1. Go to the **Actions** tab in your repository
-2. Select **Generate and Sync Charts**
-3. Click **Run workflow**
-4. Optionally enable **dry-run mode** to test without uploading to S3
-
-### Outputs
-
-- Generated charts are uploaded as workflow artifacts
-- Error logs are uploaded on failure
-- Workflow summary shows generation statistics
+**To upload charts:**
+1. Go to Actions → "Upload Charts to S3" → "Run workflow"
+2. Optionally specify a run ID or use the latest
+3. Enable dry-run mode to preview without uploading
 
 ### Caching
 
-The workflow uses GitHub Actions caching for:
+Both workflows use GitHub Actions caching for:
 - Python dependencies (pip cache)
 - Chart generation data (cachier cache)
 
