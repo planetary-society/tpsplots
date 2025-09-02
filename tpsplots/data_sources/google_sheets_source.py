@@ -2,15 +2,33 @@
 Google Sheets Data Source
 =========================
 
-A simplified base class for loading data from Google Sheets CSV exports.
-Unlike NASABudget, this class focuses on simple data loading and type casting
-without inflation adjustment or complex fiscal year handling.
+A flexible class for loading data from Google Sheets CSV exports.
+Can be used directly with a URL or as a base class for reusable data sources.
 
-Usage Example
--------------
+Usage Examples
+--------------
+
+Direct Instantiation (for one-off sheets):
 ```python
 from tpsplots.data_sources.google_sheets_source import GoogleSheetsSource
 
+# Simple usage with just a URL
+data_source = GoogleSheetsSource(url="https://docs.google.com/spreadsheets/d/.../export?format=csv")
+df = data_source.data()
+
+# With additional configuration
+data_source = GoogleSheetsSource(
+    url="https://docs.google.com/spreadsheets/d/.../export?format=csv",
+    columns=["Date", "Category", "Value"],  # Select specific columns
+    renames={"Value": "Amount"},  # Rename columns
+    cast={"Date": "datetime", "ID": "str"}  # Override types
+)
+df = data_source.data()
+values = data_source.amount  # Access renamed column as attribute
+```
+
+Subclassing (for reusable data sources):
+```python
 class MyDataSource(GoogleSheetsSource):
     URL = "https://docs.google.com/spreadsheets/d/.../export?format=csv"
     
@@ -52,17 +70,28 @@ logger = logging.getLogger(__name__)
 
 class GoogleSheetsSource:
     """
-    Base class for loading data from Google Sheets CSV exports.
+    Flexible class for loading data from Google Sheets CSV exports.
     
-    This class provides a simplified interface for:
+    Can be used in two ways:
+    1. Direct instantiation with URL and optional parameters
+    2. As a base class with class attributes
+    
+    This class provides:
     - Loading CSV data from Google Sheets URLs
     - Automatic type inference via pandas
     - Optional type casting overrides
     - Column selection and renaming
     - Attribute-style column access
+    - Caching support
     
-    Subclasses should define:
-    - URL (str): The Google Sheets CSV export URL (required)
+    For direct instantiation, pass parameters to __init__:
+    - url: The Google Sheets CSV export URL
+    - cast: Column type overrides
+    - columns: Columns to keep
+    - renames: Column renames
+    
+    For subclassing, define class attributes:
+    - URL (str): The Google Sheets CSV export URL
     - CAST (Dict[str, str]): Column type overrides (optional)
     - COLUMNS (List[str]): Columns to keep (optional)
     - RENAMES (Dict[str, str]): Column renames (optional)
@@ -79,18 +108,37 @@ class GoogleSheetsSource:
         "date": "datetime64[ns]",
     }
     
-    def __init__(self, cache_dir: Path | None = None) -> None:
+    def __init__(
+        self,
+        url: str | None = None,
+        cast: dict[str, str] | None = None,
+        columns: list[str] | None = None,
+        renames: dict[str, str] | None = None,
+        cache_dir: Path | None = None
+    ) -> None:
         """
         Initialize the GoogleSheetsSource instance.
         
+        Can be used directly with a URL or as a base class with class attributes.
+        
         Args:
+            url: Google Sheets CSV export URL (optional if defined as class attribute)
+            cast: Column type overrides (optional, can also be class attribute CAST)
+            columns: Columns to keep (optional, can also be class attribute COLUMNS)
+            renames: Column renames (optional, can also be class attribute RENAMES)
             cache_dir: Optional directory to cache downloaded CSV files
         """
-        # Get URL from class attribute
-        if not hasattr(self.__class__, 'URL'):
-            raise ValueError(f"{self.__class__.__name__} must define a URL attribute")
+        # URL resolution: parameter takes precedence over class attribute
+        self._url = url or getattr(self.__class__, 'URL', None)
+        if not self._url:
+            raise ValueError(
+                f"{self.__class__.__name__} must provide URL either as parameter or class attribute"
+            )
         
-        self._url = self.__class__.URL
+        # Store optional configurations as instance attributes
+        self._cast = cast
+        self._columns = columns
+        self._renames = renames
         self._cache_dir = cache_dir
     
     def data(self) -> pd.DataFrame:
@@ -150,9 +198,9 @@ class GoogleSheetsSource:
         
         This property is computed once and cached. It orchestrates:
         1. Reading CSV from URL
-        2. Column selection (if COLUMNS defined)
-        3. Column renaming (if RENAMES defined)
-        4. Type casting overrides (if CAST defined)
+        2. Column selection (if columns defined)
+        3. Column renaming (if renames defined)
+        4. Type casting overrides (if cast defined)
         
         Returns:
             The processed pandas DataFrame
@@ -160,16 +208,18 @@ class GoogleSheetsSource:
         # Read the CSV data
         df = self._read_csv()
         
-        # Select columns if specified
-        if columns := getattr(self.__class__, 'COLUMNS', None):
+        # Select columns if specified (instance attribute takes precedence)
+        columns = self._columns or getattr(self.__class__, 'COLUMNS', None)
+        if columns:
             missing = [col for col in columns if col not in df.columns]
             if missing:
                 logger.warning(f"Columns not found in data: {missing}")
             existing = [col for col in columns if col in df.columns]
             df = df[existing]
         
-        # Rename columns if specified
-        if renames := getattr(self.__class__, 'RENAMES', None):
+        # Rename columns if specified (instance attribute takes precedence)
+        renames = self._renames or getattr(self.__class__, 'RENAMES', None)
+        if renames:
             df = df.rename(columns=renames)
         
         # Apply type casting overrides
@@ -229,9 +279,9 @@ class GoogleSheetsSource:
     
     def _cast_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Apply type casting overrides from CAST attribute.
+        Apply type casting overrides from cast configuration.
         
-        This method only applies casting for columns explicitly defined in CAST,
+        This method only applies casting for columns explicitly defined in cast,
         leaving other columns with their pandas-inferred types.
         
         Args:
@@ -240,8 +290,8 @@ class GoogleSheetsSource:
         Returns:
             DataFrame with type overrides applied
         """
-        # Get CAST dictionary from class
-        cast_dict = getattr(self.__class__, 'CAST', None)
+        # Get cast dictionary (instance attribute takes precedence)
+        cast_dict = self._cast or getattr(self.__class__, 'CAST', None)
         if not cast_dict:
             return df
         
