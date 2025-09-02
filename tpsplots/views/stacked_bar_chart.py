@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 from .chart_view import ChartView
 import logging
 
@@ -439,6 +440,13 @@ class StackedBarChartView(ChartView):
         if scale:
             axis_to_scale = 'y' if orientation == 'vertical' else 'x'
             self._apply_scale_formatter(ax, scale, axis=axis_to_scale)
+        
+        # Ensure integer-only ticks for count-based data
+        # This prevents decimal values like 1.5 or 2.0 from appearing on the axis
+        if orientation == 'vertical':
+            ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+        else:  # horizontal
+            ax.xaxis.set_major_locator(MaxNLocator(integer=True))
         
         # Apply custom limits
         if xlim:
