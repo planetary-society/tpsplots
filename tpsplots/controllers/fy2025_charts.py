@@ -78,14 +78,31 @@ class FY2025Charts(ChartController):
             markers.append("o")
             linewidths.append(4.0)  # Normal weight for average
         
-        # Process FY 2025 - only October through July (first 10 months)
+        # Process FY 2025
+        
+        if pd.Timestamp.now() > pd.Timestamp(year=2025, month=9, day=30):
+            # If current date is past FY 2025, use full data
+            last_full_month = 12
+            none_tail = []
+        else:
+            # Get month number for current month to slice data
+            last_full_month = (pd.Timestamp.now().month - 1) + 3  # Fiscal year offset
+            
+            # Make a list of None for months beyond the last full month
+            # last_full_month is the count of months available (0-11). Ensure non-negative.
+            if last_full_month < 0:
+                last_full_month = 0
+            total_months = 12
+            none_tail = [None] * max(0, total_months - last_full_month)
+
         fy2025_cumulative = []
+            
         if award_columns[2025] in df.columns:
-            fy2025_awards = df[award_columns[2025]].tolist()[:10]  # Oct-July only
+            fy2025_awards = df[award_columns[2025]].tolist()[:last_full_month]
             fy2025_cumulative = np.rint(np.cumsum(fy2025_awards)).astype(int).tolist()
             
             # Add None for August and September to maintain alignment
-            fy2025_cumulative_padded = fy2025_cumulative + [None, None]
+            fy2025_cumulative_padded = fy2025_cumulative + none_tail
             
             y_series.append(fy2025_cumulative_padded)
             labels.append("FY 2025")
@@ -97,21 +114,26 @@ class FY2025Charts(ChartController):
         # Calculate full-year projection for FY 2025 using June-July average rate
         shortfall_pct = 0
         if 'mean_cumulative' in locals() and len(fy2025_cumulative) > 0:
-            # Extract June and July award values to calculate trend
-            june_awards = fy2025_awards[8]  # June (index 8)
-            july_awards = fy2025_awards[9]  # July (index 9)
-            avg_monthly_rate = (june_awards + july_awards) / 2
+            # Extra prior two months needed for projection
+            two_months_ago_awards = fy2025_awards[last_full_month-2]
+            one_month_ago_awards = fy2025_awards[last_full_month-1]  # July (index 9)
+            avg_monthly_rate = (two_months_ago_awards + one_month_ago_awards) / 2
             
-            # Project August and September using the June-July average rate
-            projected_aug = avg_monthly_rate
-            projected_sep = avg_monthly_rate
+            
+            for month in range(last_full_month, 12):
+                fy2025_cumulative.append(avg_monthly_rate + fy2025_cumulative[month-1])
+            
+            if len(fy2025_cumulative) != 12:
+                raise ValueError("FY 2025 cumulative data does not have 12 months after projection.")
             
             # Calculate projected full-year FY 2025 cumulative total
-            projected_fy2025_total = fy2025_cumulative[9] + projected_aug + projected_sep
-            
+
+            projected_fy2025_total = fy2025_cumulative[-1]
             # Compare to average September cumulative total (full fiscal year)
-            avg_september_total = mean_cumulative[11]  # September (index 11)
-            shortfall_pct = ((avg_september_total - projected_fy2025_total) / avg_september_total) * 100
+  
+            avg_prior_year_total = cumulative_data[2024][-1]
+
+            shortfall_pct = ((avg_prior_year_total - projected_fy2025_total) / avg_prior_year_total) * 100
         
         # Create export DataFrame with all series
         export_data = {'Month': months}
