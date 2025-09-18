@@ -161,17 +161,34 @@ class FY2025Charts(ChartController):
         }
         
     def new_grants_awards_comparison_to_prior_year(self):
+        """
+        Process grant award data for historical comparison.
+
+        Returns:
+            dict: Processed data dictionary containing all chart parameters
+        """
         # Get processed grant data
         data = self._process_award_data(award_type="Grant")
-        
+
+        # Return the data dictionary for use by YAML processor
+        return data
+
+    def new_grants_awards_comparison_to_prior_year_legacy(self):
+        """
+        Legacy method that generates charts directly.
+        Kept for backward compatibility.
+        """
+        # Get processed grant data
+        data = self._process_award_data(award_type="Grant")
+
         line_view = self.get_view('Line')
-        
+
         metadata = {
             "title": "NASA is awarding significantly fewer grants",
             "subtitle": f"The agency is on track to award {data['shortfall_pct']:.0f}% fewer grants in 2025, despite having a stable budget provided by Congress.",
             "source": "USASpending.gov"
         }
-        
+
         # Generate charts via the specialized line chart view
         line_view.line_plot(
             metadata=metadata,
@@ -194,17 +211,34 @@ class FY2025Charts(ChartController):
         )
     
     def new_contract_awards_comparison_to_prior_years(self):
+        """
+        Process contract award data for historical comparison.
+
+        Returns:
+            dict: Processed data dictionary containing all chart parameters
+        """
         # Get processed contract data
         data = self._process_award_data(award_type="Contract")
-        
+
+        # Return the data dictionary for use by YAML processor
+        return data
+
+    def new_contract_awards_comparison_to_prior_years_legacy(self):
+        """
+        Legacy method that generates charts directly.
+        Kept for backward compatibility.
+        """
+        # Get processed contract data
+        data = self._process_award_data(award_type="Contract")
+
         line_view = self.get_view('Line')
-        
+
         metadata = {
             "title": "NASA's new contract awards in 2025",
             "subtitle": f"While the total number may fall {data['shortfall_pct']:.0f}% below the recent average, the total is tracking closely with 2024.",
             "source": "USASpending.gov (Does not include IDVs)"
         }
-        
+
         # Generate charts via the specialized line chart view
         line_view.line_plot(
             metadata=metadata,
