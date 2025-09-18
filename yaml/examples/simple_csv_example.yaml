@@ -1,0 +1,34 @@
+# Example YAML configuration using CSV file as data source
+# Demonstrates direct CSV file usage without controller processing
+
+chart:
+  type: line_plot
+  output_name: simple_csv_chart
+
+data_source:
+  type: csv_file
+  path: "data/sample_data.csv"
+
+metadata:
+  title: "Sample Data Visualization"
+  subtitle: "Example chart from CSV file"
+  source: "Sample CSV Data"
+
+parameters:
+  # Column names from CSV file
+  x: Month
+  y: Value
+
+  # Basic styling
+  ylabel: "Values"
+  xlabel: "Time Period"
+  grid: true
+  legend: false
+
+  # Simple line styling
+  color: "#037CC2"
+  linewidth: 3
+  marker: "o"
+
+  # Export the raw data
+  export_data: data

@@ -1,0 +1,34 @@
+# Example YAML configuration using Google Sheets as data source
+# Demonstrates fetching data directly from Google Sheets
+
+chart:
+  type: line_plot
+  output_name: google_sheets_chart
+
+data_source:
+  type: google_sheets
+  url: "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/export?format=csv"
+
+metadata:
+  title: "Google Sheets Data Example"
+  subtitle: "Chart generated from live Google Sheets data"
+  source: "Google Sheets"
+
+parameters:
+  # Assume sheet has columns named 'Name' and 'Major'
+  x: Name
+  y: Major
+
+  # Styling
+  ylabel: "Categories"
+  xlabel: "Items"
+  grid: true
+  legend: false
+
+  # Line styling
+  color: "#FF5D47"
+  linewidth: 2
+  marker: "s"
+
+  # Export configuration
+  export_data: data

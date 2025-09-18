@@ -1,0 +1,24 @@
+chart:
+  type: line_plot
+  output_name: nasa_major_programs_by_year_inflation_adjusted
+data_source:
+  type: controller_method
+  class: NASABudgetChart
+  method: nasa_major_programs_by_year_inflation_adjusted
+metadata:
+  title: NASA directorates can have diverging fortunes
+  subtitle: Each major activity gets its own budget from Congress, and they don't
+    always grow together.
+  source: source
+parameters:
+  x: fiscal_years
+  y: y_data
+  linestyle: '-'
+  label: labels
+  xlim: xlim
+  ylim: ylim
+  fiscal_year_ticks: true
+  tick_rotation: 0
+  scale: billions
+  legend: legend
+  export_data: export_df

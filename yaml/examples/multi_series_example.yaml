@@ -1,0 +1,41 @@
+# Example YAML configuration showing multiple data series
+# Demonstrates advanced styling with multiple y-series
+
+chart:
+  type: line_plot
+  output_name: multi_series_chart
+
+data_source:
+  type: csv_file
+  path: "data/multi_series_data.csv"
+
+metadata:
+  title: "Multiple Data Series Example"
+  subtitle: "Comparing multiple metrics over time"
+  source: "Sample Multi-Series Data"
+
+parameters:
+  # Data mapping
+  x: Date
+  y: [Series1, Series2, Series3]  # Multiple columns
+
+  # Axis configuration
+  ylabel: "Values"
+  xlabel: "Time"
+  ylim: [0, 100]
+
+  # Multiple series styling
+  color: ["#037CC2", "#FF5D47", "#643788"]
+  linestyle: ["-", "--", "-."]
+  linewidth: [3, 2, 2]
+  marker: ["o", "s", "^"]
+  label: ["Primary", "Secondary", "Tertiary"]
+
+  # Layout configuration
+  grid: true
+  legend: true
+  label_size: 14
+  tick_size: 12
+
+  # Export configuration
+  export_data: data
