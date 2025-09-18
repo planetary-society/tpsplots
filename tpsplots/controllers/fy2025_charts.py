@@ -172,43 +172,6 @@ class FY2025Charts(ChartController):
 
         # Return the data dictionary for use by YAML processor
         return data
-
-    def new_grants_awards_comparison_to_prior_year_legacy(self):
-        """
-        Legacy method that generates charts directly.
-        Kept for backward compatibility.
-        """
-        # Get processed grant data
-        data = self._process_award_data(award_type="Grant")
-
-        line_view = self.get_view('Line')
-
-        metadata = {
-            "title": "NASA is awarding significantly fewer grants",
-            "subtitle": f"The agency is on track to award {data['shortfall_pct']:.0f}% fewer grants in 2025, despite having a stable budget provided by Congress.",
-            "source": "USASpending.gov"
-        }
-
-        # Generate charts via the specialized line chart view
-        line_view.line_plot(
-            metadata=metadata,
-            stem="fy2025_new_grants_awards_rates",
-            x=data['months'],
-            y=data['y_series'],
-            color=data['colors'],
-            linestyle=data['linestyles'],
-            linewidth=data['linewidths'],
-            marker=data['markers'],
-            label=data['labels'],
-            ylim=(0, 2500),  # Scale for cumulative totals
-            ylabel="Cumulative New Grants Awarded",
-            label_size=13,
-            tick_size=14,
-            direct_line_labels={'fontsize':10},  # Use direct line labels instead of standard legend
-            legend=False, # Disable traditional legend
-            grid=True,
-            export_data=data['export_df']
-        )
     
     def new_contract_awards_comparison_to_prior_years(self):
         """
@@ -222,41 +185,4 @@ class FY2025Charts(ChartController):
 
         # Return the data dictionary for use by YAML processor
         return data
-
-    def new_contract_awards_comparison_to_prior_years_legacy(self):
-        """
-        Legacy method that generates charts directly.
-        Kept for backward compatibility.
-        """
-        # Get processed contract data
-        data = self._process_award_data(award_type="Contract")
-
-        line_view = self.get_view('Line')
-
-        metadata = {
-            "title": "NASA's new contract awards in 2025",
-            "subtitle": f"While the total number may fall {data['shortfall_pct']:.0f}% below the recent average, the total is tracking closely with 2024.",
-            "source": "USASpending.gov (Does not include IDVs)"
-        }
-
-        # Generate charts via the specialized line chart view
-        line_view.line_plot(
-            metadata=metadata,
-            stem="new_contracts_historical_comparison",
-            x=data['months'],
-            y=data['y_series'],
-            color=data['colors'],
-            linestyle=data['linestyles'],
-            linewidth=data['linewidths'],
-            marker=data['markers'],
-            label=data['labels'],
-            ylim=(0, 6000),
-            ylabel="Cumulative New Contracts Awarded",
-            label_size=13,
-            tick_size=14,
-            direct_line_labels={'fontsize':10},  # Use direct line labels instead of standard legend
-            legend=False, # Disable traditional legend
-            grid=True,
-            export_data=data['export_df']
-        )
         
