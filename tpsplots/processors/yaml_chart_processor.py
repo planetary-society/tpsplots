@@ -310,24 +310,34 @@ class YAMLChartProcessor:
             return value
 
     def _resolve_metadata(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Resolve metadata by substituting template variables."""
+        """Resolve metadata by substituting data references and template variables."""
         # Convert Pydantic model to dict, excluding None values
         metadata = self.config.metadata.dict(exclude_none=True)
+        resolved = {}
 
         for key, value in metadata.items():
             if isinstance(value, str):
-                # Template substitution using data context
-                try:
-                    # Support both {data.key} and {key} syntax
-                    # Create a safe format context without key conflicts
-                    format_context = data.copy()
-                    format_context['data'] = data
-                    metadata[key] = value.format(**format_context)
-                except (KeyError, ValueError) as e:
-                    logger.warning(f"Could not resolve template in metadata.{key}: {e}")
-                    # Keep original value if template resolution fails
+                # First check if it's a direct data reference
+                if value in data:
+                    resolved[key] = data[value]
+                # Then check if it contains template syntax
+                elif '{' in value and '}' in value:
+                    try:
+                        # Create format context for template substitution
+                        format_context = data.copy()
+                        format_context['data'] = data
+                        resolved[key] = value.format(**format_context)
+                    except (KeyError, ValueError) as e:
+                        logger.warning(f"Could not resolve template in metadata.{key}: {e}")
+                        resolved[key] = value
+                else:
+                    # Use literal value
+                    resolved[key] = value
+            else:
+                # For non-string values, use existing _resolve_value for consistency
+                resolved[key] = self._resolve_value(value, data)
 
-        return metadata
+        return resolved
 
     def _get_view(self, chart_type: str):
         """Get the appropriate view instance for the chart type."""
