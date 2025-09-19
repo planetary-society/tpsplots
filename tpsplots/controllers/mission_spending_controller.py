@@ -25,18 +25,24 @@ class MissionSpendingController(ChartController):
         self.csv_path = "../science-missions-reference/data/spending/"
 
     def process_mission_spending_data(self):
-        missions = ["OSIRIS-APEX","Gold","IBEX","Juno","JWST","Mars 2020","MMS","MRO","New Horizons","OCO-2",
-                    "ODY","Roman","SWOT","Terra"]
-        for mission_name in missions:
+        missions = {"OSIRIS-APEX": "OSIRIS-APEX", "GOLD": "GOLD",
+                    "IBEX":"IBEX","Juno":"the Juno mission","JWST":"JWST",
+                    "Mars 2020":"Perseverance Rover", "MMS":"MMS",
+                    "MRO":"MRO","New Horizons":"New Horizons","OCO-2":"OCO-2",
+                    "ODY":"Mars Odyssey","Roman":"Roman Space Telescope"}
+
+        for mission_short_name, mission_name in missions.items():
             # snake case mission name to file name
-            stem = self._snake_case(mission_name)
+            stem = self._snake_case(mission_short_name)
         
             for reporting_type in ['outlays','obligations']:            
                 file_name = f"{self.csv_path}/{stem}_{reporting_type}_summary.csv"
                 
                 if Path(file_name).is_file():
                     data = self._process_mission_spending_data(file_name, reporting_type)
-                    self._plot_chart(data, mission_name, reporting_type)
+                    creation_date = datetime.fromtimestamp(Path(file_name).stat().st_ctime)
+                    data['accessed_date'] = creation_date.strftime("%Y-%m-%d")
+                    self._plot_chart(data, mission_short_name, mission_name, reporting_type)
                 else:
                     logger.warning(f"{reporting_type.capitalize} summary CSV file not found: {file_name}")
                 
@@ -64,7 +70,7 @@ class MissionSpendingController(ChartController):
         
         # Months:
         fiscal_month_abbrs = [
-            'Oct/Nov',
+            'Oct-Nov',
             'Dec',
             'Jan',
             'Feb',
@@ -103,23 +109,38 @@ class MissionSpendingController(ChartController):
         """Convert a string to snake_case."""
         return name.lower().replace(' ', '_').replace('-', '_')
     
-    def _plot_chart(self, data: dict, mission_name: str, reporting_type: str):
+    def _plot_chart(self, data: dict, mission_short_name: str, mission_name: str, reporting_type: str):
         line_view = self.get_view('Line')
+        if reporting_type == 'outlays':
+            subtitle = f"Culmulative value of outlays, by month, for the missions's key contracts for fiscal years {data['current_fy']} and FY {data['prior_fy']}."
+        elif reporting_type == 'obligations':
+            subtitle = f"Culmulative value of obligations, by month, for the missions's key contracts for fiscal years {data['current_fy']} and {data['prior_fy']}."
+        
+        source = "USASpending.gov"
+        
+        if data.get('accessed_date'):
+            source += f". Accessed {data['accessed_date']}."
+        
         metadata = {
-            "title": "{reporting_type} for {mission_name} in FY {current_fy} vs FY {prior_fy}".format(
+            "title": "{reporting_type} for {mission_name}".format(
                 reporting_type=reporting_type.capitalize(),
-                mission_name=mission_name,
-                current_fy=data['current_fy'],
-                prior_fy=data['prior_fy']
+                mission_name=mission_name
             ),
-            "subtitle": "Shows cumulative actual spending by fiscal period as reported by USASpending.gov.",
-            "source": "USASpending.gov"
+            "subtitle": subtitle,
+            "source": source
         }
+        
+        # Calculate y_limit as the next highest multiple of 10,000,000 from the max of y1 or y2
+        
+        all_values = [val for val in list(data['y1']) + list(data['y2']) if val is not None]
+        if all_values:
+            max_val = max(all_values)
+            y_limit = ((max_val // 2_000_000) + 1) * 2_000_000
         
         # Generate charts via the specialized line chart view
         line_view.line_plot(
             metadata=metadata,
-            stem=f"{self._snake_case(mission_name)}_{reporting_type}_fy{data['current_fy']}_vs_fy{data['prior_fy']}",
+            stem=f"{self._snake_case(mission_short_name)}_{reporting_type}_fy{data['current_fy']}_vs_fy{data['prior_fy']}",
             x=data['x'],
             y=[data['y1'], data['y2']],
             color=[line_view.COLORS["blue"], line_view.TPS_COLORS["Rocket Flame"]],
@@ -128,12 +149,14 @@ class MissionSpendingController(ChartController):
             label=[f"FY {data['current_fy']}", f"FY {data['prior_fy']}"],
             scale="millions",
             legend=False,
+            grid=True,
+            ylim=(0.1, y_limit),
+            tick_rotation=0,
+            tick_size=13,
+            label_size=13,
             direct_line_labels=True,
-            ylabel=f"{reporting_type.capitalize()} (millions USD)",
             export_data=data['dataframe'],
         )
-
-
 
     def get_current_fy(self):
         """
