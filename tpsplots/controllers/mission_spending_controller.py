@@ -29,7 +29,8 @@ class MissionSpendingController(ChartController):
                     "IBEX":"IBEX","Juno":"the Juno mission","JWST":"JWST",
                     "Mars 2020":"Perseverance Rover", "MMS":"MMS",
                     "MRO":"MRO","New Horizons":"New Horizons","OCO-2":"OCO-2",
-                    "ODY":"Mars Odyssey","Roman":"Roman Space Telescope"}
+                    "ODY":"Mars Odyssey","Roman":"Roman Space Telescope","MAVEN":"MAVEN",
+                    "COSI":"COSI"}
 
         for mission_short_name, mission_name in missions.items():
             # snake case mission name to file name
@@ -112,9 +113,9 @@ class MissionSpendingController(ChartController):
     def _plot_chart(self, data: dict, mission_short_name: str, mission_name: str, reporting_type: str):
         line_view = self.get_view('Line')
         if reporting_type == 'outlays':
-            subtitle = f"Culmulative value of outlays, by month, for the missions's key contracts for fiscal years {data['current_fy']} and FY {data['prior_fy']}."
+            subtitle = f"Culmulative value of outlays, by month, for the missions's key contracts in fiscal years {data['current_fy']} and {data['prior_fy']}."
         elif reporting_type == 'obligations':
-            subtitle = f"Culmulative value of obligations, by month, for the missions's key contracts for fiscal years {data['current_fy']} and {data['prior_fy']}."
+            subtitle = f"Culmulative value of obligations, by month, for the missions's key contracts in fiscal years {data['current_fy']} and {data['prior_fy']}."
         
         source = "USASpending.gov"
         
