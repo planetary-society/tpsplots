@@ -54,6 +54,7 @@ class BarChartView(ChartView):
             - grid_axis: str - Grid axis ('x', 'y', 'both', default: based on orientation)
             - sort_by: str - Sort categories by 'value', 'category', or None (default: None)
             - sort_ascending: bool - Sort direction if sort_by is specified (default: True)
+            - show_category_ticks: bool - Show tick marks on category axis (default: False)
             - baseline: float - Baseline value for bars (default: 0)
             
         Returns:
@@ -393,11 +394,23 @@ class BarChartView(ChartView):
         grid = kwargs.pop('grid', True)
         grid_axis = kwargs.pop('grid_axis', 'y' if orientation == 'vertical' else 'x')
         tick_size = kwargs.pop('tick_size', style.get("tick_size", 12))
-        tick_rotation = kwargs.pop('tick_rotation', 
-                                style.get("tick_rotation", 45 if orientation == 'vertical' else 0))
         label_size = kwargs.pop('label_size', style.get("label_size", 20))
+        
+        # Calculate default rotation based on orientation
+        # For horizontal bars, value axis (x-axis) should never be rotated
+        # For vertical bars, category axis (x-axis) may need rotation for long labels
+        if orientation == 'vertical':
+            # Use style default for vertical bars (typically 45° or 90° for long category names)
+            default_rotation = style.get("tick_rotation", 45)
+        else:
+            # For horizontal bars, x-axis shows VALUES (integers) - always keep horizontal
+            default_rotation = 0
+
+        # Allow manual override via YAML parameter
+        tick_rotation = kwargs.pop('tick_rotation', default_rotation)
         baseline = kwargs.pop('baseline', 0)
         value_format = kwargs.pop('value_format', None)  # Extract value_format
+        show_category_ticks = kwargs.pop('show_category_ticks', False)
         
         # Scale down tick size on mobile display
         if style["type"] == "mobile":
@@ -452,8 +465,26 @@ class BarChartView(ChartView):
         
         # Always set y-axis tick size to ensure consistency
         ax.tick_params(axis='y', labelsize=tick_size)
-        
-    
+
+        # Ensure integer-only ticks on value axis
+        # This prevents decimal values like 2.5 or 7.5 from appearing as tick marks
+        if orientation == 'vertical':
+            # For vertical bars, y-axis is the value axis
+            ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+        else:
+            # For horizontal bars, x-axis is the value axis
+            ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+
+        # Control category tick mark visibility
+        if not show_category_ticks:
+            if orientation == 'vertical':
+                # Hide x-axis (category axis) tick marks
+                ax.tick_params(axis='x', length=0, bottom=False, top=False)
+            else:
+                # Hide y-axis (category axis) tick marks
+                ax.tick_params(axis='y', length=0, left=False, right=False)
+
+
         # Apply custom limits
         if xlim:
             if isinstance(xlim, dict):
