@@ -8,6 +8,7 @@ Usage:
     python create.py yaml/                              # Directory (all .yaml files)
     python create.py --validate yaml/chart.yaml         # Validate only
     python create.py --outdir output/ yaml/             # Custom output directory
+    python create.py --clear-cache                      # Clear cached Google Sheets data
 """
 import argparse
 import sys
@@ -17,6 +18,19 @@ from typing import List
 import traceback
 
 from tpsplots.processors import YAMLChartProcessor
+from tpsplots.data_sources.google_sheets_source import GoogleSheetsSource
+
+
+def clear_cache():
+    """Clear the cachier cache for Google Sheets data."""
+    try:
+        # Use cachier's built-in cache clearing for the decorated function
+        GoogleSheetsSource._fetch_csv_content.clear_cache()
+        print("✅ Cache cleared successfully")
+        return True
+    except Exception as e:
+        print(f"❌ Failed to clear cache: {e}")
+        return False
 
 
 def setup_logging(verbose: bool = False):
@@ -99,6 +113,7 @@ Examples:
   %(prog)s yaml/                              Process all YAML files in directory
   %(prog)s --validate yaml/chart.yaml         Validate without generating
   %(prog)s --outdir output/ yaml/             Specify output directory
+  %(prog)s --clear-cache                      Clear cached Google Sheets data
         """
     )
 
@@ -134,6 +149,12 @@ Examples:
         help='List available chart types'
     )
 
+    parser.add_argument(
+        '--clear-cache',
+        action='store_true',
+        help='Clear the cached Google Sheets data and exit'
+    )
+
     args = parser.parse_args()
 
     # Setup logging
@@ -141,6 +162,10 @@ Examples:
 
     # Suppress repetitive matplotlib categorical units INFO messages
     logging.getLogger('matplotlib.category').setLevel(logging.WARNING)
+
+    # Handle clear-cache
+    if args.clear_cache:
+        return 0 if clear_cache() else 1
 
     # Handle list-types
     if args.list_types:
