@@ -1,0 +1,44 @@
+chart:
+  type: bar_plot
+  output_name: human_spaceflight_development_comparisons
+
+data_source:
+  type: google_sheets
+  url: "https://docs.google.com/spreadsheets/d/1uYSirJmE0gLQ701iBFZASsTQL0od36l9xJ7jbEagnrY/export?format=csv"
+
+metadata:
+  title: "A five year sprint to the Moon?"
+  subtitle: "A new entrant to provide crewed landings for NASA's Artemis program by 2030 has five years to design and build their spacecraft. A feat not accomplished since the early 1960s."
+  source: "Official Reporting. Details: planet.ly/hsfdevtimes"
+
+parameters:
+  categories: Spacecraft
+  values: Duration (years)
+  orientation: horizontal
+  xlabel: "Years from prime contract award to first crewed flight"
+  sort_by: value
+
+  sort_ascending: false
+  height: 0.5
+  grid: true
+  xlim: [0,20]
+  show_values: true
+  label_size: 14
+  value_format: ".1f"
+  value_suffix: " yrs"
+  value_fontsize: 10
+  tick_size: 16
+  colors:
+    - "#8C8C8C" # Mercury
+    - "#8C8C8C" # Gemini
+    - "#8C8C8C" # Apollo CSM
+    - "#8C8C8C" # Apollo LM
+    - "#8C8C8C" # Shuttle Orbiter
+    - "#8C8C8C" # Orion
+    - "#8C8C8C" # Crew Dragon
+    - "#8C8C8C" # Starliner
+    - "#8C8C8C" # Starship HLS
+    - "#8C8C8C" # Blue Moon
+    - "#FF5D47" # New HLS Entrant
+    
+    
