@@ -80,10 +80,13 @@ class StackedBarChartView(ChartView):
         # Extract required parameters
         categories = kwargs.pop('categories', None)
         values = kwargs.pop('values', None)
-        
+
         if categories is None or values is None:
             raise ValueError("Both 'categories' and 'values' are required for stacked_bar_plot")
-        
+
+        # Parse literal newline sequences in category labels to actual newlines
+        categories = self._parse_newlines_in_labels(categories)
+
         # Convert values to DataFrame if it's a dict
         if isinstance(values, dict):
             df = pd.DataFrame(values, index=categories)

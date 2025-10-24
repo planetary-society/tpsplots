@@ -78,13 +78,16 @@ class BarChartView(ChartView):
         # Extract required parameters
         categories = kwargs.pop('categories', None)
         values = kwargs.pop('values', None)
-        
+
         if categories is None or values is None:
             raise ValueError("Both 'categories' and 'values' are required for bar_plot")
-        
+
         # Convert to numpy arrays for easier handling
         categories = np.array(categories)
         values = np.array(values)
+
+        # Parse literal newline sequences in category labels to actual newlines
+        categories = self._parse_newlines_in_labels(categories)
         
         # Check for fiscal year data IMMEDIATELY on original categories
         # This must happen before any other processing that might modify the data
@@ -97,15 +100,22 @@ class BarChartView(ChartView):
         # Validate data lengths
         if len(categories) != len(values):
             raise ValueError("categories and values must have the same length")
-        
+
+        # Extract colors early so they can be sorted along with the data
+        colors = kwargs.pop('colors', None)
+
         # Handle sorting if requested
         sort_by = kwargs.pop('sort_by', None)
         sort_ascending = kwargs.pop('sort_ascending', True)
-        
+
         if sort_by:
             sorted_indices = self._get_sort_indices(categories, values, sort_by, sort_ascending)
             categories = categories[sorted_indices]
             values = values[sorted_indices]
+
+            # Also reorder colors to maintain association with categories
+            if colors and isinstance(colors, (list, tuple)):
+                colors = [colors[i] for i in sorted_indices]
         
         # Extract figure parameters
         figsize = kwargs.pop('figsize', style["figsize"])
@@ -119,7 +129,7 @@ class BarChartView(ChartView):
         
         # Extract styling parameters
         orientation = kwargs.pop('orientation', 'vertical')
-        colors = kwargs.pop('colors', None)
+        # colors already extracted earlier (before sorting)
         positive_color = kwargs.pop('positive_color', None)
         negative_color = kwargs.pop('negative_color', None)
         show_values = kwargs.pop('show_values', False)

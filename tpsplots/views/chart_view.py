@@ -760,26 +760,58 @@ class ChartView:
         # Save    
         prs.save(pptx_path)
 
+    def _parse_newlines_in_labels(self, labels):
+        """
+        Parse literal newline sequences in category labels to actual newlines.
+
+        This allows users to include multiline labels in their data sources (CSV files,
+        YAML configurations, etc.) by using the literal string "\\n". This method converts
+        those literal sequences to actual newline characters that matplotlib will render
+        as line breaks in tick labels.
+
+        Args:
+            labels: Array-like of label strings
+
+        Returns:
+            numpy array: Labels with parsed newlines
+
+        Examples:
+            >>> labels = ['Program\\nName', 'Mission\\nType', 'Single']
+            >>> parsed = self._parse_newlines_in_labels(labels)
+            >>> parsed[0]
+            'Program\nName'  # Actual newline character, not literal \\n
+        """
+        if labels is None:
+            return labels
+
+        # Convert to list if needed for processing
+        labels_list = list(labels) if not isinstance(labels, list) else labels
+
+        # Replace literal \n with actual newline character
+        parsed_labels = [str(label).replace('\\n', '\n') for label in labels_list]
+
+        return np.array(parsed_labels)
+
     def _escape_svg_text(self, text):
         """
         Escape special characters for SVG text rendering in matplotlib.
-        
+
         Args:
             text: The text string to escape
-            
+
         Returns:
             The escaped text string
         """
         if text is None:
             return None
-            
+
         # Define replacements for special characters
         replacements = {
             '$': r'\$'
         }
-        
+
         # Apply all replacements
         for char, replacement in replacements.items():
             text = text.replace(char, replacement)
-            
+
         return text

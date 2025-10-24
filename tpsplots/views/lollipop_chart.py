@@ -86,23 +86,30 @@ class LollipopChartView(ChartView):
         categories = kwargs.pop('categories', None)
         start_values = kwargs.pop('start_values', None)
         end_values = kwargs.pop('end_values', None)
-        
+
         if categories is None or start_values is None or end_values is None:
             raise ValueError("categories, start_values, and end_values are required for lollipop_plot")
-        
+
         # Convert to numpy arrays for easier manipulation
         categories = np.array(categories)
         start_values = np.array(start_values)
         end_values = np.array(end_values)
+
+        # Parse literal newline sequences in category labels to actual newlines
+        categories = self._parse_newlines_in_labels(categories)
         
         # Validate data lengths
         if not (len(categories) == len(start_values) == len(end_values)):
             raise ValueError("categories, start_values, and end_values must have the same length")
-        
+
+        # Extract colors and line styles early so they can be sorted along with the data
+        colors = kwargs.pop('colors', None)
+        linestyle = kwargs.pop('linestyle', kwargs.pop('line_style', '-'))
+
         # Handle sorting if requested
         sort_by = kwargs.pop('sort_by', None)
         sort_ascending = kwargs.pop('sort_ascending', False)
-        
+
         if sort_by:
             sort_indices = self._get_sort_indices(
                 categories, start_values, end_values, sort_by, sort_ascending
@@ -110,6 +117,12 @@ class LollipopChartView(ChartView):
             categories = categories[sort_indices]
             start_values = start_values[sort_indices]
             end_values = end_values[sort_indices]
+
+            # Also reorder colors and line styles to maintain association with categories
+            if colors and isinstance(colors, (list, tuple)):
+                colors = [colors[i] for i in sort_indices]
+            if linestyle and isinstance(linestyle, (list, tuple)):
+                linestyle = [linestyle[i] for i in sort_indices]
         
         # Extract figure parameters
         figsize = kwargs.pop('figsize', style["figsize"])
@@ -117,12 +130,10 @@ class LollipopChartView(ChartView):
         fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
         
         # Extract styling parameters
-        colors = kwargs.pop('colors', None)
+        # colors and linestyle already extracted earlier (before sorting)
         marker_size = kwargs.pop('marker_size', style.get("marker_size", 8) * 2)  # Larger for lollipops
         line_width = kwargs.pop('line_width', style.get("line_width", 3))
         marker_style = kwargs.pop('marker_style', 'o')
-        # Support both 'linestyle' (consistent with line_chart.py) and 'line_style' (backward compatible)
-        linestyle = kwargs.pop('linestyle', kwargs.pop('line_style', '-'))
         alpha = kwargs.pop('alpha', 1.0)
         
         # Extract individual marker customization parameters
