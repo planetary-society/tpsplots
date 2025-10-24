@@ -395,18 +395,20 @@ class BarChartView(ChartView):
         tick_size = kwargs.pop('tick_size', style.get("tick_size", 12))
         tick_rotation = kwargs.pop('tick_rotation', 
                                 style.get("tick_rotation", 45 if orientation == 'vertical' else 0))
+        label_size = kwargs.pop('label_size', style.get("label_size", 20))
         baseline = kwargs.pop('baseline', 0)
         value_format = kwargs.pop('value_format', None)  # Extract value_format
         
         # Scale down tick size on mobile display
         if style["type"] == "mobile":
             tick_size = tick_size * 0.8
-        
-        # Scale smaller y-axis labels
-        label_size = tick_size * 0.6
-        
+
+        # Set axis label size from style settings
+        if style["type"] == "mobile":
+            label_size = label_size * 0.6
+
         if xlabel:
-            ax.set_xlabel(xlabel, fontsize=label_size)
+            ax.set_xlabel(xlabel, fontsize=label_size, loc="center", style='italic')
         if ylabel:
             ax.set_ylabel(ylabel, fontsize=label_size, loc="center", style='italic')
         

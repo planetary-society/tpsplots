@@ -57,7 +57,8 @@ class StackedBarChartView(ChartView):
             - legend: bool/dict - Legend display and parameters
             - grid: bool - Show grid (default: True)
             - grid_axis: str - Grid axis ('x', 'y', 'both', default: based on orientation)
-            
+            - show_category_ticks: bool - Show tick marks on category axis (default: False)
+
         Returns:
         --------
         dict
@@ -393,7 +394,8 @@ class StackedBarChartView(ChartView):
         
         # Allow manual override of tick rotation
         tick_rotation = kwargs.pop('tick_rotation', tick_rotation)
-        
+        show_category_ticks = kwargs.pop('show_category_ticks', False)
+
         # Apply axis labels
         label_size = style.get("label_size", 12)
         if style["type"] == "mobile":
@@ -417,7 +419,16 @@ class StackedBarChartView(ChartView):
         # Set tick sizes and rotation
         ax.tick_params(axis='x', labelsize=tick_size, rotation=tick_rotation)
         ax.tick_params(axis='y', labelsize=tick_size)
-        
+
+        # Control category tick mark visibility
+        if not show_category_ticks:
+            if orientation == 'vertical':
+                # Hide x-axis (category axis) tick marks
+                ax.tick_params(axis='x', length=0, bottom=False, top=False)
+            else:
+                # Hide y-axis (category axis) tick marks
+                ax.tick_params(axis='y', length=0, left=False, right=False)
+
         # Ensure category labels are centered under bars with proper alignment for rotation
         if orientation == 'vertical':
             # For vertical bars, x-axis labels should be centered under bars
