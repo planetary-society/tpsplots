@@ -116,7 +116,8 @@ class LollipopChartView(ChartView):
         marker_size = kwargs.pop('marker_size', style.get("marker_size", 8) * 2)  # Larger for lollipops
         line_width = kwargs.pop('line_width', style.get("line_width", 3))
         marker_style = kwargs.pop('marker_style', 'o')
-        line_style = kwargs.pop('line_style', '-')
+        # Support both 'linestyle' (consistent with line_chart.py) and 'line_style' (backward compatible)
+        linestyle = kwargs.pop('linestyle', kwargs.pop('line_style', '-'))
         alpha = kwargs.pop('alpha', 1.0)
         
         # Extract individual marker customization parameters
@@ -134,11 +135,14 @@ class LollipopChartView(ChartView):
         # Handle colors for start and end markers
         start_colors = self._get_marker_colors(start_marker_color, colors, len(categories))
         end_colors = self._get_marker_colors(end_marker_color, colors, len(categories))
-        
-        # Handle edge colors 
+
+        # Handle edge colors
         start_edge_colors = self._get_marker_colors(start_marker_edgecolor, ['white'], len(categories))
         end_edge_colors = self._get_marker_colors(end_marker_edgecolor, ['white'], len(categories))
-        
+
+        # Handle line styles (consistent with line_chart.py pattern)
+        line_styles = self._get_line_styles(linestyle, len(categories))
+
         # Create y-positions for categories
         y_positions = np.arange(len(categories))
         
@@ -148,10 +152,10 @@ class LollipopChartView(ChartView):
             
             # Use the main color for the stem line (fallback to default colors)
             stem_color = start_colors[i] if start_colors else self._get_default_colors(len(categories))[i]
-            
-            # Draw the stem line from start to end
-            ax.plot([start_val, end_val], [y_pos, y_pos], 
-                   color=stem_color, linewidth=line_width, linestyle=line_style, alpha=alpha)
+
+            # Draw the stem line from start to end (with per-item line style)
+            ax.plot([start_val, end_val], [y_pos, y_pos],
+                   color=stem_color, linewidth=line_width, linestyle=line_styles[i], alpha=alpha)
             
             # Draw start marker
             ax.scatter([start_val], [y_pos], 
@@ -245,7 +249,39 @@ class LollipopChartView(ChartView):
         else:
             # Use default TPS colors
             return self._get_default_colors(num_categories)
-    
+
+    def _get_line_styles(self, linestyles, num_categories):
+        """
+        Get line styles for lollipops, handling various input formats.
+        Follows the same pattern as line_chart.py for consistency.
+
+        Args:
+            linestyles: Single style string, list of styles, or None
+            num_categories: Number of categories
+
+        Returns:
+            List of line style strings, one per category
+
+        Examples:
+            _get_line_styles('-', 3) → ['-', '-', '-']
+            _get_line_styles(['-', ':', ':'], 3) → ['-', ':', ':']
+            _get_line_styles(['-'], 3) → ['-', '-', '-']
+        """
+        if linestyles is None:
+            return ['-'] * num_categories
+
+        if isinstance(linestyles, str):
+            return [linestyles] * num_categories
+
+        if isinstance(linestyles, (list, tuple)):
+            # Extend if too short (repeat last value)
+            if len(linestyles) < num_categories:
+                return list(linestyles) + [linestyles[-1]] * (num_categories - len(linestyles))
+            return list(linestyles[:num_categories])
+
+        # Fallback to solid lines
+        return ['-'] * num_categories
+
     def _format_lollipop_chart(self, ax, categories, y_positions, start_values, end_values, style, **kwargs):
         """Format the lollipop chart appearance."""
         # Handle category label wrapping
