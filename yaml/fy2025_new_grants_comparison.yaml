@@ -11,8 +11,8 @@ data_source:
   method: new_grants_awards_comparison_to_prior_year
 
 metadata:
-  title: "NASA is awarding significantly fewer grants"
-  subtitle: "The agency is on track to award {shortfall_pct:.0f}% fewer grants in 2025, despite having a stable budget provided by Congress."
+  title: "NASA awarded 25% fewer grants in FY 2025"
+  subtitle: "The agency awarded the smallest number of new grants in years, despite having a stable budget provided by Congress."
   source: "USASpending.gov"
 
 parameters:

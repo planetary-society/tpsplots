@@ -11,8 +11,8 @@ data_source:
   method: new_contract_awards_comparison_to_prior_years
 
 metadata:
-  title: "NASA's new contract awards in 2025"
-  subtitle: "While the total number may fall {shortfall_pct:.0f}% below the recent average, the total is tracking closely with 2024."
+  title: "NASA's total new contract awards in FY 2025"
+  subtitle: "While below the recent average, the towal number was similar to that in 2024."
   source: "USASpending.gov (Does not include IDVs)"
 
 parameters:
