@@ -33,7 +33,8 @@ class BarChartView(ChartView):
             - positive_color: str - Color for positive values (overrides colors for positive bars)
             - negative_color: str - Color for negative values (overrides colors for negative bars)
             - show_values: bool - Whether to show values on each bar (default: False)
-            - value_format: str - Format for values ('monetary', 'percentage', 'integer', 'float')
+            - value_format: str - Format for values: presets ('monetary', 'percentage', 'integer', 'float') or Python format spec (e.g., '.1f', '.2f', ',.0f')
+            - value_suffix: str - Optional text to append to formatted values (e.g., ' yrs', ' months', default: '')
             - value_offset: float - Offset for value labels from bar end (default: auto)
             - value_fontsize: int - Font size for value labels (default: from style)
             - value_color: str - Color for value text (default: 'black')
@@ -123,6 +124,7 @@ class BarChartView(ChartView):
         negative_color = kwargs.pop('negative_color', None)
         show_values = kwargs.pop('show_values', False)
         value_format = kwargs.pop('value_format', 'float')
+        value_suffix = kwargs.pop('value_suffix', '')
         value_offset = kwargs.pop('value_offset', None)
         value_fontsize = kwargs.pop('value_fontsize', style.get("tick_size", 12) * 0.9)
         value_color = kwargs.pop('value_color', 'black')
@@ -166,7 +168,7 @@ class BarChartView(ChartView):
         # Add value labels if requested
         if show_values:
             self._add_value_labels(
-                ax, bars, values, orientation, value_format, 
+                ax, bars, values, orientation, value_format, value_suffix,
                 value_offset, value_fontsize, value_color, value_weight, baseline
             )
         
@@ -238,7 +240,7 @@ class BarChartView(ChartView):
             # Fallback to default
             return [self.TPS_COLORS["Neptune Blue"]] * num_bars
     
-    def _add_value_labels(self, ax, bars, values, orientation, value_format, 
+    def _add_value_labels(self, ax, bars, values, orientation, value_format, value_suffix,
                          value_offset, fontsize, color, weight, baseline):
         """Add value labels to each bar."""
         if value_offset is None:
@@ -252,7 +254,7 @@ class BarChartView(ChartView):
         
         for bar, value in zip(bars, values):
             # Format the value
-            formatted_value = self._format_value(value, value_format)
+            formatted_value = self._format_value(value, value_format) + value_suffix
             
             if orientation == 'vertical':
                 # Position label above or below bar depending on value
@@ -316,7 +318,7 @@ class BarChartView(ChartView):
         """Format values according to the specified format type."""
         if pd.isna(value):
             return ""
-        
+
         if format_type == 'monetary':
             return self._format_monetary(value)
         elif format_type == 'percentage':
@@ -326,7 +328,16 @@ class BarChartView(ChartView):
         elif format_type == 'float':
             return f"{value:.1f}"
         else:
-            return str(value)
+            # Try as custom Python format specification
+            try:
+                return f"{value:{format_type}}"
+            except (ValueError, KeyError) as e:
+                raise ValueError(
+                    f"Invalid value_format: '{format_type}'. "
+                    f"Must be one of 'monetary', 'percentage', 'integer', 'float' "
+                    f"or a valid Python format spec (e.g., '.1f', '.2f', ',.0f'). "
+                    f"Error formatting value {value}: {e}"
+                )
     
     def _format_monetary(self, value):
         """Format monetary values with appropriate suffixes."""

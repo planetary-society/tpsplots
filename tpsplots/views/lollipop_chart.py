@@ -1,5 +1,6 @@
 """Horizontal lollipop chart visualization specialized view."""
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from .chart_view import ChartView
 import logging
@@ -52,6 +53,10 @@ class LollipopChartView(ChartView):
             - range_labels: bool - Show range duration labels (default: False)
             - start_value_labels: bool - Show start values on left side of lines (default: False)
             - end_value_labels: bool - Show end values on right side of lines (default: False)
+            - value_format: str - Format for values: presets ('monetary', 'percentage', 'integer', 'float') or Python format spec (e.g., '.1f', '.2f', ',.0f', default: '.0f')
+            - value_suffix: str - Optional text to append to formatted values (e.g., ' yrs', default: '')
+            - range_format: str - Format for range duration labels (default: value_format)
+            - range_suffix: str - Optional text to append to range labels (default: value_suffix)
             - category_wrap_length: int - Max characters per category label line
             - y_tick_marker: str - Custom marker for y-axis ticks (e.g., 'X', '|', '•', default: None)
             - y_tick_color: str - Color for y-axis tick markers (default: uses axis color)
@@ -131,7 +136,13 @@ class LollipopChartView(ChartView):
         end_marker_edgecolor = kwargs.pop('end_marker_edgecolor', 'white')
         start_marker_edgewidth = kwargs.pop('start_marker_edgewidth', 1)
         end_marker_edgewidth = kwargs.pop('end_marker_edgewidth', 1)
-        
+
+        # Extract format and suffix parameters
+        value_format = kwargs.pop('value_format', '.0f')
+        value_suffix = kwargs.pop('value_suffix', '')
+        range_format = kwargs.pop('range_format', value_format)
+        range_suffix = kwargs.pop('range_suffix', value_suffix)
+
         # Handle colors for start and end markers
         start_colors = self._get_marker_colors(start_marker_color, colors, len(categories))
         end_colors = self._get_marker_colors(end_marker_color, colors, len(categories))
@@ -178,7 +189,9 @@ class LollipopChartView(ChartView):
                       linewidth=end_marker_edgewidth)
         
         # Apply category labels and formatting
-        self._format_lollipop_chart(ax, categories, y_positions, start_values, end_values, style, **kwargs)
+        self._format_lollipop_chart(ax, categories, y_positions, start_values, end_values, style,
+                                    value_format=value_format, value_suffix=value_suffix,
+                                    range_format=range_format, range_suffix=range_suffix, **kwargs)
         
         # Apply styling
         self._apply_lollipop_styling(ax, style, **kwargs)
@@ -321,14 +334,22 @@ class LollipopChartView(ChartView):
         range_labels = kwargs.pop('range_labels', False)
         start_value_labels = kwargs.pop('start_value_labels', False)
         end_value_labels = kwargs.pop('end_value_labels', False)
-        
+
+        # Extract format and suffix parameters
+        value_format = kwargs.pop('value_format', '.0f')
+        value_suffix = kwargs.pop('value_suffix', '')
+        range_format = kwargs.pop('range_format', value_format)
+        range_suffix = kwargs.pop('range_suffix', value_suffix)
+
         if value_labels or range_labels or start_value_labels or end_value_labels:
-            self._add_value_labels(ax, y_positions, categories, 
-                                 start_values, end_values, 
-                                 value_labels, range_labels, start_value_labels, end_value_labels, style, kwargs)
+            self._add_value_labels(ax, y_positions, categories,
+                                 start_values, end_values,
+                                 value_labels, range_labels, start_value_labels, end_value_labels,
+                                 value_format, value_suffix, range_format, range_suffix, style, kwargs)
     
-    def _add_value_labels(self, ax, y_positions, categories, start_values, end_values, 
-                         show_values, show_ranges, show_start_labels, show_end_labels, style, kwargs):
+    def _add_value_labels(self, ax, y_positions, categories, start_values, end_values,
+                         show_values, show_ranges, show_start_labels, show_end_labels,
+                         value_format, value_suffix, range_format, range_suffix, style, kwargs):
         """Add value labels to the lollipop chart."""
         # Use tick_size from kwargs if provided, otherwise fall back to style default
         category_label_size = kwargs.get('tick_size', style.get("tick_size", 12))
@@ -348,20 +369,20 @@ class LollipopChartView(ChartView):
             # Legacy value_labels parameter (shows both start and end)
             if show_values:
                 # Add start value label
-                ax.text(start_val, y_pos, f'{start_val:.0f}', 
+                ax.text(start_val, y_pos, self._format_value(start_val, value_format) + value_suffix,
                        ha='right', va='center', fontsize=category_label_size * 0.8,
                        bbox=dict(boxstyle="round,pad=0.2", facecolor='white', alpha=0.7))
-                
-                # Add end value label  
-                ax.text(end_val, y_pos, f'{end_val:.0f}',
+
+                # Add end value label
+                ax.text(end_val, y_pos, self._format_value(end_val, value_format) + value_suffix,
                        ha='left', va='center', fontsize=category_label_size * 0.8,
                        bbox=dict(boxstyle="round,pad=0.2", facecolor='white', alpha=0.7))
             
             # Individual start value labels (clean style)
             if show_start_labels:
                 # Position to the left of the start marker by marker size + 30%
-                ax.text(start_val - marker_offset, y_pos, f'{start_val:.0f}', 
-                       ha='right', va='center', 
+                ax.text(start_val - marker_offset, y_pos, self._format_value(start_val, value_format) + value_suffix,
+                       ha='right', va='center',
                        fontsize=category_label_size,
                        color=style.get('tick_color', self.COLORS['dark_gray']),
                        transform=ax.transData)
@@ -369,8 +390,8 @@ class LollipopChartView(ChartView):
             # Individual end value labels (clean style)
             if show_end_labels:
                 # Position to the right of the end marker by marker size + 30%
-                ax.text(end_val + marker_offset, y_pos, f'{end_val:.0f}',
-                       ha='left', va='center', 
+                ax.text(end_val + marker_offset, y_pos, self._format_value(end_val, value_format) + value_suffix,
+                       ha='left', va='center',
                        fontsize=category_label_size,
                        color=style.get('tick_color', self.COLORS['dark_gray']),
                        transform=ax.transData)
@@ -380,10 +401,49 @@ class LollipopChartView(ChartView):
                 # Add range duration label at midpoint
                 mid_point = (start_val + end_val) / 2
                 range_val = end_val - start_val
-                ax.text(mid_point, y_pos + 0.1, f'{range_val:.0f}',
+                ax.text(mid_point, y_pos + 0.1, self._format_value(range_val, range_format) + range_suffix,
                        ha='center', va='bottom', fontsize=category_label_size * 0.8,
                        style='italic', alpha=0.8)
-    
+
+    def _format_value(self, value, format_type):
+        """Format values according to the specified format type."""
+        if pd.isna(value):
+            return ""
+
+        if format_type == 'monetary':
+            return self._format_monetary(value)
+        elif format_type == 'percentage':
+            return f"{value:.1f}%"
+        elif format_type == 'integer':
+            return f"{int(value):,}"
+        elif format_type == 'float':
+            return f"{value:.1f}"
+        else:
+            # Try as custom Python format specification
+            try:
+                return f"{value:{format_type}}"
+            except (ValueError, KeyError) as e:
+                raise ValueError(
+                    f"Invalid value_format: '{format_type}'. "
+                    f"Must be one of 'monetary', 'percentage', 'integer', 'float' "
+                    f"or a valid Python format spec (e.g., '.1f', '.2f', ',.0f'). "
+                    f"Error formatting value {value}: {e}"
+                )
+
+    def _format_monetary(self, value):
+        """Format monetary values with appropriate suffixes."""
+        abs_value = abs(value)
+        sign = "-" if value < 0 else ""
+
+        if abs_value >= 1_000_000_000:
+            return f"{sign}${abs_value/1_000_000_000:.1f}B"
+        elif abs_value >= 1_000_000:
+            return f"{sign}${abs_value/1_000_000:.0f}M"
+        elif abs_value >= 1_000:
+            return f"{sign}${abs_value/1_000:.0f}K"
+        else:
+            return f"{sign}${abs_value:.0f}"
+
     def _apply_lollipop_styling(self, ax, style, **kwargs):
         """Apply consistent styling to the lollipop chart."""
         # Extract styling parameters

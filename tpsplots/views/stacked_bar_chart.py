@@ -34,13 +34,15 @@ class StackedBarChartView(ChartView):
             - colors: list - Colors for each stack segment
             - orientation: str - 'vertical' (default) or 'horizontal'
             - show_values: bool - Whether to show values within each stack segment (default: False)
-            - value_format: str - Format for values ('monetary', 'percentage', 'integer', 'float')
+            - value_format: str - Format for values: presets ('monetary', 'percentage', 'integer', 'float') or Python format spec (e.g., '.1f', '.2f', ',.0f')
+            - value_suffix: str - Optional text to append to formatted segment values (e.g., ' yrs', default: '')
             - value_threshold: float - Minimum percentage of total to show value label (default: 5.0)
             - value_fontsize: int - Font size for value labels (default: from style)
             - value_color: str - Color for value text (default: 'white')
             - value_weight: str - Font weight for values ('normal', 'bold', default: 'bold')
             - stack_labels: bool - Whether to show total values at end of each bar (default: False)
-            - stack_label_format: str - Format for stack total labels (same options as value_format)
+            - stack_label_format: str - Format for stack total labels: presets ('monetary', 'percentage', 'integer', 'float') or Python format spec (e.g., '.1f', '.2f', ',.0f')
+            - stack_label_suffix: str - Optional text to append to stack total labels (default: value_suffix)
             - width: float - Width of bars for vertical charts (default: 0.8)
             - height: float - Height of bars for horizontal charts (default: 0.8)
             - bottom_values: list - Custom bottom values for stacking (advanced use)
@@ -108,12 +110,14 @@ class StackedBarChartView(ChartView):
         colors = kwargs.pop('colors', None)
         show_values = kwargs.pop('show_values', False)
         value_format = kwargs.pop('value_format', 'integer')
+        value_suffix = kwargs.pop('value_suffix', '')
         value_threshold = kwargs.pop('value_threshold', 5.0)
         value_fontsize = kwargs.pop('value_fontsize', style.get("tick_size", 12) * 0.8)
         value_color = kwargs.pop('value_color', 'white')
         value_weight = kwargs.pop('value_weight', 'bold')
         stack_labels = kwargs.pop('stack_labels', False)
         stack_label_format = kwargs.pop('stack_label_format', value_format)
+        stack_label_suffix = kwargs.pop('stack_label_suffix', value_suffix)
         width = kwargs.pop('width', 0.8)
         height = kwargs.pop('height', 0.8)
         alpha = kwargs.pop('alpha', 1.0)
@@ -150,15 +154,15 @@ class StackedBarChartView(ChartView):
         # Add value labels within stack segments if requested
         if show_values:
             self._add_value_labels(
-                ax, df, orientation, value_format, value_threshold, 
+                ax, df, orientation, value_format, value_suffix, value_threshold,
                 value_fontsize, value_color, value_weight, width, height
             )
         
         # Add stack total labels if requested
         if stack_labels:
             self._add_stack_labels(
-                ax, df, orientation, stack_label_format, value_fontsize, 
-                value_color, width, height
+                ax, df, orientation, stack_label_format, stack_label_suffix,
+                value_fontsize, value_color, width, height
             )
         
         # Apply styling
@@ -226,7 +230,7 @@ class StackedBarChartView(ChartView):
             )
             bottom_values += values
     
-    def _add_value_labels(self, ax, df, orientation, value_format, threshold, 
+    def _add_value_labels(self, ax, df, orientation, value_format, value_suffix, threshold,
                          fontsize, color, weight, width, height):
         """Add value labels within each stack segment."""
         positions = np.arange(len(df.index))
@@ -245,9 +249,9 @@ class StackedBarChartView(ChartView):
                     if percentage >= threshold and value > 0:
                         # Calculate position for label (middle of segment)
                         y_pos = bottom_values[j] + value / 2
-                        
+
                         # Format the value
-                        formatted_value = self._format_value(value, value_format)
+                        formatted_value = self._format_value(value, value_format) + value_suffix
                         
                         ax.text(
                             positions[j], y_pos,
@@ -271,9 +275,9 @@ class StackedBarChartView(ChartView):
                     if percentage >= threshold and value > 0:
                         # Calculate position for label (middle of segment)
                         x_pos = left_values[j] + value / 2
-                        
+
                         # Format the value
-                        formatted_value = self._format_value(value, value_format)
+                        formatted_value = self._format_value(value, value_format) + value_suffix
                         
                         ax.text(
                             x_pos, positions[j],
@@ -286,14 +290,14 @@ class StackedBarChartView(ChartView):
                 
                 left_values += values
     
-    def _add_stack_labels(self, ax, df, orientation, label_format, fontsize, color, width, height):
+    def _add_stack_labels(self, ax, df, orientation, label_format, label_suffix, fontsize, color, width, height):
         """Add total value labels at the end of each stacked bar."""
         positions = np.arange(len(df.index))
         totals = df.sum(axis=1)
         
         if orientation == 'vertical':
             for i, total in enumerate(totals):
-                formatted_total = self._format_value(total, label_format)
+                formatted_total = self._format_value(total, label_format) + label_suffix
                 ax.text(
                     positions[i], total,
                     formatted_total,
@@ -304,7 +308,7 @@ class StackedBarChartView(ChartView):
                 )
         else:  # horizontal
             for i, total in enumerate(totals):
-                formatted_total = self._format_value(total, label_format)
+                formatted_total = self._format_value(total, label_format) + label_suffix
                 ax.text(
                     total, positions[i],
                     formatted_total,
@@ -318,7 +322,7 @@ class StackedBarChartView(ChartView):
         """Format values according to the specified format type."""
         if pd.isna(value) or value == 0:
             return ""
-        
+
         if format_type == 'monetary':
             return self._format_monetary(value)
         elif format_type == 'percentage':
@@ -328,7 +332,16 @@ class StackedBarChartView(ChartView):
         elif format_type == 'float':
             return f"{value:.1f}"
         else:
-            return str(value)
+            # Try as custom Python format specification
+            try:
+                return f"{value:{format_type}}"
+            except (ValueError, KeyError) as e:
+                raise ValueError(
+                    f"Invalid value_format: '{format_type}'. "
+                    f"Must be one of 'monetary', 'percentage', 'integer', 'float' "
+                    f"or a valid Python format spec (e.g., '.1f', '.2f', ',.0f'). "
+                    f"Error formatting value {value}: {e}"
+                )
     
     def _format_monetary(self, value):
         """Format monetary values with appropriate suffixes."""
