@@ -11,7 +11,71 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ChinaComparisonCharts(ChartController):
-    
+
+    def _process_us_mission_data(self):
+        """
+        Process U.S. mission data from SpaceScienceMissions data source.
+        Returns a DataFrame with parsed dates, decades, status, and mass values.
+        """
+        from tpsplots.data_sources.space_science_missions import SpaceScienceMissions
+
+        # Load data from SpaceScienceMissions
+        source = SpaceScienceMissions()
+        data = source.data()
+
+        # Filter for U.S. missions
+        data = data[data['Nation'].str.startswith('United States', na=False)]
+
+        # Parse dates to get launch year and month
+        data['launch_datetime'] = pd.to_datetime(data['Mission Launch Date'], errors='coerce')
+        data['launch_year'] = data['launch_datetime'].dt.year
+        data['launch_month'] = data['launch_datetime'].dt.month
+
+        # Remove entries without valid years
+        data = data.dropna(subset=['launch_year'])
+        data['launch_year'] = data['launch_year'].astype(int)
+
+        # Determine current date for launched vs planned
+        current_date = datetime(2025, 9, 1)  # Using consistent date
+
+        # Categorize as Launched or Planned
+        def categorize_mission(row):
+            year = row['launch_year']
+            month = row['launch_month']
+
+            if year < current_date.year:
+                return 'Launched'
+            elif year > current_date.year:
+                return 'Planned'
+            else:  # year == current_date.year
+                if pd.isna(month):
+                    # If no month specified and year is current year, consider as planned
+                    return 'Planned'
+                elif month < current_date.month:
+                    return 'Launched'
+                else:
+                    return 'Planned'
+
+        data['status'] = data.apply(categorize_mission, axis=1)
+
+        # Bin into decades
+        def get_decade(year):
+            if 2000 <= year <= 2009:
+                return '2000-2009'
+            elif 2010 <= year <= 2019:
+                return '2010-2019'
+            elif 2020 <= year <= 2029:
+                return '2020-2029'
+            else:
+                return None
+
+        data['decade'] = data['launch_year'].apply(get_decade)
+
+        # Filter to only include our target decades
+        data = data.dropna(subset=['decade'])
+
+        return data
+
     def _process_china_mission_data(self):
         """
         Process China mission data from Google Sheets.
@@ -116,105 +180,219 @@ class ChinaComparisonCharts(ChartController):
 
     
     def china_space_science_mission_count_bar_chart(self):
-        """Generate stacked bar chart showing mission counts by decade."""
-        
-        data = self._process_china_mission_data()
-        
-        # Count missions by decade and status
-        decade_counts = data.groupby(['decade', 'status']).size().unstack(fill_value=0)
-        
-        # Ensure all decades are present
+        """Generate grouped bar chart showing mission counts by decade for China vs U.S."""
+
+        # Process both datasets
+        china_data = self._process_china_mission_data()
+        us_data = self._process_us_mission_data()
+
+        # Count missions by decade and status for both countries
         decades = ['2000-2009', '2010-2019', '2020-2029']
-        for decade in decades:
-            if decade not in decade_counts.index:
-                decade_counts.loc[decade] = 0
-        
-        # Ensure both statuses are present
+
+        # China counts
+        china_counts = china_data.groupby(['decade', 'status']).size().unstack(fill_value=0)
+        china_counts = china_counts.reindex(decades, fill_value=0)
         for status in ['Launched', 'Planned']:
-            if status not in decade_counts.columns:
-                decade_counts[status] = 0
-        
-        # Reorder to match our desired order
-        decade_counts = decade_counts.reindex(decades, fill_value=0)
-        
-        # Prepare data for stacked bar chart
-        categories = ["2000s", "2010s", "2020s"]
-        values = {
-            'Launched': decade_counts['Launched'].tolist(),
-            'Planned': decade_counts['Planned'].tolist()
-        }
-        
-        # Create metadata for the chart
+            if status not in china_counts.columns:
+                china_counts[status] = 0
+
+        # U.S. counts
+        us_counts = us_data.groupby(['decade', 'status']).size().unstack(fill_value=0)
+        us_counts = us_counts.reindex(decades, fill_value=0)
+        for status in ['Launched', 'Planned']:
+            if status not in us_counts.columns:
+                us_counts[status] = 0
+
+        # Extract values
+        china_launched = china_counts['Launched'].tolist()
+        china_planned = china_counts['Planned'].tolist()
+        us_launched = us_counts['Launched'].tolist()
+        us_planned = us_counts['Planned'].tolist()
+
+        # Create metadata
         metadata = {
-            "title": "China's space science efforts are taking off",
-            "subtitle": "In just two decades, China has gone from a handful of science missions to launching dozens of cutting-edge projects.",
-            "source": "CNSA Technical Papers and Releases",
+            "title": "China's space science efforts are accelerating",
+            "subtitle": "While the U.S. maintains a lead in total missions, China's growth rate in the 2020s shows rapid advancement.",
+            "source": "CNSA Technical Papers and Releases; NASA Mission Database",
         }
-        
-        # Get the stacked bar chart view
-        stacked_view = self.get_view('StackedBar')
-        
-        # Generate the stacked bar chart
-        stacked_view.stacked_bar_plot(
-            metadata=metadata,
-            stem="china_space_science_mission_growth",
-            categories=categories,
-            values=values,
-            labels=['Launched', 'Planned'],
-            orientation='vertical',
-            show_values=False,
-            width=0.5,
-            label_size=15,
-            tick_size=16,
-            ylim=(0.01,25),
-            colors=[ChartView.COLORS['blue'],ChartView.TPS_COLORS['Medium Neptune']],
-            legend={'loc': 'upper left'},
-            ylabel='Number of Missions',
-            export_data=data[['Mission Name','Launch Date','Area','Source']]
-        )
+
+        # We'll use ChartView directly to get access to matplotlib
+        import numpy as np
+        import matplotlib.pyplot as plt
+
+        # Create the chart using the base ChartView
+        base_view = self.get_view('Line')  # Just to get access to ChartView methods
+
+        # Define the custom side-by-side bar plotting function
+        def create_grouped_bar_chart(metadata, style):
+            # Create figure
+            figsize = style["figsize"]
+            dpi = style["dpi"]
+            fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+
+            # Set up bar positions - side by side, touching
+            x = np.arange(len(decades))  # positions for decades: [0, 1, 2]
+            bar_width = 0.35  # width of each bar
+
+            # Positions for side-by-side bars (touching, no gap)
+            pos_china = x - bar_width/2  # Slightly left of center
+            pos_us = x + bar_width/2     # Slightly right of center
+
+            # Colors
+            china_color_launched = "#8B0000"  # Dark red for China launched
+            china_color_planned = "#CD5C5C"   # Light red for China planned
+            us_color_launched = ChartView.COLORS['blue']  # Blue for U.S. launched
+            us_color_planned = ChartView.TPS_COLORS['Medium Neptune']  # Light blue for U.S. planned
+
+            # For 2000s and 2010s: simple bars (all are launched, no planned)
+            # Plot China bars for first two decades
+            ax.bar(pos_china[0:2], china_launched[0:2], bar_width,
+                   color=china_color_launched, edgecolor='white', linewidth=0.5)
+
+            # Plot U.S. bars for first two decades
+            ax.bar(pos_us[0:2], us_launched[0:2], bar_width,
+                   color=us_color_launched, edgecolor='white', linewidth=0.5)
+
+            # For 2020s: stacked bars (launched bottom + planned top)
+            # China stacked bar for 2020s
+            ax.bar(pos_china[2], china_launched[2], bar_width,
+                   color=china_color_launched, edgecolor='white', linewidth=0.5,
+                   label='China')
+            ax.bar(pos_china[2], china_planned[2], bar_width,
+                   bottom=china_launched[2], color=china_color_planned,
+                   edgecolor='white', linewidth=0.5, label=None)
+
+            # U.S. stacked bar for 2020s
+            ax.bar(pos_us[2], us_launched[2], bar_width,
+                   color=us_color_launched, edgecolor='white', linewidth=0.5,
+                   label='U.S.')
+            ax.bar(pos_us[2], us_planned[2], bar_width,
+                   bottom=us_launched[2], color=us_color_planned,
+                   edgecolor='white', linewidth=0.5, label=None)
+
+            # Add value labels above each bar
+            label_fontsize = style.get('tick_size', 14) * 0.6
+
+            # Labels for 2000s and 2010s (simple bars)
+            for i in range(2):
+                # China labels
+                ax.text(pos_china[i], china_launched[i] + 1.5, str(int(china_launched[i])),
+                       ha='center', va='bottom', fontsize=label_fontsize)
+                # U.S. labels
+                ax.text(pos_us[i], us_launched[i] + 1.5, str(int(us_launched[i])),
+                       ha='center', va='bottom', fontsize=label_fontsize)
+
+            # Labels for 2020s (stacked bars - show total)
+            china_total_2020s = china_launched[2] + china_planned[2]
+            us_total_2020s = us_launched[2] + us_planned[2]
+            ax.text(pos_china[2], china_total_2020s + 1.5, str(int(china_total_2020s)),
+                   ha='center', va='bottom', fontsize=label_fontsize)
+            ax.text(pos_us[2], us_total_2020s + 1.5, str(int(us_total_2020s)),
+                   ha='center', va='bottom', fontsize=label_fontsize)
+
+            # Customize axes
+            ax.set_xlabel('')
+            ax.set_ylabel('')  # Hide y-axis label
+            ax.set_xticks(x)
+            ax.set_xticklabels(['2000s', '2010s', '2020s'], fontsize=style.get('tick_size', 14))
+            ax.set_ylim(0.01, 50)
+
+            # Hide y-axis ticks and labels
+            ax.set_yticks([])
+            ax.spines['left'].set_visible(False)
+
+            # Remove grid
+            ax.grid(False)
+
+            # Add legend (only shows the 2020s stacked components)
+            ax.legend(loc='upper left', fontsize=style.get('tick_size', 14) * 0.8)
+
+            # Don't manually add header - _save_chart will handle it when we save
+            return fig
+
+        # Generate both desktop and mobile versions
+        desktop_style = base_view.DESKTOP
+        mobile_style = base_view.MOBILE
+
+        desktop_fig = create_grouped_bar_chart(metadata, desktop_style)
+        mobile_fig = create_grouped_bar_chart(metadata, mobile_style)
+
+        # Save the figures
+        stem = "china_us_mission_count_comparison"
+        base_view._save_chart(desktop_fig, f"{stem}_desktop", metadata)
+        base_view._save_chart(mobile_fig, f"{stem}_mobile", metadata)
+
+        # Export data
+        export_data = pd.concat([
+            china_data[['Mission Name', 'Launch Date', 'Area', 'Source']].assign(Nation='China'),
+            us_data[['Full Name', 'Mission Launch Date']].rename(columns={
+                'Full Name': 'Mission Name',
+                'Mission Launch Date': 'Launch Date'
+            }).assign(Nation='United States', Area='', Source='NASA Mission Database')
+        ], ignore_index=True)
+
+        # Save export data
+        base_view._export_csv(export_data, metadata, stem)
+
+        plt.close('all')
     
     def china_space_science_mission_mass_growth_line_chart(self):
-        """Generate line chart showing average mass per decade."""
-        
-        data = self._process_china_mission_data()
-        
+        """Generate line chart showing average mass per decade for China vs U.S."""
+
+        # Process China data
+        china_data = self._process_china_mission_data()
+
+        # Process U.S. data
+        us_data = self._process_us_mission_data()
+
         # Calculate average mass per decade
         decades = ['2000-2009', '2010-2019', '2020-2029']
-        
-        # Group by decade and calculate mean mass, excluding NaN values
-        mass_by_decade = data.groupby('decade')['mass_numeric'].mean()
-        
-        # Ensure all decades are present and reindex to match our order
-        mass_by_decade = mass_by_decade.reindex(decades, fill_value=0)
-        
-        # Convert to list for the chart
-        mass_values = mass_by_decade.tolist()
-        
+
+        # China: Group by decade and calculate mean mass, excluding NaN values
+        china_mass_by_decade = china_data.groupby('decade')['mass_numeric'].mean()
+        china_mass_by_decade = china_mass_by_decade.reindex(decades, fill_value=0)
+        china_mass_values = china_mass_by_decade.tolist()
+
+        # U.S.: Group by decade and calculate mean mass, excluding NaN values
+        us_mass_by_decade = us_data.groupby('decade')['Mass (kg)'].mean()
+        us_mass_by_decade = us_mass_by_decade.reindex(decades, fill_value=0)
+        us_mass_values = us_mass_by_decade.tolist()
+
         # Create metadata for the chart
         metadata = {
-            "title": "China's science spacecraft are bulking up",
-            "subtitle": "The average launch mass has nearly doubled in the past two decades, suggesting increasing complexity and scope.",
-            "source": "CNSA Technical Papers and Releases",
+            "title": "China's science spacecraft are catching up in mass",
+            "subtitle": "Average launch mass comparison shows U.S. missions remain larger, but China's are rapidly increasing in complexity.",
+            "source": "CNSA Technical Papers and Releases; NASA Mission Database",
         }
-        
+
         # Get the line chart view
         line_view = self.get_view('Line')
-        
-        # Generate the line chart
-        # Note: y must be wrapped in a list to indicate it's a single series
+
+        # Determine y-axis limit based on max value across both datasets
+        max_mass = max(max(china_mass_values), max(us_mass_values)) if china_mass_values and us_mass_values else 5000
+
+        # Generate the line chart with two series
         line_view.line_plot(
             metadata=metadata,
-            stem="china_average_mass_by_decade",
+            stem="china_us_average_mass_comparison",
             x=["2000s", "2010s", "2020s"],
-            y=[mass_values],  # Wrapped in list to indicate single series
+            y=[china_mass_values, us_mass_values],  # Two series: China and U.S.
+            labels=['China', 'United States'],
             marker='o',
             markersize=8,
-            color=ChartView.COLORS['blue'],
+            colors=[ChartView.TPS_COLORS['Medium Neptune'], ChartView.COLORS['blue']],
             tick_rotation=0,
             label_size=15,
             tick_size=16,
-            legend=False,
+            legend={'loc': 'upper left'},
             ylabel='Avg Launch Mass (kg)',
-            ylim=(0.01, max(mass_values) * 1.2 if mass_values and max(mass_values) > 0 else 5000),
-            export_data=data[['Mission Name', 'Launch Date', 'Mass', 'mass_numeric']]
+            ylim=(0.01, max_mass * 1.2),
+            export_data=pd.concat([
+                china_data[['Mission Name', 'Launch Date', 'Mass', 'mass_numeric']].assign(Nation='China'),
+                us_data[['Full Name', 'Mission Launch Date', 'Mass (kg)']].rename(columns={
+                    'Full Name': 'Mission Name',
+                    'Mission Launch Date': 'Launch Date',
+                    'Mass (kg)': 'mass_numeric'
+                }).assign(Nation='United States', Mass='')
+            ], ignore_index=True)
         )
