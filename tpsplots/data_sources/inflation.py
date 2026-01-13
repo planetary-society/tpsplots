@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import os
 from collections.abc import Mapping
 from datetime import datetime
@@ -27,6 +28,8 @@ import certifi
 import numpy as np
 import pandas as pd
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 # ────────────────────────────── Base class ──────────────────────────────────
@@ -181,7 +184,10 @@ class NNSI(Inflation):
         df.columns = [int(c) if str(c).isdigit() else c for c in df.columns]
         target_col = int(self.year)  # will raise ValueError if not 4-digit
         if target_col not in df.columns:
-            raise ValueError(f"NNSI table has no column for FY {self.year}")
+            logger.warning(
+                f"NNSI table has no column for FY {self.year}; inflation adjustment disabled"
+            )
+            return {}
 
         # Produce mapping; normalise keys ("FROM 2014", "FROM TQ") → FY string
         mapping: dict[str, float] = {}
@@ -284,7 +290,10 @@ class GDP(Inflation):
             annual = df.groupby("FY")[num_col].mean()
 
         if target not in annual.index:
-            raise ValueError(f"GDP deflator table lacks FY {target}")
+            logger.warning(
+                f"GDP deflator table lacks FY {target}; inflation adjustment disabled"
+            )
+            return {}
 
         tgt_val = annual.loc[target]
         multipliers = (tgt_val / annual).to_dict()

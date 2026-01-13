@@ -14,6 +14,8 @@ from tpsplots.data_sources.nasa_budget_data_source import (
     ScienceDivisions,
     Workforce,
 )
+from tpsplots.data_sources.new_awards import NewNASAAwards
+from tpsplots.processors.award_data_processor import AwardDataProcessor, FiscalYearConfig
 
 
 class FY2026Charts(ChartController):
@@ -21,6 +23,13 @@ class FY2026Charts(ChartController):
         # Initialize with data source
         super().__init__(
             data_source=Science(),  # Historical NASA budget data source
+        )
+
+        # Define the fiscal year configuration for FY 2026 award tracking
+        self.fy2026_award_config = FiscalYearConfig(
+            prior_years=[2021, 2022, 2023, 2024, 2025],
+            current_year=2026,
+            comparison_year=2025,
         )
 
     def nasa_budget_historical_with_fy_2026_proposed(self):
@@ -716,4 +725,80 @@ class FY2026Charts(ChartController):
             colors=["#037CC2"],
             legend={"loc": "upper right"},
             export_data=export_df,
+        )
+
+    def new_grants_awards_comparison_to_prior_years(self):
+        """Track FY 2026 grant awards compared to prior fiscal years."""
+        # Use the generalized award data processor
+        processor = AwardDataProcessor(
+            fy_config=self.fy2026_award_config,
+            award_type="Grant",
+        )
+        df = NewNASAAwards().data()
+        data = processor.process(df)
+
+        line_view = self.get_view("Line")
+
+        metadata = {
+            "title": "NASA's FY 2026 grant awards off to a slow start",
+            "subtitle": f"An extended government shutdown and budgetary uncertainty led NASA to award grants at a slower pace than any time in the past 20 years.",
+            "source": "USASpending.gov",
+        }
+
+        line_view.line_plot(
+            metadata=metadata,
+            stem="fy2026_new_grants_awards_comparison",
+            x=data["months"],
+            y=data["y_series"],
+            color=data["colors"],
+            linestyle=data["linestyles"],
+            linewidth=data["linewidths"],
+            marker=data["markers"],
+            label=data["labels"],
+            ylim=(0, 2500),
+            ylabel="Cumulative New Grants Awarded",
+            label_size=13,
+            tick_size=14,
+            direct_line_labels={"fontsize": 10},
+            legend=False,
+            grid=True,
+            export_data=data["export_df"],
+        )
+
+    def new_contract_awards_comparison_to_prior_years(self):
+        """Track FY 2026 contract awards compared to prior fiscal years."""
+        # Use the generalized award data processor
+        processor = AwardDataProcessor(
+            fy_config=self.fy2026_award_config,
+            award_type="Contract",
+        )
+        df = NewNASAAwards().data()
+        data = processor.process(df)
+
+        line_view = self.get_view("Line")
+
+        metadata = {
+            "title": "NASA contract awards in FY 2026",
+            "subtitle": f"An extended government shutdown and budgetary uncertainty led NASA to award contracts at a slower pace than any time in the past 20 years.",
+            "source": "USASpending.gov (Does not include IDVs)",
+        }
+
+        line_view.line_plot(
+            metadata=metadata,
+            stem="fy2026_new_contracts_awards_comparison",
+            x=data["months"],
+            y=data["y_series"],
+            color=data["colors"],
+            linestyle=data["linestyles"],
+            linewidth=data["linewidths"],
+            marker=data["markers"],
+            label=data["labels"],
+            ylim=(0, 6000),
+            ylabel="Cumulative New Contracts Awarded",
+            label_size=13,
+            tick_size=14,
+            direct_line_labels={"fontsize": 10},
+            legend=False,
+            grid=True,
+            export_data=data["export_df"],
         )

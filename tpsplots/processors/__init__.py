@@ -1,5 +1,6 @@
-"""Chart processors module."""
+"""Data processors for transforming raw data into chart-ready formats."""
 
-from .yaml_chart_processor import YAMLChartProcessor
+from tpsplots.processors.award_data_processor import AwardDataProcessor, FiscalYearConfig
+from tpsplots.processors.yaml_chart_processor import YAMLChartProcessor
 
-__all__ = ["YAMLChartProcessor"]
+__all__ = ["AwardDataProcessor", "FiscalYearConfig", "YAMLChartProcessor"]
