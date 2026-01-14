@@ -38,7 +38,7 @@ The module handles fiscal years in both string and datetime formats:
 
 - When loading data from CSV sources, the fiscal year column is automatically
   converted to datetime objects for easier plotting and manipulation.
-  
+
 - Special cases like the "1976 TQ" (Transition Quarter) are preserved as strings.
 
 - Inflation adjustment calculations can use either string or datetime inputs
@@ -78,6 +78,7 @@ from .inflation import GDP, NNSI
 
 logger = logging.getLogger(__name__)
 
+
 # ─────────────────────────── base class ────────────────────────────
 class NASABudget:
     """
@@ -94,6 +95,7 @@ class NASABudget:
     - MONETARY_COLUMNS (List[str], optional): A list of columns containing
       monetary values that should have adjusted versions created.
     """
+
     # Regex to find and remove currency symbols, commas, and 'M' or 'B' suffixes
     _CURRENCY_RE = re.compile(r"[\$,]|\s*[MB]$", flags=re.IGNORECASE)
 
@@ -221,6 +223,7 @@ class NASABudget:
             A callable that takes a NASABudget instance and optional type/year
             arguments, returning a list of adjusted float values.
         """
+
         def getter(self, *, type: str = "nnsi", year: int | None = None) -> list[float]:
             """
             Getter function for adjusted monetary columns.
@@ -250,6 +253,7 @@ class NASABudget:
             mult = self._df[fy].apply(lambda v: adj.calc(str(v), 1.0))
             # Apply the multiplier to the column values and return as a list
             return (self._df[col] * mult).tolist()
+
         # Return the inner getter function
         return getter
 
@@ -288,10 +292,10 @@ class NASABudget:
     def _fetch_url_content(url: str) -> str:
         """
         Fetch content from a URL with caching.
-        
+
         Args:
             url: The URL to fetch
-            
+
         Returns:
             The text content of the response
         """
@@ -303,7 +307,7 @@ class NASABudget:
             response = requests.get(url, timeout=30, verify=certifi.where())
             response.raise_for_status()
             return response.text
-    
+
     def _read_csv(self) -> pd.DataFrame:
         """
         Reads the CSV data from the source, potentially using a cache.
@@ -326,26 +330,26 @@ class NASABudget:
             self._cache_dir.mkdir(parents=True, exist_ok=True)
             dest = self._cache_dir / Path(self._csv_source).name
             if dest.exists():
-                logger.debug(f"Reading from cache: {dest}") # Added for visibility
+                logger.debug(f"Reading from cache: {dest}")  # Added for visibility
                 return pd.read_csv(dest)
 
-        logger.debug(f"Reading from source: {self._csv_source}") # Added for visibility
-        
+        logger.debug(f"Reading from source: {self._csv_source}")  # Added for visibility
+
         # Check if it's a URL or local file
-        if self._csv_source.startswith(('http://', 'https://')):
+        if self._csv_source.startswith(("http://", "https://")):
             # Use cached URL fetching
             text = self._fetch_url_content(self._csv_source)
             df = pd.read_csv(io.StringIO(text))
         else:
             # Local file - read directly
-            df = pd.read_csv(self._csv_source) 
+            df = pd.read_csv(self._csv_source)
 
         # If caching is enabled, save the downloaded DataFrame to the cache
         if self._cache_dir:
             cache_path = Path(self._cache_dir, Path(self._csv_source).name)
-            logger.info(f"Caching data to: {cache_path}") # Added for visibility
+            logger.info(f"Caching data to: {cache_path}")  # Added for visibility
             cache_path.write_bytes(
-                df.to_csv(index=False).encode() # Convert DataFrame to CSV string, then bytes
+                df.to_csv(index=False).encode()  # Convert DataFrame to CSV string, then bytes
             )
         return df
 
@@ -364,7 +368,7 @@ class NASABudget:
         Returns:
             A new DataFrame with cleaned data.
         """
-        df = df.copy() # Work on a copy to avoid modifying the original DataFrame
+        df = df.copy()  # Work on a copy to avoid modifying the original DataFrame
 
         # Get MONETARY_COLUMNS directly from the class to avoid triggering __getattr__
         monetary_columns = getattr(self.__class__, "MONETARY_COLUMNS", [])
@@ -375,15 +379,19 @@ class NASABudget:
             # Check if the column contains '$' characters (indicating currency)
             # OR if the column is listed in MONETARY_COLUMNS
             if (
-            df[col].astype(str).str.contains(r"\$", na=False).any()
-            or col in monetary_columns  # Use the class attribute directly
+                df[col].astype(str).str.contains(r"\$", na=False).any()
+                or col in monetary_columns  # Use the class attribute directly
             ):
                 df[col] = (
                     df[col]
-                    .astype(str) # Ensure column is string type for regex operations
-                    .str.replace(self._CURRENCY_RE, "", regex=True) # Remove currency symbols, commas, M/B
-                    .astype(float, errors="ignore") # Convert to float, ignoring errors (non-numeric become NaN)
-                    .mul(1_000_000) # Multiply by 1 million to convert to whole dollars
+                    .astype(str)  # Ensure column is string type for regex operations
+                    .str.replace(
+                        self._CURRENCY_RE, "", regex=True
+                    )  # Remove currency symbols, commas, M/B
+                    .astype(
+                        float, errors="ignore"
+                    )  # Convert to float, ignoring errors (non-numeric become NaN)
+                    .mul(1_000_000)  # Multiply by 1 million to convert to whole dollars
                     .astype("float64")
                 )
 
@@ -401,13 +409,13 @@ class NASABudget:
         def norm(x):
             """Helper function to normalize fiscal year values, keeping them as strings."""
             if pd.isna(x):
-                return pd.NA # Return pandas NA for missing values
-            s = str(x).strip() # Convert to string and remove leading/trailing whitespace
+                return pd.NA  # Return pandas NA for missing values
+            s = str(x).strip()  # Convert to string and remove leading/trailing whitespace
             if "TQ" in s.upper():
-                return "1976 TQ" # Preserve the special '1976 TQ' string
+                return "1976 TQ"  # Preserve the special '1976 TQ' string
             if s.isdigit() and len(s) == 4:
                 return datetime(int(s), 1, 1)
-            return pd.NA # Return pandas NA for any other format
+            return pd.NA  # Return pandas NA for any other format
 
         for col in df.columns:
             if re.fullmatch(r"FY\d{2,4}", str(col), flags=re.I) or str(col).lower() in {
@@ -435,12 +443,12 @@ class NASABudget:
         Returns:
             A new DataFrame with the added adjusted columns.
         """
-        df = df.copy() # Work on a copy
+        df = df.copy()  # Work on a copy
         # Detect the fiscal year column to use for adjustments
         fy_col = self._detect_fy(df)
         if not fy_col:
             return df
-        
+
         # Get the list of columns to adjust from the subclass
         mons = getattr(self.__class__, "MONETARY_COLUMNS", [])
 
@@ -455,20 +463,20 @@ class NASABudget:
 
         # Apply the multipliers to each monetary column and add the new adjusted columns
         for col in mons:
-            if col in df.columns: # Ensure the column exists in the DataFrame
+            if col in df.columns:  # Ensure the column exists in the DataFrame
                 # Calculate product. If multiplier is NaN, product is NaN.
                 try:
                     product_nnsi = df[col] * nnsi_mult
                 except TypeError as e:
                     logger.error(f"Can't multiply column '{col}': {e}")
                     product_nnsi = pd.Series([pd.NA] * len(df[col]), index=df.index)
-                
+
                 try:
                     product_gdp = df[col] * gdp_mult
                 except TypeError as e:
                     logger.error(f"Can't multiply column '{col}': {e}")
                     product_gdp = pd.Series([pd.NA] * len(df[col]), index=df.index)
-                    
+
                 # Where product is NaN (likely due to a NaN multiplier),
                 # fill with the original value from df[col].
                 # Then ensure the final column is of type float64.
@@ -559,7 +567,7 @@ class NASABudget:
 # The year is passed as a string, which aligns with the updated norm function.
 _ADJUSTERS = {
     "nnsi": NNSI(year=str(NASABudget._prior_fy())),
-    "gdp":  GDP(year=str(NASABudget._prior_fy())),
+    "gdp": GDP(year=str(NASABudget._prior_fy())),
 }
 
 
@@ -571,6 +579,7 @@ class Historical(NASABudget):
     Loads data from a specific Google Sheets CSV URL and defines the columns
     to keep, how to rename them, and which ones are monetary for adjustment.
     """
+
     CSV_URL = (
         "https://docs.google.com/spreadsheets/d/"
         "1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/export"
@@ -612,6 +621,7 @@ class ScienceDivisions(NASABudget):
     MONETARY_COLUMNS are placeholders and should be defined based on the
     actual structure of the Science sheet.
     """
+
     CSV_URL = (
         "https://docs.google.com/spreadsheets/d/"
         "1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/export"
@@ -660,6 +670,7 @@ class Directorates(NASABudget):
     MONETARY_COLUMNS are placeholders and should be defined based on the
     actual structure of the Directorates sheet.
     """
+
     CSV_URL = (
         "https://docs.google.com/spreadsheets/d/"
         "1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/export"
@@ -704,28 +715,34 @@ class Directorates(NASABudget):
         # Call the base class constructor with the specific CSV URL
         super().__init__(self.CSV_URL, cache_dir=cache_dir)
 
+
 class Science(NASABudget):
-    CSV_URL = ("https://docs.google.com/spreadsheets/d/"
-               "1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/"
-               "export?format=csv&gid=1298630212")
-    
+    CSV_URL = (
+        "https://docs.google.com/spreadsheets/d/"
+        "1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/"
+        "export?format=csv&gid=1298630212"
+    )
+
     COLUMNS: ClassVar[list[str]] = ["Fiscal Year", "NASA Science (millions of $)", "FY 2026 PBR"]
     RENAMES: ClassVar[dict[str, str]] = {"NASA Science (millions of $)": "NASA Science"}
     MONETARY_COLUMNS: ClassVar[list[str]] = ["NASA Science", "FY 2026 PBR"]
-    
+
     def __init__(self, *, cache_dir: Path | None = None) -> None:
         super().__init__(self.CSV_URL, cache_dir=cache_dir)
 
+
 class Workforce(NASABudget):
-    CSV_URL = ("https://docs.google.com/spreadsheets/d/"
-               "1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/"
-               "export?format=csv&gid=479410406")
-    
+    CSV_URL = (
+        "https://docs.google.com/spreadsheets/d/"
+        "1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/"
+        "export?format=csv&gid=479410406"
+    )
+
     COLUMNS: ClassVar[list[str]] = [
         "Fiscal Year",
         "Full-time Permanent (FTP)",
         "Full-time Equivalent (FTE)",
     ]
-    
+
     def __init__(self, *, cache_dir: Path | None = None) -> None:
         super().__init__(self.CSV_URL, cache_dir=cache_dir)

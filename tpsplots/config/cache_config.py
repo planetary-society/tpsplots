@@ -15,8 +15,8 @@ CACHE_DIR.mkdir(parents=True, exist_ok=True)
 # Configure cachier defaults
 set_default_params(
     cache_dir=str(CACHE_DIR),
-    backend='pickle'  # Use pickle backend for simplicity
+    backend="pickle",  # Use pickle backend for simplicity
 )
 
 # Export cache directory for other modules
-__all__ = ['CACHE_DIR']
+__all__ = ["CACHE_DIR"]

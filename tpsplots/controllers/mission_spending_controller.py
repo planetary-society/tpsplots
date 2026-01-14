@@ -49,7 +49,7 @@ class MissionSpendingController(ChartController):
             "COSI": "COSI",
             "UVEX": "UVEX",
             "VERITAS": "VERITAS",
-            "DAVINCI": "DAVINCI"
+            "DAVINCI": "DAVINCI",
         }
 
         for mission_short_name, mission_name in missions.items():
@@ -94,9 +94,9 @@ class MissionSpendingController(ChartController):
         # Load data from CSV file
         df = self._read_csv(file_name)
 
-        #current_fy = self.get_current_fy()
+        # current_fy = self.get_current_fy()
         # hardcode for FY 2025 until new data available
-        current_fy = 2025 
+        current_fy = 2025
         prior_fy = current_fy - 1
 
         # Months:

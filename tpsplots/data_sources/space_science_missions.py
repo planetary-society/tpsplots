@@ -72,9 +72,11 @@ class SpaceScienceMissions(GoogleSheetsSource):
     source year, adjusting to the current prior fiscal year.
     """
 
-    URL = ("https://docs.google.com/spreadsheets/d/"
-           "1ag7otfTfElrFz-yRZEdp-sLxlwkS_p7gRvnD1tVo7fE/"
-           "export?format=csv")
+    URL = (
+        "https://docs.google.com/spreadsheets/d/"
+        "1ag7otfTfElrFz-yRZEdp-sLxlwkS_p7gRvnD1tVo7fE/"
+        "export?format=csv"
+    )
 
     def __init__(self, cache_dir: Path | None = None) -> None:
         """
@@ -143,7 +145,7 @@ class SpaceScienceMissions(GoogleSheetsSource):
         )
 
         # Convert to float
-        df["Mass (kg)"] = pd.to_numeric(df["Mass (kg)"], errors='coerce')
+        df["Mass (kg)"] = pd.to_numeric(df["Mass (kg)"], errors="coerce")
 
         logger.debug("Transformed Mass column to Mass (kg)")
         return df
@@ -179,7 +181,7 @@ class SpaceScienceMissions(GoogleSheetsSource):
         )
 
         # Convert to float
-        df["LCC (M$)"] = pd.to_numeric(df["LCC (M$)"], errors='coerce')
+        df["LCC (M$)"] = pd.to_numeric(df["LCC (M$)"], errors="coerce")
 
         logger.debug("Transformed LCC (M$) column")
         return df
@@ -208,7 +210,7 @@ class SpaceScienceMissions(GoogleSheetsSource):
         df = df.copy()
 
         # Extract year from launch date
-        launch_dates = pd.to_datetime(df["Mission Launch Date"], errors='coerce')
+        launch_dates = pd.to_datetime(df["Mission Launch Date"], errors="coerce")
         launch_years = launch_dates.dt.year
 
         # Calculate adjustment year (launch_year - 1)
@@ -236,9 +238,7 @@ class SpaceScienceMissions(GoogleSheetsSource):
                 return lcc_value
 
         # Apply adjustment to all rows
-        df["LCC (M$)_adjusted_nnsi"] = [
-            adjust_row(i) for i in range(len(df))
-        ]
+        df["LCC (M$)_adjusted_nnsi"] = [adjust_row(i) for i in range(len(df))]
 
         logger.debug("Applied NNSI inflation adjustment to LCC (M$)")
         return df

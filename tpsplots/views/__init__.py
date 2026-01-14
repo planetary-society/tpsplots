@@ -1,4 +1,5 @@
 """Chart views for the TPS Plots package."""
+
 from pathlib import Path
 
 from .bar_chart import BarChartView
@@ -13,13 +14,13 @@ from .waffle_chart import WaffleChartView
 
 # Export these classes as the public API
 __all__ = [
-    'BarChartView',
-    'ChartView',
-    'DonutChartView',
-    'LineChartView',
-    'LineSubplotsView',
-    'LollipopChartView',
-    'StackedBarChartView',
-    'USMapPieChartView',
-    'WaffleChartView'
+    "BarChartView",
+    "ChartView",
+    "DonutChartView",
+    "LineChartView",
+    "LineSubplotsView",
+    "LollipopChartView",
+    "StackedBarChartView",
+    "USMapPieChartView",
+    "WaffleChartView",
 ]

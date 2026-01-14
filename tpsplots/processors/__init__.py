@@ -2,4 +2,4 @@
 
 from .yaml_chart_processor import YAMLChartProcessor
 
-__all__ = ['YAMLChartProcessor']
+__all__ = ["YAMLChartProcessor"]

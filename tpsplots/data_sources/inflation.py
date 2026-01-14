@@ -8,8 +8,8 @@ NASA New-Start Index (NNSI) implementation.
 ---------------------------------------------------------------------------
 Example
 ---------------------------------------------------------------------------
->>> nnsi = NNSI(year="2025")   # target FY 2025
->>> nnsi.calc("2014", 10)      # 10 → 13.59   (multiplied by 1.359)
+>>> nnsi = NNSI(year="2025")  # target FY 2025
+>>> nnsi.calc("2014", 10)  # 10 → 13.59   (multiplied by 1.359)
 >>> nnsi.calc(datetime(2014, 1, 1), 10)  # Also handles datetime objects
 
 """
@@ -89,25 +89,25 @@ class Inflation:
         """
         Multiply *value* by the correct factor for *from_year*.
         Falls back to *identity* (multiplier == 1.0) if no entry exists.
-        
+
         Args:
             from_year: The fiscal year to adjust from, can be a string, datetime object, or integer.
             value: The value to adjust.
-            
+
         Returns:
             float: The inflation-adjusted value.
         """
         key = self._convert_year_to_key(from_year)
         mult = self._table.get(self._normalise_key(key), 1.0)
         return value * mult
-        
+
     def _convert_year_to_key(self, year_input: str | datetime | int) -> str:
         """
         Convert various year input formats to a standard string key format.
-        
+
         Args:
             year_input: The year as a string, datetime object, or integer.
-            
+
         Returns:
             str: The year as a standardized string.
         """
@@ -145,8 +145,9 @@ class NNSI(Inflation):
     * Automatically downloads the latest Google-Sheets CSV unless a local
       path is provided.
     """
+
     # The NNSI table is provided by a Google Sheet maintained by Casey Dreier,
-    # which is then exported as CSV. You could also reference the 
+    # which is then exported as CSV. You could also reference the
     # The format retains the standard NNSI XLS table as produced by the NASA OCFO
     DEFAULT_CSV = (
         "https://docs.google.com/spreadsheets/d/"
@@ -171,23 +172,21 @@ class NNSI(Inflation):
         # Convert percentage strings to actual numbers; non-percentage strings are returned as-is
         # Function to convert percentage string to float
         def percentage_to_float(perc_str):
-            if isinstance(perc_str, str) and perc_str.endswith('%'):
+            if isinstance(perc_str, str) and perc_str.endswith("%"):
                 try:
-                    return float(perc_str.replace('%', '')) / 100
+                    return float(perc_str.replace("%", "")) / 100
                 except ValueError:
                     return np.nan
-            return perc_str # Return the original value if it's not a percentage string
-        
+            return perc_str  # Return the original value if it's not a percentage string
+
         df = df.map(percentage_to_float)
-        
+
         # Remove any rows with only NaN values
         df = df.dropna(how="all")
-        
+
         # Ensure numeric columns are ints where possible
-        
-        df.columns = [
-            int(c) if str(c).isdigit() else c for c in df.columns
-        ]
+
+        df.columns = [int(c) if str(c).isdigit() else c for c in df.columns]
         target_col = int(self.year)  # will raise ValueError if not 4-digit
         if target_col not in df.columns:
             raise ValueError(f"NNSI table has no column for FY {self.year}")
@@ -227,8 +226,8 @@ class GDP(Inflation):
 
     Examples
     --------
-    >>> gdp = GDP(year="2024")          # target FY 2024
-    >>> gdp.calc("2013", 25)            # => adjusted 2024 dollars
+    >>> gdp = GDP(year="2024")  # target FY 2024
+    >>> gdp.calc("2013", 25)  # => adjusted 2024 dollars
     >>> gdp.calc(datetime(2013, 1, 1), 25)  # Same as above
     """
 
@@ -237,9 +236,9 @@ class GDP(Inflation):
         "https://apps.bea.gov/api/data?"
         "UserID={key}&"
         "datasetname=NIPA&"
-        "TableName=T10109&"      # Table 1.1.9 Implicit Price Deflators
-        "LineNumber=1&"          # Line 1: Gross domestic product
-        "Frequency=A&"           # Annual
+        "TableName=T10109&"  # Table 1.1.9 Implicit Price Deflators
+        "LineNumber=1&"  # Line 1: Gross domestic product
+        "Frequency=A&"  # Annual
         "Year=ALL&"
         "ResultFormat=JSON"
     )
@@ -251,7 +250,7 @@ class GDP(Inflation):
     @cachier(stale_after=timedelta(hours=24))
     def _load_raw(self) -> pd.DataFrame:
         key = os.getenv("BEA_API_KEY")
-        if key:                      # try BEA first
+        if key:  # try BEA first
             url = self._BEA_ENDPOINT.format(key=key)
             resp = requests.get(url, timeout=30, verify=certifi.where())
             resp.raise_for_status()
@@ -271,11 +270,7 @@ class GDP(Inflation):
 
         def _annualize(series, date_key="DATE", value_key="VALUE"):
             # Average quarterly values into fiscal years (Oct-Sep)
-            q = (
-                pd.to_datetime(series[date_key])
-                .dt.to_period("Q")
-                .dt.to_timestamp(freq="Q")
-            )
+            q = pd.to_datetime(series[date_key]).dt.to_period("Q").dt.to_timestamp(freq="Q")
             series = series.assign(FY=q.apply(lambda d: d.year if d.quarter == 4 else d.year - 1))
             return series.groupby("FY")[value_key].mean()
 
@@ -287,10 +282,9 @@ class GDP(Inflation):
             df["VALUE"] = df["VALUE"].astype(float)
             annual = df.set_index("FY")["VALUE"]
         else:  # FRED CSV
-            
             num_col = "GDPDEF"
-            
-            df = df[~df[num_col].isin([".", ""])]           # remove blanks
+
+            df = df[~df[num_col].isin([".", ""])]  # remove blanks
             df[num_col] = df[num_col].astype(float)
             # convert quarterly dates → fiscal-year averages (Oct--Sep)
             q_dates = pd.to_datetime(df["observation_date"]).dt.to_period("Q").dt.to_timestamp("Q")

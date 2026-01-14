@@ -1,4 +1,5 @@
 """CSV file data controller for YAML-driven chart generation."""
+
 import logging
 import re
 
@@ -47,10 +48,12 @@ class CSVController(ChartController):
 
         try:
             df = pd.read_csv(self.csv_path)
-            logger.info(f"Loaded CSV data from {self.csv_path} ({len(df)} rows, {len(df.columns)} columns)")
+            logger.info(
+                f"Loaded CSV data from {self.csv_path} ({len(df)} rows, {len(df.columns)} columns)"
+            )
 
             # Build result dictionary with multiple access patterns
-            result = {'data': df}  # Keep full DataFrame for export_data
+            result = {"data": df}  # Keep full DataFrame for export_data
 
             # Expose each column as a top-level key for YAML parameter resolution
             for col in df.columns:
@@ -59,8 +62,8 @@ class CSVController(ChartController):
                 # Auto-detect date columns and create _year variants with mid-year rounding
                 if self._looks_like_date_column(col, df[col]):
                     try:
-                        dt_series = pd.to_datetime(df[col], errors='coerce')
-                        year_col_name = f'{col}_year'
+                        dt_series = pd.to_datetime(df[col], errors="coerce")
+                        year_col_name = f"{col}_year"
                         result[year_col_name] = self._round_date_to_year(dt_series).values
                         logger.debug(f"Created year column '{year_col_name}' from '{col}'")
                     except Exception as e:
@@ -88,7 +91,7 @@ class CSVController(ChartController):
                 "rows": len(df),
                 "columns": list(df.columns),
                 "dtypes": df.dtypes.to_dict(),
-                "sample_data": df.head(3).to_dict('records')
+                "sample_data": df.head(3).to_dict("records"),
             }
         except Exception as e:
             return {"error": f"Could not analyze CSV file: {e}"}
@@ -114,7 +117,7 @@ class CSVController(ChartController):
 
         # Check if value matches date format (YYYY-MM-DD)
         # This catches both explicit date columns and implicit ones like "First Crewed Utilization"
-        return bool(re.match(r'\d{4}-\d{2}-\d{2}', str(first_val)))
+        return bool(re.match(r"\d{4}-\d{2}-\d{2}", str(first_val)))
 
     def _round_date_to_year(self, dt_series: pd.Series) -> pd.Series:
         """
@@ -135,6 +138,7 @@ class CSVController(ChartController):
             1959-06-15 → 1960 (at cutoff, rounds up)
             1961-12-07 → 1962 (after June 15)
         """
+
         def round_single_date(dt):
             if pd.isna(dt):
                 return pd.NA

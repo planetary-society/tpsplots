@@ -1,4 +1,5 @@
 """YAML-driven chart generation processor with Pydantic validation."""
+
 import importlib
 import logging
 import re
@@ -29,34 +30,45 @@ logger = logging.getLogger(__name__)
 # Pydantic models for YAML validation
 class ChartConfig(BaseModel):
     """Chart configuration section."""
+
     type: Literal[
-        'line_plot', 'bar_plot', 'donut_plot', 'lollipop_plot',
-        'stacked_bar_plot', 'waffle_plot', 'us_map_pie_plot', 'line_subplots_plot'
+        "line_plot",
+        "bar_plot",
+        "donut_plot",
+        "lollipop_plot",
+        "stacked_bar_plot",
+        "waffle_plot",
+        "us_map_pie_plot",
+        "line_subplots_plot",
     ] = Field(..., description="Chart type matching view method names")
     output_name: str = Field(..., description="Base filename for chart outputs")
 
 
 class ControllerMethodDataSource(BaseModel):
     """Controller method data source configuration."""
-    type: Literal['controller_method']
-    class_name: str = Field(..., alias='class', description="Controller class name")
+
+    type: Literal["controller_method"]
+    class_name: str = Field(..., alias="class", description="Controller class name")
     method: str = Field(..., description="Method name to call")
 
 
 class CSVFileDataSource(BaseModel):
     """CSV file data source configuration."""
-    type: Literal['csv_file']
+
+    type: Literal["csv_file"]
     path: str = Field(..., description="Path to CSV file")
 
 
 class URLDataSource(BaseModel):
     """URL/Google Sheets data source configuration."""
-    type: Literal['google_sheets', 'url']
+
+    type: Literal["google_sheets", "url"]
     url: str = Field(..., description="URL to fetch CSV data from")
 
 
 class MetadataConfig(BaseModel):
     """Chart metadata configuration."""
+
     title: str = Field(..., description="Chart title")
     subtitle: str | None = Field(None, description="Chart subtitle (supports templates)")
     source: str | None = Field(None, description="Data source attribution")
@@ -66,25 +78,33 @@ class MetadataConfig(BaseModel):
 
 class DirectLineLabelsConfig(BaseModel):
     """Configuration for direct line labels."""
+
     fontsize: int | None = Field(None, description="Font size for labels")
-    position: Literal['right', 'left', 'auto'] | None = Field('auto', description="Label position")
+    position: Literal["right", "left", "auto"] | None = Field("auto", description="Label position")
     bbox: bool | None = Field(True, description="Add background box to labels")
 
 
 class ParametersConfig(BaseModel):
     """Chart parameters configuration."""
+
     # Data mapping - most can be strings (data references) or actual values
     x: str | None = Field(None, description="X-axis data reference")
     y: str | list[str] | None = Field(None, description="Y-axis data reference(s)")
     color: str | list[str] | None = Field(None, description="Color specification")
     linestyle: str | list[str] | None = Field(None, description="Line style specification")
-    linewidth: float | list[float] | str | list[str] | None = Field(None, description="Line width specification")
+    linewidth: float | list[float] | str | list[str] | None = Field(
+        None, description="Line width specification"
+    )
     marker: str | list[str] | None = Field(None, description="Marker specification")
     label: str | list[str] | None = Field(None, description="Label specification")
 
     # Axis configuration
-    xlim: list[float] | str | None = Field(None, description="X-axis limits [min, max] or data reference")
-    ylim: list[float] | str | None = Field(None, description="Y-axis limits [min, max] or data reference")
+    xlim: list[float] | str | None = Field(
+        None, description="X-axis limits [min, max] or data reference"
+    )
+    ylim: list[float] | str | None = Field(
+        None, description="Y-axis limits [min, max] or data reference"
+    )
     xlabel: str | None = Field(None, description="X-axis label")
     ylabel: str | None = Field(None, description="Y-axis label")
 
@@ -95,7 +115,9 @@ class ParametersConfig(BaseModel):
     legend: bool | str | None = Field(None, description="Show legend or data reference")
 
     # Advanced features
-    direct_line_labels: DirectLineLabelsConfig | str | None = Field(None, description="Direct line labels config")
+    direct_line_labels: DirectLineLabelsConfig | str | None = Field(
+        None, description="Direct line labels config"
+    )
 
     # Export
     export_data: str | None = Field(None, description="Export data reference")
@@ -103,7 +125,7 @@ class ParametersConfig(BaseModel):
     class Config:
         extra = "allow"  # Allow additional parameters not explicitly defined
 
-    @validator('ylim', 'xlim')
+    @validator("ylim", "xlim")
     def validate_limits(cls, v):
         """Validate that limits are [min, max] format when they're lists."""
         if v is not None and isinstance(v, list) and len(v) != 2:
@@ -113,27 +135,28 @@ class ParametersConfig(BaseModel):
 
 class YAMLChartConfig(BaseModel):
     """Complete YAML chart configuration schema."""
+
     chart: ChartConfig
     data_source: ControllerMethodDataSource | CSVFileDataSource | URLDataSource = Field(
-        ..., discriminator='type'
+        ..., discriminator="type"
     )
     metadata: MetadataConfig
     parameters: ParametersConfig
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def validate_data_source_fields(self):
         """Validate data source has required fields based on type."""
         data_source = self.data_source
         if not data_source:
             return self
 
-        if data_source.type == 'controller_method':
-            if not hasattr(data_source, 'class_name') or not hasattr(data_source, 'method'):
+        if data_source.type == "controller_method":
+            if not hasattr(data_source, "class_name") or not hasattr(data_source, "method"):
                 raise ValueError("controller_method requires 'class' and 'method' fields")
-        elif data_source.type == 'csv_file':
-            if not hasattr(data_source, 'path'):
+        elif data_source.type == "csv_file":
+            if not hasattr(data_source, "path"):
                 raise ValueError("csv_file requires 'path' field")
-        elif data_source.type in ['google_sheets', 'url'] and not hasattr(data_source, 'url'):
+        elif data_source.type in ["google_sheets", "url"] and not hasattr(data_source, "url"):
             raise ValueError(f"{data_source.type} requires 'url' field")
 
         return self
@@ -144,14 +167,14 @@ class YAMLChartProcessor:
 
     # Map chart types to view classes
     VIEW_REGISTRY: ClassVar[dict[str, type]] = {
-        'line_plot': LineChartView,
-        'bar_plot': BarChartView,
-        'donut_plot': DonutChartView,
-        'lollipop_plot': LollipopChartView,
-        'stacked_bar_plot': StackedBarChartView,
-        'waffle_plot': WaffleChartView,
-        'us_map_pie_plot': USMapPieChartView,
-        'line_subplots_plot': LineSubplotsView,
+        "line_plot": LineChartView,
+        "bar_plot": BarChartView,
+        "donut_plot": DonutChartView,
+        "lollipop_plot": LollipopChartView,
+        "stacked_bar_plot": StackedBarChartView,
+        "waffle_plot": WaffleChartView,
+        "us_map_pie_plot": USMapPieChartView,
+        "line_subplots_plot": LineSubplotsView,
     }
 
     def __init__(self, yaml_path: str | Path, outdir: Path | None = None):
@@ -175,7 +198,7 @@ class YAMLChartProcessor:
     def _load_yaml(self) -> dict[str, Any]:
         """Load and parse YAML configuration file."""
         try:
-            with open(self.yaml_path, encoding='utf-8') as f:
+            with open(self.yaml_path, encoding="utf-8") as f:
                 config = yaml.safe_load(f)
             logger.info(f"Loaded YAML config from {self.yaml_path}")
             return config
@@ -197,11 +220,11 @@ class YAMLChartProcessor:
         """Resolve the data source and return the processed data."""
         data_source = self.config.data_source
 
-        if data_source.type == 'controller_method':
+        if data_source.type == "controller_method":
             return self._resolve_controller_method(data_source)
-        elif data_source.type == 'csv_file':
+        elif data_source.type == "csv_file":
             return self._resolve_csv_file(data_source)
-        elif data_source.type in ['google_sheets', 'url']:
+        elif data_source.type in ["google_sheets", "url"]:
             return self._resolve_google_sheets_data(data_source)
         else:
             raise ValueError(f"Unsupported data source type: {data_source.type}")
@@ -240,7 +263,7 @@ class YAMLChartProcessor:
             if isinstance(result, dict):
                 return result
             else:
-                return {'data': result}
+                return {"data": result}
 
         except Exception as e:
             raise RuntimeError(f"Error calling {class_name}.{method_name}: {e}") from e
@@ -265,13 +288,14 @@ class YAMLChartProcessor:
 
     def _snake_case(self, name: str) -> str:
         """Convert CamelCase to snake_case."""
-        s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
-        return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+        s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+        return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
     def _resolve_csv_file(self, data_source: CSVFileDataSource) -> dict[str, Any]:
         """Resolve data from a CSV file using CSVController."""
         try:
             from tpsplots.controllers.csv_controller import CSVController
+
             controller = CSVController(csv_path=data_source.path)
             return controller.load_data()
         except Exception as e:
@@ -281,10 +305,13 @@ class YAMLChartProcessor:
         """Resolve data from Google Sheets or URL using GoogleSheetsController."""
         try:
             from tpsplots.controllers.google_sheets_controller import GoogleSheetsController
+
             controller = GoogleSheetsController(url=data_source.url)
             return controller.load_data()
         except Exception as e:
-            raise RuntimeError(f"Error loading Google Sheets data via GoogleSheetsController: {e}") from e
+            raise RuntimeError(
+                f"Error loading Google Sheets data via GoogleSheetsController: {e}"
+            ) from e
 
     def _resolve_parameters(self, data: dict[str, Any]) -> dict[str, Any]:
         """Resolve parameters by substituting data references."""
@@ -324,11 +351,11 @@ class YAMLChartProcessor:
                 if value in data:
                     resolved[key] = data[value]
                 # Then check if it contains template syntax
-                elif '{' in value and '}' in value:
+                elif "{" in value and "}" in value:
                     try:
                         # Create format context for template substitution
                         format_context = data.copy()
-                        format_context['data'] = data
+                        format_context["data"] = data
                         resolved[key] = value.format(**format_context)
                     except (KeyError, ValueError) as e:
                         logger.warning(f"Could not resolve template in metadata.{key}: {e}")
@@ -402,6 +429,7 @@ def create_yaml_directories():
 if __name__ == "__main__":
     # Simple command-line test
     import sys
+
     if len(sys.argv) > 1:
         yaml_path = sys.argv[1]
         processor = YAMLChartProcessor(yaml_path)

@@ -10,6 +10,7 @@ Usage:
     python create.py --outdir output/ yaml/             # Custom output directory
     python create.py --clear-cache                      # Clear cached Google Sheets data
 """
+
 import argparse
 import logging
 import sys
@@ -35,13 +36,9 @@ def clear_cache():
 def setup_logging(verbose: bool = False):
     """Configure logging for the application."""
     level = logging.DEBUG if verbose else logging.INFO
-    format_str = '%(asctime)s - %(levelname)s - %(message)s' if verbose else '%(message)s'
+    format_str = "%(asctime)s - %(levelname)s - %(message)s" if verbose else "%(message)s"
 
-    logging.basicConfig(
-        level=level,
-        format=format_str,
-        datefmt='%H:%M:%S'
-    )
+    logging.basicConfig(level=level, format=format_str, datefmt="%H:%M:%S")
 
 
 def validate_yaml(yaml_path: Path) -> bool:
@@ -82,13 +79,13 @@ def collect_yaml_files(inputs: list[Path]) -> list[Path]:
 
     for input_path in inputs:
         if input_path.is_file():
-            if input_path.suffix.lower() in ['.yaml', '.yml']:
+            if input_path.suffix.lower() in [".yaml", ".yml"]:
                 yaml_files.append(input_path)
             else:
                 print(f"⚠️ Skipping non-YAML file: {input_path}")
         elif input_path.is_dir():
             # Find all YAML files in directory
-            dir_yamls = list(input_path.glob('*.yaml')) + list(input_path.glob('*.yml'))
+            dir_yamls = list(input_path.glob("*.yaml")) + list(input_path.glob("*.yml"))
             if dir_yamls:
                 yaml_files.extend(sorted(dir_yamls))
                 print(f"📁 Found {len(dir_yamls)} YAML files in {input_path}")
@@ -103,7 +100,7 @@ def collect_yaml_files(inputs: list[Path]) -> list[Path]:
 def main():
     """Main entry point for the create.py CLI tool."""
     parser = argparse.ArgumentParser(
-        description='Generate charts from YAML configurations',
+        description="Generate charts from YAML configurations",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -113,45 +110,37 @@ Examples:
   %(prog)s --validate yaml/chart.yaml         Validate without generating
   %(prog)s --outdir output/ yaml/             Specify output directory
   %(prog)s --clear-cache                      Clear cached Google Sheets data
-        """
+        """,
     )
 
     parser.add_argument(
-        'inputs',
-        nargs='*',
+        "inputs",
+        nargs="*",
         type=Path,
-        help='YAML configuration file(s) or directory(ies) to process'
+        help="YAML configuration file(s) or directory(ies) to process",
     )
 
     parser.add_argument(
-        '--validate', '-v',
-        action='store_true',
-        help='Validate YAML configuration without generating charts'
+        "--validate",
+        "-v",
+        action="store_true",
+        help="Validate YAML configuration without generating charts",
     )
 
     parser.add_argument(
-        '--outdir', '-o',
+        "--outdir",
+        "-o",
         type=Path,
-        default=Path('charts'),
-        help='Output directory for generated charts (default: charts/)'
+        default=Path("charts"),
+        help="Output directory for generated charts (default: charts/)",
     )
 
-    parser.add_argument(
-        '--verbose',
-        action='store_true',
-        help='Enable verbose logging'
-    )
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+
+    parser.add_argument("--list-types", action="store_true", help="List available chart types")
 
     parser.add_argument(
-        '--list-types',
-        action='store_true',
-        help='List available chart types'
-    )
-
-    parser.add_argument(
-        '--clear-cache',
-        action='store_true',
-        help='Clear the cached Google Sheets data and exit'
+        "--clear-cache", action="store_true", help="Clear the cached Google Sheets data and exit"
     )
 
     args = parser.parse_args()
@@ -160,7 +149,7 @@ Examples:
     setup_logging(args.verbose)
 
     # Suppress repetitive matplotlib categorical units INFO messages
-    logging.getLogger('matplotlib.category').setLevel(logging.WARNING)
+    logging.getLogger("matplotlib.category").setLevel(logging.WARNING)
 
     # Handle clear-cache
     if args.clear_cache:
@@ -224,5 +213,5 @@ Examples:
     return 0 if failure_count == 0 else 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())
