@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import ClassVar
 
 from .nasa_budget_data_source import NASABudget
@@ -23,5 +22,5 @@ class Missions(NASABudget):
     ]
     MONETARY_COLUMNS: ClassVar[list[str]] = ["LCC"]
 
-    def __init__(self, *, cache_dir: Path | None = None) -> None:
-        super().__init__(self.CSV_URL, cache_dir=cache_dir)
+    def __init__(self) -> None:
+        super().__init__(self.CSV_URL)

@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import logging
 from functools import cached_property
-from pathlib import Path
 
 import pandas as pd
 
@@ -78,14 +77,11 @@ class SpaceScienceMissions(GoogleSheetsSource):
         "export?format=csv"
     )
 
-    def __init__(self, cache_dir: Path | None = None) -> None:
+    def __init__(self) -> None:
         """
         Initialize the SpaceScienceMissions data source.
-
-        Args:
-            cache_dir: Optional directory to cache downloaded CSV files
         """
-        super().__init__(url=self.URL, cache_dir=cache_dir)
+        super().__init__(url=self.URL)
 
     @cached_property
     def _df(self) -> pd.DataFrame:

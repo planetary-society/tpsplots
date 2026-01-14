@@ -90,7 +90,7 @@ chart:
 
 data_source:
   type: controller_method
-  class: NASABudgetChart
+  class: tpsplots.controllers.nasa_budget_chart.NASABudgetChart
   method: nasa_budget_by_year_with_projection_inflation_adjusted
 
 metadata:
@@ -231,7 +231,7 @@ chart:
 
 data_source:
   type: controller_method
-  class: NASABudgetChart
+  class: tpsplots.controllers.nasa_budget_chart.NASABudgetChart
   method: nasa_major_activites_donut_chart
 
 metadata:
@@ -263,7 +263,7 @@ chart:
 
 data_source:
   type: controller_method
-  class: FY2025Charts
+  class: tpsplots.controllers.fy2025_charts.FY2025Charts
   method: new_contract_awards_comparison_to_prior_years
 
 metadata:
@@ -343,15 +343,25 @@ Use existing Python controllers for advanced data manipulation:
 ```yaml
 data_source:
   type: controller_method
-  class: NASABudgetChart
+  class: tpsplots.controllers.nasa_budget_chart.NASABudgetChart
   method: nasa_budget_by_year_inflation_adjusted
 ```
 
+If the controller lives outside your Python path, provide a local file path:
+
+```yaml
+data_source:
+  type: controller_method
+  class: MyCustomChart
+  method: my_data_method
+  path: "/path/to/custom_controller.py"
+```
+
 **Available Controllers:**
-- `NASABudgetChart` - NASA budget analysis with inflation adjustment
-- `FY2025Charts` / `FY2026Charts` - Fiscal year spending analysis
-- `ChinaComparisonsController` - US-China space comparison
-- `MissionSpendingController` - Mission-level spending data
+- `tpsplots.controllers.nasa_budget_chart.NASABudgetChart` - NASA budget analysis
+- `tpsplots.controllers.fy2025_charts.FY2025Charts` / `tpsplots.controllers.fy2026_charts.FY2026Charts`
+- `tpsplots.controllers.china_comparisons_controller.ChinaComparisonsController`
+- `tpsplots.controllers.mission_spending_controller.MissionSpendingController`
 
 ---
 
@@ -512,8 +522,10 @@ Then reference in YAML:
 ```yaml
 data_source:
   type: controller_method
-  class: MyCustomChart
+  class: myproject.my_controller.MyCustomChart
   method: my_data_method
+  # Optional: load a local controller file outside the package
+  # path: "/path/to/custom_controller.py"
 ```
 
 ### IDE Autocomplete with JSON Schema

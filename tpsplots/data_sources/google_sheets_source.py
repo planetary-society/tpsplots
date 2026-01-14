@@ -57,14 +57,11 @@ from __future__ import annotations
 
 import io
 import logging
-from datetime import timedelta
 from functools import cached_property
-from pathlib import Path
 from typing import Any, ClassVar
 
 import pandas as pd
 import requests
-from cachier import cachier
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +80,6 @@ class GoogleSheetsSource:
     - Optional type casting overrides
     - Column selection and renaming
     - Attribute-style column access
-    - Caching support
 
     For direct instantiation, pass parameters to __init__:
     - url: The Google Sheets CSV export URL
@@ -115,7 +111,6 @@ class GoogleSheetsSource:
         cast: dict[str, str] | None = None,
         columns: list[str] | None = None,
         renames: dict[str, str] | None = None,
-        cache_dir: Path | None = None,
     ) -> None:
         """
         Initialize the GoogleSheetsSource instance.
@@ -127,7 +122,6 @@ class GoogleSheetsSource:
             cast: Column type overrides (optional, can also be class attribute CAST)
             columns: Columns to keep (optional, can also be class attribute COLUMNS)
             renames: Column renames (optional, can also be class attribute RENAMES)
-            cache_dir: Optional directory to cache downloaded CSV files
         """
         # URL resolution: parameter takes precedence over class attribute
         self._url = url or getattr(self.__class__, "URL", None)
@@ -140,7 +134,6 @@ class GoogleSheetsSource:
         self._cast = cast
         self._columns = columns
         self._renames = renames
-        self._cache_dir = cache_dir
 
     def data(self) -> pd.DataFrame:
         """
@@ -229,10 +222,9 @@ class GoogleSheetsSource:
         return df
 
     @staticmethod
-    @cachier(stale_after=timedelta(hours=24))
     def _fetch_csv_content(url: str) -> str:
         """
-        Fetch CSV content from URL with caching.
+        Fetch CSV content from URL.
 
         Args:
             url: The URL to fetch
@@ -248,33 +240,15 @@ class GoogleSheetsSource:
         """
         Read CSV data from the Google Sheets URL.
 
-        Uses caching if cache_dir is specified.
-
         Returns:
             DataFrame with data from CSV
         """
-        # Check cache if enabled
-        if self._cache_dir:
-            self._cache_dir.mkdir(parents=True, exist_ok=True)
-            # Create cache filename from URL (use last part of sheet ID)
-            cache_name = self._url.split("/")[-2][:20] + ".csv"
-            cache_path = self._cache_dir / cache_name
-
-            if cache_path.exists():
-                logger.debug(f"Reading from cache: {cache_path}")
-                return pd.read_csv(cache_path)
-
         # Fetch from URL
         logger.debug(f"Fetching data from: {self._url}")
         csv_content = self._fetch_csv_content(self._url)
 
         # Parse CSV with pandas auto-detection
         df = pd.read_csv(io.StringIO(csv_content))
-
-        # Save to cache if enabled
-        if self._cache_dir:
-            logger.debug(f"Caching data to: {cache_path}")
-            df.to_csv(cache_path, index=False)
 
         return df
 

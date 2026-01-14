@@ -2,12 +2,12 @@
 
 import logging
 import re
-from pathlib import Path
 
 import pandas as pd
 
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.data_sources.google_sheets_source import GoogleSheetsSource
+from tpsplots.exceptions import DataSourceError
 from tpsplots.utils.date_processing import looks_like_date_column, round_date_to_year
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,6 @@ class GoogleSheetsController(ChartController):
         cast: dict[str, str] | None = None,
         columns: list[str] | None = None,
         renames: dict[str, str] | None = None,
-        cache_dir: Path | None = None,
     ):
         """
         Initialize the GoogleSheetsController with URL and options.
@@ -39,14 +38,12 @@ class GoogleSheetsController(ChartController):
             cast: Column type overrides (e.g., {"Date": "datetime", "ID": "str"})
             columns: Columns to keep from the sheet
             renames: Column renames (e.g., {"Old Name": "New Name"})
-            cache_dir: Optional directory to cache downloaded CSV files
         """
         super().__init__()
         self.url = url
         self.cast = cast
         self.columns = columns
         self.renames = renames
-        self.cache_dir = cache_dir
         self._source = None
 
     def load_data(self):
@@ -75,8 +72,6 @@ class GoogleSheetsController(ChartController):
                 source_kwargs["columns"] = self.columns
             if self.renames:
                 source_kwargs["renames"] = self.renames
-            if self.cache_dir:
-                source_kwargs["cache_dir"] = self.cache_dir
 
             self._source = GoogleSheetsSource(url=self.url, **source_kwargs)
             df = self._source.data()
@@ -135,7 +130,6 @@ class GoogleSheetsController(ChartController):
                     "cast": self.cast,
                     "columns": self.columns,
                     "renames": self.renames,
-                    "cache_dir": str(self.cache_dir) if self.cache_dir else None,
                 },
             }
         except Exception as e:

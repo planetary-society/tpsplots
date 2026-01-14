@@ -7,7 +7,7 @@ chart:
 
 data_source:
   type: controller_method
-  class: FY2025Charts
+  class: tpsplots.controllers.fy2025_charts.FY2025Charts
   method: new_grants_awards_comparison_to_prior_year
 
 metadata:

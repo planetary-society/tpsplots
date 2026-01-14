@@ -63,11 +63,11 @@ class TestCLI:
         from tpsplots.cli import main
 
         exit_code = main([])
-        assert exit_code == 1
+        assert exit_code == 2
 
     def test_cli_missing_file(self):
         """Test that CLI handles missing file."""
         from tpsplots.cli import main
 
         exit_code = main(["nonexistent.yaml"])
-        assert exit_code == 1
+        assert exit_code == 2

@@ -1,22 +1,12 @@
 """
-Cache configuration for tpsplots data retrieval.
+Deprecated cache configuration.
 
-This module sets up cachier to cache external data fetches in a consistent location.
+Caching is disabled in tpsplots; this module is kept for compatibility.
 """
 
 from pathlib import Path
 
-from cachier import set_default_params
-
-# Set up cache directory
+# Export a default cache directory path (unused by the package).
 CACHE_DIR = Path.home() / ".cache" / "tps-charts"
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-# Configure cachier defaults
-set_default_params(
-    cache_dir=str(CACHE_DIR),
-    backend="pickle",  # Use pickle backend for simplicity
-)
-
-# Export cache directory for other modules
 __all__ = ["CACHE_DIR"]

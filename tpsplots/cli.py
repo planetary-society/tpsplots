@@ -31,7 +31,7 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
 def validate_yaml(yaml_path: Path, strict: bool = False) -> bool:
     """Validate a YAML configuration without generating charts."""
     try:
-        processor = YAMLChartProcessor(yaml_path)
+        processor = YAMLChartProcessor(yaml_path, strict=strict)
         print(f"Valid: {yaml_path.name}")
         return True
     except (ConfigurationError, DataSourceError) as e:
@@ -59,9 +59,10 @@ def export_schema() -> str:
         return f'{{"error": "Failed to generate schema: {e}"}}'
 
 
-def collect_yaml_files(inputs: list[Path]) -> list[Path]:
+def collect_yaml_files(inputs: list[Path]) -> tuple[list[Path], list[str]]:
     """Collect all YAML files from the given inputs (files and directories)."""
     yaml_files = []
+    errors: list[str] = []
     logger = logging.getLogger(__name__)
 
     for input_path in inputs:
@@ -69,7 +70,7 @@ def collect_yaml_files(inputs: list[Path]) -> list[Path]:
             if input_path.suffix.lower() in [".yaml", ".yml"]:
                 yaml_files.append(input_path)
             else:
-                logger.warning(f"Skipping non-YAML file: {input_path}")
+                errors.append(f"Not a YAML file: {input_path}")
         elif input_path.is_dir():
             # Non-recursive - only direct children
             dir_yamls = list(input_path.glob("*.yaml")) + list(input_path.glob("*.yml"))
@@ -77,11 +78,11 @@ def collect_yaml_files(inputs: list[Path]) -> list[Path]:
                 yaml_files.extend(sorted(dir_yamls))
                 logger.info(f"Found {len(dir_yamls)} YAML files in {input_path}")
             else:
-                logger.warning(f"No YAML files found in directory: {input_path}")
+                errors.append(f"No YAML files found in directory: {input_path}")
         else:
-            logger.error(f"Path not found: {input_path}")
+            errors.append(f"Path not found: {input_path}")
 
-    return yaml_files
+    return yaml_files, errors
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -193,14 +194,19 @@ def main(args: list[str] | None = None) -> int:
     # Require inputs for operations that need them
     if not parsed_args.inputs:
         parser.print_help()
-        return 1
+        return 2
 
     # Collect all YAML files from inputs
-    yaml_files = collect_yaml_files(parsed_args.inputs)
+    yaml_files, input_errors = collect_yaml_files(parsed_args.inputs)
+
+    if input_errors:
+        for error in input_errors:
+            logger.error(error)
+        return 2
 
     if not yaml_files:
         logger.error("No YAML files found to process")
-        return 1
+        return 2
 
     if not parsed_args.quiet:
         logger.info(f"Processing {len(yaml_files)} YAML file(s)...")
@@ -218,18 +224,21 @@ def main(args: list[str] | None = None) -> int:
 
         if not parsed_args.quiet:
             logger.info(f"Validation complete: {valid_count} valid, {invalid_count} invalid")
-        return 0 if invalid_count == 0 else 1
+        return 0 if invalid_count == 0 else 2
 
     # Generate charts
     success_count = 0
     failure_count = 0
+    config_error_count = 0
 
     # Create output directory if it doesn't exist
     parsed_args.outdir.mkdir(parents=True, exist_ok=True)
 
     for yaml_file in yaml_files:
         try:
-            processor = YAMLChartProcessor(yaml_file, outdir=parsed_args.outdir)
+            processor = YAMLChartProcessor(
+                yaml_file, outdir=parsed_args.outdir, strict=parsed_args.strict
+            )
             result = processor.generate_chart()
 
             if result:
@@ -241,7 +250,12 @@ def main(args: list[str] | None = None) -> int:
                     logger.warning(f"No output from {yaml_file.name}")
                 failure_count += 1
 
-        except (ConfigurationError, DataSourceError, RenderingError) as e:
+        except ConfigurationError as e:
+            logger.error(f"Config error: {yaml_file.name} - {e}")
+            config_error_count += 1
+            if parsed_args.verbose:
+                traceback.print_exc()
+        except (DataSourceError, RenderingError) as e:
             logger.error(f"Failed: {yaml_file.name} - {e}")
             failure_count += 1
             if parsed_args.verbose:
@@ -255,7 +269,11 @@ def main(args: list[str] | None = None) -> int:
     if not parsed_args.quiet:
         logger.info(f"Complete: {success_count} succeeded, {failure_count} failed")
 
-    return 0 if failure_count == 0 else 1
+    if config_error_count > 0:
+        return 2
+    if failure_count > 0:
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

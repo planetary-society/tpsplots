@@ -73,11 +73,11 @@ class TestModels:
         assert source.type == "csv_file"
         assert source.path == "data.csv"
 
-    def test_url_data_source(self):
-        """Test URLDataSource model."""
-        from tpsplots.models import URLDataSource
+    def test_google_sheets_data_source(self):
+        """Test GoogleSheetsDataSource model."""
+        from tpsplots.models import GoogleSheetsDataSource
 
-        source = URLDataSource(
+        source = GoogleSheetsDataSource(
             type="google_sheets",
             url="https://docs.google.com/spreadsheets/d/test/export?format=csv",
         )

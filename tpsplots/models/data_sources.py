@@ -11,6 +11,10 @@ class ControllerMethodDataSource(BaseModel):
     type: Literal["controller_method"]
     class_name: str = Field(..., alias="class", description="Controller class name")
     method: str = Field(..., description="Method name to call")
+    path: str | None = Field(
+        None,
+        description="Optional path to a Python file containing the controller class",
+    )
 
 
 class CSVFileDataSource(BaseModel):
@@ -20,8 +24,8 @@ class CSVFileDataSource(BaseModel):
     path: str = Field(..., description="Path to CSV file")
 
 
-class URLDataSource(BaseModel):
-    """URL/Google Sheets data source configuration."""
+class GoogleSheetsDataSource(BaseModel):
+    """Google Sheets data source configuration."""
 
-    type: Literal["google_sheets", "url"]
+    type: Literal["google_sheets"]
     url: str = Field(..., description="URL to fetch CSV data from")

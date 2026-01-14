@@ -4,7 +4,7 @@ from tpsplots.models.chart_config import ChartConfig, DirectLineLabelsConfig, Me
 from tpsplots.models.data_sources import (
     ControllerMethodDataSource,
     CSVFileDataSource,
-    URLDataSource,
+    GoogleSheetsDataSource,
 )
 from tpsplots.models.parameters import ParametersConfig
 from tpsplots.models.yaml_config import YAMLChartConfig
@@ -16,6 +16,6 @@ __all__ = [
     "DirectLineLabelsConfig",
     "MetadataConfig",
     "ParametersConfig",
-    "URLDataSource",
+    "GoogleSheetsDataSource",
     "YAMLChartConfig",
 ]

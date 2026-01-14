@@ -3,7 +3,7 @@ chart:
   output_name: nasa_directorate_breakdown_donut_chart
 data_source:
   type: controller_method
-  class: NASABudgetChart
+  class: tpsplots.controllers.nasa_budget_chart.NASABudgetChart
   method: nasa_major_activites_donut_chart
 metadata:
   title: NASA's budget is subdivided by mission area

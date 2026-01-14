@@ -3,7 +3,7 @@ chart:
   output_name: nasa_budget_by_year_with_projection_inflation_adjusted
 data_source:
   type: controller_method
-  class: NASABudgetChart
+  class: tpsplots.controllers.nasa_budget_chart.NASABudgetChart
   method: nasa_budget_by_year_with_projection_inflation_adjusted
 metadata:
   title: How NASA's budget has changed over time

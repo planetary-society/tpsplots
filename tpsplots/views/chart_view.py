@@ -16,6 +16,7 @@ from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.ticker import FuncFormatter
 
 from tpsplots import TPS_STYLE_FILE  # custom mplstyle
+from tpsplots.exceptions import RenderingError
 
 logger = logging.getLogger(__name__)
 
@@ -150,8 +151,7 @@ class ChartView:
 
         except Exception as e:
             logger.error(f"Error generating chart {stem}: {e}")
-            desktop_fig = None
-            mobile_fig = None
+            raise RenderingError(f"Error generating chart {stem}: {e}") from e
 
         logger.info(f"✓ generated charts for {stem}")
 

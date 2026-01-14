@@ -3,7 +3,7 @@ chart:
   output_name: nasa_budget_pbr_appropriation_by_year
 data_source:
   type: controller_method
-  class: NASABudgetChart
+  class: tpsplots.controllers.nasa_budget_chart.NASABudgetChart
   method: nasa_budget_pbr_appropriation_by_year_inflation_adjusted
 metadata:
   title: The President's budget proposal sets the tone

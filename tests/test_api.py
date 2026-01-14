@@ -45,13 +45,12 @@ class TestGenerate:
             tpsplots.generate("nonexistent_file.yaml")
 
     def test_generate_empty_directory(self):
-        """Test that generate handles empty directory gracefully."""
+        """Test that generate raises ConfigurationError for empty directory."""
         import tpsplots
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            result = tpsplots.generate(tmpdir)
-            assert result["succeeded"] == 0
-            assert result["failed"] == 0
+            with pytest.raises(tpsplots.ConfigurationError):
+                tpsplots.generate(tmpdir)
 
 
 class TestAssets:

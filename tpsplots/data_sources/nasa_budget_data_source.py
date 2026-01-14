@@ -54,10 +54,8 @@ import io
 import re
 import ssl
 from collections.abc import Callable
-from contextlib import suppress
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from functools import cached_property
-from importlib import import_module
 from pathlib import Path
 from typing import Any, ClassVar
 from urllib.error import URLError
@@ -65,11 +63,6 @@ from urllib.error import URLError
 import certifi
 import pandas as pd
 import requests
-from cachier import cachier
-
-# Configure caching
-with suppress(ImportError):
-    import_module("..config.cache_config", package=__package__)
 
 # Assumed external library for inflation adjustments
 import logging
@@ -100,7 +93,7 @@ class NASABudget:
     _CURRENCY_RE = re.compile(r"[\$,]|\s*[MB]$", flags=re.IGNORECASE)
 
     # ── core API ────────────────────────────────────────────────────
-    def __init__(self, csv_source: str | Path, *, cache_dir: Path | None = None) -> None:
+    def __init__(self, csv_source: str | Path) -> None:
         """
         Initializes the NASABudget instance.
 
@@ -109,10 +102,8 @@ class NASABudget:
 
         Args:
             csv_source: The path to a local CSV file or a URL of a CSV file.
-            cache_dir: An optional directory to cache downloaded CSV files.
         """
         self._csv_source = str(csv_source)
-        self._cache_dir = cache_dir
 
     def data(self) -> pd.DataFrame:
         """
@@ -288,10 +279,9 @@ class NASABudget:
 
     # ── I/O helpers ────────────────────────────────────────────────
     @staticmethod
-    @cachier(stale_after=timedelta(hours=24))
     def _fetch_url_content(url: str) -> str:
         """
-        Fetch content from a URL with caching.
+        Fetch content from a URL.
 
         Args:
             url: The URL to fetch
@@ -310,12 +300,7 @@ class NASABudget:
 
     def _read_csv(self) -> pd.DataFrame:
         """
-        Reads the CSV data from the source, potentially using a cache.
-
-        If a cache directory is specified and the cached file exists, it reads
-        from the cache. Otherwise, it reads from the specified source (local
-        path or URL). If reading from a URL and a cache directory is provided,
-        it saves the downloaded data to the cache.
+        Reads the CSV data from the source.
 
         Returns:
             A pandas DataFrame containing the raw data from the CSV source.
@@ -325,32 +310,16 @@ class NASABudget:
                 If the data cannot be fetched from the URL.
             FileNotFoundError: If the local file does not exist.
         """
-        # Check if caching is enabled and a cached file exists
-        if self._cache_dir:
-            self._cache_dir.mkdir(parents=True, exist_ok=True)
-            dest = self._cache_dir / Path(self._csv_source).name
-            if dest.exists():
-                logger.debug(f"Reading from cache: {dest}")  # Added for visibility
-                return pd.read_csv(dest)
-
         logger.debug(f"Reading from source: {self._csv_source}")  # Added for visibility
 
         # Check if it's a URL or local file
         if self._csv_source.startswith(("http://", "https://")):
-            # Use cached URL fetching
             text = self._fetch_url_content(self._csv_source)
             df = pd.read_csv(io.StringIO(text))
         else:
             # Local file - read directly
             df = pd.read_csv(self._csv_source)
 
-        # If caching is enabled, save the downloaded DataFrame to the cache
-        if self._cache_dir:
-            cache_path = Path(self._cache_dir, Path(self._csv_source).name)
-            logger.info(f"Caching data to: {cache_path}")  # Added for visibility
-            cache_path.write_bytes(
-                df.to_csv(index=False).encode()  # Convert DataFrame to CSV string, then bytes
-            )
         return df
 
     # ── cleaning helpers ───────────────────────────────────────────
@@ -602,15 +571,10 @@ class Historical(NASABudget):
     # Define which columns contain monetary values that need inflation adjustment
     MONETARY_COLUMNS: ClassVar[list[str]] = ["PBR", "Appropriation", "Outlays"]
 
-    def __init__(self, *, cache_dir: Path | None = None) -> None:
-        """
-        Initializes the Historical budget data instance.
-
-        Args:
-            cache_dir: An optional directory to cache the downloaded CSV file.
-        """
+    def __init__(self) -> None:
+        """Initializes the Historical budget data instance."""
         # Call the base class constructor with the specific CSV URL
-        super().__init__(self.CSV_URL, cache_dir=cache_dir)
+        super().__init__(self.CSV_URL)
 
 
 class ScienceDivisions(NASABudget):
@@ -651,15 +615,10 @@ class ScienceDivisions(NASABudget):
         "Heliophysics Proposed",
     ]
 
-    def __init__(self, *, cache_dir: Path | None = None) -> None:
-        """
-        Initializes the Science budget data instance.
-
-        Args:
-            cache_dir: An optional directory to cache the downloaded CSV file.
-        """
+    def __init__(self) -> None:
+        """Initializes the Science budget data instance."""
         # Call the base class constructor with the specific CSV URL
-        super().__init__(self.CSV_URL, cache_dir=cache_dir)
+        super().__init__(self.CSV_URL)
 
 
 class Directorates(NASABudget):
@@ -705,15 +664,10 @@ class Directorates(NASABudget):
         "Facilities, IT, & Salaries",
     ]
 
-    def __init__(self, *, cache_dir: Path | None = None) -> None:
-        """
-        Initializes the Directorates budget data instance.
-
-        Args:
-            cache_dir: An optional directory to cache the downloaded CSV file.
-        """
+    def __init__(self) -> None:
+        """Initializes the Directorates budget data instance."""
         # Call the base class constructor with the specific CSV URL
-        super().__init__(self.CSV_URL, cache_dir=cache_dir)
+        super().__init__(self.CSV_URL)
 
 
 class Science(NASABudget):
@@ -727,8 +681,8 @@ class Science(NASABudget):
     RENAMES: ClassVar[dict[str, str]] = {"NASA Science (millions of $)": "NASA Science"}
     MONETARY_COLUMNS: ClassVar[list[str]] = ["NASA Science", "FY 2026 PBR"]
 
-    def __init__(self, *, cache_dir: Path | None = None) -> None:
-        super().__init__(self.CSV_URL, cache_dir=cache_dir)
+    def __init__(self) -> None:
+        super().__init__(self.CSV_URL)
 
 
 class Workforce(NASABudget):
@@ -744,5 +698,5 @@ class Workforce(NASABudget):
         "Full-time Equivalent (FTE)",
     ]
 
-    def __init__(self, *, cache_dir: Path | None = None) -> None:
-        super().__init__(self.CSV_URL, cache_dir=cache_dir)
+    def __init__(self) -> None:
+        super().__init__(self.CSV_URL)

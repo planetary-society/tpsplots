@@ -20,7 +20,9 @@ class YAMLChartProcessor:
     # Use the centralized registry from views module
     VIEW_REGISTRY: ClassVar[dict[str, type]] = VIEW_REGISTRY
 
-    def __init__(self, yaml_path: str | Path, outdir: Path | None = None):
+    def __init__(
+        self, yaml_path: str | Path, outdir: Path | None = None, *, strict: bool = False
+    ):
         """
         Initialize the YAML chart processor.
 
@@ -30,6 +32,7 @@ class YAMLChartProcessor:
         """
         self.yaml_path = Path(yaml_path)
         self.outdir = outdir or Path("charts")
+        self.strict = strict
 
         # Load and validate YAML configuration
         raw_config = self._load_yaml()
@@ -72,11 +75,11 @@ class YAMLChartProcessor:
 
         # Step 2: Resolve parameters with data context
         logger.info("Resolving parameters...")
-        parameters = ParameterResolver.resolve(self.config.parameters, self.data)
+        parameters = ParameterResolver.resolve(self.config.parameters, self.data, strict=self.strict)
 
         # Step 3: Resolve metadata templates
         logger.info("Resolving metadata...")
-        metadata = MetadataResolver.resolve(self.config.metadata, self.data)
+        metadata = MetadataResolver.resolve(self.config.metadata, self.data, strict=self.strict)
 
         # Step 4: Get view and generate chart
         chart_config = self.config.chart

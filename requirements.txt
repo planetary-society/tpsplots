@@ -6,6 +6,5 @@ requests==2.32.3
 python-pptx==1.0.2
 boto3==1.38.19
 geopandas==1.1.1
-cachier==4.1.0
 pydantic>=2.0
 pyyaml>=6.0
