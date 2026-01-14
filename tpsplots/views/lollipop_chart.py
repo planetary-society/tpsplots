@@ -4,7 +4,6 @@ import logging
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 
 from .chart_view import ChartView
 
@@ -520,44 +519,7 @@ class LollipopChartView(ChartView):
                     alpha=0.8,
                 )
 
-    def _format_value(self, value, format_type):
-        """Format values according to the specified format type."""
-        if pd.isna(value):
-            return ""
-
-        if format_type == "monetary":
-            return self._format_monetary(value)
-        elif format_type == "percentage":
-            return f"{value:.1f}%"
-        elif format_type == "integer":
-            return f"{int(value):,}"
-        elif format_type == "float":
-            return f"{value:.1f}"
-        else:
-            # Try as custom Python format specification
-            try:
-                return f"{value:{format_type}}"
-            except (ValueError, KeyError) as e:
-                raise ValueError(
-                    f"Invalid value_format: '{format_type}'. "
-                    f"Must be one of 'monetary', 'percentage', 'integer', 'float' "
-                    f"or a valid Python format spec (e.g., '.1f', '.2f', ',.0f'). "
-                    f"Error formatting value {value}: {e}"
-                ) from e
-
-    def _format_monetary(self, value):
-        """Format monetary values with appropriate suffixes."""
-        abs_value = abs(value)
-        sign = "-" if value < 0 else ""
-
-        if abs_value >= 1_000_000_000:
-            return f"{sign}${abs_value / 1_000_000_000:.1f}B"
-        elif abs_value >= 1_000_000:
-            return f"{sign}${abs_value / 1_000_000:.0f}M"
-        elif abs_value >= 1_000:
-            return f"{sign}${abs_value / 1_000:.0f}K"
-        else:
-            return f"{sign}${abs_value:.0f}"
+    # NOTE: _format_value and _format_monetary are inherited from ChartView base class
 
     def _apply_lollipop_styling(self, ax, style, **kwargs):
         """Apply consistent styling to the lollipop chart."""

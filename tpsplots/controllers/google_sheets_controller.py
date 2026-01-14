@@ -8,6 +8,7 @@ import pandas as pd
 
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.data_sources.google_sheets_source import GoogleSheetsSource
+from tpsplots.utils.date_processing import looks_like_date_column, round_date_to_year
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +19,8 @@ class GoogleSheetsController(ChartController):
 
     This controller wraps the existing GoogleSheetsSource class to provide
     a standard controller interface for the YAML chart generation system,
-    while leveraging all the features of GoogleSheetsSource (caching,
-    column selection, type casting, etc.).
+    while leveraging all the features of GoogleSheetsSource (column selection,
+    type casting, etc.).
     """
 
     def __init__(
@@ -92,11 +93,11 @@ class GoogleSheetsController(ChartController):
                 result[col] = df[col].values
 
                 # Auto-detect date columns and create _year variants with mid-year rounding
-                if self._looks_like_date_column(col, df[col]):
+                if looks_like_date_column(col, df[col]):
                     try:
                         dt_series = pd.to_datetime(df[col], errors="coerce")
                         year_col_name = f"{col}_year"
-                        result[year_col_name] = self._round_date_to_year(dt_series).values
+                        result[year_col_name] = round_date_to_year(dt_series).values
                         logger.debug(f"Created year column '{year_col_name}' from '{col}'")
                     except Exception as e:
                         logger.debug(f"Could not convert '{col}' to years: {e}")
@@ -104,7 +105,9 @@ class GoogleSheetsController(ChartController):
             return result
 
         except Exception as e:
-            raise RuntimeError(f"Error fetching data from Google Sheets URL {self.url}: {e}") from e
+            raise DataSourceError(
+                f"Error fetching data from Google Sheets URL {self.url}: {e}"
+            ) from e
 
     def get_data_summary(self):
         """
@@ -166,65 +169,9 @@ class GoogleSheetsController(ChartController):
         """
         if "docs.google.com/spreadsheets" in url and "export?format=csv" not in url:
             # Extract sheet ID and convert to CSV export URL
-            import re
-
             sheet_id_match = re.search(r"/spreadsheets/d/([a-zA-Z0-9-_]+)", url)
             if sheet_id_match:
                 sheet_id = sheet_id_match.group(1)
                 return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
         return url
-
-    def _looks_like_date_column(self, col_name: str, series: pd.Series) -> bool:
-        """
-        Check if a column contains date-like data.
-
-        Args:
-            col_name: Column name
-            series: Pandas Series to check
-
-        Returns:
-            bool: True if the column appears to contain dates
-        """
-        if len(series) == 0:
-            return False
-
-        # Get first non-null value
-        first_val = series.dropna().iloc[0] if len(series.dropna()) > 0 else None
-        if first_val is None:
-            return False
-
-        # Check if value matches date format (YYYY-MM-DD)
-        # This catches both explicit date columns and implicit ones like "First Crewed Utilization"
-        return bool(re.match(r"\d{4}-\d{2}-\d{2}", str(first_val)))
-
-    def _round_date_to_year(self, dt_series: pd.Series) -> pd.Series:
-        """
-        Round dates to nearest year using June 15 cutoff.
-
-        Dates before June 15 round to the current year.
-        Dates on or after June 15 round to the next year.
-
-        Args:
-            dt_series: Pandas Series of datetime objects
-
-        Returns:
-            pd.Series: Series of integer years
-
-        Examples:
-            1959-01-09 → 1959 (before June 15)
-            1959-06-14 → 1959 (before June 15)
-            1959-06-15 → 1960 (at cutoff, rounds up)
-            1961-12-07 → 1962 (after June 15)
-        """
-
-        def round_single_date(dt):
-            if pd.isna(dt):
-                return pd.NA
-            # Check if before June 15 (month < 6, or month == 6 and day < 15)
-            if dt.month < 6 or (dt.month == 6 and dt.day < 15):
-                return dt.year
-            else:
-                return dt.year + 1
-
-        return dt_series.apply(round_single_date)

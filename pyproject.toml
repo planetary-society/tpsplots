@@ -1,18 +1,73 @@
 [project]
 name = "tpsplots"
-version = "0.2.0"
-description = "A library to create custom Planetary Society-branded charts."
+version = "1.0.0"
+description = "A library to create custom Planetary Society-branded charts from YAML configurations."
 authors = [
     {name = "Casey Dreier", email = "casey.dreier@planetary.org"}
 ]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+keywords = ["charts", "visualization", "matplotlib", "yaml", "planetary-society"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+
+dependencies = [
+    "matplotlib>=3.7",
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "python-pptx>=0.6.21",
+    "requests>=2.28",
+    "pywaffle>=1.1.0",
+    "geopandas>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+tpsplots = "tpsplots.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/planetary/tpsplots"
+Repository = "https://github.com/planetary/tpsplots"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tpsplots*"]
+
+[tool.setuptools.package-data]
+tpsplots = [
+    "assets/**/*",
+    "assets/fonts/**/*.ttf",
+    "assets/fonts/**/*.txt",
+    "assets/images/**/*.png",
+    "views/style/**/*.mplstyle",
+]
 
 # Ruff configuration
 [tool.ruff]
 line-length = 100
-target-version = "py311"
-src = ["src", "tests"]
+target-version = "py310"
+src = ["tpsplots", "tests"]
 
 [tool.ruff.lint]
 select = [
@@ -38,9 +93,20 @@ ignore = [
     "F401",   # Allow unused imports (public API re-exports)
 ]
 
+"cli.py" = [
+    "F401",   # Imports used inside functions (e.g., get_chart_types in list_chart_types)
+]
+
 [tool.ruff.lint.isort]
 known-first-party = ["tpsplots"]
 
 [tool.ruff.format]
 quote-style = "double"
 docstring-code-format = true
+
+# Pytest configuration
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

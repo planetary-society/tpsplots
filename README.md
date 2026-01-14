@@ -2,225 +2,564 @@
 
 A data visualization framework for The Planetary Society that creates consistent, branded charts for web and presentations.
 
-## Motivation
+## Features
 
-TPS Plots was developed to address several key challenges and goals:
+- **YAML-Driven Chart Generation** - Define charts declaratively without writing Python code
+- **Multiple Chart Types** - Line, bar, lollipop, donut, waffle, stacked bar, and more
+- **Automatic Responsive Output** - Generates both desktop (16:9) and mobile (1:1) versions
+- **Multi-Format Export** - SVG, PNG, PPTX, and CSV data export
+- **Flexible Data Sources** - Google Sheets, CSV files, or custom controller methods
+- **TPS Brand Styling** - Consistent Planetary Society branding with Poppins fonts
+- **Headless Support** - Auto-detects CI/CD environments for server-side generation
+- **JSON Schema** - IDE autocomplete support for YAML configurations
 
-- **Replace outdated visualization technology**: Remove deprecated ChartJS 2.x implementation from planetary.org with a more modern, maintainable solution
-- **Improve website performance**: Reduce load times and overhead by using pre-generated static charts instead of client-side JavaScript libraries
-- **Strengthen brand identity**: Ensure all data visualizations consistently follow TPS branding guidelines
-- **Simplify data maintenance**: Make inflation adjustments and data updates easier and more consistent
-- **Enable custom visualizations**: Provide a platform for creating one-off, unique charts that still maintain TPS brand styling
-- **Enhance shareability**: Enable easy download and sharing of charts by users, journalists, academics, and staff
-
-## Overview
-
-TPS Plots is a Python package designed to generate high-quality, branded data visualizations for The Planetary Society. The project follows an MVC (Model-View-Controller) architecture to separate data handling, visualization styling, and chart generation logic:
-
-- **Models** (`data_sources`): Handle loading, cleaning, and processing data
-- **Views** (`views`): Define chart styling and visualization types
-- **Controllers** (`controllers`): Coordinate data and views to generate specific chart types
-
-Charts are generated in multiple formats (SVG, PNG, PPTX) and optimized for both desktop (16x9) and mobile (1x1) display.
-
-## Key Features
-
-- **Static chart generation**: Pre-rendered charts reduce page load times and client-side processing
-- **Consistent branding** with TPS style guidelines across all visualizations
-- **Responsive design**: Automatic generation of both mobile and desktop versions of each chart
-- **Economic analysis tools**: Built-in inflation adjustment using NNSI (NASA New-Start Index) and GDP deflators
-- **Multi-format export**: Generate SVG (web), PNG (social media), and PPTX (presentations) formats
-- **Automated publishing**: S3 syncing to publish charts to the planetary.org website
-- **Extensible chart types**: Support for various visualization formats (line charts, waffle charts, etc.)
-- **Share-friendly**: Easy download options for users, journalists, and researchers
-
-## Usage
-
-### Generating Charts
-
-To generate a specific chart, import the appropriate controller and call its methods:
-
-```python
-from tpsplots.controllers.nasa_budget_chart import NASABudgetChart
-
-chart = NASABudgetChart()
-chart.nasa_budget_by_year_inflation_adjusted()
-```
-
-To generate all available NASA budget charts:
-
-```python
-chart = NASABudgetChart()
-chart.generate_charts()
-```
-
-Charts will be saved to the `charts/` directory by default in multiple formats:
-- `.svg` for web use (scalable, smaller file size)
-- `.png` for social media sharing and general use
-- `.pptx` for presentations (desktop version only)
-- `.csv` for easy sharing of source data
-
-### Syncing Charts to S3
-
-Charts are synced to the Planetary Society website using the provided S3 sync script and appropriate access keys:
+## Installation
 
 ```bash
-python scripts/s3_sync.py
+# Install from git repository
+pip install git+https://github.com/planetary/tpsplots.git
+
+# Or install in development mode
+git clone https://github.com/planetary/tpsplots.git
+cd tpsplots
+pip install -e ".[dev]"
 ```
 
-This will upload charts to the `assets/charts/` directory in the specified S3 bucket, where they can be referenced from the Planetary website. This allows website developers to easily embed the charts using simple image tags, eliminating the need for complex JavaScript libraries and improving page load times.
+## Quick Start
+
+### 1. Create a YAML Configuration
+
+```yaml
+# my_chart.yaml
+chart:
+  type: line_plot
+  output_name: my_first_chart
+
+data_source:
+  type: google_sheets
+  url: "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/export?format=csv"
+
+metadata:
+  title: "My Chart Title"
+  subtitle: "A descriptive subtitle for context"
+  source: "Data Source Attribution"
+
+parameters:
+  x: Year
+  y: [Value1, Value2]
+  color: ["#037CC2", "#FF5D47"]
+  label: ["Series A", "Series B"]
+```
+
+### 2. Generate the Chart
+
+**CLI:**
+```bash
+tpsplots my_chart.yaml
+```
+
+**Python:**
+```python
+import tpsplots
+
+result = tpsplots.generate("my_chart.yaml")
+print(f"Generated {result['succeeded']} charts")
+```
+
+### 3. Find Your Output
+
+Charts are saved to `charts/` by default:
+- `my_first_chart_desktop.svg` / `my_first_chart_mobile.svg`
+- `my_first_chart_desktop.png` / `my_first_chart_mobile.png`
+- `my_first_chart.pptx` (desktop only)
+- `my_first_chart.csv` (if `export_data` specified)
+
+---
+
+## Real-World Examples
+
+### Example 1: Line Chart with Historical Data
+
+Track NASA budget over time with projections:
+
+```yaml
+# nasa_budget_by_year_with_projection.yaml
+chart:
+  type: line_plot
+  output_name: nasa_budget_by_year_with_projection_inflation_adjusted
+
+data_source:
+  type: controller_method
+  class: NASABudgetChart
+  method: nasa_budget_by_year_with_projection_inflation_adjusted
+
+metadata:
+  title: How NASA's budget has changed over time
+  subtitle: After its peak during Apollo, NASA's inflation-adjusted budget has held
+    relatively steady, though that may change.
+  source: NASA Budget Requests
+
+parameters:
+  x: fiscal_years
+  y:
+    - appropriation_adjusted_nnsi
+    - white_house_budget_projection
+  color: ["#037CC2", "#FF5D47"]
+  linestyle: ["-", "-"]
+  marker: ["", "o"]
+  label: ["", "Proposed"]
+  xlim: xlim
+  ylim: ylim
+  scale: billions
+  legend: legend
+  export_data: export_df
+```
+
+### Example 2: Horizontal Bar Chart from Google Sheets
+
+Compare spacecraft development timelines with data from a Google Sheet:
+
+```yaml
+# human_spacecraft_dev_times.yaml
+chart:
+  type: bar_plot
+  output_name: human_spaceflight_development_comparisons
+
+data_source:
+  type: google_sheets
+  url: "https://docs.google.com/spreadsheets/d/1uYSirJmE0gLQ701iBFZASsTQL0od36l9xJ7jbEagnrY/export?format=csv"
+
+metadata:
+  title: "A five year sprint to the Moon?"
+  subtitle: "A new entrant to provide crewed landings for NASA's Artemis program
+    by 2030 has five years to design and build their spacecraft."
+  source: "Official Reporting. Details: planet.ly/hsfdevtimes"
+
+parameters:
+  categories: Spacecraft
+  values: Duration (years)
+  orientation: horizontal
+  xlabel: "Years from prime contract award to first crewed flight"
+  sort_by: value
+  sort_ascending: false
+  height: 0.5
+  grid: true
+  xlim: [0, 20]
+  show_values: true
+  value_format: ".1f"
+  value_suffix: " yrs"
+  value_fontsize: 10
+  label_size: 14
+  tick_size: 16
+  colors:
+    - "#8C8C8C"  # Mercury
+    - "#8C8C8C"  # Gemini
+    - "#8C8C8C"  # Apollo CSM
+    - "#8C8C8C"  # Apollo LM
+    - "#8C8C8C"  # Shuttle Orbiter
+    - "#8C8C8C"  # Orion
+    - "#8C8C8C"  # Crew Dragon
+    - "#8C8C8C"  # Starliner
+    - "#8C8C8C"  # Starship HLS
+    - "#8C8C8C"  # Blue Moon
+    - "#FF5D47"  # New HLS Entrant (highlighted)
+```
+
+### Example 3: Lollipop Chart with Timeline Ranges
+
+Visualize development periods with start and end dates:
+
+```yaml
+# human_spaceflight_development_times.yaml
+chart:
+  type: lollipop_plot
+  output_name: human_spaceflight_development_comparisons
+
+data_source:
+  type: google_sheets
+  url: "https://docs.google.com/spreadsheets/d/1uYSirJmE0gLQ701iBFZASsTQL0od36l9xJ7jbEagnrY/export?format=csv"
+
+metadata:
+  title: "Human Spaceflight Development Times Comparison"
+  subtitle: "To make a 2030 landing deadline, a new human landing spacecraft would
+    need be the fastest program development in 65 years."
+  source: "NASA Historical Data"
+
+parameters:
+  categories: Spacecraft
+  start_values: Start Date_year      # Auto-rounded from date column
+  end_values: First Crewed Utilization_year
+  xlim: [1959, 2031]
+  y_axis_position: right
+  hide_y_spine: true
+
+  # Color by era: blue for historical, purple for future
+  colors:
+    - "#0B3D91"  # Mercury through Starliner (historical)
+    - "#0B3D91"
+    - "#0B3D91"
+    - "#0B3D91"
+    - "#0B3D91"
+    - "#0B3D91"
+    - "#0B3D91"
+    - "#0B3D91"
+    - "#643788"  # Future HLS projects
+    - "#643788"
+    - "#643788"
+
+  # Solid for completed, dotted for projected
+  linestyle: ["-", "-", "-", "-", "-", "-", "-", "-", ":", ":", ":"]
+
+  marker_size: 5
+  line_width: 5
+  grid: true
+  grid_axis: x
+  range_labels: true
+  range_suffix: " yrs"
+  export_data: data
+```
+
+### Example 4: Donut Chart for Budget Breakdown
+
+Show NASA budget allocation by directorate:
+
+```yaml
+# nasa_major_activities_donut.yaml
+chart:
+  type: donut_plot
+  output_name: nasa_directorate_breakdown_donut_chart
+
+data_source:
+  type: controller_method
+  class: NASABudgetChart
+  method: nasa_major_activites_donut_chart
+
+metadata:
+  title: NASA's budget is subdivided by mission area
+  subtitle: "Directorates are responsible for distinct activities — from science
+    to facilities — and they don't share funding."
+  source: NASA FY2025 Budget Request
+
+parameters:
+  values: sorted_values
+  labels: sorted_labels
+  show_percentages: true
+  label_distance: 1.1
+  hole_size: 0.6
+  center_text: NASA
+  center_color: white
+  export_data: export_df
+```
+
+### Example 5: Multi-Series Comparison with Direct Labels
+
+Compare contract awards across fiscal years:
+
+```yaml
+# fy2025_new_contracts_comparison.yaml
+chart:
+  type: line_plot
+  output_name: new_contracts_historical_comparison
+
+data_source:
+  type: controller_method
+  class: FY2025Charts
+  method: new_contract_awards_comparison_to_prior_years
+
+metadata:
+  title: "NASA's total new contract awards in FY 2025"
+  subtitle: "While below the recent average, the total number was similar to that in 2024."
+  source: "USASpending.gov (Does not include IDVs)"
+
+parameters:
+  x: months
+  y: y_series
+  color: colors
+  linestyle: linestyles
+  linewidth: linewidths
+  marker: markers
+  label: labels
+  ylim: [0, 6000]
+  ylabel: "Cumulative New Contracts Awarded"
+  label_size: 13
+  tick_size: 14
+  grid: true
+  legend: false
+  direct_line_labels:
+    fontsize: 10
+  export_data: export_df
+```
+
+---
+
+## Chart Types Reference
+
+| Type | Description | Key Parameters |
+|------|-------------|----------------|
+| `line_plot` | Multi-series line charts | `x`, `y`, `color`, `linestyle`, `marker`, `label` |
+| `bar_plot` | Vertical or horizontal bars | `categories`, `values`, `orientation`, `colors` |
+| `lollipop_plot` | Timeline/range visualization | `categories`, `start_values`, `end_values`, `colors` |
+| `donut_plot` | Donut/pie charts | `values`, `labels`, `hole_size`, `center_text` |
+| `stacked_bar_plot` | Stacked bar charts | `categories`, `series`, `colors` |
+| `waffle_plot` | Waffle/grid charts | `values`, `labels`, `rows`, `columns` |
+| `us_map_pie_plot` | US map with pie overlays | `state_data`, `pie_values` |
+| `line_subplots_plot` | Multiple subplot panels | `x`, `y_list`, `subplot_titles` |
+
+List all available types: `tpsplots --list-types`
+
+---
+
+## Data Sources
+
+### Google Sheets (Recommended for Collaboration)
+
+Fetch data directly from a public Google Sheet:
+
+```yaml
+data_source:
+  type: google_sheets
+  url: "https://docs.google.com/spreadsheets/d/SHEET_ID/export?format=csv"
+```
+
+**Tips:**
+- Sheet must be publicly accessible or "Anyone with link can view"
+- Use the `/export?format=csv` URL format
+- For specific sheets/tabs, add `&gid=SHEET_GID`
+
+### CSV Files (Local Data)
+
+Load from a local CSV file:
+
+```yaml
+data_source:
+  type: csv_file
+  path: data/my_data.csv
+```
+
+### Controller Methods (Complex Data Processing)
+
+Use existing Python controllers for advanced data manipulation:
+
+```yaml
+data_source:
+  type: controller_method
+  class: NASABudgetChart
+  method: nasa_budget_by_year_inflation_adjusted
+```
+
+**Available Controllers:**
+- `NASABudgetChart` - NASA budget analysis with inflation adjustment
+- `FY2025Charts` / `FY2026Charts` - Fiscal year spending analysis
+- `ChinaComparisonsController` - US-China space comparison
+- `MissionSpendingController` - Mission-level spending data
+
+---
+
+## CLI Reference
+
+```bash
+tpsplots [OPTIONS] [INPUTS]
+
+Arguments:
+  INPUTS              YAML file(s) or directory(ies) to process
 
 Options:
-- `--local-dir`: Local directory to sync (default: `charts`)
-- `--bucket`: S3 bucket name (default: `planetary`)
-- `--prefix`: S3 prefix (default: `assets/charts/`)
-- `--delete`: Delete files in the bucket that don't exist locally
-- `--dry-run`: Preview changes without uploading
-
-By default, a GitHub Action refreshes and syncs charts every few months. 
-
-## Adding New Charts
-
-### 1. Create a Data Source
-
-If your chart requires a new data source, create a class in `tpsplots/data_sources/` that inherits from an appropriate base class.
-
-Example:
-```python
-# tpsplots/data_sources/my_new_data_source.py
-from .nasa_budget_data_source import NASABudget
-
-class MyNewDataSource(NASABudget):
-    CSV_URL = "https://docs.google.com/spreadsheets/d/..."
-    COLUMNS = ["Year", "Value1", "Value2"]
-    MONETARY_COLUMNS = ["Value1", "Value2"]
-    
-    def __init__(self, *, cache_dir=None):
-        super().__init__(self.CSV_URL, cache_dir=cache_dir)
+  -o, --outdir PATH   Output directory (default: charts/)
+  --validate          Validate YAML without generating charts
+  --strict            Error on unresolved data references
+  -q, --quiet         Suppress progress output
+  --verbose           Enable debug logging
+  --schema            Print JSON Schema for IDE autocomplete
+  --list-types        List available chart types
+  --version           Show version and exit
+  --help              Show help message
 ```
 
-### 2. Add a Chart Method to an Existing Controller (or Create a New One)
+**Examples:**
 
-```python
-# tpsplots/controllers/nasa_budget_chart.py
-def my_new_chart(self):
-    """Generate my new chart."""
-    # Switch to the new data source if needed
-    self.data_source = MyNewDataSource()
-    df = self.data_source.data()
-    
-    # Prepare metadata
-    metadata = {
-        "title": "My New Chart",
-        "source": "Source information",
-    }
-    
-    # Get the appropriate view
-    line_view = self.get_view('Line')
-    
-    # Generate the chart
-    line_view.line_plot(
-        metadata=metadata,
-        stem="my_new_chart",
-        x=df["Year"],
-        y=[df["Value1"], df["Value2"]],
-        color=["#037CC2", "#FF5D47"],
-        label=["Value 1", "Value 2"],
-        scale="millions"
-    )
+```bash
+# Generate single chart
+tpsplots yaml/my_chart.yaml
+
+# Process entire directory
+tpsplots yaml/
+
+# Validate without generating
+tpsplots --validate yaml/my_chart.yaml
+
+# Custom output directory
+tpsplots -o output/ yaml/
+
+# Generate JSON Schema for IDE support
+tpsplots --schema > tpsplots-schema.json
 ```
 
-### 3. Create a New View Type (if needed)
+---
 
-If you need a new chart type not covered by existing views, create a new class in `tpsplots/views/`:
-
-```python
-# tpsplots/views/my_new_chart_view.py
-from .chart_view import ChartView
-
-class MyNewChartView(ChartView):
-    """Specialized view for my new chart type."""
-    
-    def my_chart(self, metadata, stem, **kwargs):
-        """Generate my chart type for both desktop and mobile."""
-        return self.generate_chart(metadata, stem, **kwargs)
-    
-    def _create_chart(self, metadata, style, **kwargs):
-        """Implementation of chart creation."""
-        # Chart creation logic here
-        # ...
-        return fig
-```
-
-Don't forget to update `tpsplots/views/__init__.py` to export your new view.
-
-### 4. Use the New Chart
-
-Update the controller's `generate_charts` method to include your new chart:
+## Python API
 
 ```python
-def generate_charts(self):
-    """Generate all NASA budget charts."""
-    self.nasa_budget_by_year_inflation_adjusted()
-    self.nasa_directorate_budget_waffle_chart()
-    # Add your new chart
-    self.my_new_chart()
+import tpsplots
+
+# Generate from single file
+result = tpsplots.generate("chart.yaml")
+
+# Generate from directory
+result = tpsplots.generate("yaml/", outdir="output/")
+
+# With options
+result = tpsplots.generate(
+    "chart.yaml",
+    outdir="custom_output/",
+    strict=True,   # Error on unresolved references
+    quiet=True     # Suppress logging
+)
+
+# Check results
+print(f"Succeeded: {result['succeeded']}")
+print(f"Failed: {result['failed']}")
+print(f"Files: {result['files']}")
+print(f"Errors: {result['errors']}")
 ```
 
-Or generate it directly:
+### Exception Handling
 
 ```python
-from tpsplots.controllers.nasa_budget_chart import NASABudgetChart
+import tpsplots
+from tpsplots import ConfigurationError, DataSourceError, RenderingError
 
-chart = NASABudgetChart()
-chart.my_new_chart()
+try:
+    result = tpsplots.generate("chart.yaml")
+except ConfigurationError as e:
+    print(f"Invalid YAML configuration: {e}")
+except DataSourceError as e:
+    print(f"Could not load data: {e}")
+except RenderingError as e:
+    print(f"Chart rendering failed: {e}")
 ```
+
+---
 
 ## Project Structure
 
 ```
 tpsplots/
-├── __init__.py              # Package initialization
+├── __init__.py              # Public API and package initialization
+├── api.py                   # generate() function implementation
+├── cli.py                   # Command-line interface
+├── exceptions.py            # TPSPlotsError, ConfigurationError, etc.
+├── schema.py                # JSON Schema generation
+├── assets/                  # Bundled resources
+│   ├── fonts/Poppins/       # TPS brand fonts
+│   └── images/              # TPS logo
 ├── controllers/             # Chart generation logic
+│   ├── nasa_budget_chart.py
+│   ├── fy2025_charts.py
+│   └── ...
 ├── data_sources/            # Data loading and processing
-├── views/                   # Chart visualization (subclasses for every major chart type)
-└── style/                   # TPS "House Style" definitions for matplotlib
+│   ├── google_sheets_source.py
+│   ├── nasa_budget_data_source.py
+│   └── ...
+├── models/                  # Pydantic validation models
+│   ├── chart_config.py
+│   ├── data_sources.py
+│   ├── parameters.py
+│   └── yaml_config.py
+├── processors/              # YAML processing pipeline
+│   ├── yaml_chart_processor.py
+│   └── resolvers/           # Data, parameter, metadata resolution
+├── utils/                   # Shared utilities
+│   ├── date_processing.py
+│   └── formatting.py
+└── views/                   # Chart visualization classes
+    ├── chart_view.py        # Base class
+    ├── line_chart.py
+    ├── bar_chart.py
+    ├── lollipop_chart.py
+    ├── donut_chart.py
+    └── style/               # Matplotlib style files
 ```
 
-## Integrating with CraftCMS
+---
 
-Here's how to integrate charts into the website:
+## Advanced Usage
 
-### CMS Setup
+### Creating Custom Controllers
 
-1. **Add Chart URL Reference**: Once charts are synced to S3, use the base URL format in the CraftCMS "Chart" content type:
-   ```
-   https://planetary.s3.amazonaws.com/assets/charts/nasa-budget-by-year
-   ```
-   Add this to the "SVG Charts" input field in the CMS.
+For complex data processing, create a custom controller:
 
-2. **File Naming Convention**: The CMS expects the following files to exist for each chart:
-   - `_desktop.svg` - Desktop vector version
-   - `_mobile.svg` - Mobile vector version
-   - `_desktop.png` - Desktop raster version
-   - `_mobile.png` - Mobile raster version
-   - `.pptx` - PowerPoint version
-   - `.csv` - Source data
+```python
+# tpsplots/controllers/my_controller.py
+from tpsplots.controllers.chart_controller import ChartController
 
-The CMS will load the appropriate chart file and provide links for download of PPTX, CSV, and PNG.
+class MyCustomChart(ChartController):
+    def my_data_method(self):
+        """Return data for YAML charts."""
+        # Load and process data
+        df = self.load_my_data()
 
-3. **Automatic Updates**: A GitHub Action runs every few months to refresh all charts with the latest inflation adjustments:
-   - This ensures economic data stays current without manual intervention
-   - The action can also be triggered manually when needed
-   - No further CMS action is required after initial setup
+        # Return dict with data arrays
+        return {
+            "years": df["Year"].values,
+            "values": df["Value"].values,
+            "labels": ["Label 1", "Label 2"],
+            "export_df": df,  # For CSV export
+        }
+```
 
-4. **Data Source Updates**: For charts to remain accurate, ensure that:
-   - Source Google Sheets are maintained with current data
-   - Any local CSV data sources are updated regularly
-   - API keys for economic data (if used) remain valid
+Then reference in YAML:
 
-The CMS will automatically use the appropriate mobile or desktop version based on the user's device, and will always display the most recent version of the chart after each automatic update.
+```yaml
+data_source:
+  type: controller_method
+  class: MyCustomChart
+  method: my_data_method
+```
+
+### IDE Autocomplete with JSON Schema
+
+Generate a JSON Schema for IDE support:
+
+```bash
+tpsplots --schema > .vscode/tpsplots-schema.json
+```
+
+In VS Code, add to `.vscode/settings.json`:
+
+```json
+{
+  "yaml.schemas": {
+    ".vscode/tpsplots-schema.json": "yaml/*.yaml"
+  }
+}
+```
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `TPSPLOTS_HEADLESS` | Force headless mode (`1`/`true`) or GUI mode (`0`/`false`) |
+
+---
+
+## Development
+
+```bash
+# Install with dev dependencies
+pip install -e ".[dev]"
+
+# Run tests
+pytest
+
+# Run linting
+ruff check tpsplots/
+
+# Format code
+ruff format tpsplots/
+```
+
+---
 
 ## Author
 
-Casey Dreier
+Casey Dreier - The Planetary Society
