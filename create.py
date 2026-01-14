@@ -11,14 +11,13 @@ Usage:
     python create.py --clear-cache                      # Clear cached Google Sheets data
 """
 import argparse
-import sys
 import logging
-from pathlib import Path
-from typing import List
+import sys
 import traceback
+from pathlib import Path
 
-from tpsplots.processors import YAMLChartProcessor
 from tpsplots.data_sources.google_sheets_source import GoogleSheetsSource
+from tpsplots.processors import YAMLChartProcessor
 
 
 def clear_cache():
@@ -77,7 +76,7 @@ def generate_single_chart(yaml_path: Path, outdir: Path) -> bool:
         return False
 
 
-def collect_yaml_files(inputs: List[Path]) -> List[Path]:
+def collect_yaml_files(inputs: list[Path]) -> list[Path]:
     """Collect all YAML files from the given inputs (files and directories)."""
     yaml_files = []
 
@@ -170,7 +169,7 @@ Examples:
     # Handle list-types
     if args.list_types:
         print("Available chart types:")
-        for chart_type in YAMLChartProcessor.VIEW_REGISTRY.keys():
+        for chart_type in YAMLChartProcessor.VIEW_REGISTRY:
             print(f"  • {chart_type}")
         return 0
 

@@ -53,15 +53,16 @@ from __future__ import annotations
 import io
 import re
 import ssl
+from collections.abc import Callable
 from datetime import date, datetime, timedelta
 from functools import cached_property
 from pathlib import Path
-from typing import Callable, List, Any
+from typing import Any
+from urllib.error import URLError
 
 import certifi
 import pandas as pd
 import requests
-from urllib.error import URLError
 from cachier import cachier
 
 # Configure caching
@@ -71,9 +72,9 @@ except ImportError:
     pass  # Cache config is optional
 
 # Assumed external library for inflation adjustments
-from .inflation import NNSI, GDP
-
 import logging
+
+from .inflation import GDP, NNSI
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +122,7 @@ class NASABudget:
         """
         return self._df.copy(deep=True)
 
-    def columns(self) -> List[str]:
+    def columns(self) -> list[str]:
         """
         Return a list of column names in the processed DataFrame.
 
@@ -130,7 +131,7 @@ class NASABudget:
         """
         return list(self._df.columns)
 
-    def __getattr__(self, name: str) -> List[Any]:
+    def __getattr__(self, name: str) -> list[Any]:
         """
         Provides attribute-style access to DataFrame columns.
 
@@ -186,7 +187,7 @@ class NASABudget:
                 setattr(cls, adj_attr, cls._mk_adj(col))
 
     @classmethod
-    def _mk_raw(cls, col: str) -> Callable[["NASABudget"], List[float]]:
+    def _mk_raw(cls, col: str) -> Callable[[NASABudget], list[float]]:
         """
         Creates a getter function for a raw monetary column.
 
@@ -220,7 +221,7 @@ class NASABudget:
             A callable that takes a NASABudget instance and optional type/year
             arguments, returning a list of adjusted float values.
         """
-        def getter(self, *, type: str = "nnsi", year: int | None = None) -> List[float]:
+        def getter(self, *, type: str = "nnsi", year: int | None = None) -> list[float]:
             """
             Getter function for adjusted monetary columns.
 

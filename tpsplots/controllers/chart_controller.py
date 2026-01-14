@@ -1,11 +1,23 @@
 """tpsplots.base – shared chart infrastructure"""
 from __future__ import annotations
-from abc import ABC
-from pathlib import Path
-from tpsplots.views import LineChartView, WaffleChartView, DonutChartView, LineSubplotsView, LollipopChartView, USMapPieChartView, StackedBarChartView, BarChartView
-import pandas as pd
+
 import inspect
 import logging
+from abc import ABC
+from pathlib import Path
+
+import pandas as pd
+
+from tpsplots.views import (
+    BarChartView,
+    DonutChartView,
+    LineChartView,
+    LineSubplotsView,
+    LollipopChartView,
+    StackedBarChartView,
+    USMapPieChartView,
+    WaffleChartView,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -206,13 +218,11 @@ class ChartController(ABC):
             is_neg = False
         
         if amount >= 1_000_000_000:
-            formatted = "${:,.0f} billion".format(amount / 1_000_000_000)
-        elif amount >= 10_000_000:
-            formatted =  "${:,.0f} million".format(amount / 1_000_000)
-        elif amount >= 1_000_000:
-            formatted =  "${:,.0f} million".format(amount / 1_000_000)
+            formatted = f"${amount / 1_000_000_000:,.0f} billion"
+        elif amount >= 10_000_000 or amount >= 1_000_000:
+            formatted =  f"${amount / 1_000_000:,.0f} million"
         else:
-            formatted = "${:,.2f}".format(amount)
+            formatted = f"${amount:,.2f}"
         
         if is_neg:
             formatted = "-" + formatted

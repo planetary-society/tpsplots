@@ -1,12 +1,13 @@
 """Concrete NASA budget charts using specialized chart views."""
+import logging
+import re
+from datetime import datetime
+
+import pandas as pd
+
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.data_sources.google_sheets_source import GoogleSheetsSource
 from tpsplots.views.chart_view import ChartView
-import pandas as pd
-from datetime import datetime
-import re
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -217,8 +218,8 @@ class ChinaComparisonCharts(ChartController):
         }
 
         # We'll use ChartView directly to get access to matplotlib
-        import numpy as np
         import matplotlib.pyplot as plt
+        import numpy as np
 
         # Create the chart using the base ChartView
         base_view = self.get_view('Line')  # Just to get access to ChartView methods

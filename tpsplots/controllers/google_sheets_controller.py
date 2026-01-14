@@ -1,9 +1,10 @@
 """Google Sheets data controller for YAML-driven chart generation."""
-from pathlib import Path
 import logging
 import re
-from typing import Dict, Any, Optional, List
+from pathlib import Path
+
 import pandas as pd
+
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.data_sources.google_sheets_source import GoogleSheetsSource
 
@@ -21,11 +22,11 @@ class GoogleSheetsController(ChartController):
     """
 
     def __init__(self,
-                 url: str = None,
-                 cast: Dict[str, str] = None,
-                 columns: List[str] = None,
-                 renames: Dict[str, str] = None,
-                 cache_dir: Path = None):
+                 url: str | None = None,
+                 cast: dict[str, str] | None = None,
+                 columns: list[str] | None = None,
+                 renames: dict[str, str] | None = None,
+                 cache_dir: Path | None = None):
         """
         Initialize the GoogleSheetsController with URL and options.
 

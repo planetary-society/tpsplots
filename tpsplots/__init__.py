@@ -1,7 +1,8 @@
-from pathlib import Path
-import matplotlib.pyplot as plt
-import matplotlib.style.core # For reload_library
 import warnings
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import matplotlib.style.core  # For reload_library
 
 # The root directory of the 'tpsplots' package
 PACKAGE_ROOT = Path(__file__).parent

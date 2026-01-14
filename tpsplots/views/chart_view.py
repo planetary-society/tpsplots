@@ -1,19 +1,19 @@
 """Base chart generation view component with desktop/mobile versions built in."""
-from pathlib import Path
-from datetime import datetime
 import csv
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-import matplotlib.image as mpimg
-from matplotlib.ticker import FuncFormatter
-import matplotlib.dates as mdates
-import warnings
 import logging
 import textwrap
-from typing import Optional
+import warnings
+from datetime import datetime
+from pathlib import Path
 
-from tpsplots import TPS_STYLE_FILE # custom mplstyle
+import matplotlib.dates as mdates
+import matplotlib.image as mpimg
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.offsetbox import AnnotationBbox, OffsetImage
+from matplotlib.ticker import FuncFormatter
+
+from tpsplots import TPS_STYLE_FILE  # custom mplstyle
 
 logger = logging.getLogger(__name__)
 
@@ -284,7 +284,7 @@ class ChartView:
             plt.setp(ax.get_xticklabels(), rotation=style.get("tick_rotation", 0), fontsize=tick_size)
             return ax
         
-        start_year, end_year, year_range = year_info
+        _start_year, _end_year, year_range = year_info
 
         # if the range is greater than 20 years, show only decade labels
         if year_range > 20:
@@ -344,12 +344,9 @@ class ChartView:
             return True
             
         # Check for string years ("1980", "1990", etc.)
-        if isinstance(first_elem, str) and first_elem.isdigit() and 1900 <= int(first_elem) <= 2100:
-            return True
-            
-        return False
+        return bool(isinstance(first_elem, str) and first_elem.isdigit() and 1900 <= int(first_elem) <= 2100)
     
-    def _apply_scale_formatter(self, ax, scale :str ='billions', axis :str = 'y', decimals: Optional[int] = None, prefix :Optional[str] = '$'):
+    def _apply_scale_formatter(self, ax, scale :str ='billions', axis :str = 'y', decimals: int | None = None, prefix :str | None = '$'):
         """
         Apply scale formatting to axis.
 
@@ -368,7 +365,7 @@ class ChartView:
         }
 
         if scale not in scales:
-            warnings.warn(f"Scale '{scale}' not recognized. No formatter applied.")
+            warnings.warn(f"Scale '{scale}' not recognized. No formatter applied.", stacklevel=2)
             return
         
         scale_info = scales[scale]
@@ -383,10 +380,7 @@ class ChartView:
                 ylim = ax.get_ylim()
                 try:
                     range_value = (abs(ylim[1] - ylim[0]))/factor
-                    if range_value < 10:
-                        decimals = 1
-                    else:
-                        decimals = 0
+                    decimals = 1 if range_value < 10 else 0
                 except Exception:
                     decimals = 0
                     range_value = None
@@ -394,10 +388,7 @@ class ChartView:
                 xlim = ax.get_xlim()
                 try:
                     range_value = (abs(xlim[1] - xlim[0]))/factor
-                    if range_value < 10:
-                        decimals = 1
-                    else:
-                        decimals = 0
+                    decimals = 1 if range_value < 10 else 0
                 except Exception:
                     decimals = 0
                     range_value = None
@@ -442,7 +433,7 @@ class ChartView:
             top_margin: Top margin to reserve for the header
         """
         # Check if header should be displayed
-        if metadata.get('header') == False:
+        if not metadata.get('header'):
             return
         
         # Reserve space at the top for header
@@ -486,7 +477,7 @@ class ChartView:
             bottom_margin: Bottom margin to reserve for the footer
         """
         # Check if footer should be displayed
-        if metadata.get('footer') == False:
+        if not metadata.get('footer'):
             return
         
         # Reserve space at the bottom for footer
@@ -680,7 +671,7 @@ class ChartView:
             
         plt.close(fig)
 
-    def _create_pptx(self, png_path, pptx_path, metadata = {}):
+    def _create_pptx(self, png_path, pptx_path, metadata = None):
         """
         Create a PowerPoint file with the chart, scaled by height to fit completely in a 16x9 slide.
 
@@ -688,11 +679,13 @@ class ChartView:
             png_path: Path to the PNG image to include
             pptx_path: Path for the output PowerPoint file
         """
-        from pptx import Presentation
-        from pptx.util import Inches
         from PIL import Image
+        from pptx import Presentation
         from pptx.dml.color import RGBColor
+        from pptx.util import Inches
 
+        if metadata is None:
+            metadata = {}
         prs = Presentation()
         # Set slide size to 16x9 (in inches)
         prs.slide_width = Inches(13.33)

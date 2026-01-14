@@ -8,11 +8,11 @@ tpsplots.controllers package and executes their generate_charts() method.
 
 import importlib
 import inspect
-import pkgutil
 import logging
+import pkgutil
 import sys
-from pathlib import Path
 import time
+from pathlib import Path
 
 # Add the project root to the Python path
 project_root = Path(__file__).parent

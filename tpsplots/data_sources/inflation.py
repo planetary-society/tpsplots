@@ -15,16 +15,18 @@ Example
 """
 
 from __future__ import annotations
+
 import io
-import numpy as np
-from pathlib import Path
-from typing import Mapping, Union
-import os
 import json
+import os
+from collections.abc import Mapping
 from datetime import datetime, timedelta
-import requests
+from pathlib import Path
+
 import certifi
+import numpy as np
 import pandas as pd
+import requests
 from cachier import cachier
 
 # Configure caching
@@ -83,7 +85,7 @@ class Inflation:
     # ------------------------------------------------------------------ #
     #  Public helper                                                     #
     # ------------------------------------------------------------------ #
-    def calc(self, from_year: Union[str, datetime, int], value: float) -> float:
+    def calc(self, from_year: str | datetime | int, value: float) -> float:
         """
         Multiply *value* by the correct factor for *from_year*.
         Falls back to *identity* (multiplier == 1.0) if no entry exists.
@@ -99,7 +101,7 @@ class Inflation:
         mult = self._table.get(self._normalise_key(key), 1.0)
         return value * mult
         
-    def _convert_year_to_key(self, year_input: Union[str, datetime, int]) -> str:
+    def _convert_year_to_key(self, year_input: str | datetime | int) -> str:
         """
         Convert various year input formats to a standard string key format.
         

@@ -1,9 +1,11 @@
 """Horizontal lollipop chart visualization specialized view."""
+import logging
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+
 from .chart_view import ChartView
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +171,7 @@ class LollipopChartView(ChartView):
         y_positions = np.arange(len(categories))
         
         # Plot the lollipop chart
-        for i, (cat, start_val, end_val) in enumerate(zip(categories, start_values, end_values)):
+        for i, (_cat, start_val, end_val) in enumerate(zip(categories, start_values, end_values, strict=False)):
             y_pos = y_positions[i]
             
             # Use the main color for the stem line (fallback to default colors)
@@ -213,8 +215,8 @@ class LollipopChartView(ChartView):
             self._move_y_axis_to_right(ax)
         
         # Handle custom y-axis tick markers (after axis positioning)
-        y_tick_marker = kwargs.get('y_tick_marker', None)
-        y_tick_color = kwargs.get('y_tick_color', None)
+        y_tick_marker = kwargs.get('y_tick_marker')
+        y_tick_color = kwargs.get('y_tick_color')
         
         if y_tick_marker:
             self._customize_y_ticks(ax, y_tick_marker, y_tick_color, y_axis_position, style)
@@ -375,7 +377,7 @@ class LollipopChartView(ChartView):
         # Rough conversion: marker size in points to data coordinates
         marker_offset = (marker_size * 1.3 / 72) * (x_range / 10)  # Approximate scaling
         
-        for i, (y_pos, start_val, end_val) in enumerate(zip(y_positions, start_values, end_values)):
+        for _i, (y_pos, start_val, end_val) in enumerate(zip(y_positions, start_values, end_values, strict=False)):
             
             # Legacy value_labels parameter (shows both start and end)
             if show_values:
@@ -486,8 +488,8 @@ class LollipopChartView(ChartView):
         ax.tick_params(axis='y', which='minor', left=False, right=False)
         
         # Handle custom y-axis tick markers
-        y_tick_marker = kwargs.pop('y_tick_marker', None)
-        y_tick_color = kwargs.pop('y_tick_color', None)
+        kwargs.pop('y_tick_marker', None)
+        kwargs.pop('y_tick_color', None)
         
         # Note: Custom tick markers are handled after axis positioning
         
@@ -559,7 +561,7 @@ class LollipopChartView(ChartView):
             
             # Only add markers for positions within the plot range
             if ylim[0] <= y_pos <= ylim[1]:
-                text_obj = ax.text(
+                ax.text(
                     x_pos, y_pos,
                     marker,
                     ha=ha,

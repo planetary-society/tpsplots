@@ -52,6 +52,7 @@ def _get_prior_fy() -> int:
         The prior fiscal year as an integer.
     """
     from datetime import date
+
     import pandas as pd
 
     last_year_date = date.today() - pd.DateOffset(years=1)

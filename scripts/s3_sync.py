@@ -10,11 +10,13 @@ Prerequisites:
 - The boto3 Python package (pip install boto3)
 """
 
-import sys
 import argparse
-import boto3
+import sys
 from pathlib import Path
+
+import boto3
 from botocore.exceptions import ClientError
+
 
 def upload_file(s3_client, file_path, bucket, s3_key):
     """Upload a file to an S3 bucket."""

@@ -1,10 +1,12 @@
 """Stacked bar chart visualization specialized view."""
+import logging
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
+
 from .chart_view import ChartView
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -244,10 +246,10 @@ class StackedBarChartView(ChartView):
         
         if orientation == 'vertical':
             bottom_values = np.zeros(len(df.index))
-            for i, column in enumerate(df.columns):
+            for _i, column in enumerate(df.columns):
                 values = df[column].values
                 
-                for j, (value, total) in enumerate(zip(values, totals)):
+                for j, (value, total) in enumerate(zip(values, totals, strict=False)):
                     # Check if segment is large enough to show label
                     percentage = (value / total * 100) if total > 0 else 0
                     if percentage >= threshold and value > 0:
@@ -270,10 +272,10 @@ class StackedBarChartView(ChartView):
         
         else:  # horizontal
             left_values = np.zeros(len(df.index))
-            for i, column in enumerate(df.columns):
+            for _i, column in enumerate(df.columns):
                 values = df[column].values
                 
-                for j, (value, total) in enumerate(zip(values, totals)):
+                for j, (value, total) in enumerate(zip(values, totals, strict=False)):
                     # Check if segment is large enough to show label
                     percentage = (value / total * 100) if total > 0 else 0
                     if percentage >= threshold and value > 0:

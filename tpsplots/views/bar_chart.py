@@ -1,10 +1,12 @@
 """Enhanced bar chart with automatic percentage formatting for y-axis ticks."""
+import logging
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
+
 from .chart_view import ChartView
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -263,7 +265,7 @@ class BarChartView(ChartView):
                 value_range = ax.get_xlim()[1] - ax.get_xlim()[0]
                 value_offset = value_range * 0.02
         
-        for bar, value in zip(bars, values):
+        for bar, value in zip(bars, values, strict=False):
             # Format the value
             formatted_value = self._format_value(value, value_format) + value_suffix
             

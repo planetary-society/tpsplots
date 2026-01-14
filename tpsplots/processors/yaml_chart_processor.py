@@ -1,22 +1,26 @@
 """YAML-driven chart generation processor with Pydantic validation."""
-import yaml
-import pandas as pd
 import importlib
-import sys
-from pathlib import Path
-from typing import Dict, Any, Optional, Union, List, Literal
 import logging
 import re
+import sys
+from pathlib import Path
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, validator, model_validator
+import yaml
+from pydantic import BaseModel, Field, model_validator, validator
 
 # Add the parent directory to Python path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.views import (
-    LineChartView, BarChartView, DonutChartView, LollipopChartView,
-    StackedBarChartView, WaffleChartView, USMapPieChartView, LineSubplotsView
+    BarChartView,
+    DonutChartView,
+    LineChartView,
+    LineSubplotsView,
+    LollipopChartView,
+    StackedBarChartView,
+    USMapPieChartView,
+    WaffleChartView,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,47 +58,47 @@ class URLDataSource(BaseModel):
 class MetadataConfig(BaseModel):
     """Chart metadata configuration."""
     title: str = Field(..., description="Chart title")
-    subtitle: Optional[str] = Field(None, description="Chart subtitle (supports templates)")
-    source: Optional[str] = Field(None, description="Data source attribution")
-    header: Optional[bool] = Field(None, description="Show header section")
-    footer: Optional[bool] = Field(None, description="Show footer section")
+    subtitle: str | None = Field(None, description="Chart subtitle (supports templates)")
+    source: str | None = Field(None, description="Data source attribution")
+    header: bool | None = Field(None, description="Show header section")
+    footer: bool | None = Field(None, description="Show footer section")
 
 
 class DirectLineLabelsConfig(BaseModel):
     """Configuration for direct line labels."""
-    fontsize: Optional[int] = Field(None, description="Font size for labels")
-    position: Optional[Literal['right', 'left', 'auto']] = Field('auto', description="Label position")
-    bbox: Optional[bool] = Field(True, description="Add background box to labels")
+    fontsize: int | None = Field(None, description="Font size for labels")
+    position: Literal['right', 'left', 'auto'] | None = Field('auto', description="Label position")
+    bbox: bool | None = Field(True, description="Add background box to labels")
 
 
 class ParametersConfig(BaseModel):
     """Chart parameters configuration."""
     # Data mapping - most can be strings (data references) or actual values
-    x: Optional[str] = Field(None, description="X-axis data reference")
-    y: Optional[Union[str, List[str]]] = Field(None, description="Y-axis data reference(s)")
-    color: Optional[Union[str, List[str]]] = Field(None, description="Color specification")
-    linestyle: Optional[Union[str, List[str]]] = Field(None, description="Line style specification")
-    linewidth: Optional[Union[float, List[float], str, List[str]]] = Field(None, description="Line width specification")
-    marker: Optional[Union[str, List[str]]] = Field(None, description="Marker specification")
-    label: Optional[Union[str, List[str]]] = Field(None, description="Label specification")
+    x: str | None = Field(None, description="X-axis data reference")
+    y: str | list[str] | None = Field(None, description="Y-axis data reference(s)")
+    color: str | list[str] | None = Field(None, description="Color specification")
+    linestyle: str | list[str] | None = Field(None, description="Line style specification")
+    linewidth: float | list[float] | str | list[str] | None = Field(None, description="Line width specification")
+    marker: str | list[str] | None = Field(None, description="Marker specification")
+    label: str | list[str] | None = Field(None, description="Label specification")
 
     # Axis configuration
-    xlim: Optional[Union[List[float], str]] = Field(None, description="X-axis limits [min, max] or data reference")
-    ylim: Optional[Union[List[float], str]] = Field(None, description="Y-axis limits [min, max] or data reference")
-    xlabel: Optional[str] = Field(None, description="X-axis label")
-    ylabel: Optional[str] = Field(None, description="Y-axis label")
+    xlim: list[float] | str | None = Field(None, description="X-axis limits [min, max] or data reference")
+    ylim: list[float] | str | None = Field(None, description="Y-axis limits [min, max] or data reference")
+    xlabel: str | None = Field(None, description="X-axis label")
+    ylabel: str | None = Field(None, description="Y-axis label")
 
     # Styling
-    label_size: Optional[Union[int, str]] = Field(None, description="Label font size or data reference")
-    tick_size: Optional[Union[int, str]] = Field(None, description="Tick font size or data reference")
-    grid: Optional[Union[bool, str]] = Field(None, description="Show grid or data reference")
-    legend: Optional[Union[bool, str]] = Field(None, description="Show legend or data reference")
+    label_size: int | str | None = Field(None, description="Label font size or data reference")
+    tick_size: int | str | None = Field(None, description="Tick font size or data reference")
+    grid: bool | str | None = Field(None, description="Show grid or data reference")
+    legend: bool | str | None = Field(None, description="Show legend or data reference")
 
     # Advanced features
-    direct_line_labels: Optional[Union[DirectLineLabelsConfig, str]] = Field(None, description="Direct line labels config")
+    direct_line_labels: DirectLineLabelsConfig | str | None = Field(None, description="Direct line labels config")
 
     # Export
-    export_data: Optional[str] = Field(None, description="Export data reference")
+    export_data: str | None = Field(None, description="Export data reference")
 
     class Config:
         extra = "allow"  # Allow additional parameters not explicitly defined
@@ -110,7 +114,7 @@ class ParametersConfig(BaseModel):
 class YAMLChartConfig(BaseModel):
     """Complete YAML chart configuration schema."""
     chart: ChartConfig
-    data_source: Union[ControllerMethodDataSource, CSVFileDataSource, URLDataSource] = Field(
+    data_source: ControllerMethodDataSource | CSVFileDataSource | URLDataSource = Field(
         ..., discriminator='type'
     )
     metadata: MetadataConfig
@@ -151,7 +155,7 @@ class YAMLChartProcessor:
         'line_subplots_plot': LineSubplotsView,
     }
 
-    def __init__(self, yaml_path: Union[str, Path], outdir: Optional[Path] = None):
+    def __init__(self, yaml_path: str | Path, outdir: Path | None = None):
         """
         Initialize the YAML chart processor.
 
@@ -169,10 +173,10 @@ class YAMLChartProcessor:
         self.data = None
         self.view = None
 
-    def _load_yaml(self) -> Dict[str, Any]:
+    def _load_yaml(self) -> dict[str, Any]:
         """Load and parse YAML configuration file."""
         try:
-            with open(self.yaml_path, 'r', encoding='utf-8') as f:
+            with open(self.yaml_path, encoding='utf-8') as f:
                 config = yaml.safe_load(f)
             logger.info(f"Loaded YAML config from {self.yaml_path}")
             return config
@@ -181,7 +185,7 @@ class YAMLChartProcessor:
         except yaml.YAMLError as e:
             raise ValueError(f"Invalid YAML syntax in {self.yaml_path}: {e}")
 
-    def _validate_config(self, raw_config: Dict[str, Any]) -> YAMLChartConfig:
+    def _validate_config(self, raw_config: dict[str, Any]) -> YAMLChartConfig:
         """Validate the YAML configuration using Pydantic."""
         try:
             config = YAMLChartConfig(**raw_config)
@@ -190,7 +194,7 @@ class YAMLChartProcessor:
         except Exception as e:
             raise ValueError(f"YAML configuration validation failed: {e}")
 
-    def _resolve_data_source(self) -> Dict[str, Any]:
+    def _resolve_data_source(self) -> dict[str, Any]:
         """Resolve the data source and return the processed data."""
         data_source = self.config.data_source
 
@@ -203,7 +207,7 @@ class YAMLChartProcessor:
         else:
             raise ValueError(f"Unsupported data source type: {data_source.type}")
 
-    def _resolve_controller_method(self, data_source: ControllerMethodDataSource) -> Dict[str, Any]:
+    def _resolve_controller_method(self, data_source: ControllerMethodDataSource) -> dict[str, Any]:
         """Resolve data from a controller method."""
         class_name = data_source.class_name
         method_name = data_source.method
@@ -265,7 +269,7 @@ class YAMLChartProcessor:
         s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
         return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
-    def _resolve_csv_file(self, data_source: CSVFileDataSource) -> Dict[str, Any]:
+    def _resolve_csv_file(self, data_source: CSVFileDataSource) -> dict[str, Any]:
         """Resolve data from a CSV file using CSVController."""
         try:
             from tpsplots.controllers.csv_controller import CSVController
@@ -274,7 +278,7 @@ class YAMLChartProcessor:
         except Exception as e:
             raise RuntimeError(f"Error loading CSV data via CSVController: {e}")
 
-    def _resolve_google_sheets_data(self, data_source: URLDataSource) -> Dict[str, Any]:
+    def _resolve_google_sheets_data(self, data_source: URLDataSource) -> dict[str, Any]:
         """Resolve data from Google Sheets or URL using GoogleSheetsController."""
         try:
             from tpsplots.controllers.google_sheets_controller import GoogleSheetsController
@@ -283,7 +287,7 @@ class YAMLChartProcessor:
         except Exception as e:
             raise RuntimeError(f"Error loading Google Sheets data via GoogleSheetsController: {e}")
 
-    def _resolve_parameters(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _resolve_parameters(self, data: dict[str, Any]) -> dict[str, Any]:
         """Resolve parameters by substituting data references."""
         # Convert Pydantic model to dict, excluding None values
         parameters = self.config.parameters.dict(exclude_none=True)
@@ -294,7 +298,7 @@ class YAMLChartProcessor:
 
         return resolved
 
-    def _resolve_value(self, value: Any, data: Dict[str, Any]) -> Any:
+    def _resolve_value(self, value: Any, data: dict[str, Any]) -> Any:
         """Recursively resolve a parameter value against the data context."""
         if isinstance(value, str):
             # Check if it's a data reference (simple key lookup)
@@ -309,7 +313,7 @@ class YAMLChartProcessor:
         else:
             return value
 
-    def _resolve_metadata(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _resolve_metadata(self, data: dict[str, Any]) -> dict[str, Any]:
         """Resolve metadata by substituting data references and template variables."""
         # Convert Pydantic model to dict, excluding None values
         metadata = self.config.metadata.dict(exclude_none=True)
@@ -344,7 +348,7 @@ class YAMLChartProcessor:
         view_class = self.VIEW_REGISTRY[chart_type]
         return view_class(outdir=self.outdir)
 
-    def generate_chart(self) -> Dict[str, Any]:
+    def generate_chart(self) -> dict[str, Any]:
         """Generate the chart based on the YAML configuration."""
         try:
             # Step 1: Resolve data source

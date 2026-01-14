@@ -1,7 +1,9 @@
 """Waffle chart visualization specialized view."""
-import matplotlib.pyplot as plt
 import math
+
+import matplotlib.pyplot as plt
 from pywaffle import Waffle
+
 from .chart_view import ChartView
 
 

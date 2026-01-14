@@ -1,8 +1,9 @@
 """CSV file data controller for YAML-driven chart generation."""
-from pathlib import Path
-import pandas as pd
 import logging
 import re
+
+import pandas as pd
+
 from tpsplots.controllers.chart_controller import ChartController
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ class CSVController(ChartController):
     with other controllers that inherit from ChartController.
     """
 
-    def __init__(self, csv_path: str = None):
+    def __init__(self, csv_path: str | None = None):
         """
         Initialize the CSVController with a CSV file path.
 

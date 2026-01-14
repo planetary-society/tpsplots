@@ -1,10 +1,11 @@
 """Concrete NASA budget charts using specialized chart views."""
+import logging
 from datetime import datetime
-from tpsplots.controllers.chart_controller import ChartController
-from tpsplots.data_sources.nasa_budget_data_source import Historical, Directorates
+
 import pandas as pd
 
-import logging
+from tpsplots.controllers.chart_controller import ChartController
+from tpsplots.data_sources.nasa_budget_data_source import Directorates, Historical
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,6 @@ class NASABudgetChart(ChartController):
         # Get data from model
         df = self.data_source.data().dropna(subset=["PBR"])
         presidents = df["Presidential Administration"].unique()
-        i = 0
         
         # Plot as line chart
         line_view = self.get_view('Line')
@@ -248,12 +248,12 @@ class NASABudgetChart(ChartController):
         values = directorates_df.iloc[0].tolist()
 
         # Sort values labels
-        sorted_data = list(zip(values, labels))
-        sorted_values, sorted_labels = zip(*sorted_data)
+        sorted_data = list(zip(values, labels, strict=False))
+        sorted_values, sorted_labels = zip(*sorted_data, strict=False)
 
         # Create export dataframe
         export_data = []
-        for label, value in zip(sorted_labels, sorted_values):
+        for label, value in zip(sorted_labels, sorted_values, strict=False):
             export_data.append({
                 "Directorate": label,
                 f"FY {last_completed_fy.year} Budget ($)": value

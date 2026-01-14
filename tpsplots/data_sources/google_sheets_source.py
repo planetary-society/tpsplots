@@ -59,7 +59,7 @@ import logging
 from datetime import timedelta
 from functools import cached_property
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 
 import pandas as pd
 import requests
@@ -150,7 +150,7 @@ class GoogleSheetsSource:
         """
         return self._df.copy(deep=True)
     
-    def columns(self) -> List[str]:
+    def columns(self) -> list[str]:
         """
         Return list of column names in the processed DataFrame.
         
@@ -159,7 +159,7 @@ class GoogleSheetsSource:
         """
         return list(self._df.columns)
     
-    def __getattr__(self, name: str) -> List[Any]:
+    def __getattr__(self, name: str) -> list[Any]:
         """
         Provide attribute-style access to DataFrame columns.
         

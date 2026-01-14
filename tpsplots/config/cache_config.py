@@ -5,6 +5,7 @@ This module sets up cachier to cache external data fetches in a consistent locat
 """
 
 from pathlib import Path
+
 from cachier import set_default_params
 
 # Set up cache directory

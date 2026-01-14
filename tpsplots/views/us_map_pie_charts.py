@@ -1,8 +1,11 @@
 """Improved US Map with pie charts visualization with expanded offset functionality."""
-import numpy as np
-import matplotlib.pyplot as plt
-from .chart_view import ChartView
+import itertools
 import logging
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+from .chart_view import ChartView
 
 logger = logging.getLogger(__name__)
 
@@ -120,9 +123,9 @@ class USMapPieChartView(ChartView):
         show_state_boundaries = kwargs.pop('show_state_boundaries', True)
         show_pie_labels = kwargs.pop('show_pie_labels', True)
         show_percentages = kwargs.pop('show_percentages', False)
-        legend_location = kwargs.pop('legend_location', 'lower left')
-        pie_edge_color = kwargs.pop('pie_edge_color', 'white')
-        pie_edge_width = kwargs.pop('pie_edge_width', 2)
+        kwargs.pop('legend_location', 'lower left')
+        kwargs.pop('pie_edge_color', 'white')
+        kwargs.pop('pie_edge_width', 2)
         offset_line_color = kwargs.pop('offset_line_color', 'gray')
         offset_line_style = kwargs.pop('offset_line_style', '--')
         offset_line_width = kwargs.pop('offset_line_width', 1.5)
@@ -267,10 +270,7 @@ class USMapPieChartView(ChartView):
             # Draw pie chart using improved scatter-based method
             self._draw_pie_improved(values, lon, lat, pie_size, colors, ax, show_percentages, figsize, dpi, style)
             
-            if style and style.get("type") == "desktop":
-                font_size = 12
-            else:
-                font_size = 10.5       
+            font_size = 12 if style and style.get("type") == "desktop" else 10.5       
             
             # Add center name label if requested
             if show_pie_labels:
@@ -283,7 +283,7 @@ class USMapPieChartView(ChartView):
                        zorder=20)  # Ensure label appears on top
             
             # Collect legend information (avoid duplicates)
-            for label, color in zip(labels, colors):
+            for label, color in zip(labels, colors, strict=False):
                 if label not in legend_labels:
                     legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=color, edgecolor='white'))
                     legend_labels.add(label)
@@ -427,7 +427,7 @@ class USMapPieChartView(ChartView):
         # Calculate cumulative proportions
         cumsum = np.cumsum(values)
         cumsum = cumsum / cumsum[-1]
-        pie = [0] + cumsum.tolist()
+        pie = [0, *cumsum.tolist()]
         
         # Start angle offset to align all pies the same way (90 degrees = 12 o'clock)
         start_angle_offset = np.pi / 2  # 90 degrees in radians
@@ -437,7 +437,7 @@ class USMapPieChartView(ChartView):
         pie_radius_data = self._calculate_position_independent_radius(size)
         
         # Draw each pie segment
-        for i, (r1, r2) in enumerate(zip(pie[:-1], pie[1:])):
+        for i, (r1, r2) in enumerate(itertools.pairwise(pie)):
             # Create angles for this segment, starting from 12 o'clock
             angles = np.linspace(
                 2 * np.pi * r1 + start_angle_offset, 
@@ -446,8 +446,8 @@ class USMapPieChartView(ChartView):
             )
             
             # Create pie wedge coordinates
-            x = [0] + np.cos(angles).tolist()
-            y = [0] + np.sin(angles).tolist()
+            x = [0, *np.cos(angles).tolist()]
+            y = [0, *np.sin(angles).tolist()]
             
             # Create marker from coordinates
             xy = np.column_stack([x, y])
@@ -591,7 +591,7 @@ class USMapPieChartView(ChartView):
         
         # Handle east coast centers first (existing logic)
         centers_to_offset_east = []
-        for name in pie_data.keys():
+        for name in pie_data:
             if name in east_coast_centers and name in all_locations:
                 centers_to_offset_east.append(name)
         
@@ -618,7 +618,7 @@ class USMapPieChartView(ChartView):
                 positions = [top_lat - i * spacing for i in range(len(centers_to_offset_east))]
             
             # Assign positions to east coast centers
-            for center_name, lat in zip(centers_to_offset_east, positions):
+            for center_name, lat in zip(centers_to_offset_east, positions, strict=False):
                 offset_positions[center_name] = (offset_lon, lat)
         
         # Handle JSC offset (northwest by one pie diameter)
@@ -706,7 +706,7 @@ class USMapPieChartView(ChartView):
     def _calculate_pie_sizes(self, pie_data, size_column, base_size, min_size, max_size):
         """Calculate pie chart sizes based on data column if specified."""
         if not size_column:
-            return {location: base_size for location in pie_data.keys()}
+            return {location: base_size for location in pie_data}
         
         # Extract size values
         size_values = {}
@@ -717,14 +717,14 @@ class USMapPieChartView(ChartView):
                 size_values[location] = base_size
         
         if not size_values:
-            return {location: base_size for location in pie_data.keys()}
+            return {location: base_size for location in pie_data}
         
         # Normalize sizes
         min_val = min(size_values.values())
         max_val = max(size_values.values())
         
         if max_val == min_val:
-            return {location: base_size for location in pie_data.keys()}
+            return {location: base_size for location in pie_data}
         
         # Scale sizes proportionally
         sizes = {}

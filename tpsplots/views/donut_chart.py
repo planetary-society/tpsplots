@@ -1,8 +1,11 @@
 """Donut chart visualization specialized view."""
+import textwrap
+
 import matplotlib.pyplot as plt
 import numpy as np
-import textwrap
+
 from .chart_view import ChartView
+
 
 class DonutChartView(ChartView):
     """Specialized view for donut charts with a focus on exposing matplotlib's API."""
@@ -153,7 +156,7 @@ class DonutChartView(ChartView):
             label_positions = []
             
             # Precalculate positions
-            for i, (wedge, angle, label, pct) in enumerate(zip(wedges, wedge_angles, labels, pct_strings)):
+            for _i, (_wedge, angle, label, pct) in enumerate(zip(wedges, wedge_angles, labels, pct_strings, strict=False)):
                 # Convert angle to radians for calculation
                 rad_angle = np.radians(angle)
                 
@@ -219,7 +222,7 @@ class DonutChartView(ChartView):
             adjusted_positions = top_right + top_left + bottom_left + bottom_right
             
             # Now draw the labels
-            for i, (x, y, angle, label, pct) in enumerate(adjusted_positions):
+            for _i, (x, y, angle, label, pct) in enumerate(adjusted_positions):
                 # Determine text alignment based on position
                 ha = 'left' if x >= 0 else 'right'
                 va = 'center'

@@ -1,9 +1,11 @@
 """Concrete NASA budget charts using specialized chart views."""
 import numpy as np
+import pandas as pd
+
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.data_sources.new_awards import NewNASAAwards
 from tpsplots.views.chart_view import ChartView
-import pandas as pd
+
 
 class FY2025Charts(ChartController):
     
@@ -137,7 +139,7 @@ class FY2025Charts(ChartController):
         
         # Create export DataFrame with all series
         export_data = {'Month': months}
-        for year_label, year_data in zip(labels, y_series):
+        for year_label, year_data in zip(labels, y_series, strict=False):
             if year_label is not None:  # Skip None labels
                 export_data[f'{year_label} Cumulative'] = year_data
         

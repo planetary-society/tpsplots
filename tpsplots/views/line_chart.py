@@ -1,14 +1,17 @@
 # line_chart.py
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from .chart_view import ChartView
 import logging
 import math
+
+import matplotlib.path as mpath
+import matplotlib.pyplot as plt
+
 # Imports for advanced geometry and transformations
 import matplotlib.transforms
+import numpy as np
+import pandas as pd
 from matplotlib.transforms import Bbox
-import matplotlib.path as mpath
+
+from .chart_view import ChartView
 
 logger = logging.getLogger(__name__)
 
@@ -266,10 +269,7 @@ class LineChartView(ChartView):
         
         # Handle DataFrame columns or direct data arrays
         if data is not None:
-            if isinstance(x, str):
-                x_data = data[x]
-            else:
-                x_data = x
+            x_data = data[x] if isinstance(x, str) else x
                 
             if isinstance(y, (list, tuple)) and all(isinstance(item, str) for item in y):
                 y_data = [data[col] for col in y]
@@ -416,7 +416,7 @@ class LineChartView(ChartView):
         line_colors = kwargs.pop('line_colors', [])
         line_labels = kwargs.pop('line_labels', [])
         # Ensure markersize is available (passed from _create_chart)
-        markersize = kwargs.get('markersize', style.get("marker_size", 6))
+        kwargs.get('markersize', style.get("marker_size", 6))
 
 
         # Apply axis labels, grid, tick params
@@ -453,7 +453,7 @@ class LineChartView(ChartView):
             plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
             plt.setp(ax.get_yticklabels(), fontsize=tick_size)
             
-            is_categorical = x_data is not None and len(x_data) > 0 and isinstance(list(x_data)[0], str)
+            is_categorical = x_data is not None and len(x_data) > 0 and isinstance(next(iter(x_data)), str)
             
             if max_xticks and not is_categorical:
                 ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
@@ -519,7 +519,7 @@ class LineChartView(ChartView):
             if isinstance(legend, dict):
                 legend_kwargs.update(legend)
             # Check if there are handles to display
-            handles, labels = ax.get_legend_handles_labels()
+            handles, _labels = ax.get_legend_handles_labels()
             if handles:
                 ax.legend(**legend_kwargs)
 
@@ -626,7 +626,7 @@ class LineChartView(ChartView):
         labeled_y_values = []
         labeled_info = []
         
-        for i, (y_value, label) in enumerate(zip(hlines, hline_labels)):
+        for i, (y_value, label) in enumerate(zip(hlines, hline_labels, strict=False)):
             if label:
                 labeled_y_values.append(y_value)
                 labeled_info.append((label, hline_colors[i]))
@@ -668,7 +668,7 @@ class LineChartView(ChartView):
             ha = 'center'
         
         # Sort labels by y-value to handle overlapping
-        sorted_labels = sorted(zip(y_values, label_info), key=lambda x: x[0])
+        sorted_labels = sorted(zip(y_values, label_info, strict=False), key=lambda x: x[0])
         
         # Adjust y-positions to prevent overlap
         adjusted_positions = self._adjust_label_positions(
@@ -676,7 +676,7 @@ class LineChartView(ChartView):
         )
         
         # Add each label
-        for i, ((y_val, (label_text, color)), adj_y) in enumerate(zip(sorted_labels, adjusted_positions)):
+        for _i, ((y_val, (label_text, color)), adj_y) in enumerate(zip(sorted_labels, adjusted_positions, strict=False)):
             
             # Create bbox styling if requested
             bbox_props = None
@@ -804,7 +804,7 @@ class LineChartView(ChartView):
              else:
                  return
         # Check if the first element of x_data is a string
-        elif len(x_data) > 0 and isinstance(list(x_data)[0], str):
+        elif len(x_data) > 0 and isinstance(next(iter(x_data)), str):
             numeric_x = np.arange(len(x_data))
         else:
             # Attempt conversion to numpy array for consistency
@@ -845,7 +845,7 @@ class LineChartView(ChartView):
         # Collect endpoint information and find optimal positions
         existing_labels_bboxes = []  # List of Bbox objects in display coordinates
 
-        for i, (y_series, label_text, color) in enumerate(zip(y_data, labels, colors)):
+        for i, (y_series, label_text, color) in enumerate(zip(y_data, labels, colors, strict=False)):
             # Skip series with None labels
             if label_text is None:
                 continue

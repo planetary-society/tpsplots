@@ -1,10 +1,19 @@
 """Concrete NASA budget charts using specialized chart views."""
 from datetime import datetime
+
 import numpy as np
-from tpsplots.controllers.chart_controller import ChartController
-from tpsplots.data_sources.nasa_budget_data_source import Historical, ScienceDivisions, Science, Workforce, Directorates
-from tpsplots.data_sources.missions import Missions
 import pandas as pd
+
+from tpsplots.controllers.chart_controller import ChartController
+from tpsplots.data_sources.missions import Missions
+from tpsplots.data_sources.nasa_budget_data_source import (
+    Directorates,
+    Historical,
+    Science,
+    ScienceDivisions,
+    Workforce,
+)
+
 
 class FY2026Charts(ChartController):
     
@@ -427,7 +436,7 @@ class FY2026Charts(ChartController):
         # Add a column for FY2026 Projection with projected workforce size for FY 2026
         df["FY2026 Projection"] = np.where(
             df["Fiscal Year"] == pd.to_datetime("2026-01-01"),
-            int(11853),
+            11853,
             np.nan
         )
         
@@ -501,9 +510,9 @@ class FY2026Charts(ChartController):
         # Calculate difference between FY 2025 and 2026:
         fy2025_row = df[df["Fiscal Year"].dt.year == datetime(2025,1,1).year].iloc[0]
         fy2026_row = df[df["Fiscal Year"].dt.year == datetime(2026,1,1).year].iloc[0]
-        diff_list = [-(fy2026_row[col] - fy2025_row[col]) for col in df.columns if col not in ["Fiscal Year"]]
+        [-(fy2026_row[col] - fy2025_row[col]) for col in df.columns if col not in ["Fiscal Year"]]
         # Remove "Fiscal Year" from the data rows
-        fy2025_values = [fy2025_row[col] for col in df.columns if col != "Fiscal Year"]
+        [fy2025_row[col] for col in df.columns if col != "Fiscal Year"]
         fy2026_values = [fy2026_row[col] for col in df.columns if col != "Fiscal Year"]
         diff_values = [-(fy2026_row[col] - fy2025_row[col]) if (fy2026_row[col] - fy2025_row[col]) < 0 else 0 for col in df.columns if col != "Fiscal Year"]
         # Sort fy2026_values from large to small, and apply the same order to diff_values and categories

@@ -1,9 +1,11 @@
 """Line subplots visualization specialized view."""
+import logging
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+
 from .chart_view import ChartView
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +123,7 @@ class LineSubplotsView(ChartView):
         all_labels = []
         
         # Plot data in each subplot
-        for idx, (ax, plot_data) in enumerate(zip(axes_flat[:len(subplot_data)], subplot_data)):
+        for idx, (ax, plot_data) in enumerate(zip(axes_flat[:len(subplot_data)], subplot_data, strict=False)):
             # Extract data for this subplot
             x = plot_data.get('x')
             y = plot_data.get('y')
@@ -191,14 +193,12 @@ class LineSubplotsView(ChartView):
                         current_label = labels
                     
                     # For shared legend, only set label on first subplot to avoid duplicates
-                    if shared_legend and idx == 0 and current_label:
-                        plot_kwargs['label'] = current_label
-                    elif not shared_legend and current_label:
+                    if (shared_legend and idx == 0 and current_label) or (not shared_legend and current_label):
                         plot_kwargs['label'] = current_label
                     
                     # Set line properties
                     plot_kwargs['linewidth'] = style["line_width"]
-                    if 'marker' in plot_kwargs and plot_kwargs['marker']:
+                    if plot_kwargs.get('marker'):
                         plot_kwargs['markersize'] = style.get("marker_size", 5)
                     
                     # Plot the line with valid data only
@@ -267,18 +267,18 @@ class LineSubplotsView(ChartView):
             **kwargs: Additional styling parameters
         """
         # Extract parameters with defaults
-        scale = kwargs.get('scale', None)
+        scale = kwargs.get('scale')
         axis_scale = kwargs.get('axis_scale', 'y')
-        xlim = kwargs.get('xlim', None)
-        ylim = kwargs.get('ylim', None)
-        xlabel = kwargs.get('xlabel', None)
-        ylabel = kwargs.get('ylabel', None)
+        xlim = kwargs.get('xlim')
+        ylim = kwargs.get('ylim')
+        xlabel = kwargs.get('xlabel')
+        ylabel = kwargs.get('ylabel')
         grid = kwargs.get('grid', style.get("grid"))
         grid_axis = kwargs.get('grid_axis', style.get("grid_axis", "both"))
         tick_size = kwargs.get('tick_size', style["tick_size"] * 0.5)  # Scale smaller for subplots
         tick_rotation = kwargs.get('tick_rotation', style.get("tick_rotation", 0))
-        xticks = kwargs.get('xticks', None)
-        xticklabels = kwargs.get('xticklabels', None)
+        xticks = kwargs.get('xticks')
+        xticklabels = kwargs.get('xticklabels')
         max_xticks = kwargs.get('max_xticks', style.get("max_ticks"))
         fiscal_year_ticks = kwargs.get('fiscal_year_ticks', True)
         

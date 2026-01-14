@@ -1,8 +1,10 @@
 """CSV file data controller for YAML-driven chart generation."""
-from pathlib import Path
-import pandas as pd
 import logging
 from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
+
 from tpsplots.controllers.chart_controller import ChartController
 
 logger = logging.getLogger(__name__)
@@ -14,7 +16,7 @@ class MissionSpendingController(ChartController):
 
     """
 
-    def __init__(self, csv_path: str = None):
+    def __init__(self, csv_path: str | None = None):
         """
         Initialize the CSVController with a CSV file path.
 
@@ -48,7 +50,7 @@ class MissionSpendingController(ChartController):
                     logger.warning(f"{reporting_type.capitalize} summary CSV file not found: {file_name}")
                 
     
-    def _process_mission_spending_data(self, file_name: str = None, type: str = "") -> dict:
+    def _process_mission_spending_data(self, file_name: str | None = None, type: str = "") -> dict:
         """
         Process mission spending data from CSV file.
         Returns a DataFrame with parsed dates, decades, status, and mass values.
@@ -123,10 +125,7 @@ class MissionSpendingController(ChartController):
             source += f". Accessed {data['accessed_date']}."
         
         metadata = {
-            "title": "{reporting_type} for {mission_name}".format(
-                reporting_type=reporting_type.capitalize(),
-                mission_name=mission_name
-            ),
+            "title": f"{reporting_type.capitalize()} for {mission_name}",
             "subtitle": subtitle,
             "source": source
         }
