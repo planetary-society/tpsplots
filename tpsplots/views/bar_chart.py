@@ -1,22 +1,23 @@
 """Enhanced bar chart with automatic percentage formatting for y-axis ticks."""
+
 import logging
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from matplotlib.ticker import FuncFormatter
 
 from .chart_view import ChartView
 
 logger = logging.getLogger(__name__)
 
+
 class BarChartView(ChartView):
     """Specialized view for standard bar charts with a focus on exposing matplotlib's API."""
-    
+
     def bar_plot(self, metadata, stem, **kwargs):
         """
         Generate bar charts for both desktop and mobile.
-        
+
         Parameters:
         -----------
         metadata : dict
@@ -28,7 +29,7 @@ class BarChartView(ChartView):
             Required parameters:
             - categories: list/array - Category labels for x-axis or y-axis
             - values: list/array/Series - Values for each bar
-            
+
             Optional parameters:
             - orientation: str - 'vertical' (default) or 'horizontal'
             - colors: str/list - Colors for bars (default: TPS Neptune Blue)
@@ -58,29 +59,29 @@ class BarChartView(ChartView):
             - sort_ascending: bool - Sort direction if sort_by is specified (default: True)
             - show_category_ticks: bool - Show tick marks on category axis (default: False)
             - baseline: float - Baseline value for bars (default: 0)
-            
+
         Returns:
         --------
         dict
             Dictionary containing the generated figure objects {'desktop': fig, 'mobile': fig}
         """
         return self.generate_chart(metadata, stem, **kwargs)
-    
+
     def _create_chart(self, metadata, style, **kwargs):
         """
         Create a bar chart with appropriate styling.
-        
+
         Args:
             metadata: Chart metadata dictionary
             style: Style dictionary (DESKTOP or MOBILE)
             **kwargs: Arguments for chart creation
-            
+
         Returns:
             matplotlib.figure.Figure: The created figure
         """
         # Extract required parameters
-        categories = kwargs.pop('categories', None)
-        values = kwargs.pop('values', None)
+        categories = kwargs.pop("categories", None)
+        values = kwargs.pop("values", None)
 
         if categories is None or values is None:
             raise ValueError("Both 'categories' and 'values' are required for bar_plot")
@@ -91,25 +92,25 @@ class BarChartView(ChartView):
 
         # Parse literal newline sequences in category labels to actual newlines
         categories = self._parse_newlines_in_labels(categories)
-        
+
         # Check for fiscal year data IMMEDIATELY on original categories
         # This must happen before any other processing that might modify the data
-        fiscal_year_ticks = kwargs.pop('fiscal_year_ticks', True)
+        fiscal_year_ticks = kwargs.pop("fiscal_year_ticks", True)
         categories_are_fiscal_years = fiscal_year_ticks and self._contains_dates(categories)
-        
+
         # Store original categories for fiscal year range calculation
         self._original_categories = categories if categories_are_fiscal_years else None
-        
+
         # Validate data lengths
         if len(categories) != len(values):
             raise ValueError("categories and values must have the same length")
 
         # Extract colors early so they can be sorted along with the data
-        colors = kwargs.pop('colors', None)
+        colors = kwargs.pop("colors", None)
 
         # Handle sorting if requested
-        sort_by = kwargs.pop('sort_by', None)
-        sort_ascending = kwargs.pop('sort_ascending', True)
+        sort_by = kwargs.pop("sort_by", None)
+        sort_ascending = kwargs.pop("sort_ascending", True)
 
         if sort_by:
             sorted_indices = self._get_sort_indices(categories, values, sort_by, sort_ascending)
@@ -119,126 +120,140 @@ class BarChartView(ChartView):
             # Also reorder colors to maintain association with categories
             if colors and isinstance(colors, (list, tuple)):
                 colors = [colors[i] for i in sorted_indices]
-        
+
         # Extract figure parameters
-        figsize = kwargs.pop('figsize', style["figsize"])
-        dpi = kwargs.pop('dpi', style["dpi"])
+        figsize = kwargs.pop("figsize", style["figsize"])
+        dpi = kwargs.pop("dpi", style["dpi"])
         fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-        
+
         # Intercept title and subtitle parameters
         for text in ["title", "subtitle"]:
             if kwargs.get(text):
                 metadata[text] = kwargs.pop(text)
-        
+
         # Extract styling parameters
-        orientation = kwargs.pop('orientation', 'vertical')
+        orientation = kwargs.pop("orientation", "vertical")
         # colors already extracted earlier (before sorting)
-        positive_color = kwargs.pop('positive_color', None)
-        negative_color = kwargs.pop('negative_color', None)
-        show_values = kwargs.pop('show_values', False)
-        value_format = kwargs.pop('value_format', 'float')
-        value_suffix = kwargs.pop('value_suffix', '')
-        value_offset = kwargs.pop('value_offset', None)
-        value_fontsize = kwargs.pop('value_fontsize', style.get("tick_size", 12) * 0.9)
-        value_color = kwargs.pop('value_color', 'black')
-        value_weight = kwargs.pop('value_weight', 'normal')
-        width = kwargs.pop('width', 0.8)
-        height = kwargs.pop('height', 0.8)
-        alpha = kwargs.pop('alpha', 1.0)
-        edgecolor = kwargs.pop('edgecolor', 'white')
-        linewidth = kwargs.pop('linewidth', 0.5)
-        baseline = kwargs.pop('baseline', 0)
-        
+        positive_color = kwargs.pop("positive_color", None)
+        negative_color = kwargs.pop("negative_color", None)
+        show_values = kwargs.pop("show_values", False)
+        value_format = kwargs.pop("value_format", "float")
+        value_suffix = kwargs.pop("value_suffix", "")
+        value_offset = kwargs.pop("value_offset", None)
+        value_fontsize = kwargs.pop("value_fontsize", style.get("tick_size", 12) * 0.9)
+        value_color = kwargs.pop("value_color", "black")
+        value_weight = kwargs.pop("value_weight", "normal")
+        width = kwargs.pop("width", 0.8)
+        height = kwargs.pop("height", 0.8)
+        alpha = kwargs.pop("alpha", 1.0)
+        edgecolor = kwargs.pop("edgecolor", "white")
+        linewidth = kwargs.pop("linewidth", 0.5)
+        baseline = kwargs.pop("baseline", 0)
+
         # Determine colors for each bar
         bar_colors = self._determine_bar_colors(values, colors, positive_color, negative_color)
-        
+
         # Create the bar chart
-        if orientation == 'vertical':
+        if orientation == "vertical":
             positions = np.arange(len(categories))
             bars = ax.bar(
-                positions, values, width,
+                positions,
+                values,
+                width,
                 bottom=baseline,
                 color=bar_colors,
                 alpha=alpha,
                 edgecolor=edgecolor,
-                linewidth=linewidth
+                linewidth=linewidth,
             )
             ax.set_xticks(positions)
             ax.set_xticklabels(categories)
         else:  # horizontal
             positions = np.arange(len(categories))
             bars = ax.barh(
-                positions, values, height,
+                positions,
+                values,
+                height,
                 left=baseline,
                 color=bar_colors,
                 alpha=alpha,
                 edgecolor=edgecolor,
-                linewidth=linewidth
+                linewidth=linewidth,
             )
             ax.set_yticks(positions)
             ax.set_yticklabels(categories)
-        
+
         # Add value labels if requested
         if show_values:
             self._add_value_labels(
-                ax, bars, values, orientation, value_format, value_suffix,
-                value_offset, value_fontsize, value_color, value_weight, baseline
+                ax,
+                bars,
+                values,
+                orientation,
+                value_format,
+                value_suffix,
+                value_offset,
+                value_fontsize,
+                value_color,
+                value_weight,
+                baseline,
             )
-        
+
         # Apply styling (now includes percentage formatting)
-        self._apply_bar_styling(ax, style, orientation, categories_are_fiscal_years, 
-                               value_format=value_format, **kwargs)
-        
+        self._apply_bar_styling(
+            ax, style, orientation, categories_are_fiscal_years, value_format=value_format, **kwargs
+        )
+
         # Add legend if multiple colors are used and labels are provided
-        legend = kwargs.pop('legend', False)
+        legend = kwargs.pop("legend", False)
         if legend and (positive_color or negative_color):
             self._add_value_based_legend(ax, values, positive_color, negative_color, style)
-        
+
         # Adjust layout for header and footer
         self._adjust_layout_for_header_footer(fig, metadata, style)
-        
+
         return fig
-    
+
     def _get_sort_indices(self, categories, values, sort_by, ascending=True):
         """Get indices for sorting the data."""
-        if sort_by == 'value':
+        if sort_by == "value":
             sort_values = values
-        elif sort_by == 'category':
+        elif sort_by == "category":
             sort_values = categories
         else:
             raise ValueError(f"sort_by must be 'value' or 'category', got {sort_by}")
-        
+
         return np.argsort(sort_values) if ascending else np.argsort(sort_values)[::-1]
-    
+
     def _determine_bar_colors(self, values, colors, positive_color, negative_color):
         """
         Determine the color for each bar based on values and color parameters.
-        
+
         Args:
             values: Array of bar values
             colors: Base colors (str or list)
             positive_color: Color for positive values
             negative_color: Color for negative values
-            
+
         Returns:
             List of colors for each bar
         """
         num_bars = len(values)
-        
+
         # If positive/negative colors are specified, use value-based coloring
         if positive_color or negative_color:
             bar_colors = []
             default_positive = positive_color or self.TPS_COLORS["Neptune Blue"]
             default_negative = negative_color or self.TPS_COLORS["Rocket Flame"]
-            
+
             for value in values:
                 if value >= 0:
                     bar_colors.append(default_positive)
                 else:
                     bar_colors.append(default_negative)
-            
+
             return bar_colors
-        
+
         # Otherwise, use standard color assignment
         if colors is None:
             # Use default TPS color
@@ -252,168 +267,148 @@ class BarChartView(ChartView):
         else:
             # Fallback to default
             return [self.TPS_COLORS["Neptune Blue"]] * num_bars
-    
-    def _add_value_labels(self, ax, bars, values, orientation, value_format, value_suffix,
-                         value_offset, fontsize, color, weight, baseline):
+
+    def _add_value_labels(
+        self,
+        ax,
+        bars,
+        values,
+        orientation,
+        value_format,
+        value_suffix,
+        value_offset,
+        fontsize,
+        color,
+        weight,
+        baseline,
+    ):
         """Add value labels to each bar."""
         if value_offset is None:
             # Auto-calculate offset based on orientation and value range
-            if orientation == 'vertical':
+            if orientation == "vertical":
                 value_range = ax.get_ylim()[1] - ax.get_ylim()[0]
                 value_offset = value_range * 0.02  # 2% of range
             else:
                 value_range = ax.get_xlim()[1] - ax.get_xlim()[0]
                 value_offset = value_range * 0.02
-        
+
         for bar, value in zip(bars, values, strict=False):
             # Format the value
             formatted_value = self._format_value(value, value_format) + value_suffix
-            
-            if orientation == 'vertical':
+
+            if orientation == "vertical":
                 # Position label above or below bar depending on value
                 if value >= baseline:
                     label_y = bar.get_height() + value_offset
-                    va = 'bottom'
+                    va = "bottom"
                 else:
                     label_y = bar.get_height() - value_offset
-                    va = 'top'
-                
+                    va = "top"
+
                 ax.text(
                     bar.get_x() + bar.get_width() / 2,
                     label_y,
                     formatted_value,
-                    ha='center', va=va,
+                    ha="center",
+                    va=va,
                     fontsize=fontsize,
                     color=color,
-                    weight=weight
+                    weight=weight,
                 )
             else:  # horizontal
                 # Position label to the right or left of bar depending on value
                 if value >= baseline:
                     label_x = bar.get_width() + value_offset
-                    ha = 'left'
+                    ha = "left"
                 else:
                     label_x = bar.get_width() - value_offset
-                    ha = 'right'
-                
+                    ha = "right"
+
                 ax.text(
                     label_x,
                     bar.get_y() + bar.get_height() / 2,
                     formatted_value,
-                    ha=ha, va='center',
+                    ha=ha,
+                    va="center",
                     fontsize=fontsize,
                     color=color,
-                    weight=weight
+                    weight=weight,
                 )
-    
+
     def _add_value_based_legend(self, ax, values, positive_color, negative_color, style):
         """Add legend for positive/negative value colors."""
         legend_elements = []
         legend_labels = []
-        
+
         has_positive = np.any(values >= 0)
         has_negative = np.any(values < 0)
-        
-        if has_positive and positive_color:
-            legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=positive_color, edgecolor='white'))
-            legend_labels.append('Positive')
-        
-        if has_negative and negative_color:
-            legend_elements.append(plt.Rectangle((0,0),1,1, facecolor=negative_color, edgecolor='white'))
-            legend_labels.append('Negative')
-        
-        if legend_elements:
-            ax.legend(legend_elements, legend_labels, 
-                     loc='upper right', 
-                     fontsize=style.get("legend_size", 12))
-    
-    def _format_value(self, value, format_type):
-        """Format values according to the specified format type."""
-        if pd.isna(value):
-            return ""
 
-        if format_type == 'monetary':
-            return self._format_monetary(value)
-        elif format_type == 'percentage':
-            return f"{value:.1f}%"
-        elif format_type == 'integer':
-            return f"{int(value):,}"
-        elif format_type == 'float':
-            return f"{value:.1f}"
-        else:
-            # Try as custom Python format specification
-            try:
-                return f"{value:{format_type}}"
-            except (ValueError, KeyError) as e:
-                raise ValueError(
-                    f"Invalid value_format: '{format_type}'. "
-                    f"Must be one of 'monetary', 'percentage', 'integer', 'float' "
-                    f"or a valid Python format spec (e.g., '.1f', '.2f', ',.0f'). "
-                    f"Error formatting value {value}: {e}"
-                )
-    
-    def _format_monetary(self, value):
-        """Format monetary values with appropriate suffixes."""
-        abs_value = abs(value)
-        sign = "-" if value < 0 else ""
-        
-        if abs_value >= 1_000_000_000:
-            return f"{sign}${abs_value/1_000_000_000:.1f}B"
-        elif abs_value >= 1_000_000:
-            return f"{sign}${abs_value/1_000_000:.0f}M"
-        elif abs_value >= 1_000:
-            return f"{sign}${abs_value/1_000:.0f}K"
-        else:
-            return f"{sign}${abs_value:.0f}"
-    
+        if has_positive and positive_color:
+            legend_elements.append(
+                plt.Rectangle((0, 0), 1, 1, facecolor=positive_color, edgecolor="white")
+            )
+            legend_labels.append("Positive")
+
+        if has_negative and negative_color:
+            legend_elements.append(
+                plt.Rectangle((0, 0), 1, 1, facecolor=negative_color, edgecolor="white")
+            )
+            legend_labels.append("Negative")
+
+        if legend_elements:
+            ax.legend(
+                legend_elements,
+                legend_labels,
+                loc="upper right",
+                fontsize=style.get("legend_size", 12),
+            )
+
+    # NOTE: _format_value and _format_monetary are inherited from ChartView base class
+
     def _apply_percentage_tick_formatter(self, ax, orientation):
         """
         Apply percentage formatting to the appropriate axis ticks.
-        
+
         Args:
             ax: Matplotlib axes object
             orientation: Chart orientation ('vertical' or 'horizontal')
         """
+
         def percentage_formatter(x, pos):
             """Format tick labels as percentages."""
             return f"{x:.0f}%" if x != 0 else "0%"
-        
-        if orientation == 'vertical':
+
+        if orientation == "vertical":
             # For vertical bars, format y-axis (value axis)
             ax.yaxis.set_major_formatter(FuncFormatter(percentage_formatter))
         else:
             # For horizontal bars, format x-axis (value axis)
             ax.xaxis.set_major_formatter(FuncFormatter(percentage_formatter))
-    
+
     def _apply_bar_styling(self, ax, style, orientation, categories_are_fiscal_years, **kwargs):
         """Apply consistent styling to the bar chart."""
         # Extract styling parameters
-        scale = kwargs.pop('scale', None)
-        xlim = kwargs.pop('xlim', None)
-        ylim = kwargs.pop('ylim', None)
-        xlabel = kwargs.pop('xlabel', None)
-        ylabel = kwargs.pop('ylabel', None)
-        grid = kwargs.pop('grid', True)
-        grid_axis = kwargs.pop('grid_axis', 'y' if orientation == 'vertical' else 'x')
-        tick_size = kwargs.pop('tick_size', style.get("tick_size", 12))
-        label_size = kwargs.pop('label_size', style.get("label_size", 20))
-        
+        scale = kwargs.pop("scale", None)
+        xlim = kwargs.pop("xlim", None)
+        ylim = kwargs.pop("ylim", None)
+        xlabel = kwargs.pop("xlabel", None)
+        ylabel = kwargs.pop("ylabel", None)
+        grid = kwargs.pop("grid", True)
+        grid_axis = kwargs.pop("grid_axis", "y" if orientation == "vertical" else "x")
+        tick_size = kwargs.pop("tick_size", style.get("tick_size", 12))
+        label_size = kwargs.pop("label_size", style.get("label_size", 20))
+
         # Calculate default rotation based on orientation
         # For horizontal bars, value axis (x-axis) should never be rotated
         # For vertical bars, category axis (x-axis) may need rotation for long labels
-        if orientation == 'vertical':
-            # Use style default for vertical bars (typically 45° or 90° for long category names)
-            default_rotation = style.get("tick_rotation", 45)
-        else:
-            # For horizontal bars, x-axis shows VALUES (integers) - always keep horizontal
-            default_rotation = 0
+        default_rotation = style.get("tick_rotation", 45) if orientation == "vertical" else 0
 
         # Allow manual override via YAML parameter
-        tick_rotation = kwargs.pop('tick_rotation', default_rotation)
-        baseline = kwargs.pop('baseline', 0)
-        value_format = kwargs.pop('value_format', None)  # Extract value_format
-        show_category_ticks = kwargs.pop('show_category_ticks', False)
-        
+        tick_rotation = kwargs.pop("tick_rotation", default_rotation)
+        baseline = kwargs.pop("baseline", 0)
+        value_format = kwargs.pop("value_format", None)  # Extract value_format
+        show_category_ticks = kwargs.pop("show_category_ticks", False)
+
         # Scale down tick size on mobile display
         if style["type"] == "mobile":
             tick_size = tick_size * 0.8
@@ -423,54 +418,54 @@ class BarChartView(ChartView):
             label_size = label_size * 0.6
 
         if xlabel:
-            ax.set_xlabel(xlabel, fontsize=label_size, loc="center", style='italic')
+            ax.set_xlabel(xlabel, fontsize=label_size, loc="center", style="italic")
         if ylabel:
-            ax.set_ylabel(ylabel, fontsize=label_size, loc="center", style='italic')
-        
+            ax.set_ylabel(ylabel, fontsize=label_size, loc="center", style="italic")
+
         # Apply grid
         if grid:
-            ax.grid(axis=grid_axis, alpha=0.3, linestyle='--', linewidth=0.5)
-        
+            ax.grid(axis=grid_axis, alpha=0.3, linestyle="--", linewidth=0.5)
+
         # Add baseline reference line if different from 0
         if baseline != 0:
-            if orientation == 'vertical':
-                ax.axhline(y=baseline, color='gray', linestyle='-', linewidth=1, alpha=0.7)
+            if orientation == "vertical":
+                ax.axhline(y=baseline, color="gray", linestyle="-", linewidth=1, alpha=0.7)
             else:
-                ax.axvline(x=baseline, color='gray', linestyle='-', linewidth=1, alpha=0.7)
-        
+                ax.axvline(x=baseline, color="gray", linestyle="-", linewidth=1, alpha=0.7)
+
         # Disable minor ticks for both axes
         ax.xaxis.set_minor_locator(plt.NullLocator())
         ax.yaxis.set_minor_locator(plt.NullLocator())
-        ax.tick_params(which='minor', left=False, right=False, top=False, bottom=False)
-        
+        ax.tick_params(which="minor", left=False, right=False, top=False, bottom=False)
+
         # Apply percentage formatting if value_format is 'percentage'
-        if value_format == 'percentage':
+        if value_format == "percentage":
             self._apply_percentage_tick_formatter(ax, orientation)
-        
+
         # Apply scale formatter if specified (but not if we already applied percentage formatting)
         elif scale:
-            axis_to_scale = 'y' if orientation == 'vertical' else 'x'
+            axis_to_scale = "y" if orientation == "vertical" else "x"
             self._apply_scale_formatter(ax, scale, axis=axis_to_scale)
-        
+
         # Apply appropriate tick formatting based on fiscal year detection
-        if categories_are_fiscal_years and orientation == 'vertical':
+        if categories_are_fiscal_years and orientation == "vertical":
             # Apply special FY formatting using the base class method
             # but with bar chart-specific xlim calculation
             self._apply_fiscal_year_bar_ticks(ax, style, tick_size=tick_size)
         else:
             # Apply standard tick formatting
-            ax.tick_params(axis='x', labelsize=tick_size, rotation=tick_rotation)
+            ax.tick_params(axis="x", labelsize=tick_size, rotation=tick_rotation)
             # Set tick locators if needed
-            max_xticks = kwargs.pop('max_xticks', style.get("max_ticks"))
-            if max_xticks and orientation == 'vertical':
+            max_xticks = kwargs.pop("max_xticks", style.get("max_ticks"))
+            if max_xticks and orientation == "vertical":
                 ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
-        
+
         # Always set y-axis tick size to ensure consistency
-        ax.tick_params(axis='y', labelsize=tick_size)
+        ax.tick_params(axis="y", labelsize=tick_size)
 
         # Ensure integer-only ticks on value axis
         # This prevents decimal values like 2.5 or 7.5 from appearing as tick marks
-        if orientation == 'vertical':
+        if orientation == "vertical":
             # For vertical bars, y-axis is the value axis
             ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
         else:
@@ -479,13 +474,12 @@ class BarChartView(ChartView):
 
         # Control category tick mark visibility
         if not show_category_ticks:
-            if orientation == 'vertical':
+            if orientation == "vertical":
                 # Hide x-axis (category axis) tick marks
-                ax.tick_params(axis='x', length=0, bottom=False, top=False)
+                ax.tick_params(axis="x", length=0, bottom=False, top=False)
             else:
                 # Hide y-axis (category axis) tick marks
-                ax.tick_params(axis='y', length=0, left=False, right=False)
-
+                ax.tick_params(axis="y", length=0, left=False, right=False)
 
         # Apply custom limits
         if xlim:
@@ -498,36 +492,36 @@ class BarChartView(ChartView):
                 ax.set_ylim(**ylim)
             else:
                 ax.set_ylim(ylim)
-        
+
         # Apply category alignment for non-fiscal year cases or when needed
-        if not categories_are_fiscal_years or orientation != 'vertical':
-            if orientation == 'vertical':
+        if not categories_are_fiscal_years or orientation != "vertical":
+            if orientation == "vertical":
                 self._apply_vertical_category_alignment(ax, tick_rotation)
             else:
                 self._apply_horizontal_category_alignment(ax)
-    
+
     def _apply_vertical_category_alignment(self, ax, tick_rotation):
         """Apply proper alignment for vertical bar chart category labels."""
         # For vertical bars, x-axis labels should be centered under bars
         positions = np.arange(len(ax.get_xticklabels()))
         ax.set_xticks(positions)
-        
+
         # Adjust alignment based on rotation angle
         if abs(tick_rotation) == 90:
-            ha = 'center'
-            va = 'top'
+            ha = "center"
+            va = "top"
         elif tick_rotation != 0:
-            ha = 'right'
-            va = 'top'
+            ha = "right"
+            va = "top"
         else:
-            ha = 'center'
-            va = 'top'
-        
+            ha = "center"
+            va = "top"
+
         # Apply the alignment to all x-axis labels
         for tick in ax.get_xticklabels():
             tick.set_horizontalalignment(ha)
             tick.set_verticalalignment(va)
-    
+
     def _apply_horizontal_category_alignment(self, ax):
         """Apply proper alignment for horizontal bar chart category labels."""
         # For horizontal bars, y-axis labels should be centered next to bars
@@ -535,9 +529,9 @@ class BarChartView(ChartView):
         ax.set_yticks(positions)
         # Keep y-labels right-aligned for horizontal bars
         for tick in ax.get_yticklabels():
-            tick.set_verticalalignment('center')
-            tick.set_horizontalalignment('right')
-            
+            tick.set_verticalalignment("center")
+            tick.set_horizontalalignment("right")
+
     def _apply_fiscal_year_bar_ticks(self, ax, style, tick_size):
         """
         Apply fiscal year tick formatting specifically for bar charts.
@@ -551,9 +545,11 @@ class BarChartView(ChartView):
             tick_size: Font size for tick labels
         """
         # Extract years from the stored original categories
-        if not hasattr(self, '_original_categories') or self._original_categories is None:
+        if not hasattr(self, "_original_categories") or self._original_categories is None:
             # Fallback to standard formatting
-            plt.setp(ax.get_xticklabels(), rotation=style.get("tick_rotation", 0), fontsize=tick_size)
+            plt.setp(
+                ax.get_xticklabels(), rotation=style.get("tick_rotation", 0), fontsize=tick_size
+            )
             return
 
         try:
@@ -561,7 +557,7 @@ class BarChartView(ChartView):
             years = []
             for i, category in enumerate(self._original_categories):
                 try:
-                    if hasattr(category, 'year'):  # datetime object
+                    if hasattr(category, "year"):  # datetime object
                         years.append((i, category.year))
                     else:
                         # Convert to string and try to parse
@@ -571,7 +567,8 @@ class BarChartView(ChartView):
                         else:
                             # Try to extract 4-digit year from string
                             import re
-                            year_match = re.search(r'\b(19|20)\d{2}\b', category_str)
+
+                            year_match = re.search(r"\b(19|20)\d{2}\b", category_str)
                             if year_match:
                                 years.append((i, int(year_match.group())))
                 except (ValueError, AttributeError):
@@ -579,7 +576,9 @@ class BarChartView(ChartView):
 
             if not years:
                 # No valid years found, use standard formatting
-                plt.setp(ax.get_xticklabels(), rotation=style.get("tick_rotation", 0), fontsize=tick_size)
+                plt.setp(
+                    ax.get_xticklabels(), rotation=style.get("tick_rotation", 0), fontsize=tick_size
+                )
                 return
 
             # Determine year range
@@ -602,7 +601,7 @@ class BarChartView(ChartView):
                         labels.append(str(year))
                         labeled_positions.append(pos)
                     else:
-                        labels.append('')
+                        labels.append("")
                 elif year_range < 10:
                     # Show all years
                     labels.append(str(year))
@@ -613,7 +612,7 @@ class BarChartView(ChartView):
                         labels.append(str(year))
                         labeled_positions.append(pos)
                     else:
-                        labels.append('')
+                        labels.append("")
 
             # Set all positions as ticks
             ax.set_xticks(all_positions)
@@ -621,8 +620,14 @@ class BarChartView(ChartView):
 
             # Style the ticks - all will be visible as "major" ticks
             # First, set all ticks to the shorter length
-            ax.tick_params(axis='x', which='major', length=4, width=1,
-                           rotation=style.get("tick_rotation", 0), labelsize=tick_size)
+            ax.tick_params(
+                axis="x",
+                which="major",
+                length=4,
+                width=1,
+                rotation=style.get("tick_rotation", 0),
+                labelsize=tick_size,
+            )
 
             # Now, adjust tick line lengths:
             # - For labeled ticks (e.g. every decade when year_range > 20), use longer ticks.
@@ -645,4 +650,6 @@ class BarChartView(ChartView):
         except Exception as e:
             print(f"DEBUG: Error in _apply_fiscal_year_bar_ticks: {e}")
             # Fallback to standard formatting
-            plt.setp(ax.get_xticklabels(), rotation=style.get("tick_rotation", 0), fontsize=tick_size)
+            plt.setp(
+                ax.get_xticklabels(), rotation=style.get("tick_rotation", 0), fontsize=tick_size
+            )

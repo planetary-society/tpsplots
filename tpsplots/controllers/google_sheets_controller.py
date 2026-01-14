@@ -99,7 +99,7 @@ class GoogleSheetsController(ChartController):
             return result
 
         except Exception as e:
-            raise RuntimeError(f"Error fetching data from Google Sheets URL {self.url}: {e}")
+            raise RuntimeError(f"Error fetching data from Google Sheets URL {self.url}: {e}") from e
 
     def get_data_summary(self):
         """

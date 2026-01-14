@@ -4,7 +4,7 @@ import logging
 import re
 import sys
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 import yaml
 from pydantic import BaseModel, Field, model_validator, validator
@@ -133,9 +133,8 @@ class YAMLChartConfig(BaseModel):
         elif data_source.type == 'csv_file':
             if not hasattr(data_source, 'path'):
                 raise ValueError("csv_file requires 'path' field")
-        elif data_source.type in ['google_sheets', 'url']:
-            if not hasattr(data_source, 'url'):
-                raise ValueError(f"{data_source.type} requires 'url' field")
+        elif data_source.type in ['google_sheets', 'url'] and not hasattr(data_source, 'url'):
+            raise ValueError(f"{data_source.type} requires 'url' field")
 
         return self
 
@@ -144,7 +143,7 @@ class YAMLChartProcessor:
     """Processes YAML configuration files to generate charts with Pydantic validation."""
 
     # Map chart types to view classes
-    VIEW_REGISTRY = {
+    VIEW_REGISTRY: ClassVar[dict[str, type]] = {
         'line_plot': LineChartView,
         'bar_plot': BarChartView,
         'donut_plot': DonutChartView,
@@ -180,10 +179,10 @@ class YAMLChartProcessor:
                 config = yaml.safe_load(f)
             logger.info(f"Loaded YAML config from {self.yaml_path}")
             return config
-        except FileNotFoundError:
-            raise FileNotFoundError(f"YAML file not found: {self.yaml_path}")
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"YAML file not found: {self.yaml_path}") from e
         except yaml.YAMLError as e:
-            raise ValueError(f"Invalid YAML syntax in {self.yaml_path}: {e}")
+            raise ValueError(f"Invalid YAML syntax in {self.yaml_path}: {e}") from e
 
     def _validate_config(self, raw_config: dict[str, Any]) -> YAMLChartConfig:
         """Validate the YAML configuration using Pydantic."""
@@ -192,7 +191,7 @@ class YAMLChartProcessor:
             logger.info("YAML configuration validated successfully")
             return config
         except Exception as e:
-            raise ValueError(f"YAML configuration validation failed: {e}")
+            raise ValueError(f"YAML configuration validation failed: {e}") from e
 
     def _resolve_data_source(self) -> dict[str, Any]:
         """Resolve the data source and return the processed data."""
@@ -244,7 +243,7 @@ class YAMLChartProcessor:
                 return {'data': result}
 
         except Exception as e:
-            raise RuntimeError(f"Error calling {class_name}.{method_name}: {e}")
+            raise RuntimeError(f"Error calling {class_name}.{method_name}: {e}") from e
 
     def _find_controller_class(self, class_name: str):
         """Find controller class by searching all controller modules."""
@@ -276,7 +275,7 @@ class YAMLChartProcessor:
             controller = CSVController(csv_path=data_source.path)
             return controller.load_data()
         except Exception as e:
-            raise RuntimeError(f"Error loading CSV data via CSVController: {e}")
+            raise RuntimeError(f"Error loading CSV data via CSVController: {e}") from e
 
     def _resolve_google_sheets_data(self, data_source: URLDataSource) -> dict[str, Any]:
         """Resolve data from Google Sheets or URL using GoogleSheetsController."""
@@ -285,7 +284,7 @@ class YAMLChartProcessor:
             controller = GoogleSheetsController(url=data_source.url)
             return controller.load_data()
         except Exception as e:
-            raise RuntimeError(f"Error loading Google Sheets data via GoogleSheetsController: {e}")
+            raise RuntimeError(f"Error loading Google Sheets data via GoogleSheetsController: {e}") from e
 
     def _resolve_parameters(self, data: dict[str, Any]) -> dict[str, Any]:
         """Resolve parameters by substituting data references."""

@@ -222,7 +222,7 @@ class DonutChartView(ChartView):
             adjusted_positions = top_right + top_left + bottom_left + bottom_right
             
             # Now draw the labels
-            for _i, (x, y, angle, label, pct) in enumerate(adjusted_positions):
+            for _i, (x, y, _angle, label, pct) in enumerate(adjusted_positions):
                 # Determine text alignment based on position
                 ha = 'left' if x >= 0 else 'right'
                 va = 'center'

@@ -54,10 +54,12 @@ import io
 import re
 import ssl
 from collections.abc import Callable
+from contextlib import suppress
 from datetime import date, datetime, timedelta
 from functools import cached_property
+from importlib import import_module
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 from urllib.error import URLError
 
 import certifi
@@ -66,10 +68,8 @@ import requests
 from cachier import cachier
 
 # Configure caching
-try:
-    from ..config import cache_config
-except ImportError:
-    pass  # Cache config is optional
+with suppress(ImportError):
+    import_module("..config.cache_config", package=__package__)
 
 # Assumed external library for inflation adjustments
 import logging
@@ -577,7 +577,7 @@ class Historical(NASABudget):
         "?format=csv&gid=670209929"
     )
     # Define the specific columns to load from the source CSV
-    COLUMNS = [
+    COLUMNS: ClassVar[list[str]] = [
         "Fiscal Year",
         "Presidential Administration",
         "White House Budget Release Date",
@@ -589,9 +589,9 @@ class Historical(NASABudget):
         "% of U.S. Discretionary Spending",
     ]
     # Define how to rename columns after loading
-    RENAMES = {"White House Budget Submission": "PBR"}
+    RENAMES: ClassVar[dict[str, str]] = {"White House Budget Submission": "PBR"}
     # Define which columns contain monetary values that need inflation adjustment
-    MONETARY_COLUMNS = ["PBR", "Appropriation", "Outlays"]
+    MONETARY_COLUMNS: ClassVar[list[str]] = ["PBR", "Appropriation", "Outlays"]
 
     def __init__(self, *, cache_dir: Path | None = None) -> None:
         """
@@ -619,10 +619,27 @@ class ScienceDivisions(NASABudget):
     )
     # define COLUMNS / RENAMES / MONETARY_COLUMNS when ready
     # Example placeholders:
-    COLUMNS = ["Fiscal Year", "Astrophysics", "Planetary Science", "Earth Science", "Heliophysics",
-               "Astrophysics Proposed", "Planetary Science Proposed", "Earth Science Proposed", "Heliophysics Proposed"]
-    MONETARY_COLUMNS = ["Astrophysics", "Planetary Science", "Earth Science", "Heliophysics",
-                        "Astrophysics Proposed", "Planetary Science Proposed", "Earth Science Proposed", "Heliophysics Proposed"]
+    COLUMNS: ClassVar[list[str]] = [
+        "Fiscal Year",
+        "Astrophysics",
+        "Planetary Science",
+        "Earth Science",
+        "Heliophysics",
+        "Astrophysics Proposed",
+        "Planetary Science Proposed",
+        "Earth Science Proposed",
+        "Heliophysics Proposed",
+    ]
+    MONETARY_COLUMNS: ClassVar[list[str]] = [
+        "Astrophysics",
+        "Planetary Science",
+        "Earth Science",
+        "Heliophysics",
+        "Astrophysics Proposed",
+        "Planetary Science Proposed",
+        "Earth Science Proposed",
+        "Heliophysics Proposed",
+    ]
 
     def __init__(self, *, cache_dir: Path | None = None) -> None:
         """
@@ -650,17 +667,32 @@ class Directorates(NASABudget):
     )
     # define COLUMNS / RENAMES / MONETARY_COLUMNS when ready
     # Example placeholders:
-    COLUMNS = ["Fiscal Year", "Aeronautics", "HSF Exploration", "LEO Space Operations",
-               "STMD", "SMD", "Education/STEM Outreach", "Cross Agency Support/CECR"]
-    RENAMES = {
-            "Cross Agency Support/CECR": "Facilities, IT, & Salaries",
-            "Education/STEM Outreach": "STEM Education",
-            "STMD": "Space Technology",
-            "HSF Exploration": "Deep Space Exploration Systems",
-            "SMD": "Science",
-        }
-    MONETARY_COLUMNS = ["Aeronautics", "Space Technology", "Deep Space Exploration Systems", "LEO Space Operations",
-               "Science", "STEM Education", "Facilities, IT, & Salaries"]
+    COLUMNS: ClassVar[list[str]] = [
+        "Fiscal Year",
+        "Aeronautics",
+        "HSF Exploration",
+        "LEO Space Operations",
+        "STMD",
+        "SMD",
+        "Education/STEM Outreach",
+        "Cross Agency Support/CECR",
+    ]
+    RENAMES: ClassVar[dict[str, str]] = {
+        "Cross Agency Support/CECR": "Facilities, IT, & Salaries",
+        "Education/STEM Outreach": "STEM Education",
+        "STMD": "Space Technology",
+        "HSF Exploration": "Deep Space Exploration Systems",
+        "SMD": "Science",
+    }
+    MONETARY_COLUMNS: ClassVar[list[str]] = [
+        "Aeronautics",
+        "Space Technology",
+        "Deep Space Exploration Systems",
+        "LEO Space Operations",
+        "Science",
+        "STEM Education",
+        "Facilities, IT, & Salaries",
+    ]
 
     def __init__(self, *, cache_dir: Path | None = None) -> None:
         """
@@ -677,9 +709,9 @@ class Science(NASABudget):
                "1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/"
                "export?format=csv&gid=1298630212")
     
-    COLUMNS = ["Fiscal Year", "NASA Science (millions of $)","FY 2026 PBR"]
-    RENAMES = {"NASA Science (millions of $)": "NASA Science"}
-    MONETARY_COLUMNS = ["NASA Science", "FY 2026 PBR"]
+    COLUMNS: ClassVar[list[str]] = ["Fiscal Year", "NASA Science (millions of $)", "FY 2026 PBR"]
+    RENAMES: ClassVar[dict[str, str]] = {"NASA Science (millions of $)": "NASA Science"}
+    MONETARY_COLUMNS: ClassVar[list[str]] = ["NASA Science", "FY 2026 PBR"]
     
     def __init__(self, *, cache_dir: Path | None = None) -> None:
         super().__init__(self.CSV_URL, cache_dir=cache_dir)
@@ -689,7 +721,11 @@ class Workforce(NASABudget):
                "1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/"
                "export?format=csv&gid=479410406")
     
-    COLUMNS = ["Fiscal Year", "Full-time Permanent (FTP)", "Full-time Equivalent (FTE)"]
+    COLUMNS: ClassVar[list[str]] = [
+        "Fiscal Year",
+        "Full-time Permanent (FTP)",
+        "Full-time Equivalent (FTE)",
+    ]
     
     def __init__(self, *, cache_dir: Path | None = None) -> None:
         super().__init__(self.CSV_URL, cache_dir=cache_dir)

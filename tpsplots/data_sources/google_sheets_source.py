@@ -59,7 +59,7 @@ import logging
 from datetime import timedelta
 from functools import cached_property
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pandas as pd
 import requests
@@ -98,7 +98,7 @@ class GoogleSheetsSource:
     """
     
     # Type mapping for simple type names to pandas dtypes
-    TYPE_MAPPING = {
+    TYPE_MAPPING: ClassVar[dict[str, str]] = {
         "int": "int64",
         "float": "float64",
         "str": "object",

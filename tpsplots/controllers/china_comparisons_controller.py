@@ -99,7 +99,7 @@ class ChinaComparisonCharts(ChartController):
                 dt = pd.to_datetime(date_str, errors='coerce')
                 if not pd.isna(dt):
                     return dt.year, dt.month
-            except:
+            except (ValueError, TypeError):
                 pass
             
             # If that fails, try to extract just the year
@@ -171,7 +171,7 @@ class ChinaComparisonCharts(ChartController):
             if match:
                 try:
                     return float(match.group().replace(',', ''))
-                except:
+                except (ValueError, TypeError):
                     return None
             return None
         

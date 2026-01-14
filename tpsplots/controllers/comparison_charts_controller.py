@@ -26,9 +26,9 @@ class ComparisonCharts(ChartController):
         sorted_directorates = dict(sorted(scaled_directorates.items(), key=lambda item: item[1], reverse=False))
 
         # Calculate relative percentages for labels
+        total = sum(comparisons.values())
         labels = [
-            f"{k} ({v / sum(comparisons.values()) * 100:.2f}%)" if v / sum(comparisons.values()) * 100 < 1 
-            else f"{k} ({v / sum(comparisons.values()) * 100:.2f}%)" 
+            f"{k} ({v / total * 100:.2f}%)"
             for k, v in sorted(comparisons.items(), key=lambda item: item[1], reverse=False)
         ]
 

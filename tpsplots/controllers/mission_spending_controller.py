@@ -1,4 +1,5 @@
 """CSV file data controller for YAML-driven chart generation."""
+
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -16,133 +17,159 @@ class MissionSpendingController(ChartController):
 
     """
 
+    # Default path for mission spending CSV files
+    DEFAULT_CSV_PATH = "../science-missions-reference/data/spending/"
+
     def __init__(self, csv_path: str | None = None):
         """
-        Initialize the CSVController with a CSV file path.
+        Initialize the MissionSpendingController.
 
         Args:
-            csv_path: Path to the CSV file to load
+            csv_path: Path to the directory containing CSV files.
+                     Defaults to DEFAULT_CSV_PATH if not provided.
         """
         super().__init__()
-        self.csv_path = "../science-missions-reference/data/spending/"
+        self.csv_path = csv_path or self.DEFAULT_CSV_PATH
 
     def process_mission_spending_data(self):
-        missions = {"OSIRIS-APEX": "OSIRIS-APEX", "GOLD": "GOLD",
-                    "IBEX":"IBEX","Juno":"the Juno mission","JWST":"JWST",
-                    "Mars 2020":"Perseverance Rover", "MMS":"MMS",
-                    "MRO":"MRO","New Horizons":"New Horizons","OCO-2":"OCO-2",
-                    "ODY":"Mars Odyssey","Roman":"Roman Space Telescope","MAVEN":"MAVEN",
-                    "COSI":"COSI"}
+        missions = {
+            "OSIRIS-APEX": "OSIRIS-APEX",
+            "GOLD": "GOLD",
+            "IBEX": "IBEX",
+            "Juno": "the Juno mission",
+            "JWST": "JWST",
+            "Mars 2020": "Perseverance Rover",
+            "MMS": "MMS",
+            "MRO": "MRO",
+            "New Horizons": "New Horizons",
+            "OCO-2": "OCO-2",
+            "ODY": "Mars Odyssey",
+            "Roman": "Roman Space Telescope",
+            "MAVEN": "MAVEN",
+            "COSI": "COSI",
+        }
 
         for mission_short_name, mission_name in missions.items():
             # snake case mission name to file name
             stem = self._snake_case(mission_short_name)
-        
-            for reporting_type in ['outlays','obligations']:            
+
+            for reporting_type in ["outlays", "obligations"]:
                 file_name = f"{self.csv_path}/{stem}_{reporting_type}_summary.csv"
-                
+
                 if Path(file_name).is_file():
                     data = self._process_mission_spending_data(file_name, reporting_type)
                     creation_date = datetime.fromtimestamp(Path(file_name).stat().st_ctime)
-                    data['accessed_date'] = creation_date.strftime("%Y-%m-%d")
+                    data["accessed_date"] = creation_date.strftime("%Y-%m-%d")
                     self._plot_chart(data, mission_short_name, mission_name, reporting_type)
                 else:
-                    logger.warning(f"{reporting_type.capitalize} summary CSV file not found: {file_name}")
-                
-    
-    def _process_mission_spending_data(self, file_name: str | None = None, type: str = "") -> dict:
+                    logger.warning(
+                        f"{reporting_type.capitalize()} summary CSV file not found: {file_name}"
+                    )
+
+    def _process_mission_spending_data(self, file_name: str, reporting_type: str) -> dict:
         """
         Process mission spending data from CSV file.
-        Returns a DataFrame with parsed dates, decades, status, and mass values.
+
+        Args:
+            file_name: Path to the CSV file to process
+            reporting_type: Type of spending data ('outlays' or 'obligations')
+
+        Returns:
+            dict: Processed data with fiscal year values and metadata
         """
-        
-        if type == "outlays":
+        if reporting_type == "outlays":
             fy_field = "fiscal_year"
             value_field = "cumulative_outlay"
             fy_period_field = "fiscal_period"
-        elif type == "obligations":
+        elif reporting_type == "obligations":
             fy_field = "reporting_fiscal_year"
             value_field = "cumulative_obligations"
             fy_period_field = "reporting_fiscal_month"
-        
+        else:
+            raise ValueError(f"Unknown reporting_type: {reporting_type}")
+
         # Load data from CSV file
         df = self._read_csv(file_name)
-        
-        current_fy = 2025 # Interested in FY 2025 for now
+
+        #current_fy = self.get_current_fy()
+        # hardcode for FY 2025 until new data available
+        current_fy = 2025 
         prior_fy = current_fy - 1
-        
+
         # Months:
         fiscal_month_abbrs = [
-            'Oct-Nov',
-            'Dec',
-            'Jan',
-            'Feb',
-            'Mar',
-            'Apr',
-            'May',
-            'Jun',
-            'Jul',
-            'Aug',
-            'Sep'
+            "Oct-Nov",
+            "Dec",
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
         ]
-        
+
         # Ensure sure dataframe is sorted by fiscal_year desc, fiscal_period asc
         df = df.sort_values(by=[fy_field, fy_period_field], ascending=[False, True])
-        
+
         # Select current fiscal year values only:
         current_fy_values = df[df[fy_field] == current_fy][value_field].values
-        
+
         # Append current_fy_values with None for each month not yet reported (USASpending combines Oct/Nov into 2nd period,
         # so there are only ever 11 periods (months) total
         if len(current_fy_values) < 11:
             current_fy_values = list(current_fy_values) + [None] * (11 - len(current_fy_values))
-        
+
         prior_fy_values = df[df[fy_field] == prior_fy][value_field].values
-        
+
         return {
-            'dataframe': df,
-            'current_fy': current_fy,
-            'prior_fy': prior_fy,
-            'x': fiscal_month_abbrs,
-            'y1': current_fy_values,
-            'y2': prior_fy_values,
+            "dataframe": df,
+            "current_fy": current_fy,
+            "prior_fy": prior_fy,
+            "x": fiscal_month_abbrs,
+            "y1": current_fy_values,
+            "y2": prior_fy_values,
         }
-    
+
     def _snake_case(self, name: str) -> str:
         """Convert a string to snake_case."""
-        return name.lower().replace(' ', '_').replace('-', '_')
-    
-    def _plot_chart(self, data: dict, mission_short_name: str, mission_name: str, reporting_type: str):
-        line_view = self.get_view('Line')
-        if reporting_type == 'outlays':
-            subtitle = f"Culmulative value of outlays, by month, for the missions's key contracts in fiscal years {data['current_fy']} and {data['prior_fy']}."
-        elif reporting_type == 'obligations':
-            subtitle = f"Culmulative value of obligations, by month, for the missions's key contracts in fiscal years {data['current_fy']} and {data['prior_fy']}."
-        
+        return name.lower().replace(" ", "_").replace("-", "_")
+
+    def _plot_chart(
+        self, data: dict, mission_short_name: str, mission_name: str, reporting_type: str
+    ):
+        line_view = self.get_view("Line")
+        if reporting_type == "outlays":
+            subtitle = f"Cumulative value of outlays, by month, for the mission's key contracts in fiscal years {data['current_fy']} and {data['prior_fy']}."
+        elif reporting_type == "obligations":
+            subtitle = f"Cumulative value of obligations, by month, for the mission's key contracts in fiscal years {data['current_fy']} and {data['prior_fy']}."
+
         source = "USASpending.gov"
-        
-        if data.get('accessed_date'):
+
+        if data.get("accessed_date"):
             source += f". Accessed {data['accessed_date']}."
-        
+
         metadata = {
             "title": f"{reporting_type.capitalize()} for {mission_name}",
             "subtitle": subtitle,
-            "source": source
+            "source": source,
         }
-        
+
         # Calculate y_limit as the next highest multiple of 10,000,000 from the max of y1 or y2
-        
-        all_values = [val for val in list(data['y1']) + list(data['y2']) if val is not None]
+
+        all_values = [val for val in list(data["y1"]) + list(data["y2"]) if val is not None]
         if all_values:
             max_val = max(all_values)
             y_limit = ((max_val // 2_000_000) + 1) * 2_000_000
-        
+
         # Generate charts via the specialized line chart view
         line_view.line_plot(
             metadata=metadata,
             stem=f"{self._snake_case(mission_short_name)}_{reporting_type}_fy{data['current_fy']}_vs_fy{data['prior_fy']}",
-            x=data['x'],
-            y=[data['y1'], data['y2']],
+            x=data["x"],
+            y=[data["y1"], data["y2"]],
             color=[line_view.COLORS["blue"], line_view.TPS_COLORS["Rocket Flame"]],
             linestyle=["-", "--"],
             marker=["o", "o"],
@@ -155,7 +182,7 @@ class MissionSpendingController(ChartController):
             tick_size=13,
             label_size=13,
             direct_line_labels=True,
-            export_data=data['dataframe'],
+            export_data=data["dataframe"],
         )
 
     def get_current_fy(self):
@@ -172,7 +199,7 @@ class MissionSpendingController(ChartController):
         else:
             return datetime.today().year
 
-    def _read_csv(self,file_name: str):
+    def _read_csv(self, file_name: str):
         """
         Load data from CSV file and return as dict for YAML processing.
 
@@ -191,12 +218,14 @@ class MissionSpendingController(ChartController):
 
         try:
             df = pd.read_csv(file_name)
-            logger.info(f"Loaded CSV data from {file_name} ({len(df)} rows, {len(df.columns)} columns)")
+            logger.info(
+                f"Loaded CSV data from {file_name} ({len(df)} rows, {len(df.columns)} columns)"
+            )
             return df
         except Exception as e:
-            raise RuntimeError(f"Error reading CSV file {self.csv_path}: {e}")
+            raise RuntimeError(f"Error reading CSV file {self.csv_path}: {e}") from e
 
-    def get_data_summary(self,file_name: str) -> dict:
+    def get_data_summary(self, file_name: str) -> dict:
         """
         Get a summary of the loaded data for debugging purposes.
 
@@ -213,7 +242,7 @@ class MissionSpendingController(ChartController):
                 "rows": len(df),
                 "columns": list(df.columns),
                 "dtypes": df.dtypes.to_dict(),
-                "sample_data": df.head(3).to_dict('records')
+                "sample_data": df.head(3).to_dict("records"),
             }
         except Exception as e:
             return {"error": f"Could not analyze CSV file: {e}"}

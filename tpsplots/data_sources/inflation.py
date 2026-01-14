@@ -20,7 +20,9 @@ import io
 import json
 import os
 from collections.abc import Mapping
+from contextlib import suppress
 from datetime import datetime, timedelta
+from importlib import import_module
 from pathlib import Path
 
 import certifi
@@ -30,10 +32,8 @@ import requests
 from cachier import cachier
 
 # Configure caching
-try:
-    from ..config import cache_config
-except ImportError:
-    pass  # Cache config is optional
+with suppress(ImportError):
+    import_module("..config.cache_config", package=__package__)
 
 
 # ────────────────────────────── Base class ──────────────────────────────────

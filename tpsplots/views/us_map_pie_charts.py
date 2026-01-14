@@ -1,6 +1,7 @@
 """Improved US Map with pie charts visualization with expanded offset functionality."""
 import itertools
 import logging
+from typing import ClassVar
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,7 +14,7 @@ class USMapPieChartView(ChartView):
     """Specialized view for displaying pie charts overlaid on a US map at specific locations."""
     
     # NASA Center locations (updated coordinates)
-    NASA_CENTERS = {
+    NASA_CENTERS: ClassVar[dict[str, dict[str, float | str]]] = {
         # Full names
         'Kennedy Space Center': {'lat': 28.5744, 'lon': -80.6520, 'state': 'FL'},
         'Johnson Space Center': {'lat': 29.5529, 'lon': -95.0934, 'state': 'TX'},
@@ -44,10 +45,20 @@ class USMapPieChartView(ChartView):
     }
     
     # Centers that should be offset to avoid overlap - UPDATED to include JSC, ARC, and SSC
-    OFFSET_CENTERS = {'GSFC', 'LaRC', 'HQ', 'Goddard Space Flight Center', 
-                      'Langley Research Center', 'NASA Headquarters', 
-                      'JSC', 'Johnson Space Center', 'ARC', 'Ames Research Center',
-                      'SSC', 'Stennis Space Center'}
+    OFFSET_CENTERS: ClassVar[set[str]] = {
+        "GSFC",
+        "LaRC",
+        "HQ",
+        "Goddard Space Flight Center",
+        "Langley Research Center",
+        "NASA Headquarters",
+        "JSC",
+        "Johnson Space Center",
+        "ARC",
+        "Ames Research Center",
+        "SSC",
+        "Stennis Space Center",
+    }
     
     def us_map_pie_plot(self, metadata, stem, **kwargs):
         """
@@ -198,7 +209,7 @@ class USMapPieChartView(ChartView):
         
         # Calculate actual pie positions and sizes for bounds checking
         pie_positions_and_sizes = []
-        for location_name, data in pie_data.items():
+        for location_name, _data in pie_data.items():
             if location_name not in all_locations:
                 continue
                 
@@ -538,7 +549,7 @@ class USMapPieChartView(ChartView):
         try:
             xlim = plt.gca().get_xlim()
             ylim = plt.gca().get_ylim()
-        except:
+        except Exception:
             # Fallback to default map bounds
             xlim = (-122, -66)
             ylim = (22, 48)

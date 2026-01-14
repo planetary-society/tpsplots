@@ -69,7 +69,7 @@ class CSVController(ChartController):
             return result
 
         except Exception as e:
-            raise RuntimeError(f"Error reading CSV file {self.csv_path}: {e}")
+            raise RuntimeError(f"Error reading CSV file {self.csv_path}: {e}") from e
 
     def get_data_summary(self):
         """

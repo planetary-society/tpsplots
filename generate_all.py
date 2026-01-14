@@ -19,8 +19,6 @@ project_root = Path(__file__).parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from tpsplots.controllers.chart_controller import ChartController
-
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -74,6 +72,8 @@ def discover_controller_classes():
         dict: A dictionary mapping class names to class objects
     """
     controllers = {}
+
+    from tpsplots.controllers.chart_controller import ChartController
     
     # Import the controllers package
     import tpsplots.controllers as controllers_package

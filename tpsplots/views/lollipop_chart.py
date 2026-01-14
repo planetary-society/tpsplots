@@ -441,7 +441,7 @@ class LollipopChartView(ChartView):
                     f"Must be one of 'monetary', 'percentage', 'integer', 'float' "
                     f"or a valid Python format spec (e.g., '.1f', '.2f', ',.0f'). "
                     f"Error formatting value {value}: {e}"
-                )
+                ) from e
 
     def _format_monetary(self, value):
         """Format monetary values with appropriate suffixes."""

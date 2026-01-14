@@ -287,10 +287,12 @@ class LineChartView(ChartView):
             x_data = np.arange(len(x_data))
             
         # Make sure y_data is a list of series for consistent handling
-        if y_data is not None and not isinstance(y_data, (list, tuple)):
-             # If it's a single series (like a numpy array or pandas Series)
-            if isinstance(y_data, (pd.Series, np.ndarray)):
-                 y_data = [y_data]
+        if (
+            y_data is not None
+            and not isinstance(y_data, (list, tuple))
+            and isinstance(y_data, (pd.Series, np.ndarray))
+        ):
+            y_data = [y_data]
 
             
         # Extract styling parameters
@@ -845,7 +847,9 @@ class LineChartView(ChartView):
         # Collect endpoint information and find optimal positions
         existing_labels_bboxes = []  # List of Bbox objects in display coordinates
 
-        for i, (y_series, label_text, color) in enumerate(zip(y_data, labels, colors, strict=False)):
+        for _i, (y_series, label_text, color) in enumerate(
+            zip(y_data, labels, colors, strict=False)
+        ):
             # Skip series with None labels
             if label_text is None:
                 continue
