@@ -47,6 +47,9 @@ class MissionSpendingController(ChartController):
             "Roman": "Roman Space Telescope",
             "MAVEN": "MAVEN",
             "COSI": "COSI",
+            "UVEX": "UVEX",
+            "VERITAS": "VERITAS",
+            "DAVINCI": "DAVINCI"
         }
 
         for mission_short_name, mission_name in missions.items():
