@@ -1,0 +1,46 @@
+[project]
+name = "tpsplots"
+version = "0.2.0"
+description = "A library to create custom Planetary Society-branded charts."
+authors = [
+    {name = "Casey Dreier", email = "casey.dreier@planetary.org"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+
+# Ruff configuration
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # pyflakes (undefined names, unused imports)
+    "I",      # isort (import sorting)
+    "UP",     # pyupgrade (modernize syntax for target-version)
+    "B",      # flake8-bugbear (common bugs and design problems)
+    "SIM",    # flake8-simplify (simplifiable code)
+    "RUF",    # Ruff-specific rules
+]
+ignore = [
+    "E501",   # Line too long (formatter handles this)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "S101",   # Allow assert statements
+    "SIM300"
+]
+
+"__init__.py" = [
+    "F401",   # Allow unused imports (public API re-exports)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tpsplots"]
+
+[tool.ruff.format]
+quote-style = "double"
+docstring-code-format = true
