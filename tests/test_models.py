@@ -1,4 +1,4 @@
-"""Tests for Pydantic models and schema generation."""
+"""Tests for Pydantic models and schema generation (v2.0 spec)."""
 
 import pytest
 
@@ -21,29 +21,32 @@ class TestSchema:
 
         types = get_chart_types()
         assert isinstance(types, list)
-        assert "line_plot" in types
-        assert "bar_plot" in types
+        # v2.0 uses simplified names
+        assert "line" in types
+        assert "bar" in types
 
     def test_get_data_source_types(self):
-        """Test that data source types can be retrieved."""
+        """Test that data source prefixes can be retrieved."""
         from tpsplots.schema import get_data_source_types
 
         types = get_data_source_types()
-        assert "csv_file" in types
-        assert "google_sheets" in types
-        assert "controller_method" in types
+        assert "controller" in types
+        assert "csv" in types
+        assert "url" in types
 
 
 class TestModels:
-    """Tests for Pydantic models."""
+    """Tests for Pydantic models (v2.0 spec)."""
 
     def test_chart_config_valid(self):
-        """Test valid ChartConfig."""
+        """Test valid ChartConfig with v2.0 structure."""
         from tpsplots.models import ChartConfig
 
-        config = ChartConfig(type="line_plot", output_name="test_chart")
-        assert config.type == "line_plot"
-        assert config.output_name == "test_chart"
+        # v2.0: type uses simplified name, output instead of output_name, title required
+        config = ChartConfig(type="line", output="test_chart", title="Test Chart")
+        assert config.type == "line"
+        assert config.output == "test_chart"
+        assert config.title == "Test Chart"
 
     def test_chart_config_invalid_type(self):
         """Test that invalid chart type raises error."""
@@ -52,10 +55,43 @@ class TestModels:
         from tpsplots.models import ChartConfig
 
         with pytest.raises(ValidationError):
-            ChartConfig(type="invalid_type", output_name="test")
+            ChartConfig(type="invalid_type", output="test", title="Test")
+
+    def test_chart_config_with_all_metadata(self):
+        """Test ChartConfig with all metadata fields."""
+        from tpsplots.models import ChartConfig
+
+        config = ChartConfig(
+            type="bar",
+            output="test_bar",
+            title="Test Title",
+            subtitle="Test Subtitle",
+            source="Test Source",
+        )
+        assert config.title == "Test Title"
+        assert config.subtitle == "Test Subtitle"
+        assert config.source == "Test Source"
+
+    def test_chart_config_extra_params(self):
+        """Test that ChartConfig accepts extra parameters."""
+        from tpsplots.models import ChartConfig
+
+        config = ChartConfig(
+            type="line",
+            output="test",
+            title="Test",
+            grid=True,
+            legend=False,
+            color="NeptuneBlue",
+        )
+        # Extra params should be accessible via model_dump
+        params = config.model_dump()
+        assert params["grid"] is True
+        assert params["legend"] is False
+        assert params["color"] == "NeptuneBlue"
 
     def test_metadata_config(self):
-        """Test MetadataConfig model."""
+        """Test legacy MetadataConfig model."""
         from tpsplots.models import MetadataConfig
 
         metadata = MetadataConfig(
@@ -65,20 +101,27 @@ class TestModels:
         )
         assert metadata.title == "Test Title"
 
-    def test_csv_data_source(self):
-        """Test CSVFileDataSource model."""
-        from tpsplots.models import CSVFileDataSource
+    def test_data_source_config(self):
+        """Test DataSourceConfig model (v2.0)."""
+        from tpsplots.models import DataSourceConfig
 
-        source = CSVFileDataSource(type="csv_file", path="data.csv")
-        assert source.type == "csv_file"
-        assert source.path == "data.csv"
+        source = DataSourceConfig(source="data.csv")
+        assert source.source == "data.csv"
 
-    def test_google_sheets_data_source(self):
-        """Test GoogleSheetsDataSource model."""
-        from tpsplots.models import GoogleSheetsDataSource
+    def test_yaml_chart_config(self):
+        """Test complete YAMLChartConfig with v2.0 structure."""
+        from tpsplots.models import YAMLChartConfig
 
-        source = GoogleSheetsDataSource(
-            type="google_sheets",
-            url="https://docs.google.com/spreadsheets/d/test/export?format=csv",
+        config = YAMLChartConfig(
+            data={"source": "test.csv"},
+            chart={
+                "type": "line",
+                "output": "test_chart",
+                "title": "Test Chart",
+                "x": "{{x_column}}",
+                "y": "{{y_column}}",
+            },
         )
-        assert source.type == "google_sheets"
+        assert config.data.source == "test.csv"
+        assert config.chart.type == "line"
+        assert config.chart.output == "test_chart"

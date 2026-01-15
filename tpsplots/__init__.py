@@ -36,10 +36,7 @@ def _is_headless() -> bool:
 
     # Check for common CI/CD environment variables
     ci_vars = ["CI", "GITHUB_ACTIONS", "GITLAB_CI", "JENKINS_URL", "CIRCLECI"]
-    if any(os.environ.get(var) for var in ci_vars):
-        return True
-
-    return False
+    return bool(any(os.environ.get(var) for var in ci_vars))
 
 
 if _is_headless():
@@ -81,19 +78,19 @@ from tpsplots.exceptions import (
 )
 
 __all__ = [
-    # Core API
-    "generate",
-    "__version__",
-    # Exceptions
-    "TPSPlotsError",
-    "ConfigurationError",
-    "DataSourceError",
-    "RenderingError",
-    # Package paths (for advanced usage)
-    "PACKAGE_ROOT",
     "ASSETS_DIR",
     "FONTS_DIR",
     "IMAGES_DIR",
+    # Package paths (for advanced usage)
+    "PACKAGE_ROOT",
     "STYLE_DIR",
     "TPS_STYLE_FILE",
+    "ConfigurationError",
+    "DataSourceError",
+    "RenderingError",
+    # Exceptions
+    "TPSPlotsError",
+    "__version__",
+    # Core API
+    "generate",
 ]

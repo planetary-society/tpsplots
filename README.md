@@ -6,12 +6,13 @@ A data visualization framework for The Planetary Society that creates consistent
 
 - **YAML-Driven Chart Generation** - Define charts declaratively without writing Python code
 - **Multiple Chart Types** - Line, bar, lollipop, donut, waffle, stacked bar, and more
-- **Automatic Responsive Output** - Generates both desktop (16:9) and mobile (1:1) versions
+- **Automatic Responsive Output** - Generates both desktop (16:10) and mobile (8:9) versions
 - **Multi-Format Export** - SVG, PNG, PPTX, and CSV data export
 - **Flexible Data Sources** - Google Sheets, CSV files, or custom controller methods
 - **TPS Brand Styling** - Consistent Planetary Society branding with Poppins fonts
 - **Headless Support** - Auto-detects CI/CD environments for server-side generation
 - **JSON Schema** - IDE autocomplete support for YAML configurations
+- **Template Generation** - Generate starter templates for any chart type
 
 ## Installation
 
@@ -31,23 +32,19 @@ pip install -e ".[dev]"
 
 ```yaml
 # my_chart.yaml
+data:
+  source: https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/export?format=csv
+
 chart:
-  type: line_plot
-  output_name: my_first_chart
-
-data_source:
-  type: google_sheets
-  url: "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/export?format=csv"
-
-metadata:
+  type: line
+  output: my_first_chart
   title: "My Chart Title"
   subtitle: "A descriptive subtitle for context"
   source: "Data Source Attribution"
 
-parameters:
-  x: Year
-  y: [Value1, Value2]
-  color: ["#037CC2", "#FF5D47"]
+  x: "{{Year}}"
+  y: ["{{Value1}}", "{{Value2}}"]
+  color: [NeptuneBlue, RocketFlame]
   label: ["Series A", "Series B"]
 ```
 
@@ -76,6 +73,34 @@ Charts are saved to `charts/` by default:
 
 ---
 
+## YAML Structure
+
+TPS Plots uses a clean two-level YAML structure:
+
+```yaml
+data:     # Where data comes from
+  source: data/file.csv | https://... | controller.method
+
+chart:    # How to display it
+  type: line | bar | donut | ...
+  output: chart_name
+  title: "Chart Title"
+  ...     # Chart-specific parameters
+```
+
+### Data References
+
+Use `{{column_name}}` syntax to reference data columns:
+
+```yaml
+chart:
+  x: "{{Year}}"                    # Simple column reference
+  y: "{{data.series.values}}"      # Nested dot notation
+  subtitle: "Total: {{sum:.2f}}"   # Format string (2 decimal places)
+```
+
+---
+
 ## Real-World Examples
 
 ### Example 1: Line Chart with Historical Data
@@ -84,35 +109,30 @@ Track NASA budget over time with projections:
 
 ```yaml
 # nasa_budget_by_year_with_projection.yaml
+data:
+  source: nasa_budget_chart.nasa_budget_by_year_with_projection_inflation_adjusted
+
 chart:
-  type: line_plot
-  output_name: nasa_budget_by_year_with_projection_inflation_adjusted
-
-data_source:
-  type: controller_method
-  class: tpsplots.controllers.nasa_budget_chart.NASABudgetChart
-  method: nasa_budget_by_year_with_projection_inflation_adjusted
-
-metadata:
+  type: line
+  output: nasa_budget_by_year_with_projection_inflation_adjusted
   title: How NASA's budget has changed over time
   subtitle: After its peak during Apollo, NASA's inflation-adjusted budget has held
     relatively steady, though that may change.
   source: NASA Budget Requests
 
-parameters:
-  x: fiscal_years
+  x: "{{fiscal_years}}"
   y:
-    - appropriation_adjusted_nnsi
-    - white_house_budget_projection
-  color: ["#037CC2", "#FF5D47"]
+    - "{{appropriation_adjusted_nnsi}}"
+    - "{{white_house_budget_projection}}"
+  color: [NeptuneBlue, RocketFlame]
   linestyle: ["-", "-"]
   marker: ["", "o"]
   label: ["", "Proposed"]
-  xlim: xlim
-  ylim: ylim
+  xlim: "{{xlim}}"
+  ylim: "{{ylim}}"
   scale: billions
-  legend: legend
-  export_data: export_df
+  legend: "{{legend}}"
+  export_data: "{{export_df}}"
 ```
 
 ### Example 2: Horizontal Bar Chart from Google Sheets
@@ -121,23 +141,19 @@ Compare spacecraft development timelines with data from a Google Sheet:
 
 ```yaml
 # human_spacecraft_dev_times.yaml
+data:
+  source: https://docs.google.com/spreadsheets/d/1uYSirJmE0gLQ701iBFZASsTQL0od36l9xJ7jbEagnrY/export?format=csv
+
 chart:
-  type: bar_plot
-  output_name: human_spaceflight_development_comparisons
-
-data_source:
-  type: google_sheets
-  url: "https://docs.google.com/spreadsheets/d/1uYSirJmE0gLQ701iBFZASsTQL0od36l9xJ7jbEagnrY/export?format=csv"
-
-metadata:
+  type: bar
+  output: human_spaceflight_development_comparisons
   title: "A five year sprint to the Moon?"
   subtitle: "A new entrant to provide crewed landings for NASA's Artemis program
     by 2030 has five years to design and build their spacecraft."
   source: "Official Reporting. Details: planet.ly/hsfdevtimes"
 
-parameters:
-  categories: Spacecraft
-  values: Duration (years)
+  categories: "{{Spacecraft}}"
+  values: "{{Duration (years)}}"
   orientation: horizontal
   xlabel: "Years from prime contract award to first crewed flight"
   sort_by: value
@@ -152,17 +168,17 @@ parameters:
   label_size: 14
   tick_size: 16
   colors:
-    - "#8C8C8C"  # Mercury
-    - "#8C8C8C"  # Gemini
-    - "#8C8C8C"  # Apollo CSM
-    - "#8C8C8C"  # Apollo LM
-    - "#8C8C8C"  # Shuttle Orbiter
-    - "#8C8C8C"  # Orion
-    - "#8C8C8C"  # Crew Dragon
-    - "#8C8C8C"  # Starliner
-    - "#8C8C8C"  # Starship HLS
-    - "#8C8C8C"  # Blue Moon
-    - "#FF5D47"  # New HLS Entrant (highlighted)
+    - LunarSoil     # Mercury
+    - LunarSoil     # Gemini
+    - LunarSoil     # Apollo CSM
+    - LunarSoil     # Apollo LM
+    - LunarSoil     # Shuttle Orbiter
+    - LunarSoil     # Orion
+    - LunarSoil     # Crew Dragon
+    - LunarSoil     # Starliner
+    - LunarSoil     # Starship HLS
+    - LunarSoil     # Blue Moon
+    - RocketFlame   # New HLS Entrant (highlighted)
 ```
 
 ### Example 3: Lollipop Chart with Timeline Ranges
@@ -171,41 +187,37 @@ Visualize development periods with start and end dates:
 
 ```yaml
 # human_spaceflight_development_times.yaml
+data:
+  source: https://docs.google.com/spreadsheets/d/1uYSirJmE0gLQ701iBFZASsTQL0od36l9xJ7jbEagnrY/export?format=csv
+
 chart:
-  type: lollipop_plot
-  output_name: human_spaceflight_development_comparisons
-
-data_source:
-  type: google_sheets
-  url: "https://docs.google.com/spreadsheets/d/1uYSirJmE0gLQ701iBFZASsTQL0od36l9xJ7jbEagnrY/export?format=csv"
-
-metadata:
+  type: lollipop
+  output: human_spaceflight_development_comparisons
   title: "Human Spaceflight Development Times Comparison"
   subtitle: "To make a 2030 landing deadline, a new human landing spacecraft would
     need be the fastest program development in 65 years."
   source: "NASA Historical Data"
 
-parameters:
-  categories: Spacecraft
-  start_values: Start Date_year      # Auto-rounded from date column
-  end_values: First Crewed Utilization_year
+  categories: "{{Spacecraft}}"
+  start_values: "{{Start Date_year}}"
+  end_values: "{{First Crewed Utilization_year}}"
   xlim: [1959, 2031]
   y_axis_position: right
   hide_y_spine: true
 
   # Color by era: blue for historical, purple for future
   colors:
-    - "#0B3D91"  # Mercury through Starliner (historical)
-    - "#0B3D91"
-    - "#0B3D91"
-    - "#0B3D91"
-    - "#0B3D91"
-    - "#0B3D91"
-    - "#0B3D91"
-    - "#0B3D91"
-    - "#643788"  # Future HLS projects
-    - "#643788"
-    - "#643788"
+    - NeptuneBlue   # Mercury through Starliner (historical)
+    - NeptuneBlue
+    - NeptuneBlue
+    - NeptuneBlue
+    - NeptuneBlue
+    - NeptuneBlue
+    - NeptuneBlue
+    - NeptuneBlue
+    - PlasmaPurple  # Future HLS projects
+    - PlasmaPurple
+    - PlasmaPurple
 
   # Solid for completed, dotted for projected
   linestyle: ["-", "-", "-", "-", "-", "-", "-", "-", ":", ":", ":"]
@@ -216,7 +228,7 @@ parameters:
   grid_axis: x
   range_labels: true
   range_suffix: " yrs"
-  export_data: data
+  export_data: "{{data}}"
 ```
 
 ### Example 4: Donut Chart for Budget Breakdown
@@ -225,30 +237,25 @@ Show NASA budget allocation by directorate:
 
 ```yaml
 # nasa_major_activities_donut.yaml
+data:
+  source: nasa_budget_chart.nasa_major_activites_donut_chart
+
 chart:
-  type: donut_plot
-  output_name: nasa_directorate_breakdown_donut_chart
-
-data_source:
-  type: controller_method
-  class: tpsplots.controllers.nasa_budget_chart.NASABudgetChart
-  method: nasa_major_activites_donut_chart
-
-metadata:
+  type: donut
+  output: nasa_directorate_breakdown_donut_chart
   title: NASA's budget is subdivided by mission area
   subtitle: "Directorates are responsible for distinct activities — from science
     to facilities — and they don't share funding."
   source: NASA FY2025 Budget Request
 
-parameters:
-  values: sorted_values
-  labels: sorted_labels
+  values: "{{sorted_values}}"
+  labels: "{{sorted_labels}}"
   show_percentages: true
   label_distance: 1.1
   hole_size: 0.6
   center_text: NASA
   center_color: white
-  export_data: export_df
+  export_data: "{{export_df}}"
 ```
 
 ### Example 5: Multi-Series Comparison with Direct Labels
@@ -257,28 +264,23 @@ Compare contract awards across fiscal years:
 
 ```yaml
 # fy2025_new_contracts_comparison.yaml
+data:
+  source: fy2025_charts.new_contract_awards_comparison_to_prior_years
+
 chart:
-  type: line_plot
-  output_name: new_contracts_historical_comparison
-
-data_source:
-  type: controller_method
-  class: tpsplots.controllers.fy2025_charts.FY2025Charts
-  method: new_contract_awards_comparison_to_prior_years
-
-metadata:
+  type: line
+  output: new_contracts_historical_comparison
   title: "NASA's total new contract awards in FY 2025"
   subtitle: "While below the recent average, the total number was similar to that in 2024."
   source: "USASpending.gov (Does not include IDVs)"
 
-parameters:
-  x: months
-  y: y_series
-  color: colors
-  linestyle: linestyles
-  linewidth: linewidths
-  marker: markers
-  label: labels
+  x: "{{months}}"
+  y: "{{y_series}}"
+  color: "{{colors}}"
+  linestyle: "{{linestyles}}"
+  linewidth: "{{linewidths}}"
+  marker: "{{markers}}"
+  label: "{{labels}}"
   ylim: [0, 6000]
   ylabel: "Cumulative New Contracts Awarded"
   label_size: 13
@@ -287,7 +289,7 @@ parameters:
   legend: false
   direct_line_labels:
     fontsize: 10
-  export_data: export_df
+  export_data: "{{export_df}}"
 ```
 
 ---
@@ -296,14 +298,14 @@ parameters:
 
 | Type | Description | Key Parameters |
 |------|-------------|----------------|
-| `line_plot` | Multi-series line charts | `x`, `y`, `color`, `linestyle`, `marker`, `label` |
-| `bar_plot` | Vertical or horizontal bars | `categories`, `values`, `orientation`, `colors` |
-| `lollipop_plot` | Timeline/range visualization | `categories`, `start_values`, `end_values`, `colors` |
-| `donut_plot` | Donut/pie charts | `values`, `labels`, `hole_size`, `center_text` |
-| `stacked_bar_plot` | Stacked bar charts | `categories`, `series`, `colors` |
-| `waffle_plot` | Waffle/grid charts | `values`, `labels`, `rows`, `columns` |
-| `us_map_pie_plot` | US map with pie overlays | `state_data`, `pie_values` |
-| `line_subplots_plot` | Multiple subplot panels | `x`, `y_list`, `subplot_titles` |
+| `line` | Multi-series line charts | `x`, `y`, `color`, `linestyle`, `marker`, `label` |
+| `bar` | Vertical or horizontal bars | `categories`, `values`, `orientation`, `colors` |
+| `lollipop` | Timeline/range visualization | `categories`, `start_values`, `end_values`, `colors` |
+| `donut` | Donut/pie charts | `values`, `labels`, `hole_size`, `center_text` |
+| `stacked_bar` | Stacked bar charts | `categories`, `values`, `colors` |
+| `waffle` | Waffle/grid charts | `values`, `labels`, `rows`, `columns` |
+| `us_map_pie` | US map with pie overlays | `state_data`, `pie_values` |
+| `line_subplots` | Multiple subplot panels | `subplot_data`, `grid_shape` |
 
 List all available types: `tpsplots --list-types`
 
@@ -311,14 +313,15 @@ List all available types: `tpsplots --list-types`
 
 ## Data Sources
 
-### Google Sheets (Recommended for Collaboration)
+Use a single `data.source` string. Optional prefixes (`csv:`, `url:`, `controller:`) can make intent explicit.
 
-Fetch data directly from a public Google Sheet:
+### URL (Google Sheets, Remote CSV)
+
+Fetch data directly from any URL that returns CSV:
 
 ```yaml
-data_source:
-  type: google_sheets
-  url: "https://docs.google.com/spreadsheets/d/SHEET_ID/export?format=csv"
+data:
+  source: https://docs.google.com/spreadsheets/d/SHEET_ID/export?format=csv
 ```
 
 **Tips:**
@@ -331,9 +334,8 @@ data_source:
 Load from a local CSV file:
 
 ```yaml
-data_source:
-  type: csv_file
-  path: data/my_data.csv
+data:
+  source: data/my_data.csv
 ```
 
 ### Controller Methods (Complex Data Processing)
@@ -341,27 +343,38 @@ data_source:
 Use existing Python controllers for advanced data manipulation:
 
 ```yaml
-data_source:
-  type: controller_method
-  class: tpsplots.controllers.nasa_budget_chart.NASABudgetChart
-  method: nasa_budget_by_year_inflation_adjusted
+data:
+  source: nasa_budget_chart.nasa_budget_by_year_inflation_adjusted
 ```
+
+Controller modules must contain exactly one `ChartController` subclass with the method, and the method must return a dict.
 
 If the controller lives outside your Python path, provide a local file path:
 
 ```yaml
-data_source:
-  type: controller_method
-  class: MyCustomChart
-  method: my_data_method
-  path: "/path/to/custom_controller.py"
+data:
+  source: /path/to/custom_controller.py:my_data_method
 ```
 
-**Available Controllers:**
-- `tpsplots.controllers.nasa_budget_chart.NASABudgetChart` - NASA budget analysis
-- `tpsplots.controllers.fy2025_charts.FY2025Charts` / `tpsplots.controllers.fy2026_charts.FY2026Charts`
-- `tpsplots.controllers.china_comparisons_controller.ChinaComparisonsController`
-- `tpsplots.controllers.mission_spending_controller.MissionSpendingController`
+**Available Controllers (module names):**
+- `nasa_budget_chart` - NASA budget analysis
+- `fy2025_charts` / `fy2026_charts`
+- `china_comparisons_controller`
+- `mission_spending_controller`
+
+---
+
+## Semantic Colors
+
+Use TPS brand color names instead of hex codes:
+
+| Name | Hex | Usage |
+|------|-----|-------|
+| `NeptuneBlue` | `#037CC2` | Primary |
+| `RocketFlame` | `#FF5D47` | Accent |
+| `PlasmaPurple` | `#643788` | Secondary |
+| `LunarSoil` | `#8C8C8C` | Gray |
+| `CraterShadow` | `#414141` | Dark |
 
 ---
 
@@ -381,6 +394,7 @@ Options:
   --verbose           Enable debug logging
   --schema            Print JSON Schema for IDE autocomplete
   --list-types        List available chart types
+  --new TYPE          Generate a starter template for chart type
   --version           Show version and exit
   --help              Show help message
 ```
@@ -402,6 +416,10 @@ tpsplots -o output/ yaml/
 
 # Generate JSON Schema for IDE support
 tpsplots --schema > tpsplots-schema.json
+
+# Generate a new chart template
+tpsplots --new line > yaml/my_new_chart.yaml
+tpsplots --new bar > yaml/my_bar_chart.yaml
 ```
 
 ---
@@ -478,6 +496,7 @@ tpsplots/
 ├── processors/              # YAML processing pipeline
 │   ├── yaml_chart_processor.py
 │   └── resolvers/           # Data, parameter, metadata resolution
+├── templates/               # Chart type templates for --new
 ├── utils/                   # Shared utilities
 │   ├── date_processing.py
 │   └── formatting.py
@@ -520,12 +539,10 @@ class MyCustomChart(ChartController):
 Then reference in YAML:
 
 ```yaml
-data_source:
-  type: controller_method
-  class: myproject.my_controller.MyCustomChart
-  method: my_data_method
+data:
+  source: my_controller.my_data_method
   # Optional: load a local controller file outside the package
-  # path: "/path/to/custom_controller.py"
+  # source: /path/to/custom_controller.py:my_data_method
 ```
 
 ### IDE Autocomplete with JSON Schema

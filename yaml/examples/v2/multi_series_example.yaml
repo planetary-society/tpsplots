@@ -1,5 +1,5 @@
-# Example YAML configuration showing multiple data series (v2.0)
-# Demonstrates advanced styling with multiple y-series
+# Multi-Series Line Chart Example (v2.0)
+# Demonstrates parallel arrays for multi-series definitions
 
 data:
   source: data/multi_series_data.csv
@@ -11,10 +11,10 @@ chart:
   subtitle: "Comparing multiple metrics over time"
   source: "Sample Multi-Series Data"
 
-  # Data mapping
+  # X-axis data
   x: "{{Date}}"
 
-  # Multiple series styling
+  # Multi-series using parallel arrays
   y:
     - "{{Series1}}"
     - "{{Series2}}"
@@ -30,11 +30,11 @@ chart:
   xlabel: "Time"
   ylim: [0, 100]
 
-  # Layout configuration
+  # Layout
   grid: true
   legend: true
   label_size: 14
   tick_size: 12
 
-  # Export configuration
+  # Export
   export_data: "{{data}}"

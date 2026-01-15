@@ -1,17 +1,17 @@
-"""Data source resolution for YAML chart processing."""
+"""Data source resolution for YAML chart processing (v2.0 spec)."""
+
+from __future__ import annotations
 
 import importlib
 import importlib.util
+import inspect
 import logging
 from pathlib import Path
 from typing import Any
 
+from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.exceptions import DataSourceError
-from tpsplots.models.data_sources import (
-    ControllerMethodDataSource,
-    CSVFileDataSource,
-    GoogleSheetsDataSource,
-)
+from tpsplots.models.data_sources import DataSourceConfig
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +20,7 @@ class DataResolver:
     """Resolves data sources from YAML configuration."""
 
     @staticmethod
-    def resolve(
-        data_source: ControllerMethodDataSource | CSVFileDataSource | GoogleSheetsDataSource,
-    ) -> dict[str, Any]:
+    def resolve(data_source: DataSourceConfig) -> dict[str, Any]:
         """
         Resolve the data source and return the processed data.
 
@@ -35,79 +33,116 @@ class DataResolver:
         Raises:
             DataSourceError: If data cannot be loaded from the source
         """
-        if data_source.type == "controller_method":
-            return DataResolver._resolve_controller_method(data_source)
-        elif data_source.type == "csv_file":
-            return DataResolver._resolve_csv_file(data_source)
-        elif data_source.type == "google_sheets":
-            return DataResolver._resolve_google_sheets_data(data_source)
-        else:
-            raise DataSourceError(f"Unsupported data source type: {data_source.type}")
+        source = data_source.source.strip()
+        if not source:
+            raise DataSourceError("Data source 'source' must not be empty")
+
+        kind, target, method = DataResolver._parse_source(source)
+
+        if kind == "url":
+            return DataResolver._resolve_url(target)
+        if kind == "csv":
+            return DataResolver._resolve_csv(target)
+        if kind == "controller_module":
+            return DataResolver._resolve_controller_module(target, method)
+        if kind == "controller_path":
+            return DataResolver._resolve_controller_path(target, method)
+
+        raise DataSourceError(f"Unsupported data source: {source}")
 
     @staticmethod
-    def _resolve_controller_method(
-        data_source: ControllerMethodDataSource,
-    ) -> dict[str, Any]:
-        """Resolve data from a controller method."""
-        class_name = data_source.class_name
-        method_name = data_source.method
+    def _parse_source(source: str) -> tuple[str, str, str | None]:
+        """Parse a source string into a (kind, target, method) tuple."""
+        source = source.strip()
 
-        try:
-            if data_source.path:
-                controller_class = DataResolver._load_controller_from_path(
-                    data_source.path, class_name
+        prefix = None
+        for candidate in ("controller:", "csv:", "url:"):
+            if source.lower().startswith(candidate):
+                prefix = candidate[:-1]
+                source = source[len(candidate) :].strip()
+                break
+
+        if not source:
+            raise DataSourceError("Data source 'source' must not be empty")
+
+        if prefix == "url":
+            return "url", source, None
+        if prefix == "csv":
+            return "csv", source, None
+        if prefix == "controller":
+            if ".py:" in source:
+                path, method = source.rsplit(":", 1)
+                method = method.strip()
+                if not method:
+                    raise DataSourceError(
+                        "Custom controller source must include a method name: "
+                        "'/path/to/controller.py:method_name'"
+                    )
+                return "controller_path", path.strip(), method
+            if source.endswith(".py"):
+                raise DataSourceError(
+                    "Custom controller source must include a method name: "
+                    "'/path/to/controller.py:method_name'"
                 )
-            else:
-                module_path, resolved_class = DataResolver._split_class_path(class_name)
-                module = importlib.import_module(module_path)
-                controller_class = getattr(module, resolved_class)
+            return DataResolver._parse_controller_source(source)
 
-            # Instantiate controller
-            controller = controller_class()
+        if source.startswith("http://") or source.startswith("https://"):
+            return "url", source, None
 
-            # Get the method
-            if not hasattr(controller, method_name):
-                raise AttributeError(f"Controller {class_name} has no method '{method_name}'")
-
-            method = getattr(controller, method_name)
-
-            # Call the method and return result
-            result = method()
-            logger.info(f"Retrieved data from {class_name}.{method_name}")
-
-            # If method returns a dict, use it directly
-            # If it returns something else, wrap it
-            if isinstance(result, dict):
-                return result
-            else:
-                return {"data": result}
-
-        except Exception as e:
-            raise DataSourceError(f"Error calling {class_name}.{method_name}: {e}") from e
-
-    @staticmethod
-    def _split_class_path(class_path: str) -> tuple[str, str]:
-        """Split a fully-qualified class path into module and class name."""
-        try:
-            if ":" in class_path:
-                module_path, class_name = class_path.split(":", 1)
-            else:
-                module_path, class_name = class_path.rsplit(".", 1)
-        except ValueError as e:
+        if ".py:" in source:
+            path, method = source.rsplit(":", 1)
+            method = method.strip()
+            if not method:
+                raise DataSourceError(
+                    "Custom controller source must include a method name: "
+                    "'/path/to/controller.py:method_name'"
+                )
+            return "controller_path", path.strip(), method
+        if source.endswith(".py"):
             raise DataSourceError(
-                f"Invalid class path '{class_path}'. Use 'module.ClassName'."
-            ) from e
-
-        if not module_path or not class_name:
-            raise DataSourceError(
-                f"Invalid class path '{class_path}'. Use 'module.ClassName'."
+                "Custom controller source must include a method name: "
+                "'/path/to/controller.py:method_name'"
             )
 
-        return module_path, class_name
+        if "/" in source or "\\" in source or source.endswith(".csv"):
+            return "csv", source, None
+
+        return DataResolver._parse_controller_source(source)
 
     @staticmethod
-    def _load_controller_from_path(path: str, class_name: str) -> type:
-        """Load a controller class from a Python file path."""
+    def _parse_controller_source(source: str) -> tuple[str, str, str]:
+        """Parse a controller source string into module and method."""
+        if "." not in source:
+            raise DataSourceError(
+                "Controller source must be in 'module.method' format "
+                "(e.g., nasa_budget_chart.nasa_budget_by_year)"
+            )
+        module_name, method_name = source.rsplit(".", 1)
+        module_name = module_name.strip()
+        method_name = method_name.strip()
+        if not module_name or not method_name:
+            raise DataSourceError(
+                "Controller source must be in 'module.method' format "
+                "(e.g., nasa_budget_chart.nasa_budget_by_year)"
+            )
+        return "controller_module", module_name, method_name
+
+    @staticmethod
+    def _resolve_controller_module(module_name: str, method_name: str) -> dict[str, Any]:
+        """Resolve data from a controller method within tpsplots.controllers."""
+        try:
+            module = importlib.import_module(f"tpsplots.controllers.{module_name}")
+        except Exception as e:
+            raise DataSourceError(f"Could not import controller module '{module_name}': {e}") from e
+
+        controller_class = DataResolver._find_controller_class(
+            module, method_name, f"tpsplots.controllers.{module_name}"
+        )
+        return DataResolver._call_controller_method(controller_class, method_name)
+
+    @staticmethod
+    def _resolve_controller_path(path: str, method_name: str) -> dict[str, Any]:
+        """Resolve data from a controller method in a local Python file."""
         module_path = Path(path).expanduser().resolve()
         if not module_path.exists():
             raise DataSourceError(f"Controller path not found: {module_path}")
@@ -122,29 +157,75 @@ class DataResolver:
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
-        if not hasattr(module, class_name):
-            raise DataSourceError(f"Class '{class_name}' not found in {module_path}")
-
-        return getattr(module, class_name)
+        controller_class = DataResolver._find_controller_class(module, method_name, str(module_path))
+        return DataResolver._call_controller_method(controller_class, method_name)
 
     @staticmethod
-    def _resolve_csv_file(data_source: CSVFileDataSource) -> dict[str, Any]:
+    def _find_controller_class(module: Any, method_name: str, source_label: str) -> type:
+        """Find the unique ChartController subclass that implements the method."""
+        candidates = []
+        for _name, obj in inspect.getmembers(module, inspect.isclass):
+            if obj.__module__ != module.__name__:
+                continue
+            if not issubclass(obj, ChartController) or obj is ChartController:
+                continue
+            if callable(getattr(obj, method_name, None)):
+                candidates.append(obj)
+
+        if not candidates:
+            raise DataSourceError(
+                f"No ChartController with method '{method_name}' found in {source_label}"
+            )
+        if len(candidates) > 1:
+            class_names = ", ".join(cls.__name__ for cls in candidates)
+            raise DataSourceError(
+                f"Multiple controller classes in {source_label} implement '{method_name}': "
+                f"{class_names}. Each controller file must contain a single ChartController "
+                f"subclass with that method."
+            )
+
+        return candidates[0]
+
+    @staticmethod
+    def _call_controller_method(controller_class: type, method_name: str) -> dict[str, Any]:
+        """Call a controller method and validate the return type."""
+        controller = controller_class()
+
+        try:
+            result = getattr(controller, method_name)()
+            logger.info(
+                "Retrieved data from %s.%s", controller_class.__name__, method_name
+            )
+        except Exception as e:
+            raise DataSourceError(
+                f"Error calling {controller_class.__name__}.{method_name}: {e}"
+            ) from e
+
+        if not isinstance(result, dict):
+            raise DataSourceError(
+                f"{controller_class.__name__}.{method_name} must return a dict of values"
+            )
+
+        return result
+
+    @staticmethod
+    def _resolve_csv(path: str) -> dict[str, Any]:
         """Resolve data from a CSV file using CSVController."""
         try:
             from tpsplots.controllers.csv_controller import CSVController
 
-            controller = CSVController(csv_path=data_source.path)
+            controller = CSVController(csv_path=path)
             return controller.load_data()
         except Exception as e:
             raise DataSourceError(f"Error loading CSV data: {e}") from e
 
     @staticmethod
-    def _resolve_google_sheets_data(data_source: GoogleSheetsDataSource) -> dict[str, Any]:
-        """Resolve data from Google Sheets or URL using GoogleSheetsController."""
+    def _resolve_url(url: str) -> dict[str, Any]:
+        """Resolve data from a URL (Google Sheets, direct CSV, etc.)."""
         try:
             from tpsplots.controllers.google_sheets_controller import GoogleSheetsController
 
-            controller = GoogleSheetsController(url=data_source.url)
+            controller = GoogleSheetsController(url=url)
             return controller.load_data()
         except Exception as e:
-            raise DataSourceError(f"Error loading Google Sheets data: {e}") from e
+            raise DataSourceError(f"Error loading URL data: {e}") from e

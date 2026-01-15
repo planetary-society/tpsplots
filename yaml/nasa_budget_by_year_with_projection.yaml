@@ -1,26 +1,24 @@
+data:
+  source: nasa_budget_chart.nasa_budget_by_year_with_projection_inflation_adjusted
+
 chart:
-  type: line_plot
-  output_name: nasa_budget_by_year_with_projection_inflation_adjusted
-data_source:
-  type: controller_method
-  class: tpsplots.controllers.nasa_budget_chart.NASABudgetChart
-  method: nasa_budget_by_year_with_projection_inflation_adjusted
-metadata:
+  type: line
+  output: nasa_budget_by_year_with_projection_inflation_adjusted
   title: How NASA's budget has changed over time
   subtitle: After its peak during Apollo, NASA's inflation-adjusted budget has held
     relatively steady, though that may change.
-  source: source
-parameters:
-  x: fiscal_years
+  source: "{{source}}"
+
+  x: "{{fiscal_years}}"
   y:
-  - appropriation_adjusted_nnsi
-  - white_house_budget_projection
-  color: ["#037CC2","#FF5D47"]
-  linestyle: ["-","-"]
-  marker: ["","o"]
-  label: ['','Proposed']
-  xlim: xlim
-  ylim: ylim
+    - "{{appropriation_adjusted_nnsi}}"
+    - "{{white_house_budget_projection}}"
+  color: ["#037CC2", "#FF5D47"]
+  linestyle: ["-", "-"]
+  marker: ["", "o"]
+  label: ["", "Proposed"]
+  xlim: "{{xlim}}"
+  ylim: "{{ylim}}"
   scale: billions
-  legend: legend
-  export_data: export_df
+  legend: "{{legend}}"
+  export_data: "{{export_df}}"

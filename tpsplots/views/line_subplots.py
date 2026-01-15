@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class LineSubplotsView(ChartView):
     """Specialized view for creating line plots in a grid of subplots."""
 
-    def line_subplots(self, metadata, stem, **kwargs):
+    def line_subplots_plot(self, metadata, stem, **kwargs):
         """
         Generate line subplot charts for both desktop and mobile.
 

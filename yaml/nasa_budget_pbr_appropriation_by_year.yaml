@@ -1,25 +1,23 @@
+data:
+  source: nasa_budget_chart.nasa_budget_pbr_appropriation_by_year_inflation_adjusted
+
 chart:
-  type: line_plot
-  output_name: nasa_budget_pbr_appropriation_by_year
-data_source:
-  type: controller_method
-  class: tpsplots.controllers.nasa_budget_chart.NASABudgetChart
-  method: nasa_budget_pbr_appropriation_by_year_inflation_adjusted
-metadata:
+  type: line
+  output: nasa_budget_pbr_appropriation_by_year
   title: The President's budget proposal sets the tone
   subtitle: Except in the aftermath of Challenger, Congress has never exceeded a NASA
     budget proposal by more than 9%.
-  source: "{source}"
-parameters:
-  x: fiscal_years
+  source: "{{source}}"
+
+  x: "{{fiscal_years}}"
   y:
-  - pbr_data
-  - appropriation_data
-  color: colors
-  linestyle: linestyles
-  label: labels
-  xlim: xlim
-  ylim: ylim
+    - "{{pbr_data}}"
+    - "{{appropriation_data}}"
+  color: "{{colors}}"
+  linestyle: "{{linestyles}}"
+  label: "{{labels}}"
+  xlim: "{{xlim}}"
+  ylim: "{{ylim}}"
   scale: billions
-  legend: legend
-  export_data: export_df
+  legend: "{{legend}}"
+  export_data: "{{export_df}}"

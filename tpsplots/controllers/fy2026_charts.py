@@ -268,7 +268,7 @@ class FY2026Charts(ChartController):
         subplots_view = self.get_view("LineSubplots")
 
         # Generate the quad plot
-        subplots_view.line_subplots(
+        subplots_view.line_subplots_plot(
             metadata=metadata,
             stem="nasa_science_divisions_quad_plot_fy2026_threat",
             subplot_data=subplot_data,

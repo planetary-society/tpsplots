@@ -10,6 +10,7 @@ from tpsplots import __version__
 from tpsplots.exceptions import ConfigurationError, DataSourceError, RenderingError
 from tpsplots.processors import YAMLChartProcessor
 from tpsplots.schema import get_chart_types
+from tpsplots.templates import get_available_templates, get_template
 
 
 def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
@@ -31,7 +32,7 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
 def validate_yaml(yaml_path: Path, strict: bool = False) -> bool:
     """Validate a YAML configuration without generating charts."""
     try:
-        processor = YAMLChartProcessor(yaml_path, strict=strict)
+        YAMLChartProcessor(yaml_path, strict=strict)
         print(f"Valid: {yaml_path.name}")
         return True
     except (ConfigurationError, DataSourceError) as e:
@@ -98,6 +99,7 @@ Examples:
   %(prog)s yaml/                            Process all YAML files in directory
   %(prog)s --validate chart.yaml            Validate without generating
   %(prog)s --outdir output/ yaml/           Specify output directory
+  %(prog)s --new line > my_chart.yaml       Generate a line chart template
   %(prog)s --schema > schema.json           Export JSON Schema
   %(prog)s --list-types                     List available chart types
         """,
@@ -156,6 +158,12 @@ Examples:
     )
 
     parser.add_argument(
+        "--new",
+        metavar="TYPE",
+        help="Generate a YAML template for the specified chart type (e.g., --new line)",
+    )
+
+    parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s {__version__}",
@@ -190,6 +198,17 @@ def main(args: list[str] | None = None) -> int:
     if parsed_args.list_types:
         list_chart_types()
         return 0
+
+    # Handle --new (template generation)
+    if parsed_args.new:
+        try:
+            template = get_template(parsed_args.new)
+            print(template)
+            return 0
+        except ValueError as e:
+            logger.error(str(e))
+            logger.info(f"Available templates: {', '.join(get_available_templates())}")
+            return 2
 
     # Require inputs for operations that need them
     if not parsed_args.inputs:

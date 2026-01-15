@@ -25,6 +25,8 @@ VIEW_REGISTRY: dict[str, type[ChartView]] = {
 
 # Export these classes as the public API
 __all__ = [
+    # Registry
+    "VIEW_REGISTRY",
     # View classes
     "BarChartView",
     "ChartView",
@@ -35,6 +37,4 @@ __all__ = [
     "StackedBarChartView",
     "USMapPieChartView",
     "WaffleChartView",
-    # Registry
-    "VIEW_REGISTRY",
 ]

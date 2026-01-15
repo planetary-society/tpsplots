@@ -51,6 +51,9 @@ The module handles fiscal years in both string and datetime formats:
 from __future__ import annotations
 
 import io
+
+# Assumed external library for inflation adjustments
+import logging
 import re
 import ssl
 from collections.abc import Callable
@@ -63,9 +66,6 @@ from urllib.error import URLError
 import certifi
 import pandas as pd
 import requests
-
-# Assumed external library for inflation adjustments
-import logging
 
 from .inflation import GDP, NNSI
 

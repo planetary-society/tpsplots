@@ -10,10 +10,10 @@ from tpsplots.utils.formatting import (
 )
 
 __all__ = [
-    # Date processing
-    "looks_like_date_column",
-    "round_date_to_year",
     # Formatting
     "format_monetary",
     "format_value",
+    # Date processing
+    "looks_like_date_column",
+    "round_date_to_year",
 ]

@@ -35,15 +35,16 @@ class TestCLI:
         assert "tpsplots" in captured.out
 
     def test_cli_list_types(self, capsys):
-        """Test that --list-types works."""
+        """Test that --list-types works (v2.0 type names)."""
         from tpsplots.cli import main
 
         exit_code = main(["--list-types"])
         assert exit_code == 0
 
         captured = capsys.readouterr()
-        assert "line_plot" in captured.out
-        assert "bar_plot" in captured.out
+        # v2.0 uses simplified type names
+        assert "line" in captured.out
+        assert "bar" in captured.out
 
     def test_cli_schema(self, capsys):
         """Test that --schema outputs valid JSON."""

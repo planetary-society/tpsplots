@@ -1,49 +1,30 @@
-# YAML Chart Configuration Schema Example
-# This defines the structure for YAML-driven chart generation
+# YAML Chart Configuration Schema Example (v2.0)
+# Demonstrates the two-level data/chart structure with data.source
+
+data:
+  source: fy2025_charts.new_grants_awards_comparison_to_prior_year
+  # Optional: local controller file
+  # source: /path/to/custom_controller.py:new_grants_awards_comparison_to_prior_year
+  # Optional: local CSV
+  # source: data/grants.csv
+  # Optional: URL CSV
+  # source: https://docs.google.com/spreadsheets/d/abc123/export?format=csv
 
 chart:
-  type: line_plot  # Must match view method names (line_plot, bar_plot, donut_plot, etc.)
-  output_name: fy2025_new_grants_awards_rates  # Base filename for outputs
-
-# Data source configuration - supports multiple types
-data_source:
-  type: controller_method  # controller_method | csv_file | google_sheets
-  class: tpsplots.controllers.fy2025_charts.FY2025Charts  # Module path + class name
-  method: new_grants_awards_comparison_to_prior_year  # Method name
-  # Optional: load controller from a local file path
-  # path: "/path/to/custom_controller.py"
-
-  # Alternative data source examples:
-  # type: csv_file
-  # path: "/path/to/data.csv"
-  #
-  # type: google_sheets
-  # url: "https://docs.google.com/spreadsheets/d/abc123/export?format=csv"
-
-# Chart metadata - supports template variables from data
-metadata:
+  type: line
+  output: fy2025_new_grants_awards_rates
   title: "NASA is awarding significantly fewer grants"
-  subtitle: "The agency is on track to award {data.shortfall_pct:.0f}% fewer grants in 2025"
+  subtitle: "The agency is on track to award {{shortfall_pct:.0f}}% fewer grants in 2025"
   source: "USASpending.gov"
-  # Optional metadata overrides
-  # header: true
-  # footer: true
 
-# Chart parameters - all passed to view method
-# Values can be:
-# - Direct values: 2500, "Label Text", true
-# - Data references: months, y_series (keys from controller method return)
-# - Lists: [0, 2500] for ranges
-# - Nested objects: {fontsize: 10} for complex parameters
-parameters:
   # Data mapping
-  x: months
-  y: y_series
-  color: colors
-  linestyle: linestyles
-  linewidth: linewidths
-  marker: markers
-  label: labels
+  x: "{{months}}"
+  y: "{{y_series}}"
+  color: "{{colors}}"
+  linestyle: "{{linestyles}}"
+  linewidth: "{{linewidths}}"
+  marker: "{{markers}}"
+  label: "{{labels}}"
 
   # Axis configuration
   ylim: [0, 2500]
@@ -60,12 +41,4 @@ parameters:
     fontsize: 10
 
   # Export configuration
-  export_data: export_df
-
-# Optional: Parameter validation rules
-# validation:
-#   required: [x, y]
-#   types:
-#     ylim: list
-#     grid: bool
-#     label_size: int
+  export_data: "{{export_df}}"

@@ -1,21 +1,18 @@
+data:
+  source: nasa_budget_chart.nasa_major_activites_donut_chart
+
 chart:
-  type: donut_plot
-  output_name: nasa_directorate_breakdown_donut_chart
-data_source:
-  type: controller_method
-  class: tpsplots.controllers.nasa_budget_chart.NASABudgetChart
-  method: nasa_major_activites_donut_chart
-metadata:
+  type: donut
+  output: nasa_directorate_breakdown_donut_chart
   title: NASA's budget is subdivided by mission area
-  subtitle: "Directorates are responsible for distinct activities \u2014 from science\
-    \ to facilities \u2014 and they don't share funding."
-  source: source
-parameters:
-  values: sorted_values
-  labels: sorted_labels
+  subtitle: "Directorates are responsible for distinct activities - from science to facilities - and they don't share funding."
+  source: "{{source}}"
+
+  values: "{{sorted_values}}"
+  labels: "{{sorted_labels}}"
   show_percentages: true
   label_distance: 1.1
   hole_size: 0.6
   center_text: NASA
   center_color: white
-  export_data: export_df
+  export_data: "{{export_df}}"

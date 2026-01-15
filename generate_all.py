@@ -70,10 +70,9 @@ def discover_controller_classes():
     """
     controllers = {}
 
-    from tpsplots.controllers.chart_controller import ChartController
-
     # Import the controllers package
     import tpsplots.controllers as controllers_package
+    from tpsplots.controllers.chart_controller import ChartController
 
     # Get the package path
     package_path = Path(controllers_package.__file__).parent

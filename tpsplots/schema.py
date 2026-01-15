@@ -49,21 +49,21 @@ def get_json_schema_string(indent: int = 2) -> str:
 
 def get_chart_types() -> list[str]:
     """
-    Get list of available chart types.
+    Get list of available chart types (v2.0 names).
 
     Returns:
         list[str]: Sorted list of chart type identifiers
     """
-    from tpsplots.views import VIEW_REGISTRY
+    from tpsplots.models.chart_config import CHART_TYPES
 
-    return sorted(VIEW_REGISTRY.keys())
+    return sorted(CHART_TYPES.keys())
 
 
 def get_data_source_types() -> list[str]:
     """
-    Get list of supported data source types.
+    Get list of supported data source prefixes (v2.0).
 
     Returns:
         list[str]: List of data source type identifiers
     """
-    return ["csv_file", "google_sheets", "controller_method"]
+    return ["controller", "csv", "url"]

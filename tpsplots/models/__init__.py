@@ -1,21 +1,30 @@
-"""Pydantic models for YAML chart configuration."""
+"""Pydantic models for YAML chart configuration (v2.0 spec)."""
 
-from tpsplots.models.chart_config import ChartConfig, DirectLineLabelsConfig, MetadataConfig
-from tpsplots.models.data_sources import (
-    ControllerMethodDataSource,
-    CSVFileDataSource,
-    GoogleSheetsDataSource,
+from tpsplots.models.chart_config import (
+    CHART_TYPES,
+    ChartConfig,
+    ChartType,
+    DirectLineLabelsConfig,
+    MetadataConfig,
+    SeriesConfig,
 )
+from tpsplots.models.data_sources import DataSource, DataSourceConfig
 from tpsplots.models.parameters import ParametersConfig
 from tpsplots.models.yaml_config import YAMLChartConfig
 
 __all__ = [
-    "CSVFileDataSource",
+    # Chart config
+    "CHART_TYPES",
+    # Data sources
+    "DataSource",
+    "DataSourceConfig",
     "ChartConfig",
-    "ControllerMethodDataSource",
+    "ChartType",
     "DirectLineLabelsConfig",
     "MetadataConfig",
+    # Parameters
     "ParametersConfig",
-    "GoogleSheetsDataSource",
+    "SeriesConfig",
+    # Top-level config
     "YAMLChartConfig",
 ]

@@ -1,29 +1,24 @@
 # YAML configuration for NASA contracts awards comparison chart
 # Replicates the exact behavior of FY2025Charts.new_contract_awards_comparison_to_prior_years_legacy()
 
+data:
+  source: fy2025_charts.new_contract_awards_comparison_to_prior_years
+
 chart:
-  type: line_plot
-  output_name: new_contracts_historical_comparison
-
-data_source:
-  type: controller_method
-  class: tpsplots.controllers.fy2025_charts.FY2025Charts
-  method: new_contract_awards_comparison_to_prior_years
-
-metadata:
+  type: line
+  output: new_contracts_historical_comparison
   title: "NASA's total new contract awards in FY 2025"
   subtitle: "While below the recent average, the towal number was similar to that in 2024."
   source: "USASpending.gov (Does not include IDVs)"
 
-parameters:
   # Data mapping from controller method return
-  x: months
-  y: y_series
-  color: colors
-  linestyle: linestyles
-  linewidth: linewidths
-  marker: markers
-  label: labels
+  x: "{{months}}"
+  y: "{{y_series}}"
+  color: "{{colors}}"
+  linestyle: "{{linestyles}}"
+  linewidth: "{{linewidths}}"
+  marker: "{{markers}}"
+  label: "{{labels}}"
 
   # Axis configuration
   ylim: [0, 6000]
@@ -40,4 +35,4 @@ parameters:
     fontsize: 10
 
   # Export configuration
-  export_data: export_df
+  export_data: "{{export_df}}"

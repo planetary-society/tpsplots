@@ -1,5 +1,5 @@
 # Example YAML configuration using CSV file as data source (v2.0)
-# Demonstrates the two-level data/chart structure
+# Demonstrates the new two-level data/chart structure
 
 data:
   source: data/sample_data.csv

@@ -1,29 +1,24 @@
 # YAML configuration for NASA grants awards comparison chart
 # Replicates the exact behavior of FY2025Charts.new_grants_awards_comparison_to_prior_year_legacy()
 
+data:
+  source: fy2025_charts.new_grants_awards_comparison_to_prior_year
+
 chart:
-  type: line_plot
-  output_name: fy2025_new_grants_awards_rates
-
-data_source:
-  type: controller_method
-  class: tpsplots.controllers.fy2025_charts.FY2025Charts
-  method: new_grants_awards_comparison_to_prior_year
-
-metadata:
+  type: line
+  output: fy2025_new_grants_awards_rates
   title: "NASA awarded 25% fewer grants in FY 2025"
   subtitle: "The agency awarded the smallest number of new grants in years, despite having a stable budget provided by Congress."
   source: "USASpending.gov"
 
-parameters:
   # Data mapping from controller method return
-  x: months
-  y: y_series
-  color: colors
-  linestyle: linestyles
-  linewidth: linewidths
-  marker: markers
-  label: labels
+  x: "{{months}}"
+  y: "{{y_series}}"
+  color: "{{colors}}"
+  linestyle: "{{linestyles}}"
+  linewidth: "{{linewidths}}"
+  marker: "{{markers}}"
+  label: "{{labels}}"
 
   # Axis configuration
   ylim: [0, 2500]
@@ -40,4 +35,4 @@ parameters:
     fontsize: 10
 
   # Export configuration
-  export_data: export_df
+  export_data: "{{export_df}}"
