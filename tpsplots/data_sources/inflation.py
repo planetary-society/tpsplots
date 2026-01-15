@@ -17,9 +17,7 @@ Example
 from __future__ import annotations
 
 import io
-import json
 import logging
-import os
 from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
@@ -28,6 +26,8 @@ import certifi
 import numpy as np
 import pandas as pd
 import requests
+
+from tpsplots.exceptions import DataSourceError
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +56,10 @@ class Inflation:
         self.year: str = year
         self.source: str | Path | None = source
         self._table: Mapping[str, float] = self._load_table()
+        if not self._table:
+            raise DataSourceError(
+                f"No inflation data available for {self.__class__.__name__} (year={self.year})"
+            )
 
     # ------------------------------------------------------------------ #
     #  Sub-classes *must* implement the following three hooks            #
@@ -213,14 +217,9 @@ class NNSI(Inflation):
 
 class GDP(Inflation):
     """
-    Inflation adjuster using BEA's *implicit GDP price deflator, annual*.
+    Inflation adjuster using FRED's GDP deflator (quarterly).
 
-    Priority of data sources
-    ------------------------
-    1. BEA API  - dataset=NIPA, TableName=T10109, LineNumber=1, Frequency=A
-       • Requires an environment variable ``BEA_API_KEY``.
-    2. FRED CSV - series ``GDPDEF`` (quarterly); this class auto-averages
-       quarterly data into fiscal years.
+    This class auto-averages available quarters into fiscal years.
 
     Examples
     --------
@@ -229,33 +228,24 @@ class GDP(Inflation):
     >>> gdp.calc(datetime(2013, 1, 1), 25)  # Same as above
     """
 
-    # ---------- raw BEA request helpers ---------------------------------
-    _BEA_ENDPOINT = (
-        "https://apps.bea.gov/api/data?"
-        "UserID={key}&"
-        "datasetname=NIPA&"
-        "TableName=T10109&"  # Table 1.1.9 Implicit Price Deflators
-        "LineNumber=1&"  # Line 1: Gross domestic product
-        "Frequency=A&"  # Annual
-        "Year=ALL&"
-        "ResultFormat=JSON"
-    )
-
     # FRED quarterly CSV (public, no key)
     _FRED_CSV = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=GDPDEF"
 
     # ---------- hook #1 --------------------------------------------------
     def _load_raw(self) -> pd.DataFrame:
-        key = os.getenv("BEA_API_KEY")
-        if key:  # try BEA first
-            url = self._BEA_ENDPOINT.format(key=key)
-            resp = requests.get(url, timeout=30, verify=certifi.where())
-            resp.raise_for_status()
-            data = json.loads(resp.text)["BEAAPI"]["Results"]["Data"]
-            return pd.DataFrame(data)
-        # --- fall back to FRED ------------------------------------------
         csv = requests.get(self._FRED_CSV, timeout=30, verify=certifi.where()).text
         return pd.read_csv(io.StringIO(csv))
+
+    @staticmethod
+    def _annualize_quarters(
+        df: pd.DataFrame, date_col: str, value_col: str
+    ) -> tuple[pd.Series, pd.Series]:
+        """Average available quarters into fiscal-year values."""
+        quarters = pd.to_datetime(df[date_col]).dt.to_period("Q")
+        df = df.assign(FY=quarters.apply(lambda q: q.year + 1 if q.quarter == 4 else q.year))
+        annual = df.groupby("FY")[value_col].mean()
+        quarter_counts = df.groupby("FY")[value_col].count()
+        return annual, quarter_counts
 
     # ---------- hook #2 --------------------------------------------------
     def _parse_table(self, df: pd.DataFrame) -> Mapping[str, float]:
@@ -265,29 +255,15 @@ class GDP(Inflation):
         """
         target = int(self.year)
 
-        def _annualize(series, date_key="DATE", value_key="VALUE"):
-            # Average quarterly values into fiscal years (Oct-Sep)
-            q = pd.to_datetime(series[date_key]).dt.to_period("Q").dt.to_timestamp(freq="Q")
-            series = series.assign(FY=q.apply(lambda d: d.year if d.quarter == 4 else d.year - 1))
-            return series.groupby("FY")[value_key].mean()
+        num_col = "GDPDEF"
 
-        # ---------- Parse depending on source shape ---------------------
-        if {"LineDescription", "TimePeriod", "DataValue"}.issubset(df.columns):
-            # BEA JSON -> tidy
-            df = df.rename(columns={"TimePeriod": "FY", "DataValue": "VALUE"})
-            df["FY"] = df["FY"].astype(int)
-            df["VALUE"] = df["VALUE"].astype(float)
-            annual = df.set_index("FY")["VALUE"]
-        else:  # FRED CSV
-            num_col = "GDPDEF"
-
-            df = df[~df[num_col].isin([".", ""])]  # remove blanks
-            df[num_col] = df[num_col].astype(float)
-            # convert quarterly dates → fiscal-year averages (Oct--Sep)
-            q_dates = pd.to_datetime(df["observation_date"]).dt.to_period("Q").dt.to_timestamp("Q")
-            df = df.assign(FY=q_dates.apply(lambda d: d.year if d.quarter == 4 else d.year - 1))
-
-            annual = df.groupby("FY")[num_col].mean()
+        df = df[~df[num_col].isin([".", ""])]  # remove blanks
+        df[num_col] = df[num_col].astype(float)
+        annual, quarter_counts = self._annualize_quarters(df, "observation_date", num_col)
+        if target in quarter_counts.index and quarter_counts.loc[target] < 4:
+            logger.warning(
+                f"GDP deflator FY {target} computed from {quarter_counts.loc[target]} quarters"
+            )
 
         if target not in annual.index:
             logger.warning(f"GDP deflator table lacks FY {target}; inflation adjustment disabled")
