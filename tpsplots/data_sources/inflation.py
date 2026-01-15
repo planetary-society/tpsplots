@@ -290,9 +290,7 @@ class GDP(Inflation):
             annual = df.groupby("FY")[num_col].mean()
 
         if target not in annual.index:
-            logger.warning(
-                f"GDP deflator table lacks FY {target}; inflation adjustment disabled"
-            )
+            logger.warning(f"GDP deflator table lacks FY {target}; inflation adjustment disabled")
             return {}
 
         tgt_val = annual.loc[target]

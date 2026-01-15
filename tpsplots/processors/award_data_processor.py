@@ -1,7 +1,6 @@
 """Processor for fiscal year award data analysis and comparison."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -15,7 +14,7 @@ class FiscalYearConfig:
 
     prior_years: list[int]
     current_year: int
-    comparison_year: Optional[int] = None
+    comparison_year: int | None = None
 
     def __post_init__(self):
         if self.comparison_year is None:
@@ -25,7 +24,7 @@ class FiscalYearConfig:
     @property
     def all_years(self) -> list[int]:
         """Return all years including current year."""
-        return self.prior_years + [self.current_year]
+        return [*self.prior_years, self.current_year]
 
     @property
     def prior_year_range_label(self) -> str:
@@ -67,7 +66,7 @@ class AwardDataProcessor:
         fy_config: FiscalYearConfig,
         award_type: str = "Grant",
         auto_detect_current_month: bool = True,
-        current_month_override: Optional[int] = None,
+        current_month_override: int | None = None,
         projection_months: int = 2,
     ):
         """
@@ -106,8 +105,8 @@ class AwardDataProcessor:
         cumulative_data = self._calculate_cumulative_data(df, award_columns)
 
         # Process prior years and build series data
-        y_series, labels, colors, linestyles, markers, linewidths = (
-            self._process_prior_years(cumulative_data)
+        y_series, labels, colors, linestyles, markers, linewidths = self._process_prior_years(
+            cumulative_data
         )
 
         # Calculate and add mean of prior years
@@ -157,8 +156,7 @@ class AwardDataProcessor:
     def _build_award_columns(self) -> dict[int, str]:
         """Build mapping of year to column name."""
         return {
-            year: f"FY {year} New {self.award_type} Awards"
-            for year in self.fy_config.all_years
+            year: f"FY {year} New {self.award_type} Awards" for year in self.fy_config.all_years
         }
 
     def _calculate_cumulative_data(
@@ -218,9 +216,7 @@ class AwardDataProcessor:
             return 12  # Assume full year if auto-detection disabled
 
         now = pd.Timestamp.now()
-        fiscal_year_end = pd.Timestamp(
-            year=self.fy_config.current_year, month=9, day=30
-        )
+        fiscal_year_end = pd.Timestamp(year=self.fy_config.current_year, month=9, day=30)
 
         if now > fiscal_year_end:
             return 12  # Full fiscal year complete
@@ -229,10 +225,7 @@ class AwardDataProcessor:
         # The last FULL month is the prior month
         # Oct(10)->1, Nov(11)->2, Dec(12)->3, Jan(1)->4, ..., Sep(9)->12
         calendar_month = now.month
-        if calendar_month >= 10:
-            fiscal_month = calendar_month - 9
-        else:
-            fiscal_month = calendar_month + 3
+        fiscal_month = calendar_month - 9 if calendar_month >= 10 else calendar_month + 3
 
         # Subtract 1 because we want completed months, not current month
         return max(0, fiscal_month - 1)
@@ -242,7 +235,7 @@ class AwardDataProcessor:
         df: pd.DataFrame,
         award_columns: dict[int, str],
         last_full_month: int,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Process current year data with padding for incomplete months."""
         current_year = self.fy_config.current_year
         if award_columns[current_year] not in df.columns:
@@ -269,7 +262,7 @@ class AwardDataProcessor:
     def _calculate_shortfall(
         self,
         cumulative_data: dict[int, list],
-        fy_current_data: Optional[dict],
+        fy_current_data: dict | None,
         last_full_month: int,
     ) -> float:
         """Calculate projected shortfall percentage vs comparison year."""
@@ -286,15 +279,12 @@ class AwardDataProcessor:
         # Project remaining months using average of recent months
         if last_full_month >= self.projection_months:
             recent_months_total = sum(
-                current_awards[last_full_month - i - 1]
-                for i in range(self.projection_months)
+                current_awards[last_full_month - i - 1] for i in range(self.projection_months)
             )
             avg_monthly_rate = recent_months_total / self.projection_months
 
             for month in range(last_full_month, 12):
-                current_cumulative.append(
-                    avg_monthly_rate + current_cumulative[month - 1]
-                )
+                current_cumulative.append(avg_monthly_rate + current_cumulative[month - 1])
 
         if len(current_cumulative) != 12:
             return 0
@@ -319,7 +309,7 @@ class AwardDataProcessor:
     def _build_export_dataframe(self, y_series: list, labels: list) -> pd.DataFrame:
         """Build DataFrame suitable for CSV export."""
         export_data = {"Month": self.MONTHS}
-        for label, series in zip(labels, y_series):
+        for label, series in zip(labels, y_series, strict=False):
             if label is not None:
                 export_data[f"{label} Cumulative"] = series
 

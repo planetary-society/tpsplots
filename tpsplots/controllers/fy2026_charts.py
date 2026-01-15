@@ -741,7 +741,7 @@ class FY2026Charts(ChartController):
 
         metadata = {
             "title": "NASA's FY 2026 grant awards off to a slow start",
-            "subtitle": f"An extended government shutdown and budgetary uncertainty led NASA to award grants at a slower pace than any time in the past 20 years.",
+            "subtitle": "An extended government shutdown and budgetary uncertainty led NASA to award grants at a slower pace than any time in the past 20 years.",
             "source": "USASpending.gov",
         }
 
@@ -779,7 +779,7 @@ class FY2026Charts(ChartController):
 
         metadata = {
             "title": "NASA contract awards in FY 2026",
-            "subtitle": f"An extended government shutdown and budgetary uncertainty led NASA to award contracts at a slower pace than any time in the past 20 years.",
+            "subtitle": "An extended government shutdown and budgetary uncertainty led NASA to award contracts at a slower pace than any time in the past 20 years.",
             "source": "USASpending.gov (Does not include IDVs)",
         }
 

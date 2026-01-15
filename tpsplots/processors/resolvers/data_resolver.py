@@ -157,7 +157,9 @@ class DataResolver:
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
-        controller_class = DataResolver._find_controller_class(module, method_name, str(module_path))
+        controller_class = DataResolver._find_controller_class(
+            module, method_name, str(module_path)
+        )
         return DataResolver._call_controller_method(controller_class, method_name)
 
     @staticmethod
@@ -193,9 +195,7 @@ class DataResolver:
 
         try:
             result = getattr(controller, method_name)()
-            logger.info(
-                "Retrieved data from %s.%s", controller_class.__name__, method_name
-            )
+            logger.info("Retrieved data from %s.%s", controller_class.__name__, method_name)
         except Exception as e:
             raise DataSourceError(
                 f"Error calling {controller_class.__name__}.{method_name}: {e}"

@@ -15,11 +15,11 @@ from tpsplots.models.yaml_config import YAMLChartConfig
 __all__ = [
     # Chart config
     "CHART_TYPES",
+    "ChartConfig",
+    "ChartType",
     # Data sources
     "DataSource",
     "DataSourceConfig",
-    "ChartConfig",
-    "ChartType",
     "DirectLineLabelsConfig",
     "MetadataConfig",
     # Parameters
