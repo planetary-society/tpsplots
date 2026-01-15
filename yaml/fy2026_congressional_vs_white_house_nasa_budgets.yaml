@@ -1,0 +1,26 @@
+data:
+  source: fy2026_charts.congressional_vs_white_house_nasa_budget_stacked_bar_chart
+
+chart:
+  type: stacked_bar
+  output: fy2026_congressional_vs_white_house_nasa_budgets
+  title: "Congress rejects massive NASA cuts"
+  subtitle: "The President's Budget Request (PBR) proposed the largest cut in history, but Congress wants to maintain funding."
+  source: "NASA FY 2026 PBR, HAC-CJS, SAC-CJS"
+
+  categories: "{{categories}}"
+  values: "{{values}}"
+  labels: null
+  orientation: vertical
+  show_values: true
+  value_format: monetary
+  value_threshold: 0
+  value_fontsize: 15
+  width: 0.5
+  stack_labels: false
+  stack_label_format: monetary
+  scale: billions
+  colors: ["#037CC2"]
+  legend:
+    loc: upper right
+  export_data: "{{export_df}}"

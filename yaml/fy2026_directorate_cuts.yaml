@@ -1,0 +1,25 @@
+data:
+  source: fy2026_charts.directorate_changes_stacked_bar_chart
+
+chart:
+  type: stacked_bar
+  output: fy2026_directorate_cuts
+  title: "Cuts are proposed across NASA"
+  subtitle: "The FY 2026 White House budget impacts all parts of NASA — except human exploration beyond Earth."
+  source: "NASA FY 2026 Budget Request"
+
+  categories: "{{categories}}"
+  values: "{{values}}"
+  labels: ["FY2026 Proposed", "Amount Cut from FY 2025"]
+  orientation: vertical
+  show_values: true
+  value_format: monetary
+  value_threshold: 0
+  value_fontsize: 10
+  stack_labels: false
+  stack_label_format: monetary
+  scale: billions
+  colors: ["#037CC2", "#FF5D47"]
+  legend:
+    loc: upper right
+  export_data: "{{export_df}}"

@@ -5,6 +5,7 @@ from __future__ import annotations
 import inspect
 import logging
 from pathlib import Path
+from typing import ClassVar
 
 import pandas as pd
 
@@ -34,7 +35,7 @@ class ChartController:
     # Registry mapping view type names to their classes.
     # This follows the Open/Closed Principle - extend by adding entries,
     # not by modifying get_view() method.
-    VIEW_REGISTRY: dict[str, type] = {
+    VIEW_REGISTRY: ClassVar[dict[str, type]] = {
         "Line": LineChartView,
         "Bar": BarChartView,
         "Donut": DonutChartView,

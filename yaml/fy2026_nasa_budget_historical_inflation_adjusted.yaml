@@ -1,0 +1,29 @@
+data:
+  source: fy2026_charts.nasa_budget_historical_with_fy_2026_proposed
+
+chart:
+  type: line
+  output: nasa_budget_historical_inflation_adjusted_fy2026_threat
+  title: "The smallest NASA budget since 1961"
+  subtitle: "The White House's proposed NASA budget, adjusted for inflation, is the lowest since the start of human spaceflight."
+  source: "NASA Budget Justifications, FYs 1961-2025"
+
+  x: "{{fiscal_years}}"
+  y:
+    - "{{appropriation_adjusted_nnsi}}"
+    - "{{white_house_budget_projection}}"
+  color: ["#037CC2", "#FF5D47"]
+  linestyle: ["-", "-"]
+  marker: ["", "o"]
+  label: ["", "2026 White House proposal"]
+  xlim: "{{xlim}}"
+  ylim: "{{ylim}}"
+  scale: billions
+  legend: "{{legend}}"
+  export_data: "{{export_df}}"
+  hlines: [18800000000]
+  hline_labels: ["Lowest since 1961"]
+  hline_label_position: center
+  hline_colors: ["#414141"]
+  hline_linestyle: ["--"]
+  hline_linewidth: [2]

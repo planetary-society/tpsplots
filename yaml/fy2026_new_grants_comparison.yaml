@@ -1,0 +1,26 @@
+data:
+  source: fy2026_charts.new_grants_awards_comparison_to_prior_years
+
+chart:
+  type: line
+  output: fy2026_new_grants_awards_comparison
+  title: "NASA's FY 2026 grant awards off to a slow start"
+  subtitle: "An extended government shutdown and budgetary uncertainty led NASA to award grants at a slower pace than any time in the past 20 years."
+  source: "USASpending.gov"
+
+  x: "{{months}}"
+  y: "{{y_series}}"
+  color: "{{colors}}"
+  linestyle: "{{linestyles}}"
+  linewidth: "{{linewidths}}"
+  marker: "{{markers}}"
+  label: "{{labels}}"
+  ylim: [0, 2500]
+  ylabel: "Cumulative New Grants Awarded"
+  label_size: 13
+  tick_size: 14
+  direct_line_labels:
+    fontsize: 10
+  legend: false
+  grid: true
+  export_data: "{{export_df}}"

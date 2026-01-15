@@ -1,0 +1,29 @@
+data:
+  source: fy2026_charts.nasa_science_by_year_inflation_adjusted_fy2026_threat
+
+chart:
+  type: line
+  output: nasa_science_by_year_inflation_adjusted_fy2026_threat
+  title: "The biggest science cut in NASA history"
+  subtitle: "The proposed 47% reduction would result in the smallest science budget since 1984, when adjusted for inflation."
+  source: "NASA Budget Justifications, FYs 1980-2025"
+
+  x: "{{fiscal_years}}"
+  y:
+    - "{{nasa_science_adjusted_nnsi}}"
+    - "{{fy_2026_pbr}}"
+  color: ["#037CC2", "#FF5D47"]
+  linestyle: ["-", "-"]
+  marker: ["", "o"]
+  label: ["NASA science funding", "2026 White House proposal"]
+  xlim: "{{xlim}}"
+  ylim: "{{ylim}}"
+  scale: billions
+  legend: "{{legend}}"
+  export_data: "{{export_df}}"
+  hlines: [3907600000]
+  hline_labels: ["Lowest since 1984"]
+  hline_label_position: center
+  hline_colors: ["#414141"]
+  hline_linestyle: ["--"]
+  hline_linewidth: [2]

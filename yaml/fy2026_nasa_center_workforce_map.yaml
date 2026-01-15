@@ -1,0 +1,19 @@
+data:
+  source: fy2026_charts.nasa_center_workforce_map
+
+chart:
+  type: us_map_pie
+  output: fy2026_nasa_center_workforce_reductions
+  title: "NASA faces nation-wide workforce cuts"
+  subtitle: "The White House's 2026 budget proposal slashes staffing at each of the agency's 10 field centers by 20% - 46%."
+  source: "NASA FY 2026 Budget Request"
+
+  pie_data: "{{pie_data}}"
+  show_percentages: [false, true]
+  show_pie_labels: true
+  base_pie_size: 4500
+  show_state_boundaries: true
+  offset_line_color: "#666666"
+  offset_line_style: "-."
+  offset_line_width: 2
+  export_data: "{{export_df}}"

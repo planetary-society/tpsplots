@@ -1,6 +1,7 @@
 """Processor for fiscal year award data analysis and comparison."""
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 import numpy as np
 import pandas as pd
@@ -46,7 +47,7 @@ class AwardDataProcessor:
     """
 
     # Fiscal year months in order (Oct-Sep)
-    MONTHS = [
+    MONTHS: ClassVar[list[str]] = [
         "Oct",
         "Nov",
         "Dec",

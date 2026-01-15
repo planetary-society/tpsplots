@@ -114,9 +114,8 @@ def generate(
             chart_result = processor.generate_chart()
 
             result["succeeded"] += 1
-            if chart_result and isinstance(chart_result, dict):
-                if "files" in chart_result:
-                    result["files"].extend(chart_result["files"])
+            if chart_result and isinstance(chart_result, dict) and "files" in chart_result:
+                result["files"].extend(chart_result["files"])
 
         except (ConfigurationError, DataSourceError, RenderingError) as e:
             result["failed"] += 1

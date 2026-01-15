@@ -1,0 +1,17 @@
+data:
+  source: fy2026_charts.fy2026_budget_relative_proposed_change
+
+chart:
+  type: bar
+  output: fy2026_largest_cut_in_nasa_history
+  title: "The largest cut to NASA ever proposed"
+  subtitle: "The White House's 2026 budget proposes a 25% cut from the prior year — the largest ever."
+  source: "NASA Budget Requests FYs 1960-2026"
+
+  categories: "{{categories}}"
+  values: "{{values}}"
+  ylabel: "% change of proposed budget from prior year"
+  negative_color: "#FF5D47"
+  show_values: false
+  value_format: percentage
+  export_data: "{{export_df}}"

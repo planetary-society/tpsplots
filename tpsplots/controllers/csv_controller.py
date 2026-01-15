@@ -5,6 +5,7 @@ import logging
 import pandas as pd
 
 from tpsplots.controllers.chart_controller import ChartController
+from tpsplots.exceptions import DataSourceError
 from tpsplots.utils.date_processing import looks_like_date_column, round_date_to_year
 
 logger = logging.getLogger(__name__)

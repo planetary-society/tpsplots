@@ -39,14 +39,20 @@ def _is_headless() -> bool:
     return bool(any(os.environ.get(var) for var in ci_vars))
 
 
-if _is_headless():
+def _configure_matplotlib():
     import matplotlib
 
-    matplotlib.use("Agg")
+    if _is_headless():
+        matplotlib.use("Agg")
 
-import matplotlib.font_manager as fm
-import matplotlib.pyplot as plt
-import matplotlib.style.core  # For reload_library
+    import matplotlib.font_manager as fm
+    import matplotlib.pyplot as plt
+    import matplotlib.style.core  # For reload_library
+
+    return fm, plt
+
+
+fm, plt = _configure_matplotlib()
 
 # Version
 __version__ = "1.0.0"
@@ -69,8 +75,8 @@ if FONTS_DIR.exists():
         fm.fontManager.addfont(str(font_file))
 
 # Public API imports
-from tpsplots.api import generate
-from tpsplots.exceptions import (
+from tpsplots.api import generate  # noqa: E402
+from tpsplots.exceptions import (  # noqa: E402
     ConfigurationError,
     DataSourceError,
     RenderingError,

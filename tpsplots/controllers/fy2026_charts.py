@@ -16,9 +16,15 @@ from tpsplots.data_sources.nasa_budget_data_source import (
 )
 from tpsplots.data_sources.new_awards import NewNASAAwards
 from tpsplots.processors.award_data_processor import AwardDataProcessor, FiscalYearConfig
+from tpsplots.views.chart_view import ChartView
 
 
 class FY2026Charts(ChartController):
+    CONGRESSIONAL_CUTOFF_YEAR = 2025
+    PRESIDENTIAL_REQUEST_YEAR_START = 2026
+    PRESIDENTIAL_REQUEST_YEAR_END = 2030
+    PRESIDENTIAL_REQUEST_VALUE = 18_009_100_000
+
     def __init__(self):
         # Initialize with data source
         super().__init__(
@@ -33,18 +39,29 @@ class FY2026Charts(ChartController):
         )
 
     def nasa_budget_historical_with_fy_2026_proposed(self):
-        """Generate historical NASA budget chart with single appropriation line."""
+        """Prepare historical NASA budget chart data with FY 2026 proposal."""
         self.data_source = Historical()
         # Get data from model
         df = self.data_source.data().dropna(subset=["PBR"])
 
-        # Limit fiscal years to those through FY 2025
-        fiscal_years = df[df["Fiscal Year"] <= pd.to_datetime("2026-01-01")]["Fiscal Year"]
+        congressional_cutoff = pd.Timestamp(f"{self.CONGRESSIONAL_CUTOFF_YEAR}-01-01")
+        congressional_mask = df["Fiscal Year"] > congressional_cutoff
+        for col in ["Appropriation", "Appropriation_adjusted_nnsi"]:
+            if col in df.columns:
+                df.loc[congressional_mask, col] = pd.NA
 
         # Copy Appropriation value for 2025-01-01 to the White House Budget Projection for 2025-01-01
         df.loc[
             df["Fiscal Year"] == pd.to_datetime("2025-01-01"), "White House Budget Projection"
         ] = df.loc[df["Fiscal Year"] == pd.to_datetime("2025-01-01"), "Appropriation"]
+        request_mask = df["Fiscal Year"].dt.year.between(
+            self.PRESIDENTIAL_REQUEST_YEAR_START, self.PRESIDENTIAL_REQUEST_YEAR_END
+        )
+        df.loc[request_mask, "White House Budget Projection"] = self.PRESIDENTIAL_REQUEST_VALUE
+
+        fiscal_years = df[
+            df["Fiscal Year"] <= pd.to_datetime(f"{self.PRESIDENTIAL_REQUEST_YEAR_END}-01-01")
+        ]["Fiscal Year"]
 
         # Prepare cleaned export data for CSV
         export_df = self._export_helper(
@@ -67,48 +84,32 @@ class FY2026Charts(ChartController):
             df["Appropriation_adjusted_nnsi"].max(), 5000000000
         )
 
-        # Prepare metadata
-        metadata = {
-            "title": "The smallest NASA budget since 1961",
-            "subtitle": "The White House's proposed NASA budget, adjusted for inflation, is the lowest since the start of human spaceflight.",
-            "source": f"NASA Budget Justifications, FYs 1961-{fiscal_years.max():%Y}",
+        return {
+            "fiscal_years": fiscal_years,
+            "appropriation_adjusted_nnsi": df["Appropriation_adjusted_nnsi"],
+            "white_house_budget_projection": df["White House Budget Projection"],
+            "xlim": (datetime(1958, 1, 1), datetime(x_limit, 1, 1)),
+            "ylim": {"bottom": 0, "top": y_limit},
+            "legend": {"loc": "lower right"},
+            "export_df": export_df,
         }
 
-        # Load the Line plotter view
-        line_view = self.get_view("Line")
-
-        # Generate charts via the specialized line chart view
-        line_view.line_plot(
-            metadata=metadata,
-            stem="nasa_budget_historical_inflation_adjusted_fy2026_threat",
-            x=fiscal_years,
-            y=[df["Appropriation_adjusted_nnsi"], df["White House Budget Projection"]],
-            color=[line_view.COLORS["blue"], line_view.TPS_COLORS["Rocket Flame"]],
-            linestyle=["-", "-"],
-            marker=["", "o"],
-            label=["", "2026 White House proposal"],
-            xlim=(datetime(1958, 1, 1), datetime(x_limit, 1, 1)),
-            ylim={"bottom": 0, "top": y_limit},
-            scale="billions",
-            legend={"loc": "lower right"},
-            export_data=export_df,
-            hlines=[18_800_000_000],
-            hline_labels=["Lowest since 1961"],
-            hline_label_position="center",
-            hline_colors=[line_view.TPS_COLORS["Crater Shadow"]],
-            hline_linestyle=["--"],
-            hline_linewidth=[2],
-        )
-
     def nasa_science_by_year_inflation_adjusted_fy2026_threat(self):
-        """Generate historical NASA Science budget chart."""
+        """Prepare historical NASA Science budget chart data."""
         # Get data from model
         self.data_source = Science()
         df = self.data_source.data()  # Drop rows without directorate data
 
         # Prepare data for view
-        # Only grab years through FY 2025
-        fiscal_years = df[df["Fiscal Year"] <= pd.to_datetime("2026-01-01")]["Fiscal Year"]
+        congressional_cutoff = pd.Timestamp(f"{self.CONGRESSIONAL_CUTOFF_YEAR}-01-01")
+        congressional_mask = df["Fiscal Year"] > congressional_cutoff
+        for col in ["NASA Science", "NASA Science_adjusted_nnsi"]:
+            if col in df.columns:
+                df.loc[congressional_mask, col] = pd.NA
+
+        fiscal_years = df[
+            df["Fiscal Year"] <= pd.to_datetime(f"{self.PRESIDENTIAL_REQUEST_YEAR_START}-01-01")
+        ]["Fiscal Year"]
 
         # Prepare cleaned data for export
         export_df = self._export_helper(
@@ -120,41 +121,18 @@ class FY2026Charts(ChartController):
             df["NASA Science_adjusted_nnsi"].max(), 5_000_000_000
         )
 
-        # Prepare metadata
-        metadata = {
-            "title": "The biggest science cut in NASA history",
-            "subtitle": "The proposed 47% reduction would result in the smallest science budget since 1984, when adjusted for inflation.",
-            "source": f"NASA Budget Justifications, FYs 1980-{fiscal_years.max():%Y}",
+        return {
+            "fiscal_years": fiscal_years,
+            "nasa_science_adjusted_nnsi": df["NASA Science_adjusted_nnsi"],
+            "fy_2026_pbr": df["FY 2026 PBR"],
+            "xlim": (datetime(1980, 1, 1), datetime(x_limit, 1, 1)),
+            "ylim": (0, y_limit),
+            "legend": {"loc": "lower right"},
+            "export_df": export_df,
         }
 
-        # Plot as line chart
-        line_view = self.get_view("Line")
-
-        # Generate charts via the specialized line chart view
-        line_view.line_plot(
-            metadata=metadata,
-            stem="nasa_science_by_year_inflation_adjusted_fy2026_threat",
-            x=fiscal_years,
-            y=[df["NASA Science_adjusted_nnsi"], df["FY 2026 PBR"]],
-            color=[line_view.COLORS["blue"], line_view.TPS_COLORS["Rocket Flame"]],
-            linestyle=["-", "-"],
-            marker=["", "o"],
-            label=["NASA science funding", "2026 White House proposal"],
-            xlim=(datetime(1980, 1, 1), datetime(x_limit, 1, 1)),
-            ylim=(0, y_limit),
-            scale="billions",
-            legend={"loc": "lower right"},
-            export_data=export_df,
-            hlines=[3_907_600_000],
-            hline_labels=["Lowest since 1984"],
-            hline_label_position="center",
-            hline_colors=[line_view.TPS_COLORS["Crater Shadow"]],
-            hline_linestyle=["--"],
-            hline_linewidth=[2],
-        )
-
     def nasa_science_divisions_quad_plot_fy2026_threat(self):
-        """Generate quad plot showing NASA's four science divisions with historical and proposed budgets."""
+        """Prepare quad plot data for NASA's four science divisions."""
         # Load ScienceDivisions data
         self.data_source = ScienceDivisions()
         df = self.data_source.data()
@@ -210,10 +188,7 @@ class FY2026Charts(ChartController):
 
         # Prepare data for each subplot
         subplot_data = []
-        colors = [
-            self.get_view("Line").COLORS["blue"],
-            self.get_view("Line").TPS_COLORS["Rocket Flame"],
-        ]
+        colors = [ChartView.COLORS["blue"], ChartView.TPS_COLORS["Rocket Flame"]]
 
         for division in divisions:
             # Get fiscal years
@@ -232,11 +207,9 @@ class FY2026Charts(ChartController):
                     "title": division,
                     "labels": ["Division funding", "Proposed"],
                     "colors": colors,
-                    "linestyles": ["-"],
+                    "linestyles": ["-", "-"],
                     "markers": ["", "o"],
-                    "linewidths": [3],
-                    "legend": True,
-                    "share_legent": True,
+                    "linewidths": [3, 3],
                 }
             )
 
@@ -251,42 +224,28 @@ class FY2026Charts(ChartController):
             max_value, 1_000_000_000
         )  # Round to nearest billion
 
-        # Prepare metadata
-        metadata = {
-            "title": "All NASA sciences face severe cuts in 2026",
-            "subtitle": "The White House would slash each division from 30% to 65%, reducing some to historic lows when adjusted for inflation.",
-            "source": "NASA Presidential Budget Requests, FYs 1990-2026",
-        }
-
         # Prepare export data
         export_columns = ["Fiscal Year"]
         for division in divisions:
             export_columns.extend([division, f"{division}_adjusted_nnsi", f"{division} Proposed"])
         export_df = self._export_helper(df_filtered, export_columns)
-
-        # Get the LineSubplotsView
-        subplots_view = self.get_view("LineSubplots")
-
-        # Generate the quad plot
-        subplots_view.line_subplots_plot(
-            metadata=metadata,
-            stem="nasa_science_divisions_quad_plot_fy2026_threat",
-            subplot_data=subplot_data,
-            grid_shape=(2, 2),
-            xlim=(pd.to_datetime("1990-01-01"), pd.to_datetime("2030-01-01")),
-            ylim=(0, y_limit),
-            scale="billions",
-            shared_x=False,
-            shared_y=False,
-            shared_legend=True,
-            legend=True,
-            subplot_title_size=14,
-            export_data=export_df,
-        )
+        return {
+            "subplot_data": subplot_data,
+            "grid_shape": (2, 2),
+            "xlim": (pd.to_datetime("1990-01-01"), pd.to_datetime("2030-01-01")),
+            "ylim": (0, y_limit),
+            "scale": "billions",
+            "shared_x": False,
+            "shared_y": False,
+            "shared_legend": True,
+            "legend": True,
+            "subplot_title_size": 14,
+            "export_df": export_df,
+        }
 
     def cancelled_missions_lollipop_chart(self):
         """
-        Generate a lollipop chart showing the launch date to end of all NASA missions
+        Prepare a lollipop chart showing the launch date to end of all NASA missions
         proposed as cancelled in FY 2026.
         """
         data_source = Missions()
@@ -303,11 +262,13 @@ class FY2026Charts(ChartController):
         )
 
         # Calculate 'Duration (years)' only for valid rows
-        df["Duration (years)"] = (df["End Year"] - df["Launch Year"]).fillna(0)
+        df["Duration (years)"] = pd.to_numeric(
+            df["End Year"] - df["Launch Year"], errors="coerce"
+        ).fillna(0)
 
-        df["Development Time (years)"] = (df["Launch Year"] - df["Formulation Start Year"]).fillna(
-            0
-        )
+        df["Development Time (years)"] = pd.to_numeric(
+            df["Launch Year"] - df["Formulation Start Year"], errors="coerce"
+        ).fillna(0)
 
         # Filter by only NASA-led missions
         df = df[df["NASA Led?"].isin([True])]
@@ -328,44 +289,19 @@ class FY2026Charts(ChartController):
         # Prepare export data
         export_df = df.copy().drop(columns=["NASA Led?"])
 
-        # Prepare metadata
-        metadata = {
-            "title": f"{total_projects} active science missions cancelled",
-            "subtitle": f"These projects reflect more than {total_value} of investment by U.S. taxpayers and {total_development_time} of combined years to build.",
-            "source": "FY 2026 White House NASA Request",
+        return {
+            "categories": df["Mission"],
+            "start_values": df["Launch Year"],
+            "end_values": df["End Year"],
+            "xlim": (1997, 2027),
+            "export_df": export_df,
+            "total_projects": total_projects,
+            "total_value": total_value,
+            "total_development_time": total_development_time,
         }
 
-        lollipop_view = self.get_view("Lollipop")
-
-        # Generate the chart
-        lollipop_view.lollipop_plot(
-            metadata=metadata,
-            stem="fy_2026_proposed_mission_cancellations",
-            categories=df["Mission"],
-            start_values=df["Launch Year"],
-            end_values=df["End Year"],
-            sort_by="start",  # Sort by start year
-            sort_ascending=False,
-            colors=lollipop_view.TPS_COLORS["Neptune Blue"],
-            xlim=(1997, 2027),
-            start_value_labels=True,
-            xlabel=None,
-            grid=True,
-            y_axis_position="right",  # Category labels on the right
-            hide_y_spine=True,
-            grid_axis="x",
-            tick_size=12,
-            end_marker_style="X",
-            end_marker_color="red",
-            marker_size=11,
-            value_labels=False,  # Don't show individual year labels
-            range_labels=False,  # Show duration in years
-            category_wrap_length=25,
-            export_data=export_df,
-        )
-
     def nasa_center_workforce_map(self):
-        """Generate a map showing workforce breakdown at NASA centers."""
+        """Prepare a map showing workforce breakdown at NASA centers."""
 
         pie_data = {
             "HQ": {
@@ -435,27 +371,10 @@ class FY2026Charts(ChartController):
 
         export_df = pd.DataFrame(export_data)
 
-        metadata = {
-            "title": "NASA faces nation-wide workforce cuts",
-            "subtitle": "The White House's 2026 budget proposal slashes staffing at each of the agency's 10 field centers by 20% - 46%.",
-            "source": "NASA FY 2026 Budget Request",
+        return {
+            "pie_data": pie_data,
+            "export_df": export_df,
         }
-
-        map_view = self.get_view("USMapPie")
-
-        map_view.us_map_pie_plot(
-            metadata=metadata,
-            stem="fy2026_nasa_center_workforce_reductions",
-            pie_data=pie_data,
-            show_percentages=[False, True],  # Only show cuts
-            show_pie_labels=True,
-            base_pie_size=4500,
-            show_state_boundaries=True,
-            offset_line_color="#666666",
-            offset_line_style="-.",
-            offset_line_width=2,
-            export_data=export_df,
-        )
 
     def fy2026_nasa_workforce_projections(self):
         df = Workforce().data()
@@ -490,41 +409,18 @@ class FY2026Charts(ChartController):
         x_limit = 2027
         y_limit = 40_000
 
-        # Prepare metadata
-        metadata = {
-            "title": "The smallest NASA workforce since 1960",
-            "subtitle": "The White House's 2026 budget proposal cuts NASA's workforce to levels not seen since the dawn of the space age.",
-            "source": "NASA FTE Workforce Reporting, FYs 1960-2026",
+        return {
+            "fiscal_years": fiscal_years,
+            "fte": df["Full-time Equivalent (FTE)"],
+            "fy2026_projection": df["FY2026 Projection"],
+            "xlim": (datetime(1958, 1, 1), datetime(x_limit, 1, 1)),
+            "ylim": {"bottom": 0, "top": y_limit},
+            "legend": {"loc": "lower right"},
+            "export_df": export_df,
         }
 
-        # Load the Line plotter view
-        line_view = self.get_view("Line")
-
-        # Generate charts via the specialized line chart view
-        line_view.line_plot(
-            metadata=metadata,
-            stem="fy2026_nasa_workforce_cuts",
-            x=fiscal_years,
-            y=[df["Full-time Equivalent (FTE)"], df["FY2026 Projection"]],
-            color=[line_view.COLORS["blue"], line_view.TPS_COLORS["Rocket Flame"]],
-            linestyle=["-", "-"],
-            marker=["", "o"],
-            label=["", "2026 White House proposal"],
-            xlim=(datetime(1958, 1, 1), datetime(x_limit, 1, 1)),
-            ylim={"bottom": 0, "top": y_limit},
-            legend={"loc": "lower right"},
-            export_data=export_df,
-            hlines=[11853],
-            hline_labels=["Lowest since 1960"],
-            hline_label_position="center",
-            hline_colors=[line_view.TPS_COLORS["Crater Shadow"]],
-            hline_linestyle=["--"],
-            hline_linewidth=[2],
-            ticksize=15,
-        )
-
     def directorate_changes_stacked_bar_chart(self):
-        """Example: Horizontal stacked bar chart comparing mission costs."""
+        """Prepare stacked bar chart comparing directorate changes."""
         df = Directorates().data()
 
         # Remove any column from df that has "(2025)" in the column name
@@ -576,36 +472,25 @@ class FY2026Charts(ChartController):
             }
         )
 
-        metadata = {
-            "title": "Cuts are proposed across NASA",
-            "subtitle": "The FY 2026 White House budget impacts all parts of NASA — except human exploration beyond Earth.",
-            "source": "NASA FY 2026 Budget Request",
+        return {
+            "categories": categories,
+            "values": data,
+            "export_df": export_df,
         }
-
-        stacked_view = self.get_view("StackedBar")
-
-        stacked_view.stacked_bar_plot(
-            metadata=metadata,
-            stem="fy2026_directorate_cuts",
-            categories=categories,
-            values=data,
-            labels=["FY2026 Proposed", "Amount Cut from FY 2025"],
-            orientation="vertical",
-            show_values=True,
-            value_format="monetary",
-            value_threshold=0,
-            value_fontsize=10,
-            stack_labels=False,
-            stack_label_format="monetary",
-            scale="billions",
-            colors=["#037CC2", "#FF5D47"],
-            legend={"loc": "upper right"},
-            export_data=export_df,
-        )
 
     def fy2026_budget_relative_proposed_change(self):
         df = Historical().data().dropna(subset=["PBR"])
-        df = df[(df["Fiscal Year"] <= pd.to_datetime("2026-01-01"))]
+        congressional_cutoff = pd.Timestamp(f"{self.CONGRESSIONAL_CUTOFF_YEAR}-01-01")
+        congressional_mask = df["Fiscal Year"] > congressional_cutoff
+        if "Appropriation" in df.columns:
+            df.loc[congressional_mask, "Appropriation"] = pd.NA
+
+        request_mask = df["Fiscal Year"].dt.year.between(
+            self.PRESIDENTIAL_REQUEST_YEAR_START, self.PRESIDENTIAL_REQUEST_YEAR_END
+        )
+        df.loc[request_mask, "PBR"] = self.PRESIDENTIAL_REQUEST_VALUE
+
+        df = df[df["Fiscal Year"] <= pd.to_datetime(f"{self.PRESIDENTIAL_REQUEST_YEAR_END}-01-01")]
 
         # Calculate relative change of PBR to prior year's appropriations
         df = df.sort_values("Fiscal Year").reset_index(drop=True)
@@ -651,28 +536,14 @@ class FY2026Charts(ChartController):
             }
         )
 
-        # Prepare metadata
-        metadata = {
-            "title": "The largest cut to NASA ever proposed",
-            "subtitle": "The White House's 2026 budget proposes a 25% cut from the prior year — the largest ever.",
-            "source": "NASA Budget Requests FYs 1960-2026",
+        return {
+            "categories": df["Fiscal Year"],
+            "values": values,
+            "export_df": export_df,
         }
 
-        bar_view = self.get_view("Bar")
-        bar_view.bar_plot(
-            metadata=metadata,
-            negative_color=bar_view.TPS_COLORS["Rocket Flame"],
-            stem="fy2026_largest_cut_in_nasa_history",
-            categories=df["Fiscal Year"],
-            values=values,
-            ylabel="% change of proposed budget from prior year",
-            show_values=False,
-            value_format="percentage",
-            export_data=export_df,
-        )
-
     def congressional_vs_white_house_nasa_budget_stacked_bar_chart(self):
-        """Horizontal stacked bar chart comparing funding by major account."""
+        """Prepare stacked bar chart comparing NASA budget proposals."""
 
         # These data are fixed for the FY 2026 budget request, so let's hardcode them here
 
@@ -699,33 +570,11 @@ class FY2026Charts(ChartController):
             }
         )
 
-        metadata = {
-            "title": "Congress rejects massive NASA cuts",
-            "subtitle": "The President's Budget Request (PBR) proposed the largest cut in history, but Congress wants to maintain funding.",
-            "source": "NASA FY 2026 PBR, HAC-CJS, SAC-CJS",
+        return {
+            "categories": categories,
+            "values": data,
+            "export_df": export_df,
         }
-
-        stacked_view = self.get_view("StackedBar")
-
-        stacked_view.stacked_bar_plot(
-            metadata=metadata,
-            stem="fy2026_congressional_vs_white_house_nasa_budgets",
-            categories=categories,
-            values=data,
-            labels=None,
-            orientation="vertical",
-            show_values=True,
-            value_format="monetary",
-            value_threshold=0,
-            value_fontsize=15,
-            width=0.5,
-            stack_labels=False,
-            stack_label_format="monetary",
-            scale="billions",
-            colors=["#037CC2"],
-            legend={"loc": "upper right"},
-            export_data=export_df,
-        )
 
     def new_grants_awards_comparison_to_prior_years(self):
         """Track FY 2026 grant awards compared to prior fiscal years."""
@@ -736,34 +585,7 @@ class FY2026Charts(ChartController):
         )
         df = NewNASAAwards().data()
         data = processor.process(df)
-
-        line_view = self.get_view("Line")
-
-        metadata = {
-            "title": "NASA's FY 2026 grant awards off to a slow start",
-            "subtitle": "An extended government shutdown and budgetary uncertainty led NASA to award grants at a slower pace than any time in the past 20 years.",
-            "source": "USASpending.gov",
-        }
-
-        line_view.line_plot(
-            metadata=metadata,
-            stem="fy2026_new_grants_awards_comparison",
-            x=data["months"],
-            y=data["y_series"],
-            color=data["colors"],
-            linestyle=data["linestyles"],
-            linewidth=data["linewidths"],
-            marker=data["markers"],
-            label=data["labels"],
-            ylim=(0, 2500),
-            ylabel="Cumulative New Grants Awarded",
-            label_size=13,
-            tick_size=14,
-            direct_line_labels={"fontsize": 10},
-            legend=False,
-            grid=True,
-            export_data=data["export_df"],
-        )
+        return data
 
     def new_contract_awards_comparison_to_prior_years(self):
         """Track FY 2026 contract awards compared to prior fiscal years."""
@@ -774,31 +596,4 @@ class FY2026Charts(ChartController):
         )
         df = NewNASAAwards().data()
         data = processor.process(df)
-
-        line_view = self.get_view("Line")
-
-        metadata = {
-            "title": "NASA contract awards in FY 2026",
-            "subtitle": "An extended government shutdown and budgetary uncertainty led NASA to award contracts at a slower pace than any time in the past 20 years.",
-            "source": "USASpending.gov (Does not include IDVs)",
-        }
-
-        line_view.line_plot(
-            metadata=metadata,
-            stem="fy2026_new_contracts_awards_comparison",
-            x=data["months"],
-            y=data["y_series"],
-            color=data["colors"],
-            linestyle=data["linestyles"],
-            linewidth=data["linewidths"],
-            marker=data["markers"],
-            label=data["labels"],
-            ylim=(0, 6000),
-            ylabel="Cumulative New Contracts Awarded",
-            label_size=13,
-            tick_size=14,
-            direct_line_labels={"fontsize": 10},
-            legend=False,
-            grid=True,
-            export_data=data["export_df"],
-        )
+        return data
