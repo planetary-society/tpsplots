@@ -4,8 +4,8 @@ data:
 chart:
   type: line_subplots
   output: nasa_science_divisions_quad_plot_fy2026_threat
-  title: "All NASA sciences face severe cuts in 2026"
-  subtitle: "The White House would slash each division from 30% to 65%, reducing some to historic lows when adjusted for inflation."
+  title: "Every science division faced deep cuts"
+  subtitle: "The 2026 proposal would have cut 30-65% from each division — some to inflation-adjusted historic lows."
   source: "NASA Presidential Budget Requests, FYs 1990-2026"
 
   subplot_data: "{{subplot_data}}"

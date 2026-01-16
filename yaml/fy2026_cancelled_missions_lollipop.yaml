@@ -4,8 +4,8 @@ data:
 chart:
   type: lollipop
   output: fy_2026_proposed_mission_cancellations
-  title: "{{total_projects}} active science missions cancelled"
-  subtitle: "These projects reflect more than {{total_value}} of investment by U.S. taxpayers and {{total_development_time}} of combined years to build."
+  title: "{{total_projects}} science missions faced termination in 2026"
+  subtitle: "These projects represented {{total_value}} in taxpayer investment and {{total_development_time}} combined years of work."
   source: "FY 2026 White House NASA Request"
 
   categories: "{{categories}}"

@@ -4,8 +4,8 @@ data:
 chart:
   type: stacked_bar
   output: fy2026_congressional_vs_white_house_nasa_budgets
-  title: "Congress rejects massive NASA cuts"
-  subtitle: "The President's Budget Request (PBR) proposed the largest cut in history, but Congress wants to maintain funding."
+  title: "Congress blocked historic NASA cuts"
+  subtitle: "The White House proposed the largest NASA cut in history, but Congress refused to go along."
   source: "NASA FY 2026 PBR, HAC-CJS, SAC-CJS"
 
   categories: "{{categories}}"

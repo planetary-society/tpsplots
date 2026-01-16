@@ -4,8 +4,8 @@ data:
 chart:
   type: line
   output: nasa_science_by_year_inflation_adjusted_fy2026_threat
-  title: "The biggest science cut in NASA history"
-  subtitle: "The proposed 47% reduction would result in the smallest science budget since 1984, when adjusted for inflation."
+  title: "FY 2026 proposed huge cuts to NASA science"
+  subtitle: "The proposed 47% reduction would have resulted in the smallest science budget since 1984, when adjusted for inflation."
   source: "NASA Budget Justifications, FYs 1980-2025"
 
   x: "{{fiscal_years}}"

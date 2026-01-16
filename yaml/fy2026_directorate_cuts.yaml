@@ -4,8 +4,8 @@ data:
 chart:
   type: stacked_bar
   output: fy2026_directorate_cuts
-  title: "Cuts are proposed across NASA"
-  subtitle: "The FY 2026 White House budget impacts all parts of NASA — except human exploration beyond Earth."
+  title: "Nearly every NASA activity faced cuts in 2026"
+  subtitle: "The 2026 proposal would have cut every NASA directorate except deep space exploration."
   source: "NASA FY 2026 Budget Request"
 
   categories: "{{categories}}"
