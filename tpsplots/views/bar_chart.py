@@ -90,16 +90,20 @@ class BarChartView(ChartView):
         categories = np.array(categories)
         values = np.array(values)
 
-        # Parse literal newline sequences in category labels to actual newlines
-        categories = self._parse_newlines_in_labels(categories)
-
-        # Check for fiscal year data IMMEDIATELY on original categories
-        # This must happen before any other processing that might modify the data
-        fiscal_year_ticks = kwargs.pop("fiscal_year_ticks", True)
-        categories_are_fiscal_years = fiscal_year_ticks and self._contains_dates(categories)
+        # Check for fiscal year data BEFORE any processing that modifies the data
+        # fiscal_year_ticks: None = auto-detect, True = force on, False = force off
+        fiscal_year_ticks = kwargs.pop("fiscal_year_ticks", None)
+        if fiscal_year_ticks is None:
+            categories_are_fiscal_years = self._contains_dates(categories)
+        else:
+            categories_are_fiscal_years = bool(fiscal_year_ticks)
 
         # Store original categories for fiscal year range calculation
         self._original_categories = categories if categories_are_fiscal_years else None
+
+        # Parse literal newline sequences in category labels to actual newlines
+        # This must happen AFTER fiscal year detection since it converts to strings
+        categories = self._parse_newlines_in_labels(categories)
 
         # Validate data lengths
         if len(categories) != len(values):
@@ -167,7 +171,8 @@ class BarChartView(ChartView):
                 linewidth=linewidth,
             )
             ax.set_xticks(positions)
-            ax.set_xticklabels(categories)
+            if not categories_are_fiscal_years:
+                ax.set_xticklabels(categories)
         else:  # horizontal
             positions = np.arange(len(categories))
             bars = ax.barh(
@@ -181,7 +186,8 @@ class BarChartView(ChartView):
                 linewidth=linewidth,
             )
             ax.set_yticks(positions)
-            ax.set_yticklabels(categories)
+            if not categories_are_fiscal_years:
+                ax.set_yticklabels(categories)
 
         # Add value labels if requested
         if show_values:

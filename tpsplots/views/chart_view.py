@@ -337,12 +337,16 @@ class ChartView:
             logger.warning(f"Cannot read first element in array to check date objects: {x_data}")
             return False
 
-        # Check for datetime-like objects
+        # Check for datetime-like objects (Python datetime, pandas Timestamp)
         if hasattr(first_elem, "year") and hasattr(first_elem, "month"):
             return True
 
-        # Check for numpy datetime64
-        if hasattr(first_elem, "dtype") and np.issubdtype(first_elem.dtype, np.datetime64):
+        # Check for numpy datetime64 scalar directly
+        if isinstance(first_elem, np.datetime64):
+            return True
+
+        # Check array dtype for datetime64 (handles numpy arrays of datetime64)
+        if hasattr(x_data, "dtype") and np.issubdtype(x_data.dtype, np.datetime64):
             return True
 
         # Check for integer years (1980, 1990, etc.)
