@@ -521,8 +521,7 @@ class FY2026Charts(ChartController):
         )
         # Set fiscal years from
         fiscal_years = [
-            str(round(val, 0)) if pd.notnull(val) else val
-            for val in df["Fiscal Year"].dt.year.to_list()
+            str(int(val)) if pd.notnull(val) else val for val in df["Fiscal Year"].dt.year.to_list()
         ]
         values = [
             round(val, 1) if pd.notnull(val) else val for val in df["Relative Change"].to_list()
