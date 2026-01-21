@@ -8,11 +8,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .chart_view import ChartView
+from .mixins import ColorCycleMixin
 
 logger = logging.getLogger(__name__)
 
 
-class USMapPieChartView(ChartView):
+class USMapPieChartView(ColorCycleMixin, ChartView):
     """Specialized view for displaying pie charts overlaid on a US map at specific locations."""
 
     # NASA Center locations (updated coordinates)
@@ -289,7 +290,7 @@ class USMapPieChartView(ChartView):
             # Get pie chart data
             values = data.get("values", [])
             labels = data.get("labels", [])
-            colors = data.get("colors", self._get_default_pie_colors(len(values)))
+            colors = data.get("colors", self._get_cycled_colors(len(values)))
 
             if not values:
                 continue
@@ -509,7 +510,7 @@ class USMapPieChartView(ChartView):
             xy = np.column_stack([x, y])
 
             # Use color from provided list or default
-            color = colors[i] if i < len(colors) else self._get_default_pie_colors(1)[0]
+            color = colors[i] if i < len(colors) else self._get_cycled_colors(1)[0]
 
             # Draw the pie segment with exact positioning
             ax.scatter(
@@ -806,15 +807,3 @@ class USMapPieChartView(ChartView):
             sizes[location] = min_size + normalized * (max_size - min_size)
 
         return sizes
-
-    def _get_default_pie_colors(self, num_segments):
-        """Get default colors for pie chart segments."""
-        colors = [
-            self.TPS_COLORS["Neptune Blue"],
-            self.TPS_COLORS["Plasma Purple"],
-            self.TPS_COLORS["Rocket Flame"],
-            self.TPS_COLORS["Medium Neptune"],
-            self.TPS_COLORS["Medium Plasma"],
-            self.TPS_COLORS["Crater Shadow"],
-        ]
-        return [colors[i % len(colors)] for i in range(num_segments)]

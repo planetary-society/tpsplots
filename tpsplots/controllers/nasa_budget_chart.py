@@ -118,80 +118,49 @@ class NASABudgetChart(ChartController):
         }
 
     def nasa_budget_by_presidential_administration(self):
-        """Generate NASA budget by presidential administration chart."""
+        """Generate NASA budget by presidential administration - returns full historical data.
+
+        Returns a dict with full budget data for YAML processing. Individual president
+        YAML files filter the data using xlim.
+        """
         self.data_source = Historical()  # Reset data source to Historical for this chart
         # Get data from model
         df = self.data_source.data().dropna(subset=["PBR"])
-        presidents = df["Presidential Administration"].unique()
 
-        # Plot as line chart
+        # Prepare data for view
+        fiscal_years = df["Fiscal Year"]
+
+        # Prepare export data for CSV
+        export_df = self._export_helper(
+            df,
+            [
+                "Fiscal Year",
+                "PBR",
+                "Appropriation",
+                "PBR_adjusted_nnsi",
+                "Appropriation_adjusted_nnsi",
+                "Presidential Administration",
+            ],
+        )
+
+        # Get line view for colors
         line_view = self.get_view("Line")
 
-        for president in presidents:
-            df_president = df[df["Presidential Administration"] == president]
-            fiscal_years = df_president["Fiscal Year"]
+        # Calculate y limit based on max value in full dataset
+        y_limit = self._get_rounded_axis_limit_y(df["PBR_adjusted_nnsi"].max(), 20e9)
 
-            if len(fiscal_years) < 3:
-                continue
-
-            export_df = self._export_helper(
-                df_president,
-                [
-                    "Fiscal Year",
-                    "PBR",
-                    "Appropriation",
-                    "PBR_adjusted_nnsi",
-                    "Appropriation_adjusted_nnsi",
-                ],
-            )
-
-            y_limit = self._get_rounded_axis_limit_y(df_president["PBR_adjusted_nnsi"].max(), 20e9)
-
-            first_value = df_president["Appropriation_adjusted_nnsi"].iloc[0]
-            last_value = df_president["Appropriation_adjusted_nnsi"].iloc[-1]
-
-            # Calculate change during administration tenure
-            change = last_value - first_value
-            change_percentage = round((change) / first_value * 100)
-
-            # Name corrections
-            if president == "Trump I":
-                president = "first Trump"
-            elif president == "W. Bush":
-                president = "George W. Bush"
-
-            if change > 0:
-                # Make the overall value positive for display only
-                change_str = self.round_to_millions(change)
-                if change_str[0] == "-":
-                    change_str = change_str[1:]
-                subtitle = f"NASA grew by {change_str} ({change_percentage}%) this period."
-            else:
-                subtitle = f"NASA shrank by {change_str} ({change_percentage}%) this period."
-
-            # Prepare metadata
-            metadata = {
-                "title": f"NASA's budget during the {president} administration",
-                "subtitle": subtitle,
-                "source": f"NASA Budget Justifications, FYs {fiscal_years.min():%Y}-{fiscal_years.max():%Y}",
-            }
-
-            # Generate charts via the specialized line chart view
-            line_view.line_plot(
-                metadata=metadata,
-                stem=f"{president}_nasa_budget_inflation_adjusted",
-                x=fiscal_years,
-                y=[df_president["PBR_adjusted_nnsi"], df_president["Appropriation_adjusted_nnsi"]],
-                color=["#3696CE", line_view.COLORS["blue"]],
-                linestyle=[":", "-"],
-                label=["Presidential Request", "Congressional Appropriation"],
-                xlim=(fiscal_years.min(), fiscal_years.max()),
-                ylim=(0, y_limit),
-                scale="billions",
-                fiscal_year_ticks=False,
-                max_xticks=(len(fiscal_years) + 1),
-                export_data=export_df,
-            )
+        return {
+            "fiscal_years": fiscal_years,
+            "pbr_adjusted": df["PBR_adjusted_nnsi"],
+            "appropriation_adjusted": df["Appropriation_adjusted_nnsi"],
+            "color": ["#3696CE", line_view.COLORS["blue"]],
+            "linestyle": [":", "-"],
+            "label": ["Presidential Request", "Congressional Appropriation"],
+            "ylim": [0, y_limit],
+            "scale": "billions",
+            "fiscal_year_ticks": False,
+            "export_df": export_df,
+        }
 
     def nasa_major_programs_by_year_inflation_adjusted(self):
         """Line chart of NASA's directorate budgets from 2007 until the last fiscal year."""

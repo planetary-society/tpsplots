@@ -6,11 +6,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .chart_view import ChartView
+from .mixins import ColorCycleMixin, GridAxisMixin
 
 logger = logging.getLogger(__name__)
 
 
-class LollipopChartView(ChartView):
+class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
     """Specialized view for horizontal lollipop charts with time value ranges."""
 
     def lollipop_plot(self, metadata, stem, **kwargs):
@@ -185,7 +186,7 @@ class LollipopChartView(ChartView):
 
             # Use the main color for the stem line (fallback to default colors)
             stem_color = (
-                start_colors[i] if start_colors else self._get_default_colors(len(categories))[i]
+                start_colors[i] if start_colors else self._get_cycled_colors(len(categories))[i]
             )
 
             # Draw the stem line from start to end (with per-item line style)
@@ -276,18 +277,6 @@ class LollipopChartView(ChartView):
 
         return np.argsort(sort_values) if ascending else np.argsort(sort_values)[::-1]
 
-    def _get_default_colors(self, num_categories):
-        """Get default TPS color cycle."""
-        color_cycle = [
-            self.TPS_COLORS["Neptune Blue"],
-            self.TPS_COLORS["Plasma Purple"],
-            self.TPS_COLORS["Rocket Flame"],
-            self.TPS_COLORS["Medium Neptune"],
-            self.TPS_COLORS["Medium Plasma"],
-            self.TPS_COLORS["Crater Shadow"],
-        ]
-        return [color_cycle[i % len(color_cycle)] for i in range(num_categories)]
-
     def _get_marker_colors(self, specific_colors, fallback_colors, num_categories):
         """Get colors for markers, handling various input formats."""
         if specific_colors is not None:
@@ -313,7 +302,7 @@ class LollipopChartView(ChartView):
                 return list(fallback_colors)
         else:
             # Use default TPS colors
-            return self._get_default_colors(num_categories)
+            return self._get_cycled_colors(num_categories)
 
     def _get_line_styles(self, linestyles, num_categories):
         """
@@ -539,9 +528,8 @@ class LollipopChartView(ChartView):
         if ylabel:
             ax.set_ylabel(ylabel, fontsize=style.get("label_size", 14))
 
-        # Apply grid
-        if grid:
-            ax.grid(axis=grid_axis, alpha=0.3, linestyle="--", linewidth=0.5)
+        # Apply grid using mixin
+        self._apply_grid(ax, grid=grid, grid_axis=grid_axis)
 
         # Set tick sizes
         ax.tick_params(axis="x", labelsize=tick_size)
@@ -561,12 +549,8 @@ class LollipopChartView(ChartView):
         if scale:
             self._apply_scale_formatter(ax, scale, axis="x")
 
-        # Apply custom x-limits
-        if xlim:
-            if isinstance(xlim, dict):
-                ax.set_xlim(**xlim)
-            else:
-                ax.set_xlim(xlim)
+        # Apply custom x-limits using mixin
+        self._apply_axis_limits(ax, xlim=xlim)
 
         # Remove top and right spines for cleaner look
         ax.spines["top"].set_visible(False)

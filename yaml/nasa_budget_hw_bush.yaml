@@ -1,0 +1,24 @@
+# NASA budget during H.W. Bush administration (FY 1990-1993)
+data:
+  source: nasa_budget_chart.nasa_budget_by_presidential_administration
+
+chart:
+  type: line
+  output: hw_bush_nasa_budget_inflation_adjusted
+  title: "NASA's budget during the H.W. Bush administration"
+  subtitle: "NASA grew by $1.2 billion (6%) this period."
+  source: "NASA Budget Justifications, FYs 1990-1993"
+
+  x: "{{fiscal_years}}"
+  y:
+    - "{{pbr_adjusted}}"
+    - "{{appropriation_adjusted}}"
+  color: "{{color}}"
+  linestyle: "{{linestyle}}"
+  label: "{{label}}"
+  xlim: [1990-01-01, 1993-12-31]
+  ylim: "{{ylim}}"
+  scale: "{{scale}}"
+  fiscal_year_ticks: "{{fiscal_year_ticks}}"
+  max_xticks: 5
+  export_data: "{{export_df}}"

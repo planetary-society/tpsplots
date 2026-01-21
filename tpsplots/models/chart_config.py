@@ -14,6 +14,7 @@ CHART_TYPES = {
     "waffle": "waffle_plot",
     "us_map_pie": "us_map_pie_plot",
     "line_subplots": "line_subplots_plot",
+    "grouped_bar": "grouped_bar_plot",
 }
 
 ChartType = Literal[
@@ -25,6 +26,7 @@ ChartType = Literal[
     "waffle",
     "us_map_pie",
     "line_subplots",
+    "grouped_bar",
 ]
 
 

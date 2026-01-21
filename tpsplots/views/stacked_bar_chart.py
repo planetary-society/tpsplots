@@ -5,14 +5,14 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.ticker import MaxNLocator
 
 from .chart_view import ChartView
+from .mixins import BarChartMixin, ColorCycleMixin, GridAxisMixin
 
 logger = logging.getLogger(__name__)
 
 
-class StackedBarChartView(ChartView):
+class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartView):
     """Specialized view for stacked bar charts with a focus on exposing matplotlib's API."""
 
     def stacked_bar_plot(self, metadata, stem, **kwargs):
@@ -132,14 +132,8 @@ class StackedBarChartView(ChartView):
         edgecolor = kwargs.pop("edgecolor", "white")
         linewidth = kwargs.pop("linewidth", 0.5)
 
-        # Set default colors if not provided
-        if colors is None:
-            colors = self._get_default_colors(len(df.columns))
-
-        # Ensure colors list is long enough
-        while len(colors) < len(df.columns):
-            colors.extend(self._get_default_colors(len(df.columns)))
-        colors = colors[: len(df.columns)]
+        # Get colors (cycling through defaults if not provided or list is too short)
+        colors = self._get_cycled_colors(len(df.columns), colors=colors)
 
         # Create the stacked bar chart
         bottom_values = kwargs.pop("bottom_values", None)
@@ -438,85 +432,36 @@ class StackedBarChartView(ChartView):
         if ylabel:
             ax.set_ylabel(ylabel, fontsize=label_size)
 
-        # Apply grid
-        if grid:
-            ax.grid(axis=grid_axis, alpha=0.3, linestyle="--", linewidth=0.5)
+        # Apply grid using mixin
+        self._apply_grid(ax, grid=grid, grid_axis=grid_axis)
 
-        # Disable minor ticks for both axes
-        ax.xaxis.set_minor_locator(plt.NullLocator())
-        ax.yaxis.set_minor_locator(plt.NullLocator())
-        ax.tick_params(which="minor", left=False, right=False, top=False, bottom=False)
+        # Disable minor ticks using mixin
+        self._disable_minor_ticks(ax)
 
         # Set tick sizes and rotation
         ax.tick_params(axis="x", labelsize=tick_size, rotation=tick_rotation)
         ax.tick_params(axis="y", labelsize=tick_size)
 
-        # Control category tick mark visibility
+        # Control category tick mark visibility using mixin
         if not show_category_ticks:
-            if orientation == "vertical":
-                # Hide x-axis (category axis) tick marks
-                ax.tick_params(axis="x", length=0, bottom=False, top=False)
-            else:
-                # Hide y-axis (category axis) tick marks
-                ax.tick_params(axis="y", length=0, left=False, right=False)
+            self._hide_category_ticks(ax, orientation)
 
-        # Ensure category labels are centered under bars with proper alignment for rotation
+        # Ensure category labels are centered using BarChartMixin methods
         if orientation == "vertical":
-            # For vertical bars, x-axis labels should be centered under bars
-            x_positions = np.arange(len(ax.get_xticklabels()))
-            ax.set_xticks(x_positions)
-
-            # Adjust alignment based on rotation angle
-            if abs(tick_rotation) == 90:
-                # For 90-degree rotation, use left alignment (labels hang down from tick)
-                ha = "center"
-                va = "top"
-            elif tick_rotation != 0:
-                # For other rotations (like 45 degrees), use right alignment
-                ha = "right"
-                va = "top"
-            else:
-                # For no rotation, center the labels
-                ha = "center"
-                va = "top"
-
-            # Apply the alignment to all x-axis labels
-            for tick in ax.get_xticklabels():
-                tick.set_horizontalalignment(ha)
-                tick.set_verticalalignment(va)
-
-        else:  # horizontal
-            # For horizontal bars, y-axis labels should be centered next to bars
-            y_positions = np.arange(len(ax.get_yticklabels()))
-            ax.set_yticks(y_positions)
-            # Horizontal bars typically don't rotate y-labels, so keep them centered
-            for tick in ax.get_yticklabels():
-                tick.set_verticalalignment("center")
-                tick.set_horizontalalignment("right")
+            self._apply_vertical_category_alignment(ax, tick_rotation)
+        else:
+            self._apply_horizontal_category_alignment(ax)
 
         # Apply scale formatter if specified
         if scale:
             axis_to_scale = "y" if orientation == "vertical" else "x"
             self._apply_scale_formatter(ax, scale, axis=axis_to_scale)
 
-        # Ensure integer-only ticks for count-based data
-        # This prevents decimal values like 1.5 or 2.0 from appearing on the axis
-        if orientation == "vertical":
-            ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-        else:  # horizontal
-            ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+        # Ensure integer-only ticks for count-based data using mixin
+        self._apply_integer_locator(ax, orientation)
 
-        # Apply custom limits
-        if xlim:
-            if isinstance(xlim, dict):
-                ax.set_xlim(**xlim)
-            else:
-                ax.set_xlim(xlim)
-        if ylim:
-            if isinstance(ylim, dict):
-                ax.set_ylim(**ylim)
-            else:
-                ax.set_ylim(ylim)
+        # Apply custom limits using mixin
+        self._apply_axis_limits(ax, xlim=xlim, ylim=ylim)
 
     def _measure_text_width(self, ax, text, fontsize):
         """Measure the rendered width of text in data coordinates."""
@@ -547,15 +492,3 @@ class StackedBarChartView(ChartView):
                 return True
 
         return False
-
-    def _get_default_colors(self, num_colors):
-        """Get default TPS color cycle."""
-        color_cycle = [
-            self.TPS_COLORS["Neptune Blue"],
-            self.TPS_COLORS["Plasma Purple"],
-            self.TPS_COLORS["Rocket Flame"],
-            self.TPS_COLORS["Medium Neptune"],
-            self.TPS_COLORS["Medium Plasma"],
-            self.TPS_COLORS["Crater Shadow"],
-        ]
-        return [color_cycle[i % len(color_cycle)] for i in range(num_colors)]

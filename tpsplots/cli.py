@@ -8,7 +8,7 @@ from pathlib import Path
 
 from tpsplots import __version__
 from tpsplots.exceptions import ConfigurationError, DataSourceError, RenderingError
-from tpsplots.processors import YAMLChartProcessor
+from tpsplots.processors.yaml_chart_processor import YAMLChartProcessor
 from tpsplots.schema import get_chart_types
 from tpsplots.templates import get_available_templates, get_template
 

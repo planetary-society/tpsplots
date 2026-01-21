@@ -48,9 +48,8 @@ class TestGenerate:
         """Test that generate raises ConfigurationError for empty directory."""
         import tpsplots
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with pytest.raises(tpsplots.ConfigurationError):
-                tpsplots.generate(tmpdir)
+        with tempfile.TemporaryDirectory() as tmpdir, pytest.raises(tpsplots.ConfigurationError):
+            tpsplots.generate(tmpdir)
 
 
 class TestAssets:

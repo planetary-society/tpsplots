@@ -1,0 +1,24 @@
+# NASA budget during Carter administration (FY 1978-1981)
+data:
+  source: nasa_budget_chart.nasa_budget_by_presidential_administration
+
+chart:
+  type: line
+  output: carter_nasa_budget_inflation_adjusted
+  title: "NASA's budget during the Carter administration"
+  subtitle: "NASA shrank by $1.3 billion (-10%) this period."
+  source: "NASA Budget Justifications, FYs 1978-1981"
+
+  x: "{{fiscal_years}}"
+  y:
+    - "{{pbr_adjusted}}"
+    - "{{appropriation_adjusted}}"
+  color: "{{color}}"
+  linestyle: "{{linestyle}}"
+  label: "{{label}}"
+  xlim: [1978-01-01, 1981-12-31]
+  ylim: "{{ylim}}"
+  scale: "{{scale}}"
+  fiscal_year_ticks: "{{fiscal_year_ticks}}"
+  max_xticks: 5
+  export_data: "{{export_df}}"

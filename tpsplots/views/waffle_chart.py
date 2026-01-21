@@ -11,7 +11,7 @@ from .chart_view import ChartView
 class WaffleChartView(ChartView):
     """Specialized view for waffle charts with a focus on exposing the Waffle API."""
 
-    def waffle_chart(self, metadata, stem, **kwargs):
+    def waffle_plot(self, metadata, stem, **kwargs):
         """
         Generate waffle charts for both desktop and mobile.
 
@@ -39,6 +39,9 @@ class WaffleChartView(ChartView):
             Dictionary containing the generated figure objects {'desktop': fig, 'mobile': fig}
         """
         return self.generate_chart(metadata, stem, **kwargs)
+
+    # Alias for backward compatibility
+    waffle_chart = waffle_plot
 
     def _create_chart(self, metadata, style, **kwargs):
         """

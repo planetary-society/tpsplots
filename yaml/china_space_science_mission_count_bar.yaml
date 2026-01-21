@@ -1,0 +1,17 @@
+data:
+  source: china_comparisons_controller.china_space_science_mission_count_bar_chart
+
+chart:
+  type: grouped_bar
+  output: china_us_mission_count_comparison
+  title: "{{title}}"
+  subtitle: "{{subtitle}}"
+  source: "{{source}}"
+
+  categories: "{{categories}}"
+  groups: "{{groups}}"
+  width: "{{width}}"
+  show_values: "{{show_values}}"
+  ylim: "{{ylim}}"
+  legend: "{{legend}}"
+  export_data: "{{export_df}}"

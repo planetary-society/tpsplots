@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 
 from tpsplots.exceptions import ConfigurationError, DataSourceError, RenderingError
-from tpsplots.processors import YAMLChartProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +102,9 @@ def generate(
     if missing_paths:
         missing_display = ", ".join(str(path) for path in missing_paths)
         raise ConfigurationError(f"Source path does not exist: {missing_display}")
+
+    # Lazy import to avoid circular import when running yaml_chart_processor as __main__
+    from tpsplots.processors.yaml_chart_processor import YAMLChartProcessor
 
     # Process each YAML file
     for yaml_file in yaml_files:
