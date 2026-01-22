@@ -59,9 +59,7 @@ def _fixture_multiplier(path: Path, from_label: str, target_year: int) -> float:
     with path.open(newline="") as handle:
         rows = list(csv.reader(handle))
 
-    header_idx = next(
-        i for i, row in enumerate(rows) if row and row[0].strip().upper() == "YEAR"
-    )
+    header_idx = next(i for i, row in enumerate(rows) if row and row[0].strip().upper() == "YEAR")
     header = rows[header_idx]
     col_idx = header.index(str(target_year))
 

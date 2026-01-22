@@ -166,9 +166,7 @@ class NNSI(Inflation):
 
         from_col = columns[0]
         data = data.rename(columns={from_col: "FROM"})
-        data = data[
-            data["FROM"].astype(str).str.upper().str.startswith("FROM")
-        ]
+        data = data[data["FROM"].astype(str).str.upper().str.startswith("FROM")]
         data = data.set_index("FROM")
 
         data = data.apply(lambda col: col.map(self._coerce_numeric))
