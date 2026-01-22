@@ -1,7 +1,32 @@
 """Shared pytest fixtures for tpsplots tests."""
 
+from pathlib import Path
+from unittest.mock import patch
+
 import matplotlib.pyplot as plt
 import pytest
+
+# Path to NNSI fixture file
+NNSI_FIXTURE_PATH = Path(__file__).parent / "fixtures" / "nnsi.csv"
+
+
+@pytest.fixture
+def mock_nnsi():
+    """Mock NNSI to use the local fixture file instead of network calls.
+
+    This fixture patches the NNSI class to load from tests/fixtures/nnsi.csv
+    instead of fetching from the Google Sheets URL.
+    """
+    from tpsplots.data_sources.inflation import NNSI
+
+    original_init = NNSI.__init__
+
+    def patched_init(self, *, year: str, source=None):
+        # Always use the fixture file
+        original_init(self, year=year, source=str(NNSI_FIXTURE_PATH))
+
+    with patch.object(NNSI, "__init__", patched_init):
+        yield
 
 
 @pytest.fixture
