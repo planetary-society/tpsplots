@@ -4,10 +4,10 @@ __pycache__/
 *$py.class
 
 .DS_Store
-*.png
-*.svg
-*.pptx
-*.csv
+charts/*.png
+charts/*.svg
+charts/*.pptx
+charts/*.csv
 
 # C extensions
 *.so
