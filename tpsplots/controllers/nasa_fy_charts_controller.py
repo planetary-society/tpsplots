@@ -1,14 +1,19 @@
-from datetime import datetime
-
-import numpy as np
 import pandas as pd
 
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.data_sources.google_sheets_source import GoogleSheetsSource
-from tpsplots.data_sources.inflation import NNSI
-from tpsplots.data_sources.nasa_budget_data_source import Historical
+from tpsplots.data_sources.nasa_budget_data_source import Directorates, Historical
 from tpsplots.data_sources.new_awards import NewNASAAwards
 from tpsplots.processors.award_data_processor import AwardDataProcessor, FiscalYearConfig
+from tpsplots.processors.budget_projection_processor import (
+    BudgetProjectionConfig,
+    BudgetProjectionProcessor,
+)
+from tpsplots.processors.calculated_column_processor import (
+    CalculatedColumnConfig,
+    CalculatedColumnProcessor,
+)
+from tpsplots.processors.dataframe_to_yaml_processor import DataFrameToYAMLProcessor
 
 
 class NASAFYChartsController(ChartController):
@@ -64,138 +69,124 @@ class NASAFYChartsController(ChartController):
 
         return data
 
+    def science_division_context(self) -> dict:
+        """Return historical budget data for each NASA science division.
+
+        Includes given FY PBR division requests and runout projections.
+        Includes calculated comparison columns for charting purposes.
+        """
+        pass
+
+    def science_context(self) -> dict:
+        """Return historical budget data for NASA Science Mission Directorate (SMD).
+
+        Uses a pipeline of processors:
+        1. BudgetProjectionProcessor: Merge historical data with PBR and runout
+        2. InflationAdjustmentProcessor: Apply NNSI adjustment to monetary columns
+        3. CalculatedColumnProcessor: Add YoY change calculations
+        4. DataFrameToYAMLProcessor: Convert to YAML-ready dict
+
+        Inflation adjustment uses FISCAL_YEAR - 1 as target year.
+
+        Returns:
+            dict with chart-ready series and metadata for YAML variable references
+        """
+        from tpsplots.processors.inflation_adjustment_processor import (
+            InflationAdjustmentConfig,
+            InflationAdjustmentProcessor,
+        )
+
+        # Step 1: Budget projection (returns DataFrame)
+        budget_config = BudgetProjectionConfig(
+            fiscal_year=self.FISCAL_YEAR,
+            budget_detail_row_name="Science",
+            appropriation_column="Science",  # Column name after renaming in Directorates
+            pbr_column="Science",  # Directorate level uses same column for both
+        )
+        df = BudgetProjectionProcessor(budget_config).process(
+            Directorates().data(), self.budget_detail
+        )
+
+        # Step 2: Apply inflation adjustment explicitly
+        inflation_config = InflationAdjustmentConfig(
+            target_year=self.FISCAL_YEAR - 1,
+            nnsi_columns=["Science"],
+        )
+        df = InflationAdjustmentProcessor(inflation_config).process(df)
+
+        # Step 3: Add calculated columns (YoY change from prior appropriation to PBR)
+        calc_config = CalculatedColumnConfig()
+        calc_config.add(
+            "Prior Appropriation to PBR Change $",
+            "delta_from_prior",
+            "Science",
+            "Science",
+        )
+        calc_config.add(
+            "Prior Appropriation to PBR Change %",
+            "percent_delta_from_prior",
+            "Science",
+            "Science",
+        )
+        df = CalculatedColumnProcessor(calc_config).process(df)
+
+        # Step 4: Convert to YAML-ready dict
+        return DataFrameToYAMLProcessor().process(df)
+
     def pbr_historical_context(self) -> dict:
         """Return historical budget data with current FY PBR and runout projections.
 
-        Merges:
-        1. Historical appropriation data (adjusted for inflation to FY-1)
-        2. Current fiscal year PBR request from budget detail
-        3. 4-year runout projections from budget detail
+        Uses a pipeline of processors:
+        1. BudgetProjectionProcessor: Merge historical data with PBR and runout
+        2. InflationAdjustmentProcessor: Apply NNSI adjustment to monetary columns
+        3. CalculatedColumnProcessor: Add YoY change calculations
+        4. DataFrameToYAMLProcessor: Convert to YAML-ready dict
 
         Inflation adjustment uses FISCAL_YEAR - 1 as target year.
 
         Returns:
             dict with keys: fiscal_year, presidential_administration, pbr,
-            appropriation, white_house_projection, pbr_adjusted,
-            appropriation_adjusted, export_df, max_fiscal_year, source
+            appropriation, white_house_projection, pbr_adjusted_nnsi,
+            appropriation_adjusted_nnsi, export_df, max_fiscal_year,
+            prior_appropriation_to_pbr_change_dollars,
+            prior_appropriation_to_pbr_change_percent, etc.
         """
-        df = self.historical.copy()
-        fy = self.FISCAL_YEAR
-        fy_datetime = datetime(fy, 1, 1)
-
-        # Re-calculate inflation adjustment to FISCAL_YEAR - 1
-        inflation_target = fy - 1
-        nnsi = NNSI(year=str(inflation_target))
-        for col in ["PBR", "Appropriation"]:
-            if col in df.columns:
-                df[f"{col}_adjusted_nnsi"] = df.apply(
-                    lambda row, c=col: nnsi.calc(row["Fiscal Year"], row[c])
-                    if pd.notna(row[c])
-                    else np.nan,
-                    axis=1,
-                )
-
-        # Extract total row from budget detail
-        total_row = self.budget_detail[self.budget_detail.iloc[:, 0] == "Total"]
-        if total_row.empty:
-            raise ValueError("No 'Total' row found in budget detail data")
-
-        # Column names in budget detail
-        pbr_request_col = f"FY {fy} Request"
-        runout_cols = [f"FY {fy + n}" for n in range(1, 5)]
-
-        # Get PBR request value for current FY
-        if pbr_request_col not in total_row.columns:
-            raise ValueError(f"Column '{pbr_request_col}' not found in budget detail")
-        pbr_value = total_row[pbr_request_col].values[0]
-
-        # Update PBR column for current FY
-        fy_mask = df["Fiscal Year"] == fy_datetime
-        if fy_mask.any():
-            df.loc[fy_mask, "PBR"] = pbr_value
-        else:
-            new_row = pd.DataFrame({"Fiscal Year": [fy_datetime], "PBR": [pbr_value]})
-            df = pd.concat([df, new_row], ignore_index=True)
-            df = df.sort_values("Fiscal Year").reset_index(drop=True)
-
-        # Clear Appropriation for current and future FYs (FY >= current)
-        future_mask = df["Fiscal Year"] >= fy_datetime
-        df.loc[future_mask, "Appropriation"] = np.nan
-        df.loc[future_mask, "Appropriation_adjusted_nnsi"] = np.nan
-
-        # Build White House Budget Projection series:
-        # 1. Clear all existing projection values
-        # 2. Set FY-1 = prior year's appropriation (connection point)
-        # 3. Set current FY = PBR value
-        # 4. Set future FYs = runout values
-        df["White House Budget Projection"] = np.nan
-
-        # Set FY-1 projection to its appropriation value (creates connection to historical line)
-        prior_fy_datetime = datetime(fy - 1, 1, 1)
-        prior_fy_mask = df["Fiscal Year"] == prior_fy_datetime
-        if prior_fy_mask.any():
-            prior_appropriation = df.loc[prior_fy_mask, "Appropriation"].values[0]
-            df.loc[prior_fy_mask, "White House Budget Projection"] = prior_appropriation
-
-        # Set current FY projection to PBR value
-        fy_mask = df["Fiscal Year"] == fy_datetime
-        if fy_mask.any():
-            df.loc[fy_mask, "White House Budget Projection"] = pbr_value
-
-        # Set future FYs to runout values
-        for runout_col in runout_cols:
-            if runout_col in total_row.columns:
-                runout_fy = int(runout_col.split(" ")[1])
-                runout_datetime = datetime(runout_fy, 1, 1)
-                runout_value = total_row[runout_col].values[0]
-
-                runout_mask = df["Fiscal Year"] == runout_datetime
-                if runout_mask.any():
-                    df.loc[runout_mask, "White House Budget Projection"] = runout_value
-                else:
-                    new_row = pd.DataFrame(
-                        {
-                            "Fiscal Year": [runout_datetime],
-                            "White House Budget Projection": [runout_value],
-                        }
-                    )
-                    df = pd.concat([df, new_row], ignore_index=True)
-
-        df = df.sort_values("Fiscal Year").reset_index(drop=True)
-
-        # Prepare export data
-        export_df = self._export_helper(
-            df,
-            [
-                "Fiscal Year",
-                "Presidential Administration",
-                "PBR",
-                "Appropriation",
-                "White House Budget Projection",
-                "PBR_adjusted_nnsi",
-                "Appropriation_adjusted_nnsi",
-            ],
-        )
-        export_df.loc[
-            export_df["Fiscal Year"].astype(int) <= fy, "White House Budget Projection"
-        ] = pd.NA
-        export_df.attrs["export_note"] = (
-            f"Inflation adjusted to FY {inflation_target} dollars (NNSI)."
+        from tpsplots.processors.inflation_adjustment_processor import (
+            InflationAdjustmentConfig,
+            InflationAdjustmentProcessor,
         )
 
-        max_fy = int(df["Fiscal Year"].max().strftime("%Y"))
+        # Step 1: Budget projection (returns DataFrame)
+        budget_config = BudgetProjectionConfig(
+            fiscal_year=self.FISCAL_YEAR,
+            budget_detail_row_name="Total",
+            appropriation_column="Appropriation",
+            pbr_column="PBR",
+        )
+        df = BudgetProjectionProcessor(budget_config).process(self.historical, self.budget_detail)
 
-        return {
-            "fiscal_year": df["Fiscal Year"],
-            "presidential_administration": df["Presidential Administration"],
-            "pbr": df["PBR"],
-            "appropriation": df["Appropriation"],
-            "white_house_projection": df["White House Budget Projection"],
-            "pbr_adjusted_nnsi": df["PBR_adjusted_nnsi"],
-            "pbr_adjusted_gdp": df["PBR_adjusted_gdp"],
-            "appropriation_adjusted_nnsi": df["Appropriation_adjusted_nnsi"],
-            "appropriation_adjusted_gdp": df["Appropriation_adjusted_gdp"],
-            "export_df": export_df,
-            "max_fiscal_year": max_fy,
-            "inflation_target_year": inflation_target,
-        }
+        # Step 2: Apply inflation adjustment explicitly
+        inflation_config = InflationAdjustmentConfig(
+            target_year=self.FISCAL_YEAR - 1,
+            nnsi_columns=["PBR", "Appropriation"],
+        )
+        df = InflationAdjustmentProcessor(inflation_config).process(df)
+
+        # Step 3: Add calculated columns (YoY change from prior appropriation to PBR)
+        calc_config = CalculatedColumnConfig()
+        calc_config.add(
+            "Prior Appropriation to PBR Change $",
+            "delta_from_prior",
+            "PBR",
+            "Appropriation",
+        )
+        calc_config.add(
+            "Prior Appropriation to PBR Change %",
+            "percent_delta_from_prior",
+            "PBR",
+            "Appropriation",
+        )
+        df = CalculatedColumnProcessor(calc_config).process(df)
+
+        # Step 4: Convert to YAML-ready dict
+        return DataFrameToYAMLProcessor().process(df)
