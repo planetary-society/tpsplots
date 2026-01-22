@@ -334,40 +334,21 @@ class NASABudget:
 
     # ── cleaning helpers ───────────────────────────────────────────
     def _clean_currency_column(self, series: pd.Series) -> pd.Series:
-        """Clean currency column, correctly handling M/B suffixes.
+        """Clean currency column by converting from millions to dollars.
 
         Args:
-            series: A pandas Series containing currency values like "$50M" or "$1.5B"
+            series: A pandas Series containing currency values in millions
 
         Returns:
-            A Series of float64 values with proper multipliers applied:
-            - Values ending in 'M' are multiplied by 1,000,000
-            - Values ending in 'B' are multiplied by 1,000,000,000
-            - Values without suffix are used as-is
+            A Series of float64 values multiplied by 1,000,000 (converted to dollars)
         """
-        import numpy as np
-
-        def parse_value(val):
-            if pd.isna(val):
-                return np.nan  # Use np.nan for float compatibility
-            s = str(val).strip().upper()
-
-            # Determine multiplier based on suffix BEFORE stripping
-            if s.endswith("B"):
-                multiplier = 1_000_000_000
-            elif s.endswith("M"):
-                multiplier = 1_000_000
-            else:
-                multiplier = 1
-
-            # Now clean the string (remove $, commas, M/B suffix)
-            cleaned = self._CURRENCY_RE.sub("", str(val))
-            try:
-                return float(cleaned) * multiplier
-            except ValueError:
-                return np.nan
-
-        return series.apply(parse_value).astype("float64")
+        return (
+            series.astype(str)
+            .str.replace(self._CURRENCY_RE, "", regex=True)
+            .apply(pd.to_numeric, errors="coerce")
+            .mul(1_000_000)
+            .astype("float64")
+        )
 
     def _clean(self, df: pd.DataFrame) -> pd.DataFrame:
         """
