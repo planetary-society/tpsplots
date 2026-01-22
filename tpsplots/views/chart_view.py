@@ -12,6 +12,7 @@ import matplotlib.dates as mdates
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.ticker import FuncFormatter
 
@@ -198,12 +199,19 @@ class ChartView:
                 writer.writerow(row)
 
             # Write column names and data, converting NaN to empty strings
+            # and formatting dates as YYYY-mm-dd
             writer.writerow(csv_df.columns)
             for _, row in csv_df.iterrows():
-                # Convert each value: if it's NaN, write '', else write the value
-                writer.writerow(
-                    ["" if (isinstance(val, float) and np.isnan(val)) else val for val in row]
-                )
+                formatted_row = []
+                for val in row:
+                    if pd.isna(val):
+                        formatted_row.append("")
+                    elif hasattr(val, "strftime"):
+                        # Format datetime/date/Timestamp as YYYY-mm-dd (no time)
+                        formatted_row.append(val.strftime("%Y-%m-%d"))
+                    else:
+                        formatted_row.append(val)
+                writer.writerow(formatted_row)
 
         logger.debug(f"✓ saved {csv_path.name}")
         return csv_path

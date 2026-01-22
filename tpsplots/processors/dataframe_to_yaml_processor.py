@@ -155,10 +155,11 @@ class DataFrameToYAMLProcessor:
         # Add computed metadata
         if self.config.fiscal_year_column in df.columns:
             max_fy = df[self.config.fiscal_year_column].max()
-            if hasattr(max_fy, "strftime"):
-                result["max_fiscal_year"] = int(max_fy.strftime("%Y"))
-            else:
-                result["max_fiscal_year"] = int(max_fy)
+            if pd.notna(max_fy):
+                if hasattr(max_fy, "strftime"):
+                    result["max_fiscal_year"] = int(max_fy.strftime("%Y"))
+                else:
+                    result["max_fiscal_year"] = int(max_fy)
 
         return result
 
@@ -179,7 +180,8 @@ class DataFrameToYAMLProcessor:
         # Get fiscal year from attrs if available
         fy = df.attrs.get("fiscal_year")
 
-        # Clear projection column for historical years (FY <= current FY)
+        # Clear projection column for historical years (FY < current FY)
+        # Keep the current FY projection value (the PBR request)
         if (
             self.config.clear_projection_before_fy
             and fy is not None
@@ -190,7 +192,7 @@ class DataFrameToYAMLProcessor:
                 export_df[self.config.fiscal_year_column].apply(
                     lambda x: x.year if hasattr(x, "year") else int(x)
                 )
-                <= fy,
+                < fy,
                 "White House Budget Projection",
             ] = pd.NA
 
