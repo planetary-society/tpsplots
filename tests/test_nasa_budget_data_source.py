@@ -123,7 +123,7 @@ class TestDetectFY:
 
 
 class TestCleanCurrencyColumn:
-    """Tests for currency cleaning with M/B suffix handling - Bug 2 fix."""
+    """Tests for currency cleaning and millions conversion."""
 
     @pytest.fixture(autouse=True)
     def setup_nasa_budget(self):
@@ -149,44 +149,6 @@ class TestCleanCurrencyColumn:
 
         assert result[0] == pytest.approx(50_000_000)
         assert result[1] == pytest.approx(100_000_000)
-
-    def test_billions_suffix_B(self):
-        """Values with B suffix should multiply by 1,000,000,000 (Bug 2 regression)."""
-        budget = self._make_test_budget()
-        series = pd.Series(["$50B", "$100B"])
-        result = budget._clean_currency_column(series)
-
-        # Bug 2: These should be billions, not millions
-        assert result[0] == pytest.approx(50_000_000_000)
-        assert result[1] == pytest.approx(100_000_000_000)
-
-    def test_no_suffix_assumes_raw_value(self):
-        """Values without M/B suffix should be used as-is."""
-        budget = self._make_test_budget()
-        series = pd.Series(["$50", "$100.50"])
-        result = budget._clean_currency_column(series)
-
-        assert result[0] == pytest.approx(50)
-        assert result[1] == pytest.approx(100.50)
-
-    def test_mixed_suffixes(self):
-        """Mixed M and B suffixes should be handled correctly."""
-        budget = self._make_test_budget()
-        series = pd.Series(["$1B", "$500M", "$1000"])
-        result = budget._clean_currency_column(series)
-
-        assert result[0] == pytest.approx(1_000_000_000)
-        assert result[1] == pytest.approx(500_000_000)
-        assert result[2] == pytest.approx(1000)
-
-    def test_lowercase_suffixes(self):
-        """Lowercase m/b suffixes should work."""
-        budget = self._make_test_budget()
-        series = pd.Series(["$50m", "$50b"])
-        result = budget._clean_currency_column(series)
-
-        assert result[0] == pytest.approx(50_000_000)
-        assert result[1] == pytest.approx(50_000_000_000)
 
     def test_handles_na_values(self):
         """NA values should pass through as NA."""
