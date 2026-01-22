@@ -143,7 +143,9 @@ class MissionSpendingController(ChartController):
     def _plot_chart(
         self, data: dict, mission_short_name: str, mission_name: str, reporting_type: str
     ):
-        line_view = self.get_view("Line")
+        from tpsplots.views import LineChartView
+
+        line_view = LineChartView(self.outdir)
         if reporting_type == "outlays":
             subtitle = f"Cumulative value of outlays, by month, for the mission's key contracts in fiscal years {data['current_fy']} and {data['prior_fy']}."
         elif reporting_type == "obligations":

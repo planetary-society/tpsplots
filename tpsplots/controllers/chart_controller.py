@@ -2,23 +2,10 @@
 
 from __future__ import annotations
 
-import inspect
 import logging
 from pathlib import Path
-from typing import ClassVar
 
 import pandas as pd
-
-from tpsplots.views import (
-    BarChartView,
-    DonutChartView,
-    LineChartView,
-    LineSubplotsView,
-    LollipopChartView,
-    StackedBarChartView,
-    USMapPieChartView,
-    WaffleChartView,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -32,20 +19,6 @@ class ChartController:
     appropriate view methods.
     """
 
-    # Registry mapping view type names to their classes.
-    # This follows the Open/Closed Principle - extend by adding entries,
-    # not by modifying get_view() method.
-    VIEW_REGISTRY: ClassVar[dict[str, type]] = {
-        "Line": LineChartView,
-        "Bar": BarChartView,
-        "Donut": DonutChartView,
-        "LineSubplots": LineSubplotsView,
-        "Lollipop": LollipopChartView,
-        "StackedBar": StackedBarChartView,
-        "USMapPie": USMapPieChartView,
-        "Waffle": WaffleChartView,
-    }
-
     def __init__(self, data_source=None, outdir: Path = Path("charts")):
         """
         Initialize a chart controller.
@@ -56,86 +29,6 @@ class ChartController:
         """
         self.data_source = data_source
         self.outdir = outdir
-        self._views: dict[str, object] = {}
-
-    def get_view(self, view_type: str):
-        """
-        Get or create a view of the specified type.
-
-        Uses lazy initialization - views are only created when first requested
-        and then cached for reuse.
-
-        Args:
-            view_type: The type of view to get (e.g., 'Line', 'Bar', 'Donut')
-
-        Returns:
-            An instance of the requested view type
-
-        Raises:
-            ValueError: If view_type is not registered
-        """
-        if view_type not in self._views:
-            if view_type not in self.VIEW_REGISTRY:
-                available = ", ".join(sorted(self.VIEW_REGISTRY.keys()))
-                raise ValueError(f"Unknown view type: '{view_type}'. Available types: {available}")
-            self._views[view_type] = self.VIEW_REGISTRY[view_type](self.outdir)
-        return self._views[view_type]
-
-    def generate_charts(self):
-        """
-        Generate all charts provided by this controller.
-
-        This default implementation automatically discovers and calls all public
-        methods in the controller that appear to be chart generation methods.
-
-        Subclasses can override this method if they need custom behavior.
-        """
-        # Get all methods defined in the subclass
-        subclass_methods = []
-
-        # Get the class hierarchy to filter out base class methods
-        base_methods = set(dir(ChartController))
-
-        # Get all attributes of the instance
-        for name in dir(self):
-            # Skip private/protected methods and base class methods
-            if name.startswith("_") or name in base_methods:
-                continue
-
-            # Get the attribute
-            attr = getattr(self, name)
-
-            # Check if it's a callable (method or function)
-            if not callable(attr):
-                continue
-
-            # Check if it's a simple method (only takes self)
-            try:
-                sig = inspect.signature(attr)
-                params = list(sig.parameters.keys())
-                # Only include methods that take just 'self' as parameter
-                if len(params) == 0 or (len(params) == 1 and params[0] == "self"):
-                    subclass_methods.append((name, attr))
-            except Exception:
-                # Skip if we can't inspect the signature
-                continue
-
-        # Sort methods by name for consistent ordering
-        subclass_methods.sort(key=lambda x: x[0])
-
-        if not subclass_methods:
-            logger.warning(f"No chart generation methods found in {self.__class__.__name__}")
-            return
-
-        logger.info(f"Generating {len(subclass_methods)} charts from {self.__class__.__name__}")
-
-        # Call each method
-        for method_name, method in subclass_methods:
-            try:
-                logger.info(f"Generating chart: {method_name}")
-                method()
-            except Exception as e:
-                logger.error(f"Error generating chart {method_name}: {e}", exc_info=True)
 
     def _get_rounded_axis_limit_y(
         self, max_value: float, multiple: float = 5000000000, always_extend: bool = True
