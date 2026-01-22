@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import io
 import logging
+from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
@@ -32,8 +33,8 @@ from tpsplots.exceptions import DataSourceError
 logger = logging.getLogger(__name__)
 
 
-# ────────────────────────────── Base class ──────────────────────────────────
-class Inflation:
+# Base class
+class Inflation(ABC):
     """
     Abstract inflation/price-level adjuster.
 
@@ -64,10 +65,12 @@ class Inflation:
     # ------------------------------------------------------------------ #
     #  Sub-classes *must* implement the following three hooks            #
     # ------------------------------------------------------------------ #
+    @abstractmethod
     def _load_raw(self) -> pd.DataFrame:
         """Return the raw price-index table as a DataFrame (no parsing)."""
         raise NotImplementedError
 
+    @abstractmethod
     def _parse_table(self, df: pd.DataFrame) -> Mapping[str, float]:
         """
         Convert *df* into a mapping: ``{from_year_str -> multiplier(float)}``
@@ -112,17 +115,12 @@ class Inflation:
             str: The year as a standardized string.
         """
         if isinstance(year_input, datetime):
-            # Extract the year from the datetime object
             return str(year_input.year)
-        elif isinstance(year_input, int):
-            # Convert integer to string
+        if isinstance(year_input, int):
             return str(year_input)
-        elif isinstance(year_input, str) and "TQ" in year_input.upper():
-            # Preserve special TQ (Transition Quarter) formatting
+        if isinstance(year_input, str) and "TQ" in year_input.upper():
             return year_input
-        else:
-            # Return as-is for other string formats
-            return str(year_input)
+        return str(year_input)
 
     def inflation_adjustment_year(self) -> str:
         """
@@ -136,7 +134,7 @@ class Inflation:
         return str(year).strip().upper()
 
 
-# ───────────────────────────── NNSI subclass ────────────────────────────────
+# NNSI subclass
 class NNSI(Inflation):
     """
     NASA New-Start Index (NNSI) adjustment.
@@ -157,57 +155,99 @@ class NNSI(Inflation):
     # ---------- step 1: fetch raw file ----------------------------------
     def _load_raw(self) -> pd.DataFrame:
         path_or_url = self.source or self.DEFAULT_CSV
-        if Path(path_or_url).is_file():
-            return pd.read_csv(path_or_url, header=None)
-        text = requests.get(path_or_url, timeout=30, verify=certifi.where()).text
-        return pd.read_csv(io.StringIO(text), header=None)
+        return _read_csv_source(path_or_url, header=None)
 
     # ---------- step 2: parse into lookup dict --------------------------
     def _parse_table(self, df: pd.DataFrame) -> Mapping[str, float]:
-        # Header row is the *second* row (index 1)
-        df = pd.read_csv(io.StringIO(df.to_csv(index=False)), header=2)
-        df = df.rename(columns={df.columns[0]: "FROM"}).set_index("FROM")
+        header_idx = self._find_header_row(df)
+        columns = self._extract_columns(df.iloc[header_idx].tolist())
+        data = df.iloc[header_idx + 1 :, : len(columns)].copy()
+        data.columns = columns
 
-        # Convert percentage strings to actual numbers; non-percentage strings are returned as-is
-        # Function to convert percentage string to float
-        def percentage_to_float(perc_str):
-            if isinstance(perc_str, str) and perc_str.endswith("%"):
-                try:
-                    return float(perc_str.replace("%", "")) / 100
-                except ValueError:
-                    return np.nan
-            return perc_str  # Return the original value if it's not a percentage string
+        from_col = columns[0]
+        data = data.rename(columns={from_col: "FROM"})
+        data = data[
+            data["FROM"].astype(str).str.upper().str.startswith("FROM")
+        ]
+        data = data.set_index("FROM")
 
-        df = df.map(percentage_to_float)
+        data = data.apply(lambda col: col.map(self._coerce_numeric))
+        data = data.dropna(how="all")
+        data.columns = [self._normalize_column(c) for c in data.columns]
+        data = data.loc[:, [c for c in data.columns if c is not None]]
 
-        # Remove any rows with only NaN values
-        df = df.dropna(how="all")
-
-        # Ensure numeric columns are ints where possible
-
-        df.columns = [int(c) if str(c).isdigit() else c for c in df.columns]
-        target_col = int(self.year)  # will raise ValueError if not 4-digit
-        if target_col not in df.columns:
+        target_col = int(self.year)
+        if target_col not in data.columns:
             logger.warning(
                 f"NNSI table has no column for FY {self.year}; inflation adjustment disabled"
             )
             return {}
 
-        # Produce mapping; normalise keys ("FROM 2014", "FROM TQ") → FY string
         mapping: dict[str, float] = {}
-        col = df[target_col]
-
-        for idx, mult in col.items():
-            key = idx.replace("FROM ", "").upper().strip()
+        for idx, mult in data[target_col].dropna().items():
+            key = self._strip_from_prefix(idx)
             mapping[key] = float(mult)
 
-        # also map plain year → multiplier (e.g. "2014": 1.359)
-        mapping.update({k.lstrip("FROM ").strip(): v for k, v in mapping.items()})
-
-        # special alias for Transition Quarter 1976
         mapping["1976 TQ"] = mapping.get("TQ", 1.0)
-
         return mapping
+
+    @staticmethod
+    def _find_header_row(df: pd.DataFrame) -> int:
+        first_col = df.iloc[:, 0].astype(str).str.strip().str.upper()
+        matches = first_col[first_col == "YEAR"]
+        if matches.empty:
+            raise DataSourceError("NNSI table header row not found.")
+        return int(matches.index[0])
+
+    @staticmethod
+    def _extract_columns(values: list[object]) -> list[str]:
+        columns = []
+        for value in values:
+            if value is None or (isinstance(value, float) and np.isnan(value)):
+                break
+            text = str(value).strip()
+            if not text:
+                break
+            columns.append(text)
+        if not columns:
+            raise DataSourceError("NNSI table header row is empty.")
+        return columns
+
+    @staticmethod
+    def _normalize_column(value: object) -> str | None:
+        if value is None or (isinstance(value, float) and np.isnan(value)):
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        if text.isdigit():
+            return int(text)
+        return text
+
+    @staticmethod
+    def _strip_from_prefix(value: object) -> str:
+        text = str(value).strip()
+        if text.upper().startswith("FROM"):
+            text = text[4:]
+        return text.strip().upper()
+
+    @staticmethod
+    def _coerce_numeric(value: object) -> float | None:
+        if value is None or (isinstance(value, float) and np.isnan(value)):
+            return np.nan
+        text = str(value).strip()
+        if not text:
+            return np.nan
+        if text.endswith("%"):
+            text = text.rstrip("%").strip()
+            try:
+                return float(text) / 100
+            except ValueError:
+                return np.nan
+        try:
+            return float(text)
+        except ValueError:
+            return np.nan
 
     # ---------- override only if key needs extra handling --------------
     def _normalise_key(self, year: str) -> str:
@@ -233,8 +273,7 @@ class GDP(Inflation):
 
     # ---------- hook #1 --------------------------------------------------
     def _load_raw(self) -> pd.DataFrame:
-        csv = requests.get(self._FRED_CSV, timeout=30, verify=certifi.where()).text
-        return pd.read_csv(io.StringIO(csv))
+        return _read_csv_source(self._FRED_CSV)
 
     @staticmethod
     def _annualize_quarters(
@@ -242,7 +281,8 @@ class GDP(Inflation):
     ) -> tuple[pd.Series, pd.Series]:
         """Average available quarters into fiscal-year values."""
         quarters = pd.to_datetime(df[date_col]).dt.to_period("Q")
-        df = df.assign(FY=quarters.apply(lambda q: q.year + 1 if q.quarter == 4 else q.year))
+        fiscal_years = quarters.dt.year + (quarters.dt.quarter == 4).astype(int)
+        df = df.assign(FY=fiscal_years)
         annual = df.groupby("FY")[value_col].mean()
         quarter_counts = df.groupby("FY")[value_col].count()
         return annual, quarter_counts
@@ -259,7 +299,11 @@ class GDP(Inflation):
 
         df = df[~df[num_col].isin([".", ""])]  # remove blanks
         df[num_col] = df[num_col].astype(float)
-        annual, quarter_counts = self._annualize_quarters(df, "observation_date", num_col)
+        annual, quarter_counts = self._annualize_quarters(
+            df,
+            "observation_date",
+            num_col,
+        )
         if target in quarter_counts.index and quarter_counts.loc[target] < 4:
             logger.warning(
                 f"GDP deflator FY {target} computed from {quarter_counts.loc[target]} quarters"
@@ -274,3 +318,12 @@ class GDP(Inflation):
 
         # Normalise keys to str so they match Inflation.calc inputs
         return {str(k): float(v) for k, v in multipliers.items()}
+
+
+def _read_csv_source(source: str | Path, header: int | None = 0) -> pd.DataFrame:
+    path = Path(source)
+    if path.is_file():
+        return pd.read_csv(path, header=header)
+    response = requests.get(str(source), timeout=30, verify=certifi.where())
+    response.raise_for_status()
+    return pd.read_csv(io.StringIO(response.text), header=header)

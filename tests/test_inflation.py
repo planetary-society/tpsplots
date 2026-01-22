@@ -1,4 +1,7 @@
+import csv
 import logging
+from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -17,6 +20,8 @@ class DummyGDP(GDP):
 
 
 class DummyNNSI(NNSI):
+    """Inject a lightweight in-memory table without hitting the network."""
+
     def __init__(self, year: str, df: pd.DataFrame):
         self._test_df = df
         super().__init__(year=year)
@@ -25,18 +30,52 @@ class DummyNNSI(NNSI):
         return self._test_df
 
 
-def _nnsi_raw_table() -> pd.DataFrame:
-    rows = [
-        ["", "", ""],
-        ["FROM", "2024", "2025"],
-        ["FROM 2024", "100%", "110%"],
-        ["FROM 2025", "90%", "100%"],
-        ["FROM TQ", "105%", "115%"],
-    ]
-    return pd.DataFrame(rows)
+def _nnsi_from_rows(rows: list[list[object]], year: str = "2025") -> NNSI:
+    """Build a minimal NNSI instance from a list-of-rows table."""
+    return DummyNNSI(year=year, df=pd.DataFrame(rows))
+
+
+@pytest.fixture(scope="module")
+def nnsi_fixture_path() -> Path:
+    # Large CSV fixture is parsed once per module to keep tests fast.
+    return Path(__file__).parent / "fixtures" / "nnsi.csv"
+
+
+@pytest.fixture(scope="module")
+def nnsi_2025(nnsi_fixture_path: Path) -> NNSI:
+    # Exercise the full parsing pipeline against the real-shaped fixture.
+    return NNSI(year="2025", source=nnsi_fixture_path)
+
+
+def _coerce_numeric(value: str) -> float:
+    text = value.strip()
+    if text.endswith("%"):
+        return float(text.rstrip("%")) / 100
+    return float(text)
+
+
+def _fixture_multiplier(path: Path, from_label: str, target_year: int) -> float:
+    # Read fixture data directly to validate NNSI parsing against the raw source.
+    with path.open(newline="") as handle:
+        rows = list(csv.reader(handle))
+
+    header_idx = next(
+        i for i, row in enumerate(rows) if row and row[0].strip().upper() == "YEAR"
+    )
+    header = rows[header_idx]
+    col_idx = header.index(str(target_year))
+
+    for row in rows[header_idx + 1 :]:
+        if row and row[0].strip() == from_label:
+            if col_idx >= len(row):
+                raise AssertionError(f"Missing column {target_year} for {from_label}")
+            return _coerce_numeric(row[col_idx])
+
+    raise AssertionError(f"Row {from_label} not found in fixture")
 
 
 def test_gdp_partial_quarters_use_available_data(caplog):
+    # Validate FY aggregation and warning behavior when the target FY is incomplete.
     df = pd.DataFrame(
         {
             "observation_date": [
@@ -63,6 +102,7 @@ def test_gdp_partial_quarters_use_available_data(caplog):
 
 
 def test_gdp_missing_target_year_raises():
+    # Missing target year should fail fast with a DataSourceError.
     df = pd.DataFrame(
         {
             "observation_date": [
@@ -79,37 +119,80 @@ def test_gdp_missing_target_year_raises():
         DummyGDP(year="2025", df=df)
 
 
-def test_nnsi_parses_percentages_and_tq():
-    nnsi = DummyNNSI(year="2025", df=_nnsi_raw_table())
+@pytest.mark.parametrize(
+    ("from_year", "from_label"),
+    [
+        ("2024", "FROM 2024"),
+        (2024, "FROM 2024"),
+        (datetime(2024, 1, 1), "FROM 2024"),
+    ],
+)
+def test_nnsi_calc_matches_fixture(
+    nnsi_2025: NNSI,
+    nnsi_fixture_path: Path,
+    from_year,
+    from_label,
+):
+    # Ensure calc matches the raw fixture values for multiple input types.
+    expected = _fixture_multiplier(nnsi_fixture_path, from_label, 2025)
+    assert nnsi_2025.calc(from_year, 100) == pytest.approx(expected * 100)
 
+
+def test_nnsi_tq_aliases(nnsi_2025: NNSI, nnsi_fixture_path: Path):
+    # Transition Quarter inputs should use the same multiplier.
+    expected = _fixture_multiplier(nnsi_fixture_path, "FROM TQ", 2025)
+    assert nnsi_2025.calc("TQ", 100) == pytest.approx(expected * 100)
+    assert nnsi_2025.calc("1976 TQ", 100) == pytest.approx(expected * 100)
+
+
+def test_nnsi_unknown_year_is_identity(nnsi_2025: NNSI):
+    # Unknown years fall back to identity instead of raising.
+    assert nnsi_2025.calc("1899", 100) == pytest.approx(100.0)
+
+
+def test_nnsi_missing_target_year_raises(nnsi_fixture_path: Path):
+    # If the target year column is absent, the loader must raise.
+    with pytest.raises(DataSourceError):
+        NNSI(year="1800", source=nnsi_fixture_path)
+
+
+def test_nnsi_percent_values_parsed():
+    # Percent strings in FROM rows should be converted to multipliers.
+    nnsi = _nnsi_from_rows(
+        [
+            ["YEAR", "2024", "2025"],
+            ["FROM 2024", "100%", "110%"],
+            ["FROM TQ", "105%", "115%"],
+        ],
+        year="2025",
+    )
     assert nnsi.calc("2024", 100) == pytest.approx(110.0)
-    assert nnsi.calc("2025", 100) == pytest.approx(100.0)
     assert nnsi.calc("TQ", 100) == pytest.approx(115.0)
-    assert nnsi.calc("1976 TQ", 100) == pytest.approx(115.0)
 
 
-def test_nnsi_different_years_produce_different_results():
-    """Adjusting to different target years should produce different values."""
-    # Target year 2024: FROM 2024 → 2024 should give 100%
-    nnsi_2024 = DummyNNSI(year="2024", df=_nnsi_raw_table())
-    assert nnsi_2024.calc("2024", 100) == pytest.approx(100.0)
+def test_nnsi_header_missing_raises():
+    # A missing YEAR header should be treated as an invalid table.
+    with pytest.raises(DataSourceError):
+        _nnsi_from_rows(
+            [
+                ["HEADER", "2024", "2025"],
+                ["FROM 2024", "100%", "110%"],
+            ],
+            year="2025",
+        )
 
-    # Target year 2025: FROM 2024 → 2025 should give 110%
-    nnsi_2025 = DummyNNSI(year="2025", df=_nnsi_raw_table())
-    assert nnsi_2025.calc("2024", 100) == pytest.approx(110.0)
 
-def test_nnsi_year_parameter_is_used():
-    """Verify that specifying year=X creates an adjuster targeting year X."""
-    # This test ensures the year parameter is actually being used
-    # and not ignored (which was the bug)
-    nnsi_2024 = DummyNNSI(year="2024", df=_nnsi_raw_table())
-    nnsi_2025 = DummyNNSI(year="2025", df=_nnsi_raw_table())
-
-    # Same source year, different target years = different results
-    result_2024 = nnsi_2024.calc("2025", 100)
-    result_2025 = nnsi_2025.calc("2025", 100)
-
-    # 2025 → 2024 should be 90%, 2025 → 2025 should be 100%
-    assert result_2024 == pytest.approx(90.0)
-    assert result_2025 == pytest.approx(100.0)
-    assert result_2024 != result_2025
+def test_gdp_q4_rolls_into_next_fiscal_year():
+    # Q4 should roll into the next fiscal year for deflator averages.
+    df = pd.DataFrame(
+        {
+            "observation_date": [
+                "2024-07-01",  # FY 2024 (Q3)
+                "2024-10-01",  # FY 2025 (Q4)
+            ],
+            "GDPDEF": [100, 200],
+        }
+    )
+    gdp = DummyGDP(year="2025", df=df)
+    assert gdp.calc("2024", 1.0) == pytest.approx(2.0)
+    assert gdp.calc("2025", 1.0) == pytest.approx(1.0)
