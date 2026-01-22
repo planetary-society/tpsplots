@@ -35,8 +35,19 @@ class NASABudgetChart(ChartController):
                 - export_df: DataFrame for CSV export
                 - max_fiscal_year: Maximum fiscal year (for source attribution)
         """
+        from tpsplots.processors import (
+            InflationAdjustmentConfig,
+            InflationAdjustmentProcessor,
+        )
+
         # Get full dataset without filtering
         df = Historical().data()
+
+        # Apply inflation adjustment explicitly
+        inflation_config = InflationAdjustmentConfig(
+            nnsi_columns=["PBR", "Appropriation"],
+        )
+        df = InflationAdjustmentProcessor(inflation_config).process(df)
 
         # Prepare export data for CSV
         export_df = self._export_helper(
@@ -73,7 +84,27 @@ class NASABudgetChart(ChartController):
 
     def nasa_major_programs_by_year_inflation_adjusted(self):
         """Line chart of NASA's directorate budgets from 2007 until the last fiscal year."""
+        from tpsplots.processors import (
+            InflationAdjustmentConfig,
+            InflationAdjustmentProcessor,
+        )
+
         df = Directorates().data().dropna(subset=["Science"])  # Drop rows without directorate data
+
+        # Apply inflation adjustment explicitly to all directorate columns
+        directorate_cols = [
+            "Aeronautics",
+            "Deep Space Exploration Systems",
+            "LEO Space Operations",
+            "Space Technology",
+            "Science",
+            "STEM Education",
+            "Facilities, IT, & Salaries",
+        ]
+        inflation_config = InflationAdjustmentConfig(
+            nnsi_columns=directorate_cols,
+        )
+        df = InflationAdjustmentProcessor(inflation_config).process(df)
 
         # Calculate the last fiscal year
         last_completed_fy = datetime(datetime.today().year - 1, 1, 1)

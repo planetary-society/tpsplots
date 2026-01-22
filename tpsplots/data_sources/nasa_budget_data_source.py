@@ -3,8 +3,10 @@ NASA Budget Data Source Documentation
 =====================================
 
 This module provides classes for handling NASA budget data from various sources.
-It supports both string and datetime fiscal year representations and provides
-automatic inflation adjustments.
+It supports both string and datetime fiscal year representations.
+
+Note: Inflation adjustment is NOT automatic. Use InflationAdjustmentProcessor
+explicitly in controllers to apply inflation adjustments to monetary columns.
 
 Key Classes
 ----------
@@ -17,19 +19,22 @@ Usage Example
 ------------
 ```python
 from tpsplots.data_sources.nasa_budget_data_source import Historical
+from tpsplots.processors import InflationAdjustmentConfig, InflationAdjustmentProcessor
 
 # Create a data source instance
 budget = Historical()
 
-# Get the cleaned and processed DataFrame
+# Get the cleaned DataFrame (raw nominal values)
 df = budget.data()
 
 # Access values via attribute-style getters
 fy = budget.fiscal_year  # Returns list of fiscal years
 requests = budget.pbr  # Returns list of presidential budget requests
 
-# Get inflation-adjusted values
-adj_requests = budget.pbr_adjusted_nnsi  # Adjusted using NASA New-Start Index
+# For inflation-adjusted values, use InflationAdjustmentProcessor:
+config = InflationAdjustmentConfig(nnsi_columns=["PBR", "Appropriation"])
+df = InflationAdjustmentProcessor(config).process(df)
+# Now df has PBR_adjusted_nnsi and Appropriation_adjusted_nnsi columns
 ```
 
 Working with Fiscal Years
@@ -40,9 +45,6 @@ The module handles fiscal years in both string and datetime formats:
   converted to datetime objects for easier plotting and manipulation.
 
 - Special cases like the "1976 TQ" (Transition Quarter) are preserved as strings.
-
-- Inflation adjustment calculations can use either string or datetime inputs
-  and will produce consistent results with either format.
 
 - When converting fiscal years to strings for display, use standard string
   formatting: `f"{fiscal_year:%Y}"` for a four-digit year representation.
@@ -66,8 +68,6 @@ from urllib.error import URLError
 import certifi
 import pandas as pd
 import requests
-
-from .inflation import GDP, NNSI
 
 logger = logging.getLogger(__name__)
 
@@ -157,10 +157,12 @@ class NASABudget:
 
         This class method is called automatically when a class inherits from
         NASABudget. It iterates through the `MONETARY_COLUMNS` defined in the
-        subclass and dynamically creates two attributes for each:
-        - A raw attribute (e.g., `appropriation`) returning the nominal list.
-        - An adjusted attribute (e.g., `appropriation_adjusted`) returning
-          the inflation-adjusted list based on specified type and year.
+        subclass and dynamically creates a raw attribute (e.g., `appropriation`)
+        returning the nominal list.
+
+        Note: Inflation-adjusted values are no longer automatically generated.
+        Use InflationAdjustmentProcessor explicitly in controllers to apply
+        inflation adjustments.
 
         Args:
             cls: The subclass being initialized.
@@ -174,10 +176,6 @@ class NASABudget:
             # If the raw attribute doesn't exist on the class, create it
             if attr not in cls.__dict__:
                 setattr(cls, attr, cls._mk_raw(col))
-            # Create the adjusted attribute name
-            adj_attr = f"{attr}_adjusted"
-            if adj_attr not in cls.__dict__:
-                setattr(cls, adj_attr, cls._mk_adj(col))
 
     @classmethod
     def _mk_raw(cls, col: str) -> Callable[[NASABudget], list[float]]:
@@ -196,67 +194,6 @@ class NASABudget:
         # Lambda function that accesses the specified column from the instance's
         # DataFrame and converts it to a list.
         return lambda self: self._df[col].tolist()
-
-    @classmethod
-    def _mk_adj(cls, col: str) -> Callable:
-        """
-        Creates a getter function for an inflation-adjusted monetary column.
-
-        This function returns a callable that, when called on a NASABudget
-        instance, calculates and returns the specified column's data adjusted
-        for inflation. The adjustment type ("nnsi" or "gdp") and target year
-        can be specified.
-
-        Args:
-            col: The name of the column in the DataFrame to adjust.
-
-        Returns:
-            A callable that takes a NASABudget instance and optional type/year
-            arguments, returning a list of adjusted float values.
-        """
-
-        def getter(self, *, type: str = "nnsi", year: int | None = None) -> list[float]:
-            """
-            Getter function for adjusted monetary columns.
-
-            Calculates the inflation-adjusted values for the column.
-
-            Args:
-                type: The type of inflation index to use ("nnsi" or "gdp").
-                      Defaults to "nnsi".
-                year: The target fiscal year for adjustment. If None, defaults
-                      to the prior fiscal year based on the current date.
-
-            Returns:
-                A list of floats representing the inflation-adjusted values.
-
-            Raises:
-                KeyError: If an invalid adjustment type is provided.
-            """
-            # Detect the fiscal year column name
-            fy = self._fy_col()
-
-            # Determine target year for adjustment
-            target_year = year if year is not None else NASABudget._prior_fy()
-
-            # Get the appropriate adjuster class based on type
-            adjuster_classes = {"nnsi": NNSI, "gdp": GDP}
-            adjuster_class = adjuster_classes.get(type.lower())
-            if adjuster_class is None:
-                raise KeyError(f"Invalid adjustment type: {type}")
-
-            # Create adjuster with the target year (allows year override to work)
-            adj = adjuster_class(year=str(target_year))
-
-            # Calculate the inflation multiplier for each row based on its fiscal year
-            # The multiplier converts the value from the row's FY to the target year
-            # Ensure the fiscal year value is passed as a string to the calc method
-            mult = self._df[fy].apply(lambda v: adj.calc(str(v), 1.0))
-            # Apply the multiplier to the column values and return as a list
-            return (self._df[col] * mult).tolist()
-
-        # Return the inner getter function
-        return getter
 
     # ── DataFrame construction pipeline ────────────────────────────
     @cached_property
@@ -283,9 +220,7 @@ class NASABudget:
             raw = raw.rename(columns=ren)
 
         # Apply general cleaning rules (currency, dates, fiscal years)
-        cleaned = self._clean(raw)
-        # Add inflation-adjusted columns
-        return self._add_adjusted_cols(cleaned)
+        return self._clean(raw)
 
     # ── I/O helpers ────────────────────────────────────────────────
     @staticmethod
@@ -412,62 +347,6 @@ class NASABudget:
 
         return df
 
-    def _add_adjusted_cols(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Adds inflation-adjusted columns to the DataFrame.
-
-        For each column listed in `MONETARY_COLUMNS`, two new columns are added:
-        - `{column_name}_adjusted_nnsi`: Adjusted using the NNSI index.
-        - `{column_name}_adjusted_gdp`: Adjusted using the GDP index.
-        The adjustment is performed to the prior fiscal year.
-
-        Args:
-            df: The input pandas DataFrame.
-
-        Returns:
-            A new DataFrame with the added adjusted columns.
-        """
-        df = df.copy()  # Work on a copy
-        # Detect the fiscal year column to use for adjustments
-        fy_col = self._detect_fy(df)
-        if not fy_col:
-            return df
-
-        # Get the list of columns to adjust from the subclass
-        mons = getattr(self.__class__, "MONETARY_COLUMNS", [])
-
-        # If no monetary columns are defined, return the DataFrame as is
-        if not mons:
-            return df
-
-        # Calculate the inflation multipliers for NNSI and GDP for each fiscal year in the DataFrame
-        # Pass the fiscal year values directly to the calc method - it now handles both strings and datetimes
-        nnsi_mult = df[fy_col].apply(lambda v: _ADJUSTERS["nnsi"].calc(v, 1.0))
-        gdp_mult = df[fy_col].apply(lambda v: _ADJUSTERS["gdp"].calc(v, 1.0))
-
-        # Apply the multipliers to each monetary column and add the new adjusted columns
-        for col in mons:
-            if col in df.columns:  # Ensure the column exists in the DataFrame
-                # Calculate product. If multiplier is NaN, product is NaN.
-                try:
-                    product_nnsi = df[col] * nnsi_mult
-                except TypeError as e:
-                    logger.error(f"Can't multiply column '{col}': {e}")
-                    product_nnsi = pd.Series([pd.NA] * len(df[col]), index=df.index)
-
-                try:
-                    product_gdp = df[col] * gdp_mult
-                except TypeError as e:
-                    logger.error(f"Can't multiply column '{col}': {e}")
-                    product_gdp = pd.Series([pd.NA] * len(df[col]), index=df.index)
-
-                # Where product is NaN (likely due to a NaN multiplier),
-                # fill with the original value from df[col].
-                # Then ensure the final column is of type float64.
-                df[f"{col}_adjusted_nnsi"] = product_nnsi.fillna(df[col]).astype("float64")
-                df[f"{col}_adjusted_gdp"] = product_gdp.fillna(df[col]).astype("float64")
-        return df
-
     # ── misc helpers ───────────────────────────────────────────────
     @staticmethod
     def _detect_fy(df: pd.DataFrame) -> str:
@@ -542,16 +421,6 @@ class NASABudget:
         last_year_date = date.today() - pd.DateOffset(years=1)
         # Determine the fiscal year for that date
         return last_year_date.year + (last_year_date.month >= 10)
-
-
-# single shared inflation adjusters (reuse everywhere)
-# Initialize NNSI and GDP adjusters, targeting the prior fiscal year.
-# These instances are created once when the module is imported.
-# The year is passed as a string, which aligns with the updated norm function.
-_ADJUSTERS = {
-    "nnsi": NNSI(year=str(NASABudget._prior_fy())),
-    "gdp": GDP(year=str(NASABudget._prior_fy())),
-}
 
 
 # ────────────────────────── concrete sheets ─────────────────────────
