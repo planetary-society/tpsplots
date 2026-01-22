@@ -1,5 +1,7 @@
 """Color name resolver for semantic color names to hex codes."""
 
+from typing import ClassVar
+
 from tpsplots.colors import COLORS, TPS_COLORS
 
 
@@ -16,7 +18,7 @@ class ColorResolver:
     """
 
     # Build unified lookup map (COLORS takes precedence for accessibility)
-    _COLOR_MAP: dict[str, str] = {}
+    _COLOR_MAP: ClassVar[dict[str, str]] = {}
 
     @classmethod
     def _build_color_map(cls) -> dict[str, str]:

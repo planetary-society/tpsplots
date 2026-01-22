@@ -5,6 +5,7 @@ Tests focus on:
 - Bug 2: M/B suffix handling - billions should be 1000x millions
 """
 
+from typing import ClassVar
 from unittest.mock import patch
 
 import pandas as pd
@@ -134,7 +135,7 @@ class TestCleanCurrencyColumn:
         """Create a minimal NASABudget subclass for testing."""
 
         class TestBudget(self.NASABudget):
-            MONETARY_COLUMNS = ["Amount"]
+            MONETARY_COLUMNS: ClassVar[list[str]] = ["Amount"]
 
             def __init__(self):
                 pass  # Skip CSV loading for tests

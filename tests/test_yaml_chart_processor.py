@@ -4,13 +4,15 @@ Tests focus on:
 - Bug 5: All color parameters should be resolved from semantic names
 """
 
+from typing import ClassVar
+
 
 class TestColorParameterResolution:
     """Tests for color parameter resolution completeness - Bug 5 fix."""
 
     # This is the list of color params that SHOULD be resolved
     # If any of these are missing from the processor, semantic colors won't work
-    EXPECTED_COLOR_PARAMS = [
+    EXPECTED_COLOR_PARAMS: ClassVar[list[str]] = [
         # Original 8 params
         "color",
         "colors",
