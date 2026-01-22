@@ -21,7 +21,7 @@ chart:
   scale: billions
   legend: "{{legend}}"
   export_data: "{{export_df}}"
-  hlines: [18800000000]
+  hlines: [18809100000]
   hline_labels: ["Lowest since 1961"]
   hline_label_position: center
   hline_colors: ["#414141"]

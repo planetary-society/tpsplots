@@ -20,146 +20,100 @@ class NASABudgetChart(ChartController):
             data_source=Historical(),  # Historical NASA budget data source
         )
 
-    def nasa_budget_pbr_appropriation_by_year_inflation_adjusted(self):
-        """Generate historical NASA budget chart with PBR and Appropriations."""
-        self.data_source = Historical()  # Reset data source to Historical for this chart
-        # Get data from model
-        df = self.data_source.data().dropna(subset=["PBR"])
+    def _clean_projection_overlap(self, df: pd.DataFrame) -> pd.Series:
+        """Clean White House Budget Projection to create smooth chart transitions.
 
-        # Prepare data for view
-        fiscal_years = df["Fiscal Year"]
+        For overlapping fiscal years (where projection AND appropriation/PBR exist):
+        - Set all but the LAST overlapping projection to NA
+        - Replace the LAST overlapping projection with Appropriation (or PBR)
 
-        # Prepare cleaned export data for CSV
-        export_df = self._export_helper(
-            df,
-            [
-                "Fiscal Year",
-                "PBR",
-                "Appropriation",
-                "PBR_adjusted_nnsi",
-                "Appropriation_adjusted_nnsi",
-            ],
-        )
-
-        # Set x limit to be the the nearest multiple of 10 of x_min greater than x_max
-        max_fiscal_year = int(fiscal_years.max().strftime("%Y"))
-        x_limit = self._get_rounded_axis_limit_x(max_fiscal_year, 10, True)
-        y_limit = self._get_rounded_axis_limit_y(df["PBR"].max(), 5000000000)
-
-        # Load the Line plotter view to access colors
-        line_view = self.get_view("Line")
-
-        return {
-            "title": "The President's budget proposal sets the tone",
-            "subtitle": "Except in the aftermath of Challenger, Congress has never exceeded a NASA budget proposal by more than 9%.",
-            "source": f"NASA Budget Justifications, FYs 1961-{fiscal_years.max():%Y}",
-            "fiscal_years": fiscal_years,
-            "pbr_data": df["PBR"],
-            "appropriation_data": df["Appropriation"],
-            "colors": ["#3696CE", line_view.COLORS["blue"]],
-            "linestyles": [":", "-"],
-            "labels": ["NASA Budget Request", "Congressional Appropriation"],
-            "xlim": [datetime(1958, 1, 1), datetime(x_limit, 1, 1)],
-            "ylim": [0, y_limit],
-            "legend": {"loc": "lower right"},
-            "export_df": export_df,
-        }
-
-    def nasa_budget_by_year_with_projection_inflation_adjusted(self):
-        """Generate historical NASA budget chart with single appropriation line."""
-        self.data_source = Historical()  # Reset data source to Historical for this chart
-        # Get data from model
-        df = self.data_source.data()
-
-        # Prepare data for view
-        fiscal_years = df["Fiscal Year"]
-
-        # Prepare cleaned export data for CSV
-        export_df = self._export_helper(
-            df,
-            [
-                "Fiscal Year",
-                "Appropriation",
-                "White House Budget Projection",
-                "Appropriation_adjusted_nnsi",
-            ],
-        )
-
-        # Remove "White House Budget Proposal" values where "Appropriation" is present, for clarity
-        export_df.loc[df["Appropriation"].notna(), "White House Budget Projection"] = pd.NA
-
-        # Select the first Fiscal Year of the first non-empty White House Budget Projection
-        first_projection_year = df.loc[
-            df["White House Budget Projection"].notna(), "Fiscal Year"
-        ].min()
-        if pd.isna(first_projection_year):
-            first_projection_year = (
-                fiscal_years.max()
-            )  # If no projections, set to max fiscal year to avoid filtering
-        first_projection_year = int(first_projection_year.strftime("%Y")) + 1
-
-        # Set x limit to be the the nearest multiple of 10 of x_min greater than x_max
-        max_fiscal_year = int(fiscal_years.max().strftime("%Y"))
-        x_limit = self._get_rounded_axis_limit_x(max_fiscal_year, 10, False)
-        y_limit = self._get_rounded_axis_limit_y(
-            df["Appropriation_adjusted_nnsi"].max(), 5000000000
-        )
-
-        return {
-            "fiscal_years": fiscal_years,
-            "appropriation_adjusted_nnsi": df["Appropriation_adjusted_nnsi"],
-            "white_house_budget_projection": df["White House Budget Projection"],
-            "xlim": [datetime(1958, 1, 1), datetime(x_limit, 1, 1)],
-            "ylim": [0, y_limit],
-            "legend": {"loc": "lower right"},
-            "source": f"NASA Budget Justifications, FYs 1961-{first_projection_year}",
-            "export_df": export_df,
-            "dataframe": df,
-        }
-
-    def nasa_budget_by_presidential_administration(self):
-        """Generate NASA budget by presidential administration - returns full historical data.
-
-        Returns a dict with full budget data for YAML processing. Individual president
-        YAML files filter the data using xlim.
+        This creates a clean visual connection between actual data and projections.
         """
-        self.data_source = Historical()  # Reset data source to Historical for this chart
-        # Get data from model
-        df = self.data_source.data().dropna(subset=["PBR"])
+        projection = df["White House Budget Projection"].copy()
+        appropriation = df["Appropriation"]
+        pbr = df["PBR"]
 
-        # Prepare data for view
-        fiscal_years = df["Fiscal Year"]
+        # Find overlapping rows: projection exists AND (appropriation OR pbr exists)
+        has_projection = projection.notna()
+        has_actual = appropriation.notna() | pbr.notna()
+        overlap_mask = has_projection & has_actual
+
+        if not overlap_mask.any():
+            return projection  # No overlaps, return as-is
+
+        # Get indices of overlapping rows
+        overlap_indices = df.index[overlap_mask].tolist()
+
+        # Last overlapping index
+        last_overlap_idx = overlap_indices[-1]
+
+        # Set all overlapping projections to NA except the last one
+        for idx in overlap_indices[:-1]:
+            projection.loc[idx] = pd.NA
+
+        # For the last overlap, use Appropriation if available, else PBR
+        if pd.notna(appropriation.loc[last_overlap_idx]):
+            projection.loc[last_overlap_idx] = appropriation.loc[last_overlap_idx]
+        elif pd.notna(pbr.loc[last_overlap_idx]):
+            projection.loc[last_overlap_idx] = pbr.loc[last_overlap_idx]
+
+        return projection
+
+    def nasa_budget_by_year(self) -> dict:
+        """Return comprehensive NASA budget data for YAML-driven chart generation.
+
+        This method provides raw data without filtering or styling metadata.
+        YAML files are responsible for:
+        - Filtering via xlim
+        - Styling (colors, linestyles, labels)
+        - Axis configuration (ylim, scale)
+
+        Returns:
+            dict with keys:
+                - fiscal_year: Series of fiscal years as datetime
+                - presidential_administration: Series of president names
+                - pbr: Nominal Presidential Budget Request values
+                - appropriation: Nominal Congressional Appropriation values
+                - white_house_projection: White House budget projections
+                - pbr_adjusted: Inflation-adjusted PBR (NNSI)
+                - appropriation_adjusted: Inflation-adjusted appropriation (NNSI)
+                - export_df: DataFrame for CSV export
+                - max_fiscal_year: Maximum fiscal year (for source attribution)
+        """
+        # Get full dataset without filtering
+        df = self.data_source.data()
 
         # Prepare export data for CSV
         export_df = self._export_helper(
             df,
             [
                 "Fiscal Year",
+                "Presidential Administration",
                 "PBR",
                 "Appropriation",
+                "White House Budget Projection",
                 "PBR_adjusted_nnsi",
                 "Appropriation_adjusted_nnsi",
-                "Presidential Administration",
             ],
         )
 
-        # Get line view for colors
-        line_view = self.get_view("Line")
-
-        # Calculate y limit based on max value in full dataset
-        y_limit = self._get_rounded_axis_limit_y(df["PBR_adjusted_nnsi"].max(), 20e9)
+        # Get max fiscal year for source attribution
+        max_fy = int(df["Fiscal Year"].max().strftime("%Y"))
 
         return {
-            "fiscal_years": fiscal_years,
+            # Core data columns
+            "fiscal_year": df["Fiscal Year"],
+            "presidential_administration": df["Presidential Administration"],
+            # Nominal dollar values
+            "pbr": df["PBR"],
+            "appropriation": df["Appropriation"],
+            "white_house_projection": self._clean_projection_overlap(df),
+            # Inflation-adjusted values
             "pbr_adjusted": df["PBR_adjusted_nnsi"],
             "appropriation_adjusted": df["Appropriation_adjusted_nnsi"],
-            "color": ["#3696CE", line_view.COLORS["blue"]],
-            "linestyle": [":", "-"],
-            "label": ["Presidential Request", "Congressional Appropriation"],
-            "ylim": [0, y_limit],
-            "scale": "billions",
-            "fiscal_year_ticks": False,
+            # Export and metadata
             "export_df": export_df,
+            "max_fiscal_year": max_fy,
         }
 
     def nasa_major_programs_by_year_inflation_adjusted(self):

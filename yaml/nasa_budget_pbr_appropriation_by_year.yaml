@@ -1,23 +1,24 @@
 data:
-  source: nasa_budget_chart.nasa_budget_pbr_appropriation_by_year_inflation_adjusted
+  source: nasa_budget_chart.nasa_budget_by_year
 
 chart:
   type: line
   output: nasa_budget_pbr_appropriation_by_year
-  title: The President's budget proposal sets the tone
-  subtitle: Except in the aftermath of Challenger, Congress has never exceeded a NASA
-    budget proposal by more than 9%.
-  source: "{{source}}"
+  title: The President's NASA budget sets the tone
+  subtitle: Except in extreme cases, Congress typically provides a NASA topline close
+    to the President's budget request.
+  source: "NASA Budget Justifications, FYs 1961-{{max_fiscal_year}}"
 
-  x: "{{fiscal_years}}"
+  x: "{{fiscal_year}}"
   y:
-    - "{{pbr_data}}"
-    - "{{appropriation_data}}"
-  color: "{{colors}}"
-  linestyle: "{{linestyles}}"
-  label: "{{labels}}"
-  xlim: "{{xlim}}"
-  ylim: "{{ylim}}"
+    - "{{pbr}}"
+    - "{{appropriation}}"
+  color: ["Neptune Blue", "light_blue"]
+  linestyle: [":", "-"]
+  label: ["Presidential Request", "Congressional Appropriation"]
+  xlim: [1958-01-01, 2030-01-01]
+  ylim: [0, 30000000000]
   scale: billions
-  legend: "{{legend}}"
+  legend:
+    loc: lower right
   export_data: "{{export_df}}"

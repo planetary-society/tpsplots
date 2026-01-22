@@ -1,6 +1,6 @@
 # NASA budget during Nixon administration (FY 1970-1974)
 data:
-  source: nasa_budget_chart.nasa_budget_by_presidential_administration
+  source: nasa_budget_chart.nasa_budget_by_year
 
 chart:
   type: line
@@ -9,16 +9,16 @@ chart:
   subtitle: "NASA shrank by $8.7 billion (-36%) this period."
   source: "NASA Budget Justifications, FYs 1970-1974"
 
-  x: "{{fiscal_years}}"
+  x: "{{fiscal_year}}"
   y:
     - "{{pbr_adjusted}}"
     - "{{appropriation_adjusted}}"
-  color: "{{color}}"
-  linestyle: "{{linestyle}}"
-  label: "{{label}}"
+  color: ["#3696CE", "#037CC2"]
+  linestyle: [":", "-"]
+  label: ["Presidential Request", "Congressional Appropriation"]
   xlim: [1970-01-01, 1974-12-31]
-  ylim: "{{ylim}}"
-  scale: "{{scale}}"
-  fiscal_year_ticks: "{{fiscal_year_ticks}}"
+  ylim: [0, 30000000000]
+  scale: billions
+  fiscal_year_ticks: false
   max_xticks: 6
   export_data: "{{export_df}}"

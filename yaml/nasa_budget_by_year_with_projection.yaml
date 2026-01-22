@@ -1,5 +1,5 @@
 data:
-  source: nasa_budget_chart.nasa_budget_by_year_with_projection_inflation_adjusted
+  source: nasa_budget_chart.nasa_budget_by_year
 
 chart:
   type: line
@@ -7,18 +7,19 @@ chart:
   title: How NASA's budget has changed over time
   subtitle: After its peak during Apollo, NASA's inflation-adjusted budget has held
     relatively steady, though that may change.
-  source: "{{source}}"
+  source: "NASA Budget Justifications, FYs 1961-{{max_fiscal_year}}"
 
-  x: "{{fiscal_years}}"
+  x: "{{fiscal_year}}"
   y:
-    - "{{appropriation_adjusted_nnsi}}"
-    - "{{white_house_budget_projection}}"
-  color: ["#037CC2", "#FF5D47"]
+    - "{{appropriation_adjusted}}"
+    - "{{white_house_projection}}"
+  color: ["Neptune Blue", "Rocket Flame"]
   linestyle: ["-", "-"]
   marker: ["", "o"]
   label: ["", "Proposed"]
-  xlim: "{{xlim}}"
-  ylim: "{{ylim}}"
+  xlim: [1958-01-01, 2030-01-01]
+  ylim: [0, 75000000000]
   scale: billions
-  legend: "{{legend}}"
+  legend:
+    loc: lower right
   export_data: "{{export_df}}"
