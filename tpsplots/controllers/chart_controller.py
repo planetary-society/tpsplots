@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 import pandas as pd
 
@@ -14,21 +13,10 @@ class ChartController:
     """
     Base class for chart controllers in the MVC pattern.
 
-    This class coordinates between data sources (models) and the ChartView.
-    Subclasses should implement methods that prepare data and call
-    appropriate view methods.
+    This class provides shared utilities for data preparation and formatting.
+    Subclasses implement methods that return data dictionaries for YAML-driven
+    chart generation.
     """
-
-    def __init__(self, data_source=None, outdir: Path = Path("charts")):
-        """
-        Initialize a chart controller.
-
-        Args:
-            data_source: The data source (model) to use for chart data
-            outdir: Output directory for chart files
-        """
-        self.data_source = data_source
-        self.outdir = outdir
 
     def _get_rounded_axis_limit_y(
         self, max_value: float, multiple: float = 5000000000, always_extend: bool = True

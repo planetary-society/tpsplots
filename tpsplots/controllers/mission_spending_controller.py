@@ -13,8 +13,7 @@ logger = logging.getLogger(__name__)
 
 class MissionSpendingController(ChartController):
     """
-    Prepares mission outlay and obligations data for charting
-
+    Prepares mission outlay and obligations data for charting.
     """
 
     # Default path for mission spending CSV files
@@ -28,10 +27,14 @@ class MissionSpendingController(ChartController):
             csv_path: Path to the directory containing CSV files.
                      Defaults to DEFAULT_CSV_PATH if not provided.
         """
-        super().__init__()
         self.csv_path = csv_path or self.DEFAULT_CSV_PATH
 
-    def process_mission_spending_data(self):
+    def process_mission_spending_data(self, outdir: Path = Path("charts")):
+        """Process and plot mission spending data for all configured missions.
+
+        Args:
+            outdir: Output directory for generated chart files.
+        """
         missions = {
             "OSIRIS-APEX": "OSIRIS-APEX",
             "GOLD": "GOLD",
@@ -63,7 +66,7 @@ class MissionSpendingController(ChartController):
                     data = self._process_mission_spending_data(file_name, reporting_type)
                     creation_date = datetime.fromtimestamp(Path(file_name).stat().st_ctime)
                     data["accessed_date"] = creation_date.strftime("%Y-%m-%d")
-                    self._plot_chart(data, mission_short_name, mission_name, reporting_type)
+                    self._plot_chart(data, mission_short_name, mission_name, reporting_type, outdir)
                 else:
                     logger.warning(
                         f"{reporting_type.capitalize()} summary CSV file not found: {file_name}"
@@ -141,11 +144,16 @@ class MissionSpendingController(ChartController):
         return name.lower().replace(" ", "_").replace("-", "_")
 
     def _plot_chart(
-        self, data: dict, mission_short_name: str, mission_name: str, reporting_type: str
+        self,
+        data: dict,
+        mission_short_name: str,
+        mission_name: str,
+        reporting_type: str,
+        outdir: Path = Path("charts"),
     ):
         from tpsplots.views import LineChartView
 
-        line_view = LineChartView(self.outdir)
+        line_view = LineChartView(outdir)
         if reporting_type == "outlays":
             subtitle = f"Cumulative value of outlays, by month, for the mission's key contracts in fiscal years {data['current_fy']} and {data['prior_fy']}."
         elif reporting_type == "obligations":

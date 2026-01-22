@@ -39,7 +39,6 @@ class GoogleSheetsController(ChartController):
             columns: Columns to keep from the sheet
             renames: Column renames (e.g., {"Old Name": "New Name"})
         """
-        super().__init__()
         self.url = url
         self.cast = cast
         self.columns = columns

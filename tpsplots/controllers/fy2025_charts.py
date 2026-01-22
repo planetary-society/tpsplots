@@ -6,25 +6,20 @@ from tpsplots.processors.award_data_processor import AwardDataProcessor, FiscalY
 
 
 class FY2025Charts(ChartController):
-    def __init__(self):
-        super().__init__(
-            data_source=NewNASAAwards(),
-        )
-
-        # Define the fiscal year configuration for FY 2025 tracking.
-        self.fy_config = FiscalYearConfig(
-            prior_years=[2020, 2021, 2022, 2023, 2024],
-            current_year=2025,
-            comparison_year=2024,
-        )
+    # Define the fiscal year configuration for FY 2025 tracking.
+    FY_CONFIG = FiscalYearConfig(
+        prior_years=[2020, 2021, 2022, 2023, 2024],
+        current_year=2025,
+        comparison_year=2024,
+    )
 
     def _get_award_data(self, award_type: str = "Grant") -> dict:
         """Get processed award data using the generalized processor."""
         processor = AwardDataProcessor(
-            fy_config=self.fy_config,
+            fy_config=self.FY_CONFIG,
             award_type=award_type,
         )
-        df = self.data_source.data()
+        df = NewNASAAwards().data()
         return processor.process(df)
 
     def new_grants_awards_comparison_to_prior_year(self) -> dict:

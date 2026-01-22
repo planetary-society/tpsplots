@@ -25,24 +25,16 @@ class FY2026Charts(ChartController):
     PRESIDENTIAL_REQUEST_YEAR_END = 2030
     PRESIDENTIAL_REQUEST_VALUE = 18_809_100_000
 
-    def __init__(self):
-        # Initialize with data source
-        super().__init__(
-            data_source=Science(),  # Historical NASA budget data source
-        )
-
-        # Define the fiscal year configuration for FY 2026 award tracking
-        self.fy2026_award_config = FiscalYearConfig(
-            prior_years=[2021, 2022, 2023, 2024, 2025],
-            current_year=2026,
-            comparison_year=2025,
-        )
+    # Define the fiscal year configuration for FY 2026 award tracking
+    FY2026_AWARD_CONFIG = FiscalYearConfig(
+        prior_years=[2021, 2022, 2023, 2024, 2025],
+        current_year=2026,
+        comparison_year=2025,
+    )
 
     def nasa_budget_historical_with_fy_2026_proposed(self):
         """Prepare historical NASA budget chart data with FY 2026 proposal."""
-        self.data_source = Historical()
-        # Get data from model
-        df = self.data_source.data().dropna(subset=["PBR"])
+        df = Historical().data().dropna(subset=["PBR"])
 
         congressional_cutoff = pd.Timestamp(f"{self.CONGRESSIONAL_CUTOFF_YEAR}-01-01")
         congressional_mask = df["Fiscal Year"] > congressional_cutoff
@@ -96,9 +88,7 @@ class FY2026Charts(ChartController):
 
     def nasa_science_by_year_inflation_adjusted_fy2026_threat(self):
         """Prepare historical NASA Science budget chart data."""
-        # Get data from model
-        self.data_source = Science()
-        df = self.data_source.data()  # Drop rows without directorate data
+        df = Science().data()
 
         # Prepare data for view
         congressional_cutoff = pd.Timestamp(f"{self.CONGRESSIONAL_CUTOFF_YEAR}-01-01")
@@ -133,9 +123,7 @@ class FY2026Charts(ChartController):
 
     def nasa_science_divisions_quad_plot_fy2026_threat(self):
         """Prepare quad plot data for NASA's four science divisions."""
-        # Load ScienceDivisions data
-        self.data_source = ScienceDivisions()
-        df = self.data_source.data()
+        df = ScienceDivisions().data()
 
         # Filter data from 1990 to 2025
         df_filtered = df[
@@ -579,7 +567,7 @@ class FY2026Charts(ChartController):
         """Track FY 2026 grant awards compared to prior fiscal years."""
         # Use the generalized award data processor
         processor = AwardDataProcessor(
-            fy_config=self.fy2026_award_config,
+            fy_config=self.FY2026_AWARD_CONFIG,
             award_type="Grant",
         )
         df = NewNASAAwards().data()
@@ -590,7 +578,7 @@ class FY2026Charts(ChartController):
         """Track FY 2026 contract awards compared to prior fiscal years."""
         # Use the generalized award data processor
         processor = AwardDataProcessor(
-            fy_config=self.fy2026_award_config,
+            fy_config=self.FY2026_AWARD_CONFIG,
             award_type="Contract",
         )
         df = NewNASAAwards().data()

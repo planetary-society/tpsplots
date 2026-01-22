@@ -27,7 +27,6 @@ class CSVController(ChartController):
         Args:
             csv_path: Path to the CSV file to load
         """
-        super().__init__()
         self.csv_path = csv_path
 
     def load_data(self):

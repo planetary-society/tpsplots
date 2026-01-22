@@ -14,12 +14,6 @@ logger = logging.getLogger(__name__)
 class NASABudgetChart(ChartController):
     """Controller for top-line NASA budget charts."""
 
-    def __init__(self):
-        # Initialize with data source
-        super().__init__(
-            data_source=Historical(),  # Historical NASA budget data source
-        )
-
     def _clean_projection_overlap(self, df: pd.DataFrame) -> pd.Series:
         """Clean White House Budget Projection to create smooth chart transitions.
 
@@ -81,7 +75,7 @@ class NASABudgetChart(ChartController):
                 - max_fiscal_year: Maximum fiscal year (for source attribution)
         """
         # Get full dataset without filtering
-        df = self.data_source.data()
+        df = Historical().data()
 
         # Prepare export data for CSV
         export_df = self._export_helper(
@@ -118,10 +112,7 @@ class NASABudgetChart(ChartController):
 
     def nasa_major_programs_by_year_inflation_adjusted(self):
         """Line chart of NASA's directorate budgets from 2007 until the last fiscal year."""
-        self.data_source = Directorates()
-        df = self.data_source.data().dropna(
-            subset=["Science"]
-        )  # Drop rows without directorate data
+        df = Directorates().data().dropna(subset=["Science"])  # Drop rows without directorate data
 
         # Calculate the last fiscal year
         last_completed_fy = datetime(datetime.today().year - 1, 1, 1)
@@ -198,10 +189,7 @@ class NASABudgetChart(ChartController):
 
     def nasa_major_activites_donut_chart(self):
         """Generate donut chart breakdown of NASA directorate budgets for the last fiscal year."""
-        self.data_source = Directorates()
-
-        # Get data
-        df = self.data_source.data()
+        df = Directorates().data()
 
         # Calculate the last fiscal year
         last_completed_fy = datetime(datetime.today().year - 1, 1, 1)
