@@ -15,7 +15,7 @@ class ComparisonCharts(ChartController):
 
         Returns a dict with chart data for YAML processing.
         """
-        from tpsplots.views.chart_view import ChartView
+        from tpsplots.colors import TPS_COLORS
 
         comparisons = {"Non-NASA U.S. Spending": 6_800_000_000_000, "NASA": 25_000_000_000}
 
@@ -38,8 +38,8 @@ class ComparisonCharts(ChartController):
         ]
 
         category_colors = [
-            ChartView.TPS_COLORS["Neptune Blue"],
-            ChartView.TPS_COLORS["Comet Dust"],
+            TPS_COLORS["Neptune Blue"],
+            TPS_COLORS["Comet Dust"],
         ]
 
         export_df = pd.DataFrame(

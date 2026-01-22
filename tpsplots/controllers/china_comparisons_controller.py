@@ -6,9 +6,9 @@ from datetime import datetime
 
 import pandas as pd
 
+from tpsplots.colors import COLORS, TPS_COLORS
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.data_sources.google_sheets_source import GoogleSheetsSource
-from tpsplots.views.chart_view import ChartView
 
 logger = logging.getLogger(__name__)
 
@@ -217,8 +217,8 @@ class ChinaComparisonCharts(ChartController):
         # Colors
         china_color_launched = "#8B0000"  # Dark red for China launched
         china_color_planned = "#CD5C5C"  # Light red for China planned
-        us_color_launched = ChartView.COLORS["blue"]  # Blue for U.S. launched
-        us_color_planned = ChartView.TPS_COLORS["Medium Neptune"]  # Light blue for U.S. planned
+        us_color_launched = COLORS["blue"]  # Blue for U.S. launched
+        us_color_planned = TPS_COLORS["Medium Neptune"]  # Light blue for U.S. planned
 
         # Build export data
         export_df = pd.concat(
@@ -321,7 +321,7 @@ class ChinaComparisonCharts(ChartController):
             "label": ["China", "United States"],
             "marker": "o",
             "markersize": 8,
-            "color": [ChartView.TPS_COLORS["Medium Neptune"], ChartView.COLORS["blue"]],
+            "color": [TPS_COLORS["Medium Neptune"], COLORS["blue"]],
             "tick_rotation": 0,
             "label_size": 15,
             "tick_size": 16,

@@ -16,6 +16,7 @@ from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.ticker import FuncFormatter
 
 from tpsplots import TPS_STYLE_FILE  # custom mplstyle
+from tpsplots.colors import COLORS, TPS_COLORS
 from tpsplots.exceptions import RenderingError
 
 logger = logging.getLogger(__name__)
@@ -24,34 +25,9 @@ logger = logging.getLogger(__name__)
 class ChartView:
     """Base class for all chart views with shared functionality."""
 
-    # Shared color palette
-    COLORS: ClassVar[dict[str, str]] = {
-        "blue": "#037CC2",
-        "purple": "#643788",
-        "orange": "#FF5D47",
-        "light_blue": "#3696CE",  # minimum for AA contrast on grey background
-        "light_purple": "#9C83B4",  # minimum for AA contrast on grey background
-        "lunar_dust": "#8C8C8C",  # meets minimum for graphics but not for text against grey background
-        "dark_gray": "#414141",
-        "medium_gray": "#C3C3C3",
-        "light_gray": "#F5F5F5",
-    }
-
-    TPS_COLORS: ClassVar[dict[str, str]] = {
-        "Light Plasma": "#D8CDE1",
-        "Medium Plasma": "#B19BC3",
-        "Plasma Purple": "#643788",
-        "Rocket Flame": "#FF5D47",
-        "Neptune Blue": "#037CC2",
-        "Medium Neptune": "#80BDE0",
-        "Light Neptune": "#BFDEF0",
-        "Crater Shadow": "#414141",
-        "Lunar Soil": "#8C8C8C",
-        "Comet Dust": "#C3C3C3",
-        "Slushy Brine": "#F5F5F5",
-        "Black Hole": "#000000",
-        "Polar White": "#FFFFFF",
-    }
+    # Color palettes imported from tpsplots.colors for backward compatibility
+    COLORS: ClassVar[dict[str, str]] = COLORS
+    TPS_COLORS: ClassVar[dict[str, str]] = TPS_COLORS
 
     # Device-specific visual settings
     DESKTOP: ClassVar[dict[str, object]] = {

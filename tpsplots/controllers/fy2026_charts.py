@@ -5,6 +5,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
+from tpsplots.colors import COLORS, TPS_COLORS
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.data_sources.missions import Missions
 from tpsplots.data_sources.nasa_budget_data_source import (
@@ -16,7 +17,6 @@ from tpsplots.data_sources.nasa_budget_data_source import (
 )
 from tpsplots.data_sources.new_awards import NewNASAAwards
 from tpsplots.processors.award_data_processor import AwardDataProcessor, FiscalYearConfig
-from tpsplots.views.chart_view import ChartView
 
 
 class FY2026Charts(ChartController):
@@ -188,7 +188,7 @@ class FY2026Charts(ChartController):
 
         # Prepare data for each subplot
         subplot_data = []
-        colors = [ChartView.COLORS["blue"], ChartView.TPS_COLORS["Rocket Flame"]]
+        colors = [COLORS["blue"], TPS_COLORS["Rocket Flame"]]
 
         for division in divisions:
             # Get fiscal years

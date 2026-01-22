@@ -1,6 +1,6 @@
 """Color name resolver for semantic color names to hex codes."""
 
-from tpsplots.views.chart_view import ChartView
+from tpsplots.colors import COLORS, TPS_COLORS
 
 
 class ColorResolver:
@@ -25,10 +25,10 @@ class ColorResolver:
             return cls._COLOR_MAP
 
         # Add TPS_COLORS first (lower precedence)
-        cls._COLOR_MAP.update(ChartView.TPS_COLORS)
+        cls._COLOR_MAP.update(TPS_COLORS)
 
         # Add COLORS second (higher precedence, overwrites conflicts)
-        cls._COLOR_MAP.update(ChartView.COLORS)
+        cls._COLOR_MAP.update(COLORS)
 
         return cls._COLOR_MAP
 
