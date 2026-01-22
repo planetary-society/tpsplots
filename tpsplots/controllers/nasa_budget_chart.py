@@ -14,45 +14,6 @@ logger = logging.getLogger(__name__)
 class NASABudgetChart(ChartController):
     """Controller for top-line NASA budget charts."""
 
-    def _clean_projection_overlap(self, df: pd.DataFrame) -> pd.Series:
-        """Clean White House Budget Projection to create smooth chart transitions.
-
-        For overlapping fiscal years (where projection AND appropriation/PBR exist):
-        - Set all but the LAST overlapping projection to NA
-        - Replace the LAST overlapping projection with Appropriation (or PBR)
-
-        This creates a clean visual connection between actual data and projections.
-        """
-        projection = df["White House Budget Projection"].copy()
-        appropriation = df["Appropriation"]
-        pbr = df["PBR"]
-
-        # Find overlapping rows: projection exists AND (appropriation OR pbr exists)
-        has_projection = projection.notna()
-        has_actual = appropriation.notna() | pbr.notna()
-        overlap_mask = has_projection & has_actual
-
-        if not overlap_mask.any():
-            return projection  # No overlaps, return as-is
-
-        # Get indices of overlapping rows
-        overlap_indices = df.index[overlap_mask].tolist()
-
-        # Last overlapping index
-        last_overlap_idx = overlap_indices[-1]
-
-        # Set all overlapping projections to NA except the last one
-        for idx in overlap_indices[:-1]:
-            projection.loc[idx] = pd.NA
-
-        # For the last overlap, use Appropriation if available, else PBR
-        if pd.notna(appropriation.loc[last_overlap_idx]):
-            projection.loc[last_overlap_idx] = appropriation.loc[last_overlap_idx]
-        elif pd.notna(pbr.loc[last_overlap_idx]):
-            projection.loc[last_overlap_idx] = pbr.loc[last_overlap_idx]
-
-        return projection
-
     def nasa_budget_by_year(self) -> dict:
         """Return comprehensive NASA budget data for YAML-driven chart generation.
 
