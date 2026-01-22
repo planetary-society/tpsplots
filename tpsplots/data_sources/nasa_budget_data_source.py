@@ -235,11 +235,21 @@ class NASABudget:
             """
             # Detect the fiscal year column name
             fy = self._fy_col()
-            # Get the appropriate adjuster object (NNSI or GDP) based on type
-            # Raises KeyError if type is invalid
-            adj = _ADJUSTERS[type.lower()]
+
+            # Determine target year for adjustment
+            target_year = year if year is not None else NASABudget._prior_fy()
+
+            # Get the appropriate adjuster class based on type
+            adjuster_classes = {"nnsi": NNSI, "gdp": GDP}
+            adjuster_class = adjuster_classes.get(type.lower())
+            if adjuster_class is None:
+                raise KeyError(f"Invalid adjustment type: {type}")
+
+            # Create adjuster with the target year (allows year override to work)
+            adj = adjuster_class(year=str(target_year))
+
             # Calculate the inflation multiplier for each row based on its fiscal year
-            # The multiplier converts the value from the row's FY to the adjuster's target year (prior FY)
+            # The multiplier converts the value from the row's FY to the target year
             # Ensure the fiscal year value is passed as a string to the calc method
             mult = self._df[fy].apply(lambda v: adj.calc(str(v), 1.0))
             # Apply the multiplier to the column values and return as a list
@@ -323,6 +333,42 @@ class NASABudget:
         return df
 
     # ── cleaning helpers ───────────────────────────────────────────
+    def _clean_currency_column(self, series: pd.Series) -> pd.Series:
+        """Clean currency column, correctly handling M/B suffixes.
+
+        Args:
+            series: A pandas Series containing currency values like "$50M" or "$1.5B"
+
+        Returns:
+            A Series of float64 values with proper multipliers applied:
+            - Values ending in 'M' are multiplied by 1,000,000
+            - Values ending in 'B' are multiplied by 1,000,000,000
+            - Values without suffix are used as-is
+        """
+        import numpy as np
+
+        def parse_value(val):
+            if pd.isna(val):
+                return np.nan  # Use np.nan for float compatibility
+            s = str(val).strip().upper()
+
+            # Determine multiplier based on suffix BEFORE stripping
+            if s.endswith("B"):
+                multiplier = 1_000_000_000
+            elif s.endswith("M"):
+                multiplier = 1_000_000
+            else:
+                multiplier = 1
+
+            # Now clean the string (remove $, commas, M/B suffix)
+            cleaned = self._CURRENCY_RE.sub("", str(val))
+            try:
+                return float(cleaned) * multiplier
+            except ValueError:
+                return np.nan
+
+        return series.apply(parse_value).astype("float64")
+
     def _clean(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Applies general cleaning rules to the DataFrame.
@@ -342,8 +388,7 @@ class NASABudget:
         # Get MONETARY_COLUMNS directly from the class to avoid triggering __getattr__
         monetary_columns = getattr(self.__class__, "MONETARY_COLUMNS", [])
 
-        # Clean currency-like columns: remove symbols, commas, and M/B suffixes,
-        # then convert to float and multiply by 1,000,000 if M/B was present.
+        # Clean currency-like columns: properly handle M/B suffixes with correct multipliers
         for col in df.select_dtypes("object"):
             # Check if the column contains '$' characters (indicating currency)
             # OR if the column is listed in MONETARY_COLUMNS
@@ -351,18 +396,7 @@ class NASABudget:
                 df[col].astype(str).str.contains(r"\$", na=False).any()
                 or col in monetary_columns  # Use the class attribute directly
             ):
-                df[col] = (
-                    df[col]
-                    .astype(str)  # Ensure column is string type for regex operations
-                    .str.replace(
-                        self._CURRENCY_RE, "", regex=True
-                    )  # Remove currency symbols, commas, M/B
-                    .astype(
-                        float, errors="ignore"
-                    )  # Convert to float, ignoring errors (non-numeric become NaN)
-                    .mul(1_000_000)  # Multiply by 1 million to convert to whole dollars
-                    .astype("float64")
-                )
+                df[col] = self._clean_currency_column(df[col])
 
         # Rest of the method remains the same...
         # Clean date-style columns: convert to datetime objects.
@@ -478,9 +512,8 @@ class NASABudget:
                 "year",
             }:
                 return c
-            else:
-                return None
         logger.warning("No fiscal-year column detected.")
+        return None
 
     def _fy_col(self) -> str:
         """

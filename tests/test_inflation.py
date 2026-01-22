@@ -86,3 +86,30 @@ def test_nnsi_parses_percentages_and_tq():
     assert nnsi.calc("2025", 100) == pytest.approx(100.0)
     assert nnsi.calc("TQ", 100) == pytest.approx(115.0)
     assert nnsi.calc("1976 TQ", 100) == pytest.approx(115.0)
+
+
+def test_nnsi_different_years_produce_different_results():
+    """Adjusting to different target years should produce different values."""
+    # Target year 2024: FROM 2024 → 2024 should give 100%
+    nnsi_2024 = DummyNNSI(year="2024", df=_nnsi_raw_table())
+    assert nnsi_2024.calc("2024", 100) == pytest.approx(100.0)
+
+    # Target year 2025: FROM 2024 → 2025 should give 110%
+    nnsi_2025 = DummyNNSI(year="2025", df=_nnsi_raw_table())
+    assert nnsi_2025.calc("2024", 100) == pytest.approx(110.0)
+
+def test_nnsi_year_parameter_is_used():
+    """Verify that specifying year=X creates an adjuster targeting year X."""
+    # This test ensures the year parameter is actually being used
+    # and not ignored (which was the bug)
+    nnsi_2024 = DummyNNSI(year="2024", df=_nnsi_raw_table())
+    nnsi_2025 = DummyNNSI(year="2025", df=_nnsi_raw_table())
+
+    # Same source year, different target years = different results
+    result_2024 = nnsi_2024.calc("2025", 100)
+    result_2025 = nnsi_2025.calc("2025", 100)
+
+    # 2025 → 2024 should be 90%, 2025 → 2025 should be 100%
+    assert result_2024 == pytest.approx(90.0)
+    assert result_2025 == pytest.approx(100.0)
+    assert result_2024 != result_2025

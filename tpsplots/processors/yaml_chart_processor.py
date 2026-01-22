@@ -120,7 +120,15 @@ class YAMLChartProcessor:
             "negative_color",
             "value_color",
             "center_color",
+            "start_marker_color",
             "end_marker_color",
+            "start_marker_edgecolor",
+            "end_marker_edgecolor",
+            "y_tick_color",
+            "line_colors",
+            "hline_colors",
+            "edgecolor",
+            "pie_edge_color",
             "offset_line_color",
         ]
         for param in color_params:
