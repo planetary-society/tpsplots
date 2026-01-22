@@ -176,6 +176,12 @@ class NASAFYChartsController(ChartController):
                 "Appropriation_adjusted_nnsi",
             ],
         )
+        export_df.loc[
+            export_df["Fiscal Year"].astype(int) <= fy, "White House Budget Projection"
+        ] = pd.NA
+        export_df.attrs["export_note"] = (
+            f"Inflation adjusted to FY {inflation_target} dollars (NNSI)."
+        )
 
         max_fy = int(df["Fiscal Year"].max().strftime("%Y"))
 

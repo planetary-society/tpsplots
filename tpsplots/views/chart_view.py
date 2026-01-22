@@ -161,6 +161,10 @@ class ChartView:
         """
         csv_path = self.outdir / f"{stem}.csv"
 
+        export_note = None
+        if hasattr(df, "attrs"):
+            export_note = df.attrs.get("export_note")
+
         # Create a copy of the data to avoid modifying the original
         csv_df = df.copy()
 
@@ -174,6 +178,12 @@ class ChartView:
 
         if "source" in metadata:
             meta_rows.append(["Data Source", metadata["source"]])
+        if export_note:
+            if isinstance(export_note, (list, tuple)):
+                for note in export_note:
+                    meta_rows.append(["Note", note])
+            else:
+                meta_rows.append(["Note", export_note])
         meta_rows.append(["License", "CC BY 4.0"])
 
         # Add a blank row between metadata and data
