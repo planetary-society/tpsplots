@@ -589,6 +589,14 @@ ruff format tpsplots/
 
 ---
 
+## License
+
+This project is released under the Business Source License 1.1. See `LICENSE`.
+TPS branding (name, logos, and brand assets) is All Rights Reserved; see `NOTICE`.
+Poppins fonts are licensed under the SIL Open Font License 1.1.
+
+---
+
 ## Author
 
 Casey Dreier - The Planetary Society
