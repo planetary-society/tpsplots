@@ -19,6 +19,72 @@ logger = logging.getLogger(__name__)
 class LineChartView(ChartView):
     """Specialized view for line charts with a focus on exposing matplotlib's API."""
 
+    # Default styling for series_types (semantic series classification)
+    # Views apply these when explicit styling isn't provided in YAML
+    SERIES_TYPE_STYLES = {
+        "prior": {
+            "color": "medium_gray",  # References ChartView.COLORS
+            "linestyle": "--",
+            "marker": None,
+            "linewidth": 1.5,
+        },
+        "average": {
+            "color": "blue",  # References ChartView.COLORS
+            "linestyle": "-",
+            "marker": "o",
+            "linewidth": 4.0,
+        },
+        "current": {
+            "color": "Rocket Flame",  # References ChartView.TPS_COLORS
+            "linestyle": "-",
+            "marker": "o",
+            "linewidth": 4.0,
+        },
+    }
+
+    def _resolve_series_type_color(self, color_name: str) -> str:
+        """Resolve a color name to its actual value from COLORS or TPS_COLORS."""
+        if color_name in self.COLORS:
+            return self.COLORS[color_name]
+        if color_name in self.TPS_COLORS:
+            return self.TPS_COLORS[color_name]
+        return color_name  # Return as-is if not found (might be a hex code)
+
+    def _get_series_type_styles(self, series_types: list | None, num_series: int) -> dict:
+        """
+        Get default styling arrays based on series_types metadata.
+
+        Args:
+            series_types: List of semantic types ("prior", "average", "current")
+            num_series: Number of data series
+
+        Returns:
+            Dict with keys: colors, linestyles, markers, linewidths
+            Each value is a list matching the number of series
+        """
+        if not series_types or len(series_types) != num_series:
+            return {}
+
+        colors = []
+        linestyles = []
+        markers = []
+        linewidths = []
+
+        for series_type in series_types:
+            style_def = self.SERIES_TYPE_STYLES.get(series_type, {})
+            color_name = style_def.get("color", "blue")
+            colors.append(self._resolve_series_type_color(str(color_name)))
+            linestyles.append(style_def.get("linestyle", "-"))
+            markers.append(style_def.get("marker"))
+            linewidths.append(style_def.get("linewidth", 2.0))
+
+        return {
+            "colors": colors,
+            "linestyles": linestyles,
+            "markers": markers,
+            "linewidths": linewidths,
+        }
+
     def line_plot(self, metadata, stem, **kwargs):
         """
         Generate line charts for both desktop and mobile versions.
@@ -295,13 +361,35 @@ class LineChartView(ChartView):
         # Extract styling parameters
         color = kwargs.pop("color", kwargs.pop("c", None))
         linestyle = kwargs.pop("linestyle", kwargs.pop("ls", None))
-        linewidth = kwargs.pop("linewidth", kwargs.pop("lw", style["line_width"]))
+        linewidth = kwargs.pop("linewidth", kwargs.pop("lw", None))
 
         # Extract markersize, crucial for label placement calculations
         markersize = kwargs.pop("markersize", kwargs.pop("ms", style["marker_size"]))
         marker = kwargs.pop("marker", None)
         alpha = kwargs.pop("alpha", None)
         label = kwargs.pop("label", kwargs.pop("labels", None))
+
+        # Extract series_types for semantic styling defaults
+        series_types = kwargs.pop("series_types", None)
+
+        # Apply series_types defaults when explicit styling isn't provided
+        num_series = len(y_data) if y_data else 0
+        type_styles = self._get_series_type_styles(series_types, num_series)
+
+        if type_styles:
+            # Use series_types styling as defaults when explicit values not provided
+            if color is None:
+                color = type_styles["colors"]
+            if linestyle is None:
+                linestyle = type_styles["linestyles"]
+            if marker is None:
+                marker = type_styles["markers"]
+            if linewidth is None:
+                linewidth = type_styles["linewidths"]
+
+        # Fall back to style defaults if still None
+        if linewidth is None:
+            linewidth = style["line_width"]
 
         # Store line information for direct labeling
         line_colors = []

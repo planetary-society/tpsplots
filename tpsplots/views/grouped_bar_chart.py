@@ -40,6 +40,7 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
             - width: float - Width of each bar (default: 0.35)
             - show_values: bool - Show value labels on bars (default: True)
             - value_format: str - Format for values: 'integer', 'float', 'monetary', 'percentage'
+            - value_prefix: str - Text to prepend to formatted values (default: '')
             - value_suffix: str - Text to append to formatted values (default: '')
             - value_offset: float - Distance from bar end for value labels (default: auto)
             - value_fontsize: float - Font size for value labels
@@ -59,7 +60,9 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
             - tick_size: int - Tick label font size
             - show_yticks: bool - Show y-axis tick labels (default: False)
             - legend: dict - Legend configuration
+            - labels: list - Legend labels for each group (overrides group label)
             - export_data: DataFrame - CSV export DataFrame
+            - colors: str/list - Optional override colors for groups (cycled if shorter)
 
         Returns:
         --------
@@ -83,6 +86,8 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
         # Extract required parameters
         categories = kwargs.pop("categories", None)
         groups = kwargs.pop("groups", None)
+        colors = kwargs.pop("colors", None)
+        labels = kwargs.pop("labels", None)
 
         if categories is None or groups is None:
             raise ValueError("Both 'categories' and 'groups' are required for grouped_bar_plot")
@@ -102,6 +107,7 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
         width = kwargs.pop("width", kwargs.pop("bar_width", 0.35))
         show_values = kwargs.pop("show_values", True)
         value_format = kwargs.pop("value_format", "integer")
+        value_prefix = kwargs.pop("value_prefix", "")
         value_suffix = kwargs.pop("value_suffix", "")
         value_offset = kwargs.pop("value_offset", None)
         value_fontsize = kwargs.pop("value_fontsize", style.get("tick_size", 14) * 0.6)
@@ -153,11 +159,38 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
             else:
                 value_offset = 1.5  # fallback
 
+        # Default colors for groups (used when not specified)
+        default_colors = [
+            self.TPS_COLORS["Neptune Blue"],
+            self.TPS_COLORS["Rocket Flame"],
+            self.TPS_COLORS["Plasma Purple"],
+            self.TPS_COLORS["Lunar Soil"],
+        ]
+
+        # Normalize optional colors parameter (string or list)
+        if isinstance(colors, str):
+            colors_list = [colors] * num_groups
+        elif isinstance(colors, (list, tuple)):
+            colors_list = list(colors)
+        else:
+            colors_list = None
+
         # Plot each group
         for i, group in enumerate(groups):
             label = group.get("label", f"Group {i + 1}")
+            if isinstance(labels, (list, tuple)) and i < len(labels):
+                label = labels[i]
+            elif labels is not None and i == 0 and isinstance(labels, str):
+                label = labels
             values = np.array(group.get("values", []))
-            color = group.get("color", self.TPS_COLORS["Neptune Blue"])
+            color = group.get("color")
+            if color is None and colors_list:
+                color = colors_list[i % len(colors_list)]
+            if color is None:
+                color = default_colors[i % len(default_colors)]
+            # Resolve TPS color names to hex if needed
+            if color in self.TPS_COLORS:
+                color = self.TPS_COLORS[color]
             stacked_values = group.get("stacked_values")
             stacked_color = group.get("stacked_color")
 
@@ -217,7 +250,11 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
                 if show_values:
                     # Simple bars
                     for j in range(simple_count):
-                        formatted_value = self._format_value(values[j], value_format) + value_suffix
+                        formatted_value = (
+                            value_prefix
+                            + self._format_value(values[j], value_format)
+                            + value_suffix
+                        )
                         ax.text(
                             pos[j],
                             values[j] + value_offset,
@@ -234,7 +271,9 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
                     ):
                         total = base_val + stack_val
                         idx = stacked_start + j
-                        formatted_value = self._format_value(total, value_format) + value_suffix
+                        formatted_value = (
+                            value_prefix + self._format_value(total, value_format) + value_suffix
+                        )
                         ax.text(
                             pos[idx],
                             total + value_offset,
@@ -260,7 +299,9 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
 
                 if show_values:
                     for j, val in enumerate(values):
-                        formatted_value = self._format_value(val, value_format) + value_suffix
+                        formatted_value = (
+                            value_prefix + self._format_value(val, value_format) + value_suffix
+                        )
                         ax.text(
                             pos[j],
                             val + value_offset,
