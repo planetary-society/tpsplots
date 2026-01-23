@@ -1,0 +1,23 @@
+data:
+  source: nasa_fy2026_controller.directorates_comparison_grouped
+
+chart:
+  type: grouped_bar
+  output: fy2026_directorate_full
+  title: "FY 2026 NASA Budget: Request vs Reality"
+  subtitle: "Despite draconian cuts proposed by the White House, Congress  preserved or increased funding for every major NASA activity."
+  source: "NASA FY 2026 Request; H.R. 6938"
+
+  categories: "{{categories}}"
+  groups: "{{groups_all}}"
+  labels: ["FY 2025 Enacted", "FY 2026 Proposal", "Appropriation"]
+  width: 0.22
+  scale: billions
+  show_values: true
+  value_format: monetary
+  value_fontsize: 7
+  colors: ["lunar_dust", "Rocket Flame", "Neptune Blue"]
+  tick_size: 10
+  legend:
+    loc: upper right
+  export_data: "{{export_df}}"

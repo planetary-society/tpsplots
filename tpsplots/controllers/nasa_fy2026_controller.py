@@ -1,24 +1,28 @@
+from datetime import datetime
 from typing import ClassVar
+
 import pandas as pd
 
 from tpsplots.controllers.nasa_fy_charts_controller import NASAFYChartsController
 from tpsplots.data_sources.missions import Missions
-from datetime import datetime
+
 
 class NASAFY2026Controller(NASAFYChartsController):
     FISCAL_YEAR = 2026
 
-    ACCOUNTS: ClassVar[list[str]] = [
-        "Deep Space Exploration Systems",
-        "Space Operations",
-        "Space Technology",
-        "Science",
-        "Aeronautics",
-        "STEM Engagement",
-        "Safety, Security, & Mission Services",
-        "Construction & Environmental Compliance & Restoration",
-        "Inspector General",
-    ]
+    # Mapping of CSV account names to short display names for charts.
+    # Note: CSV uses "LEO & Space Ops" (not "Space Operations").
+    # Inspector General excluded (too small relative to other accounts).
+    ACCOUNTS: ClassVar[dict[str, str]] = {
+        "Deep Space Exploration Systems": "Exploration",
+        "LEO & Space Ops": "Space Ops",
+        "Space Technology": "Tech",
+        "Science": "Science",
+        "Aeronautics": "Aero",
+        "STEM Engagement": "STEM",
+        "Safety, Security, & Mission Services": "SSMS",
+        "Construction & Environmental Compliance & Restoration": "CECR",
+    }
 
     # Custom charts for FY 2026
     def nasa_center_workforce_map(self):
@@ -96,7 +100,7 @@ class NASAFY2026Controller(NASAFYChartsController):
             "pie_data": pie_data,
             "export_df": export_df,
         }
-        
+
     def cancelled_missions_lollipop_chart(self):
         """
         Prepare a lollipop chart showing the launch date to end of all NASA missions

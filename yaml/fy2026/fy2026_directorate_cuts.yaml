@@ -1,25 +1,20 @@
 data:
-  source: nasa_fy2026_controller.major_accounts
+  source: nasa_fy2026_controller.directorates_comparison_grouped
 
 chart:
-  type: stacked_bar
+  type: grouped_bar
   output: fy2026_directorate_cuts
-  title: "Nearly every NASA activity faced cuts in 2026"
-  subtitle: "The 2026 proposal would have cut every NASA directorate except deep space exploration."
+  title: "NASA faced big cuts across the board in 2026"
+  subtitle: "Only human exploration would have received a boost. All other programs would have been slashed or eliminated."
   source: "NASA FY 2026 Budget Request"
 
   categories: "{{categories}}"
-  values: "{{values}}"
-  labels: ["FY2026 Proposed", "Amount Cut from FY 2025"]
-  orientation: vertical
+  groups: "{{groups_pbr}}"
+  scale: billions
   show_values: true
   value_format: monetary
-  value_threshold: 0
-  value_fontsize: 10
-  stack_labels: false
-  stack_label_format: monetary
-  scale: billions
-  colors: ["#037CC2", "#FF5D47"]
+  value_fontsize: 7
+  tick_size: 10
   legend:
     loc: upper right
   export_data: "{{export_df}}"

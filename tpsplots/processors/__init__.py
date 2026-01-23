@@ -1,5 +1,9 @@
 """Data processors for transforming raw data into chart-ready formats."""
 
+from tpsplots.processors.accounts_filter_processor import (
+    AccountsFilterConfig,
+    AccountsFilterProcessor,
+)
 from tpsplots.processors.award_data_processor import AwardDataProcessor, FiscalYearConfig
 from tpsplots.processors.budget_projection_processor import (
     BudgetProjectionConfig,
@@ -16,6 +20,10 @@ from tpsplots.processors.dataframe_to_yaml_processor import (
     DataFrameToYAMLConfig,
     DataFrameToYAMLProcessor,
 )
+from tpsplots.processors.grouped_bar_transform_processor import (
+    GroupedBarTransformConfig,
+    GroupedBarTransformProcessor,
+)
 from tpsplots.processors.inflation_adjustment_processor import (
     InflationAdjustmentConfig,
     InflationAdjustmentProcessor,
@@ -27,6 +35,8 @@ from tpsplots.processors.inflation_adjustment_processor import (
 
 __all__ = [
     "CALCULATION_REGISTRY",
+    "AccountsFilterConfig",
+    "AccountsFilterProcessor",
     "AwardDataProcessor",
     "BudgetProjectionConfig",
     "BudgetProjectionProcessor",
@@ -36,6 +46,8 @@ __all__ = [
     "DataFrameToYAMLConfig",
     "DataFrameToYAMLProcessor",
     "FiscalYearConfig",
+    "GroupedBarTransformConfig",
+    "GroupedBarTransformProcessor",
     "InflationAdjustmentConfig",
     "InflationAdjustmentProcessor",
     "register_calculation",

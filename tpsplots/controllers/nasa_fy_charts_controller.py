@@ -1,8 +1,11 @@
 import pandas as pd
 
 from tpsplots.controllers.chart_controller import ChartController
-from tpsplots.data_sources.nasa_budget_data_source import Directorates, Historical, Science, ScienceDivisions
-from tpsplots.data_sources.nasa_budget_detail_data_source import NASABudgetDetailSource 
+from tpsplots.data_sources.nasa_budget_data_source import (
+    Historical,
+    Science,
+)
+from tpsplots.data_sources.nasa_budget_detail_data_source import NASABudgetDetailSource
 from tpsplots.data_sources.new_awards import NewNASAAwards
 from tpsplots.processors.award_data_processor import AwardDataProcessor, FiscalYearConfig
 from tpsplots.processors.budget_projection_processor import (
@@ -13,11 +16,11 @@ from tpsplots.processors.calculated_column_processor import (
     CalculatedColumnConfig,
     CalculatedColumnProcessor,
 )
+from tpsplots.processors.dataframe_to_yaml_processor import DataFrameToYAMLProcessor
 from tpsplots.processors.inflation_adjustment_processor import (
     InflationAdjustmentConfig,
     InflationAdjustmentProcessor,
 )
-from tpsplots.processors.dataframe_to_yaml_processor import DataFrameToYAMLProcessor
 
 
 class NASAFYChartsController(ChartController):
@@ -56,16 +59,144 @@ class NASAFYChartsController(ChartController):
         """Process contract award data for historical comparison."""
         return self._get_award_data(award_type="Contract")
 
-    def major_accounts(self) -> pd.DataFrame:
-        """Returns NASA major accounts data for in-FY comparison."""
-        data = self.budget_detail
+    def major_accounts_context(self) -> pd.DataFrame:
+        """Returns NASA major accounts from 2006 to given fiscal year, as well as current fiscal year projection."""
+        data = self.budget_detail.copy()
         # Filter rows for matching major accounts names in first column
         if hasattr(self, "ACCOUNTS"):
-            data = data[data.iloc[:, 0].isin(self.ACCOUNTS)]
+            # Handle both dict (keys are account names) and list ACCOUNTS
+            if isinstance(self.ACCOUNTS, dict):
+                account_names = list(self.ACCOUNTS.keys())
+            else:
+                account_names = self.ACCOUNTS
+            data = data[data.iloc[:, 0].isin(account_names)]
         # Rename first column header to "Account"
         data = data.rename(columns={data.columns[0]: "Account"})
 
         return data
+
+    def _directorates_comparison(self) -> pd.DataFrame:
+        """Private: Prepare directorate data with filtering and short names.
+
+        Returns DataFrame with:
+        - Filtered to ACCOUNTS (with short names if ACCOUNTS is a dict)
+        - Sorted by request descending
+
+        This is the shared data preparation logic used by both
+        directorates_comparison_raw() and directorates_comparison_grouped().
+        """
+        from tpsplots.processors.accounts_filter_processor import (
+            AccountsFilterConfig,
+            AccountsFilterProcessor,
+        )
+
+        df = self.budget_detail.copy()
+
+        # Step 1: Filter to accounts (using AccountsFilterProcessor)
+        if hasattr(self, "ACCOUNTS"):
+            filter_config = AccountsFilterConfig(
+                accounts=self.ACCOUNTS,
+                use_short_names=isinstance(self.ACCOUNTS, dict),
+            )
+            df = AccountsFilterProcessor(filter_config).process(df)
+
+        # Step 2: Sort by request descending
+        request_col = f"FY {self.FISCAL_YEAR} Request"
+        if request_col in df.columns:
+            df = df.sort_values(request_col, ascending=False)
+
+        return df.reset_index(drop=True)
+
+    def directorates_comparison_raw(self) -> dict:
+        """Return directorate data as raw table for flexible charting/export.
+
+        Use for: tables, heatmaps, custom chart types, data export.
+
+        Returns:
+            dict with columns as keys, including Account and all FY columns.
+        """
+        df = self._directorates_comparison()
+        return DataFrameToYAMLProcessor().process(df)
+
+    def directorates_comparison_grouped(self) -> dict:
+        """Return directorate data formatted for grouped bar charts.
+
+        Creates pre-configured group sets for different chart variants:
+        - groups_pbr: Prior year enacted vs current year request
+        - groups_enacted_vs_approp: Prior year enacted vs current appropriation
+        - groups_all: All three columns
+
+        Returns:
+            dict with categories, groups, and group sets ready for YAML templates.
+        """
+        from tpsplots.processors.grouped_bar_transform_processor import (
+            GroupedBarTransformConfig,
+            GroupedBarTransformProcessor,
+        )
+
+        df = self._directorates_comparison()
+
+        # Define the columns for comparison
+        prior_enacted = f"FY {self.FISCAL_YEAR - 1} Enacted"
+        current_request = f"FY {self.FISCAL_YEAR} Request"
+        appropriated = "Appropriated"
+
+        # Build value columns list based on what's available
+        value_columns = []
+        group_labels = []
+
+        if prior_enacted in df.columns:
+            value_columns.append(prior_enacted)
+            group_labels.append(f"FY {self.FISCAL_YEAR - 1} Enacted")
+
+        if current_request in df.columns:
+            value_columns.append(current_request)
+            group_labels.append(f"FY {self.FISCAL_YEAR} Request")
+
+        if appropriated in df.columns:
+            value_columns.append(appropriated)
+            group_labels.append("Appropriated")
+
+        # Transform to grouped bar format (values stay raw - view handles scaling/colors)
+        transform_config = GroupedBarTransformConfig(
+            category_column="Account",
+            value_columns=value_columns,
+            group_labels=group_labels,
+        )
+        df = GroupedBarTransformProcessor(transform_config).process(df)
+
+        # Convert to YAML-ready dict
+        result = DataFrameToYAMLProcessor().process(df)
+
+        # Build specific group sets for chart variants
+        groups = result.get("groups", [])
+
+        # groups_pbr: Prior year enacted vs current year request (indices 0, 1)
+        if len(groups) >= 2:
+            result["groups_pbr"] = [groups[0], groups[1]]
+
+        # groups_enacted_vs_approp: Prior year enacted vs appropriated (indices 0, 2)
+        if len(groups) >= 3:
+            result["groups_enacted_vs_approp"] = [groups[0], groups[2]]
+
+        # groups_pbr_vs_approp: Prior year enacted vs appropriated (indices 1, 2)
+        if len(groups) >= 3:
+            result["groups_pbr_vs_approp"] = [groups[1], groups[2]]
+
+        # groups_all is already set by the processor as 'groups'
+        result["groups_all"] = groups
+
+        return result
+
+    def directorates_comparison(self) -> dict:
+        """Return directorate comparison data (grouped bar format by default).
+
+        This method delegates to directorates_comparison_grouped() for
+        backwards compatibility with existing YAML files.
+
+        For raw table data, use directorates_comparison_raw() instead.
+        """
+        return self.directorates_comparison_grouped()
 
     def science_division_context(self) -> dict:
         """Return historical budget data for each NASA science division.
@@ -97,9 +228,7 @@ class NASAFYChartsController(ChartController):
             appropriation_column="NASA Science",
             pbr_column="Science",
         )
-        df = BudgetProjectionProcessor(budget_config).process(
-            Science().data(), self.budget_detail
-        )
+        df = BudgetProjectionProcessor(budget_config).process(Science().data(), self.budget_detail)
 
         # Step 2: Apply inflation adjustment explicitly
         inflation_config = InflationAdjustmentConfig(
