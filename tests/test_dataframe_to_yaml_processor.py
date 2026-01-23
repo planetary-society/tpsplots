@@ -113,10 +113,10 @@ class TestExportDataFrame:
         result = DataFrameToYAMLProcessor().process(sample_df_with_projection)
         export_df = result["export_df"]
 
-        # FY2024, FY2025, FY2026 should have projection cleared
+        # FY2024, FY2025 should have projection cleared
         assert pd.isna(export_df.loc[0, "White House Budget Projection"])
         assert pd.isna(export_df.loc[1, "White House Budget Projection"])
-        assert pd.isna(export_df.loc[2, "White House Budget Projection"])
+        assert export_df.loc[2, "White House Budget Projection"] == 120
 
         # FY2027 (future) should keep projection
         assert export_df.loc[3, "White House Budget Projection"] == 125

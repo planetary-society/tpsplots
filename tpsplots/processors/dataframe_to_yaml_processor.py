@@ -181,20 +181,18 @@ class DataFrameToYAMLProcessor:
         fy = df.attrs.get("fiscal_year")
 
         # Clear projection column for historical years (FY < current FY)
-        # Keep the current FY projection value (the PBR request)
         if (
             self.config.clear_projection_before_fy
             and fy is not None
             and "White House Budget Projection" in export_df.columns
             and self.config.fiscal_year_column in export_df.columns
         ):
-            export_df.loc[
-                export_df[self.config.fiscal_year_column].apply(
-                    lambda x: x.year if hasattr(x, "year") else int(x)
-                )
-                < fy,
-                "White House Budget Projection",
-            ] = pd.NA
+            fiscal_years = export_df[self.config.fiscal_year_column].apply(
+                lambda x: x.year
+                if hasattr(x, "year")
+                else (int(x) if pd.notna(x) else pd.NA)
+            )
+            export_df.loc[fiscal_years < fy, "White House Budget Projection"] = pd.NA
 
         # Build export note
         export_note = self._build_export_note(df)
