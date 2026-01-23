@@ -560,9 +560,9 @@ class Science(NASABudget):
         "export?format=csv&gid=1298630212"
     )
 
-    COLUMNS: ClassVar[list[str]] = ["Fiscal Year", "NASA Science (millions of $)", "FY 2026 PBR"]
+    COLUMNS: ClassVar[list[str]] = ["Fiscal Year", "NASA Science (millions of $)"]
     RENAMES: ClassVar[dict[str, str]] = {"NASA Science (millions of $)": "NASA Science"}
-    MONETARY_COLUMNS: ClassVar[list[str]] = ["NASA Science", "FY 2026 PBR"]
+    MONETARY_COLUMNS: ClassVar[list[str]] = ["NASA Science"]
 
     def __init__(self) -> None:
         super().__init__(self.CSV_URL)
