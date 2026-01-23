@@ -91,6 +91,16 @@ When `data.source` is `module.method`, the processor:
 2. Finds the single `ChartController` subclass
 3. Calls the method, which must return a dict
 
+### Processors
+
+Data transformation processors live in `tpsplots/processors/`. See **[PROCESSORS.md](PROCESSORS.md)** for detailed guidelines on creating new processors.
+
+Key principles:
+- Single responsibility (one transformation per processor)
+- No presentation logic (colors, scaling, formatting belong in views)
+- Always return DataFrame for pipeline chaining
+- Must have unit tests
+
 ### Semantic Colors
 
 Use TPS brand color names (space-separated) instead of hex codes:
