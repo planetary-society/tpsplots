@@ -1,0 +1,35 @@
+data:
+  source: nasa_fy2025_controller.new_contracts_awards_comparison_to_prior_year
+
+chart:
+  type: line
+  output: new_contracts_historical_comparison
+  title: "NASA's total new contract awards in FY 2025"
+  subtitle: "While below the recent average, the towal number was similar to that in 2024."
+  source: "USASpending.gov (Does not include IDVs)"
+
+  # Data mapping from controller method return
+  x: "{{months}}"
+  y: "{{y_series}}"
+  color: "{{colors}}"
+  linestyle: "{{linestyles}}"
+  linewidth: "{{linewidths}}"
+  marker: "{{markers}}"
+  label: "{{labels}}"
+
+  # Axis configuration
+  ylim: [0, 6000]
+  ylabel: "Cumulative New Contracts Awarded"
+
+  # Styling parameters
+  label_size: 13
+  tick_size: 14
+  grid: true
+  legend: false
+
+  # Advanced features
+  direct_line_labels:
+    fontsize: 10
+
+  # Export configuration
+  export_data: "{{export_df}}"

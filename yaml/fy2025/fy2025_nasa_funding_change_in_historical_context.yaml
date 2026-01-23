@@ -1,0 +1,18 @@
+# Bar chart of percentage change in annual NASA budget proposals through FY2026
+data:
+  source: nasa_fy2025_controller.pbr_historical_context
+
+chart:
+  type: bar
+  output: fy2025_nasa_funding_change_in_historical_context
+  title: "NASA would have grown by 2% in FY 2025"
+  subtitle: "The proposed 2025 budget would have grown the agency's budget only slightly, just below the rate of inflation."
+  source: "NASA Budget Requests FYs 1960-2025"
+
+  categories: "{{Fiscal Year}}"
+  values: "{{Prior Appropriation to PBR Change %}}"
+  ylabel: "% change of proposed budget from prior year"
+  negative_color: "Rocket Flame"
+  show_values: false
+  value_format: percentage
+  export_data: "{{export_df}}"

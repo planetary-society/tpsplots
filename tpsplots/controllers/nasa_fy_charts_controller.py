@@ -2,7 +2,7 @@ import pandas as pd
 
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.data_sources.google_sheets_source import GoogleSheetsSource
-from tpsplots.data_sources.nasa_budget_data_source import Directorates, Historical
+from tpsplots.data_sources.nasa_budget_data_source import Directorates, Historical, Science, ScienceDivisions
 from tpsplots.data_sources.new_awards import NewNASAAwards
 from tpsplots.processors.award_data_processor import AwardDataProcessor, FiscalYearConfig
 from tpsplots.processors.budget_projection_processor import (
@@ -12,6 +12,10 @@ from tpsplots.processors.budget_projection_processor import (
 from tpsplots.processors.calculated_column_processor import (
     CalculatedColumnConfig,
     CalculatedColumnProcessor,
+)
+from tpsplots.processors.inflation_adjustment_processor import (
+    InflationAdjustmentConfig,
+    InflationAdjustmentProcessor,
 )
 from tpsplots.processors.dataframe_to_yaml_processor import DataFrameToYAMLProcessor
 
@@ -92,20 +96,16 @@ class NASAFYChartsController(ChartController):
         Returns:
             dict with chart-ready series and metadata for YAML variable references
         """
-        from tpsplots.processors.inflation_adjustment_processor import (
-            InflationAdjustmentConfig,
-            InflationAdjustmentProcessor,
-        )
 
         # Step 1: Budget projection (returns DataFrame)
         budget_config = BudgetProjectionConfig(
             fiscal_year=self.FISCAL_YEAR,
             budget_detail_row_name="Science",
-            appropriation_column="Science",  # Column name after renaming in Directorates
-            pbr_column="Science",  # Directorate level uses same column for both
+            appropriation_column="NASA Science",
+            pbr_column="Science",
         )
         df = BudgetProjectionProcessor(budget_config).process(
-            Directorates().data(), self.budget_detail
+            Science().data(), self.budget_detail
         )
 
         # Step 2: Apply inflation adjustment explicitly
@@ -118,16 +118,16 @@ class NASAFYChartsController(ChartController):
         # Step 3: Add calculated columns (YoY change from prior appropriation to PBR)
         calc_config = CalculatedColumnConfig()
         calc_config.add(
-            "Prior Appropriation to PBR Change $",
+            "Year-over-Year Change $",
             "delta_from_prior",
-            "Science",
-            "Science",
+            "NASA Science",
+            "NASA Science",
         )
         calc_config.add(
-            "Prior Appropriation to PBR Change %",
+            "Year-over-Year Change %",
             "percent_delta_from_prior",
-            "Science",
-            "Science",
+            "NASA Science",
+            "NASA Science",
         )
         df = CalculatedColumnProcessor(calc_config).process(df)
 

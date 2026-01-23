@@ -17,6 +17,7 @@ from tpsplots.data_sources.nasa_budget_data_source import (
 )
 from tpsplots.data_sources.new_awards import NewNASAAwards
 from tpsplots.processors.award_data_processor import AwardDataProcessor, FiscalYearConfig
+from tpsplots.processors.dataframe_to_yaml_processor import DataFrameToYAMLProcessor
 
 
 class FY2026Charts(ChartController):
@@ -571,8 +572,8 @@ class FY2026Charts(ChartController):
             award_type="Grant",
         )
         df = NewNASAAwards().data()
-        data = processor.process(df)
-        return data
+        award_df = processor.process(df)
+        return DataFrameToYAMLProcessor().process(award_df)
 
     def new_contract_awards_comparison_to_prior_years(self):
         """Track FY 2026 contract awards compared to prior fiscal years."""
@@ -582,5 +583,5 @@ class FY2026Charts(ChartController):
             award_type="Contract",
         )
         df = NewNASAAwards().data()
-        data = processor.process(df)
-        return data
+        award_df = processor.process(df)
+        return DataFrameToYAMLProcessor().process(award_df)
