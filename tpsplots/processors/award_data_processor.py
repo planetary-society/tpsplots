@@ -86,15 +86,15 @@ class AwardDataProcessor:
         self.current_month_override = current_month_override
         self.projection_months = projection_months
 
-    def process(self, df: pd.DataFrame) -> dict:
+    def process(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Process award data and return chart-ready data structure.
+        Process award data and return a DataFrame with chart metadata in attrs.
 
         Args:
             df: DataFrame with columns "Month" and "FY {year} New {award_type} Awards"
 
         Returns:
-            dict containing all processed data needed for chart generation
+            DataFrame suitable for CSV export, with chart metadata stored in attrs
         """
         # Filter out the "Total" row if present
         df = df[df["Month"] != "Total"].copy()
@@ -139,20 +139,22 @@ class AwardDataProcessor:
             last_full_month,
         )
 
-        # Build export DataFrame
+        # Build export DataFrame and attach chart metadata in attrs
         export_df = self._build_export_dataframe(y_series, labels)
+        export_df.attrs.update(
+            {
+                "months": self.MONTHS,
+                "y_series": y_series,
+                "labels": labels,
+                "colors": colors,
+                "linestyles": linestyles,
+                "markers": markers,
+                "linewidths": linewidths,
+                "shortfall_pct": shortfall_pct,
+            }
+        )
 
-        return {
-            "months": self.MONTHS,
-            "y_series": y_series,
-            "labels": labels,
-            "colors": colors,
-            "linestyles": linestyles,
-            "markers": markers,
-            "linewidths": linewidths,
-            "shortfall_pct": shortfall_pct,
-            "export_df": export_df,
-        }
+        return export_df
 
     def _build_award_columns(self) -> dict[int, str]:
         """Build mapping of year to column name."""

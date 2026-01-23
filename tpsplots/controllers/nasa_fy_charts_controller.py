@@ -47,8 +47,9 @@ class NASAFYChartsController(ChartController):
             fy_config=fy_config,
             award_type=award_type,
         )
-        df = self.new_awards.data()
-        return processor.process(df)
+        df = self.new_awards
+        award_df = processor.process(df)
+        return DataFrameToYAMLProcessor().process(award_df)
 
     def new_grants_awards_comparison_to_prior_year(self) -> dict:
         """Process grant award data for historical comparison."""

@@ -3,6 +3,7 @@
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.data_sources.new_awards import NewNASAAwards
 from tpsplots.processors.award_data_processor import AwardDataProcessor, FiscalYearConfig
+from tpsplots.processors.dataframe_to_yaml_processor import DataFrameToYAMLProcessor
 
 
 class FY2025Charts(ChartController):
@@ -20,7 +21,8 @@ class FY2025Charts(ChartController):
             award_type=award_type,
         )
         df = NewNASAAwards().data()
-        return processor.process(df)
+        award_df = processor.process(df)
+        return DataFrameToYAMLProcessor().process(award_df)
 
     def new_grants_awards_comparison_to_prior_year(self) -> dict:
         """Process grant award data for historical comparison."""
