@@ -1,24 +1,24 @@
 data:
-  source: fy2026_charts.fy2026_nasa_workforce_projections
+  source: nasa_fy2026_controller.workforce_projections
 
 chart:
   type: line
   output: fy2026_nasa_workforce_cuts
   title: "The smallest NASA workforce since 1960"
-  subtitle: "The White House's 2026 budget proposal cuts NASA's workforce to levels not seen since the dawn of the space age."
+  subtitle: "In 2026, the White House proposed to reduce NASA's workforce its smallest size since the dawn of the space age."
   source: "NASA FTE Workforce Reporting, FYs 1960-2026"
 
-  x: "{{fiscal_years}}"
+  x: "{{Fiscal Year}}"
   y:
-    - "{{fte}}"
-    - "{{fy2026_projection}}"
+    - "{{Full-time Equivalent (FTE)}}"
+    - "{{Workforce Projection}}"
   color: ["#037CC2", "#FF5D47"]
   linestyle: ["-", "-"]
   marker: ["", "o"]
   label: ["", "2026 White House proposal"]
   xlim: "{{xlim}}"
   ylim: "{{ylim}}"
-  legend: "{{legend}}"
+  legend: {"loc": "lower right"}
   export_data: "{{export_df}}"
   hlines: [11853]
   hline_labels: ["Lowest since 1960"]

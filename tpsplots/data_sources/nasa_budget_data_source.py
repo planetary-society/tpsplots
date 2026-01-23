@@ -581,5 +581,29 @@ class Workforce(NASABudget):
         "Full-time Equivalent (FTE)",
     ]
 
+    # Columns that need comma removal and numeric conversion
+    NUMERIC_COLUMNS: ClassVar[list[str]] = [
+        "Full-time Permanent (FTP)",
+        "Full-time Equivalent (FTE)",
+    ]
+
     def __init__(self) -> None:
         super().__init__(self.CSV_URL)
+
+    def _clean(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Override to clean comma-separated numeric columns."""
+        # Apply standard cleaning (fiscal year conversion)
+        df = super()._clean(df)
+
+        # Clean numeric columns (remove commas, convert to Int64)
+        for col in self.NUMERIC_COLUMNS:
+            if col in df.columns:
+                df[col] = (
+                    df[col]
+                    .astype(str)
+                    .str.replace(",", "", regex=False)
+                    .pipe(pd.to_numeric, errors="coerce")
+                    .astype("Int64")
+                )
+
+        return df

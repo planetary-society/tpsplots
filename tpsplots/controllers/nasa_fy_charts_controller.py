@@ -313,3 +313,35 @@ class NASAFYChartsController(ChartController):
 
         # Step 4: Convert to YAML-ready dict
         return DataFrameToYAMLProcessor().process(df)
+
+    def workforce_projections(self) -> dict:
+        """Return historical workforce data with optional FY projection.
+
+        If WORKFORCE_PROJECTION is defined in the subclass, creates a projection
+        series that overrides the actual FY value. Otherwise, returns workforce
+        data as-is through the current fiscal year.
+
+        Uses a pipeline of processors:
+        1. WorkforceProjectionProcessor: Filter data and optionally add projection
+
+        Returns:
+            dict with chart-ready series and metadata for YAML variable references
+        """
+        from tpsplots.data_sources.nasa_budget_data_source import Workforce
+        from tpsplots.processors.workforce_projection_processor import (
+            WorkforceProjectionConfig,
+            WorkforceProjectionProcessor,
+        )
+
+        df = Workforce().data()
+
+        # Get optional projection value (None means show data as-is)
+        projection_value = getattr(self, "WORKFORCE_PROJECTION", None)
+
+        config = WorkforceProjectionConfig(
+            fiscal_year=self.FISCAL_YEAR,
+            projection_value=projection_value,
+        )
+        df = WorkforceProjectionProcessor(config).process(df)
+
+        return DataFrameToYAMLProcessor().process(df)

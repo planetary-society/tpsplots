@@ -9,6 +9,7 @@ from tpsplots.data_sources.missions import Missions
 
 class NASAFY2026Controller(NASAFYChartsController):
     FISCAL_YEAR = 2026
+    WORKFORCE_PROJECTION = 11853  # FY2026 proposed workforce level
 
     # Mapping of CSV account names to short display names for charts.
     # Note: CSV uses "LEO & Space Ops" (not "Space Operations").
