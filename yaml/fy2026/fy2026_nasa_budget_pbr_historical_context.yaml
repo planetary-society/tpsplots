@@ -4,7 +4,7 @@ data:
 
 chart:
   type: line
-  output: nasa_budget_pbr_historical_context_fy2026
+  output: nasa_budget_historical_inflation_adjusted_fy2026_threat
   title: "NASA faced its smallest budget since 1961"
   subtitle: "For FY 2026, the White House proposed NASA's lowest funding level since the start of human spaceflight."
   source: "NASA Budget Requests, FYs 1960-2026"

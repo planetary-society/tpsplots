@@ -1,5 +1,5 @@
 data:
-  source: fy2026_charts.nasa_center_workforce_map
+  source: nasa_fy2026_controller.nasa_center_workforce_map
 
 chart:
   type: us_map_pie
