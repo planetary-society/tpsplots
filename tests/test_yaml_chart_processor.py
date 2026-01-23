@@ -2,9 +2,16 @@
 
 Tests focus on:
 - Bug 5: All color parameters should be resolved from semantic names
+- Core chart generation: parameter resolution, metadata flow, view dispatch
 """
 
+import textwrap
 from typing import ClassVar
+
+import pytest
+
+from tpsplots.exceptions import ConfigurationError
+from tpsplots.processors.yaml_chart_processor import YAMLChartProcessor
 
 
 class TestColorParameterResolution:
@@ -88,3 +95,85 @@ class TestColorParameterResolution:
 
         # Non-TPS colors pass through unchanged
         assert resolved == "red"
+
+
+class TestYAMLChartProcessorCore:
+    """Core behavior tests for YAMLChartProcessor."""
+
+    class DummyView:
+        """Minimal view used to capture inputs without rendering charts."""
+
+        def __init__(self, outdir):
+            self.outdir = outdir
+            self.called = None
+
+        def line_plot(self, metadata, stem, **kwargs):
+            self.called = {"metadata": metadata, "stem": stem, "kwargs": kwargs}
+            return self.called
+
+    def test_generate_chart_resolves_params_and_colors(self, tmp_path, monkeypatch):
+        """Processor should resolve references and semantic colors before plotting."""
+        csv_path = tmp_path / "data.csv"
+        csv_path.write_text("Year,Value\n2024,10\n2025,20\n")
+
+        yaml_path = tmp_path / "chart.yaml"
+        yaml_path.write_text(
+            textwrap.dedent(
+                f"""
+                data:
+                  source: csv:{csv_path}
+
+                chart:
+                  type: line
+                  output: test_chart
+                  title: "Test Chart"
+                  subtitle: "Simple subtitle"
+                  x: "{{{{Year}}}}"
+                  y: "{{{{Value}}}}"
+                  color: "Neptune Blue"
+                """
+            ).strip()
+        )
+
+        monkeypatch.setattr(
+            YAMLChartProcessor,
+            "VIEW_REGISTRY",
+            {"line_plot": self.DummyView},
+        )
+
+        processor = YAMLChartProcessor(yaml_path, outdir=tmp_path / "charts")
+        result = processor.generate_chart()
+
+        assert result["stem"] == "test_chart"
+        assert result["metadata"]["title"] == "Test Chart"
+        assert list(result["kwargs"]["x"]) == [2024, 2025]
+        assert list(result["kwargs"]["y"]) == [10, 20]
+        assert result["kwargs"]["color"] == "#037CC2"
+
+    def test_unknown_view_type_raises(self, tmp_path, monkeypatch):
+        """Unknown view type should raise ConfigurationError."""
+        csv_path = tmp_path / "data.csv"
+        csv_path.write_text("Year,Value\n2024,10\n")
+
+        yaml_path = tmp_path / "chart.yaml"
+        yaml_path.write_text(
+            textwrap.dedent(
+                f"""
+                data:
+                  source: csv:{csv_path}
+
+                chart:
+                  type: line
+                  output: test_chart
+                  title: "Test Chart"
+                  x: "{{{{Year}}}}"
+                  y: "{{{{Value}}}}"
+                """
+            ).strip()
+        )
+
+        monkeypatch.setattr(YAMLChartProcessor, "VIEW_REGISTRY", {})
+
+        processor = YAMLChartProcessor(yaml_path, outdir=tmp_path / "charts")
+        with pytest.raises(ConfigurationError, match="Unknown chart type"):
+            processor.generate_chart()
