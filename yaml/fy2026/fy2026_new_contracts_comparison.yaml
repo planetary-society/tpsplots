@@ -10,10 +10,7 @@ chart:
 
   x: "{{months}}"
   y: "{{y_series}}"
-  color: "{{colors}}"
-  linestyle: "{{linestyles}}"
-  linewidth: "{{linewidths}}"
-  marker: "{{markers}}"
+  series_types: "{{series_types}}"
   label: "{{labels}}"
   ylim: [0, 6000]
   ylabel: "Cumulative New Contracts Awarded"

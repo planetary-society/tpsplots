@@ -6,8 +6,6 @@ from typing import ClassVar
 import numpy as np
 import pandas as pd
 
-from tpsplots.views.chart_view import ChartView
-
 
 @dataclass
 class FiscalYearConfig:
@@ -94,7 +92,14 @@ class AwardDataProcessor:
             df: DataFrame with columns "Month" and "FY {year} New {award_type} Awards"
 
         Returns:
-            DataFrame suitable for CSV export, with chart metadata stored in attrs
+            DataFrame suitable for CSV export, with chart metadata stored in attrs.
+            The attrs include:
+            - months: List of fiscal year month labels
+            - y_series: List of data series for plotting
+            - labels: List of labels for each series (None for unlabeled)
+            - series_types: List of semantic types ("prior", "average", "current")
+              that views can use to apply appropriate styling
+            - shortfall_pct: Projected shortfall percentage vs comparison year
         """
         # Filter out the "Total" row if present
         df = df[df["Month"] != "Total"].copy()
@@ -106,19 +111,14 @@ class AwardDataProcessor:
         cumulative_data = self._calculate_cumulative_data(df, award_columns)
 
         # Process prior years and build series data
-        y_series, labels, colors, linestyles, markers, linewidths = self._process_prior_years(
-            cumulative_data
-        )
+        y_series, labels, series_types = self._process_prior_years(cumulative_data)
 
         # Calculate and add mean of prior years
         mean_cumulative = self._calculate_prior_year_mean(cumulative_data)
         if mean_cumulative:
             y_series.append(mean_cumulative)
             labels.append(self._generate_average_label())
-            colors.append(ChartView.COLORS["blue"])
-            linestyles.append("-")
-            markers.append("o")
-            linewidths.append(4.0)
+            series_types.append("average")
 
         # Process current year
         last_full_month = self._get_current_fiscal_month()
@@ -127,10 +127,7 @@ class AwardDataProcessor:
         if fy_current_data:
             y_series.append(fy_current_data["padded_cumulative"])
             labels.append(self._generate_current_year_label())
-            colors.append(ChartView.TPS_COLORS["Rocket Flame"])
-            linestyles.append("-")
-            markers.append("o")
-            linewidths.append(4.0)
+            series_types.append("current")
 
         # Calculate shortfall projection
         shortfall_pct = self._calculate_shortfall(
@@ -146,10 +143,7 @@ class AwardDataProcessor:
                 "months": self.MONTHS,
                 "y_series": y_series,
                 "labels": labels,
-                "colors": colors,
-                "linestyles": linestyles,
-                "markers": markers,
-                "linewidths": linewidths,
+                "series_types": series_types,
                 "shortfall_pct": shortfall_pct,
             }
         )
@@ -174,29 +168,27 @@ class AwardDataProcessor:
                 cumulative_data[year] = year_cumulative
         return cumulative_data
 
-    def _process_prior_years(
-        self, cumulative_data: dict[int, list]
-    ) -> tuple[list, list, list, list, list, list]:
-        """Process prior years into chart series data."""
+    def _process_prior_years(self, cumulative_data: dict[int, list]) -> tuple[list, list, list]:
+        """
+        Process prior years into chart series data.
+
+        Returns:
+            Tuple of (y_series, labels, series_types) where:
+            - y_series: List of cumulative data arrays
+            - labels: List of labels (None for individual prior years)
+            - series_types: List of semantic types ("prior" for all prior years)
+        """
         y_series = []
         labels = []
-        colors = []
-        linestyles = []
-        markers = []
-        linewidths = []
-
-        grey_color = ChartView.COLORS["medium_gray"]
+        series_types = []
 
         for year in self.fy_config.prior_years:
             if year in cumulative_data:
                 y_series.append(cumulative_data[year])
                 labels.append(None)  # No label for individual prior years
-                colors.append(grey_color)
-                linestyles.append("--")
-                markers.append(None)
-                linewidths.append(1.5)
+                series_types.append("prior")
 
-        return y_series, labels, colors, linestyles, markers, linewidths
+        return y_series, labels, series_types
 
     def _calculate_prior_year_mean(self, cumulative_data: dict[int, list]) -> list:
         """Calculate mean of all prior years' cumulative data."""
