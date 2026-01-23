@@ -1,8 +1,8 @@
 import pandas as pd
 
 from tpsplots.controllers.chart_controller import ChartController
-from tpsplots.data_sources.google_sheets_source import GoogleSheetsSource
 from tpsplots.data_sources.nasa_budget_data_source import Directorates, Historical, Science, ScienceDivisions
+from tpsplots.data_sources.nasa_budget_detail_data_source import NASABudgetDetailSource 
 from tpsplots.data_sources.new_awards import NewNASAAwards
 from tpsplots.processors.award_data_processor import AwardDataProcessor, FiscalYearConfig
 from tpsplots.processors.budget_projection_processor import (
@@ -26,17 +26,10 @@ class NASAFYChartsController(ChartController):
         self.new_awards: pd.DataFrame = NewNASAAwards().data()
         if not hasattr(self, "FISCAL_YEAR"):
             raise ValueError("FISCAL_YEAR must be defined in the subclass")
-        if not hasattr(self, "BUDGET_DETAIL_URL"):
-            raise ValueError("BUDGET_DETAIL_URL must be defined in the subclass")
-        self.budget_detail: pd.DataFrame = GoogleSheetsSource(self.BUDGET_DETAIL_URL).data()
 
-        # Convert all columns except the first column to numeric, stripping any non-numeric characters
-        for col in self.budget_detail.columns[1:]:
-            self.budget_detail[col] = pd.to_numeric(
-                self.budget_detail[col].astype(str).str.replace(r"[^\d.]", "", regex=True),
-                errors="coerce",
-            )
-            self.budget_detail[col] = self.budget_detail[col] * 1_000_000
+        self.budget_detail: pd.DataFrame = NASABudgetDetailSource(self.FISCAL_YEAR).data()
+
+        # NASABudgetDetailSource already normalizes and scales monetary columns
 
     # Methods for award tracking
     def _get_award_data(self, award_type: str = "Grant") -> dict:

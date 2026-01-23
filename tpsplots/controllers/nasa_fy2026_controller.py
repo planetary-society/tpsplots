@@ -7,7 +7,7 @@ from datetime import datetime
 
 class NASAFY2026Controller(NASAFYChartsController):
     FISCAL_YEAR = 2026
-    BUDGET_DETAIL_URL = "https://docs.google.com/spreadsheets/d/1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/export?format=csv&gid=1311027224"
+
     ACCOUNTS: ClassVar[list[str]] = [
         "Deep Space Exploration Systems",
         "Space Operations",
