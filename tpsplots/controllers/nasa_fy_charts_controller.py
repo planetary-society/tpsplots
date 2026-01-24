@@ -4,6 +4,7 @@ from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.data_sources.nasa_budget_data_source import (
     Historical,
     Science,
+    ScienceDivisions,
 )
 from tpsplots.data_sources.nasa_budget_detail_data_source import NASABudgetDetailSource
 from tpsplots.data_sources.new_awards import NewNASAAwards
@@ -24,6 +25,9 @@ from tpsplots.processors.inflation_adjustment_processor import (
 
 
 class NASAFYChartsController(ChartController):
+    # The four NASA Science Mission Directorate divisions
+    SCIENCE_DIVISIONS = ["Astrophysics", "Planetary Science", "Earth Science", "Heliophysics"]
+
     def __init__(self):
         self.historical: pd.DataFrame = Historical().data()
         self.new_awards: pd.DataFrame = NewNASAAwards().data()
@@ -198,13 +202,71 @@ class NASAFYChartsController(ChartController):
         """
         return self.directorates_comparison_grouped()
 
+    def _science_divisions_data(self) -> pd.DataFrame:
+        """Prepare science division data with inflation adjustment and PBR projection.
+
+        For each division, chains processors directly on the DataFrame:
+        1. BudgetProjectionProcessor - grafts PBR and runouts from budget_detail
+        2. InflationAdjustmentProcessor - applies NNSI adjustment
+
+        Returns:
+            DataFrame with columns for each division's historical and projection data:
+            - Fiscal Year
+            - {Division} - raw historical values
+            - {Division}_adjusted_nnsi - inflation-adjusted values
+            - {Division} White House Budget Projection - PBR + runouts
+        """
+        # Load historical science division data
+        df = ScienceDivisions().data()
+
+        # Chain processors for each division directly on df
+        for division in self.SCIENCE_DIVISIONS:
+            # Step 1: Run projection processor (adds runout year rows on first division)
+            config = BudgetProjectionConfig(
+                fiscal_year=self.FISCAL_YEAR,
+                budget_detail_row_name=division,
+                appropriation_column=division,
+                pbr_column=division,
+            )
+            df = BudgetProjectionProcessor(config).process(df, self.budget_detail)
+
+            # Rename generic projection column to division-specific
+            df = df.rename(
+                columns={
+                    "White House Budget Projection": f"{division} White House Budget Projection"
+                }
+            )
+
+            # Step 2: Apply inflation adjustment
+            inflation_config = InflationAdjustmentConfig(
+                target_year=self.FISCAL_YEAR - 1,
+                nnsi_columns=[division],
+            )
+            df = InflationAdjustmentProcessor(inflation_config).process(df)
+
+        # Ensure sorted by fiscal year
+        df = df.sort_values("Fiscal Year").reset_index(drop=True)
+
+        # Store metadata
+        df.attrs["fiscal_year"] = self.FISCAL_YEAR
+        df.attrs["inflation_target_year"] = self.FISCAL_YEAR - 1
+
+        return df
+
     def science_division_context(self) -> dict:
         """Return historical budget data for each NASA science division.
 
-        Includes given FY PBR division requests and runout projections.
-        Includes calculated comparison columns for charting purposes.
+        Includes FY PBR division requests and runout projections.
+        Returns raw columnar data for flexible chart use - YAML defines presentation.
+
+        Returns:
+            dict with columns for each division:
+            - {Division} - raw historical values
+            - {Division}_adjusted_nnsi - inflation-adjusted values
+            - {Division} White House Budget Projection - PBR + runouts
         """
-        pass
+        df = self._science_divisions_data()
+        return DataFrameToYAMLProcessor().process(df)
 
     def science_context(self) -> dict:
         """Return historical budget data for NASA Science Mission Directorate (SMD).

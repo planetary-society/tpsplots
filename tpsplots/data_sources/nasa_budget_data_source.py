@@ -481,21 +481,13 @@ class ScienceDivisions(NASABudget):
         "Astrophysics",
         "Planetary Science",
         "Earth Science",
-        "Heliophysics",
-        "Astrophysics Proposed",
-        "Planetary Science Proposed",
-        "Earth Science Proposed",
-        "Heliophysics Proposed",
+        "Heliophysics"
     ]
     MONETARY_COLUMNS: ClassVar[list[str]] = [
         "Astrophysics",
         "Planetary Science",
         "Earth Science",
-        "Heliophysics",
-        "Astrophysics Proposed",
-        "Planetary Science Proposed",
-        "Earth Science Proposed",
-        "Heliophysics Proposed",
+        "Heliophysics"
     ]
 
     def __init__(self) -> None:
