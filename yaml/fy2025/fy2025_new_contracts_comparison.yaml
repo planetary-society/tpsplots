@@ -6,7 +6,7 @@ chart:
   output: new_contracts_historical_comparison
   title: "NASA's total new contract awards in FY 2025"
   subtitle: "While below the recent average, the towal number was similar to that in 2024."
-  source: "USASpending.gov (Does not include IDVs)"
+  source: "NASA Procurement Data View"
 
   # Data mapping from controller method return
   x: "{{months}}"

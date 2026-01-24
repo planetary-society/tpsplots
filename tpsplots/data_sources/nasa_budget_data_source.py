@@ -523,8 +523,8 @@ class Directorates(NASABudget):
     COLUMNS: ClassVar[list[str]] = [
         "Fiscal Year",
         "Aeronautics",
-        "HSF Exploration",
-        "LEO Space Operations",
+        "Exploration",
+        "Space Operations",
         "STMD",
         "SMD",
         "Education/STEM Outreach",
@@ -534,14 +534,14 @@ class Directorates(NASABudget):
         "Cross Agency Support/CECR": "Facilities, IT, & Salaries",
         "Education/STEM Outreach": "STEM Education",
         "STMD": "Space Technology",
-        "HSF Exploration": "Deep Space Exploration Systems",
+        "Exploration": "Deep Space Exploration Systems",
         "SMD": "Science",
     }
     MONETARY_COLUMNS: ClassVar[list[str]] = [
         "Aeronautics",
         "Space Technology",
         "Deep Space Exploration Systems",
-        "LEO Space Operations",
+        "Space Operations",
         "Science",
         "STEM Education",
         "Facilities, IT, & Salaries",
