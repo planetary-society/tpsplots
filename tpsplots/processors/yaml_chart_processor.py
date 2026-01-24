@@ -112,28 +112,8 @@ class YAMLChartProcessor:
         resolved_params = ParameterResolver.resolve(parameters, self.data)
         resolved_metadata = MetadataResolver.resolve(metadata, self.data)
 
-        # Step 3b: Resolve semantic color names to hex codes
-        color_params = [
-            "color",
-            "colors",
-            "positive_color",
-            "negative_color",
-            "value_color",
-            "center_color",
-            "start_marker_color",
-            "end_marker_color",
-            "start_marker_edgecolor",
-            "end_marker_edgecolor",
-            "y_tick_color",
-            "line_colors",
-            "hline_colors",
-            "edgecolor",
-            "pie_edge_color",
-            "offset_line_color",
-        ]
-        for param in color_params:
-            if param in resolved_params:
-                resolved_params[param] = ColorResolver.resolve(resolved_params[param])
+        # Step 3b: Resolve semantic color names to hex codes (recursively)
+        resolved_params = ColorResolver.resolve_deep(resolved_params)
 
         # Step 4: Get view and generate chart
         logger.info(f"Generating {chart_type_v2} chart: {output_name}")

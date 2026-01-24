@@ -1,6 +1,6 @@
 """Color name resolver for semantic color names to hex codes."""
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from tpsplots.colors import COLORS, TPS_COLORS
 
@@ -13,12 +13,33 @@ class ColorResolver:
     - TPS_COLORS keys: "Neptune Blue", "Rocket Flame" (brand colors)
     - Hex passthrough: "#037CC2" → "#037CC2"
     - List handling: ["blue", "Neptune Blue"] → ["#037CC2", "#037CC2"]
+    - Deep resolution: Recursively resolves colors in nested structures
 
     COLORS takes precedence over TPS_COLORS when keys conflict.
     """
 
     # Build unified lookup map (COLORS takes precedence for accessibility)
     _COLOR_MAP: ClassVar[dict[str, str]] = {}
+
+    # Color field names that should be resolved when encountered in dicts
+    COLOR_FIELDS: ClassVar[set[str]] = {
+        "color",
+        "colors",
+        "positive_color",
+        "negative_color",
+        "value_color",
+        "center_color",
+        "start_marker_color",
+        "end_marker_color",
+        "start_marker_edgecolor",
+        "end_marker_edgecolor",
+        "y_tick_color",
+        "line_colors",
+        "hline_colors",
+        "edgecolor",
+        "pie_edge_color",
+        "offset_line_color",
+    }
 
     @classmethod
     def _build_color_map(cls) -> dict[str, str]:
@@ -69,3 +90,28 @@ class ColorResolver:
         # Exact match lookup in color map
         color_map = cls._build_color_map()
         return color_map.get(value, value)  # Return original if not found
+
+    @classmethod
+    def resolve_deep(cls, value: Any) -> Any:
+        """Recursively resolve colors in any nested structure.
+
+        Walks through dicts and lists, resolving values in color-named fields.
+        Non-color fields are recursively traversed but their values are not resolved.
+
+        Args:
+            value: Any value - dict, list, or scalar
+
+        Returns:
+            The same structure with color fields resolved to hex codes
+        """
+        if isinstance(value, dict):
+            return {
+                k: cls.resolve(v) if k in cls.COLOR_FIELDS else cls.resolve_deep(v)
+                for k, v in value.items()
+            }
+
+        if isinstance(value, list):
+            return [cls.resolve_deep(item) for item in value]
+
+        # Non-container values pass through unchanged
+        return value
