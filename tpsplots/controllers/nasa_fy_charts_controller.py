@@ -233,7 +233,7 @@ class NASAFYChartsController(ChartController):
         # Step 2: Apply inflation adjustment explicitly
         inflation_config = InflationAdjustmentConfig(
             target_year=self.FISCAL_YEAR - 1,
-            nnsi_columns=["Science"],
+            nnsi_columns=["NASA Science"],
         )
         df = InflationAdjustmentProcessor(inflation_config).process(df)
 

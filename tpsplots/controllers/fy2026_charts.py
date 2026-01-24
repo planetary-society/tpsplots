@@ -88,7 +88,20 @@ class FY2026Charts(ChartController):
         }
 
     def nasa_science_by_year_inflation_adjusted_fy2026_threat(self):
-        """Prepare historical NASA Science budget chart data."""
+        """Prepare historical NASA Science budget chart data.
+
+        .. deprecated::
+            Use nasa_fy2026_controller.science_context instead, which follows
+            the processor pipeline pattern with proper column naming.
+        """
+        import warnings
+
+        warnings.warn(
+            "nasa_science_by_year_inflation_adjusted_fy2026_threat is deprecated. "
+            "Use nasa_fy2026_controller.science_context instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         df = Science().data()
 
         # Prepare data for view

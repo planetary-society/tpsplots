@@ -1,5 +1,5 @@
 data:
-  source: fy2026_charts.nasa_science_by_year_inflation_adjusted_fy2026_threat
+  source: nasa_fy2026_controller.science_context
 
 chart:
   type: line
@@ -8,22 +8,23 @@ chart:
   subtitle: "The proposed 47% reduction would have resulted in the smallest science budget since 1984, when adjusted for inflation."
   source: "NASA Budget Justifications, FYs 1980-2025"
 
-  x: "{{fiscal_years}}"
+  x: "{{Fiscal Year}}"
   y:
-    - "{{nasa_science_adjusted_nnsi}}"
-    - "{{fy_2026_pbr}}"
-  color: ["#037CC2", "#FF5D47"]
+    - "{{NASA Science_adjusted_nnsi}}"
+    - "{{White House Budget Projection}}"
+  color: ["Neptune Blue", "Rocket Flame"]
   linestyle: ["-", "-"]
   marker: ["", "o"]
-  label: ["NASA science funding", "2026 White House proposal"]
-  xlim: "{{xlim}}"
-  ylim: "{{ylim}}"
+  label: ["NASA science funding", "White House proposal"]
+  xlim: [1980-01-01, 2030-01-01]
+  ylim: [0, 10000000000]
   scale: billions
-  legend: "{{legend}}"
+  legend:
+    loc: lower right
   export_data: "{{export_df}}"
   hlines: [3907600000]
   hline_labels: ["Lowest since 1984"]
   hline_label_position: center
-  hline_colors: ["#414141"]
+  hline_colors: ["Lunar Soil"]
   hline_linestyle: ["--"]
   hline_linewidth: [2]
