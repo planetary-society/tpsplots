@@ -79,16 +79,16 @@ def upload_directory(
 def s3_sync(
     local_dir: Annotated[
         Path,
-        typer.Option("--local-dir", "-d", help="Local directory to upload"),
-    ] = Path("charts"),
+        typer.Option("--local-dir", "-d", help="Local directory to upload (required)"),
+    ],
     bucket: Annotated[
         str,
-        typer.Option("--bucket", "-b", help="S3 bucket name"),
-    ] = "planetary",
+        typer.Option("--bucket", "-b", help="S3 bucket name (required)"),
+    ],
     prefix: Annotated[
         str,
-        typer.Option("--prefix", "-p", help="S3 prefix (path within bucket)"),
-    ] = "assets/charts/",
+        typer.Option("--prefix", "-p", help="S3 prefix/path within bucket (required)"),
+    ],
     dry_run: Annotated[
         bool,
         typer.Option("--dry-run", "-n", help="Preview changes without uploading"),
@@ -102,13 +102,9 @@ def s3_sync(
 
     Examples:
 
-        tpsplots s3-sync --dry-run              Preview what would be uploaded
+        tpsplots s3-sync -d charts -b mybucket -p assets/charts/ --dry-run
 
-        tpsplots s3-sync                        Upload charts/ to s3://planetary/assets/charts/
-
-        tpsplots s3-sync --bucket my-bucket     Upload to a different bucket
-
-        tpsplots s3-sync --local-dir output/    Upload from a different directory
+        tpsplots s3-sync --local-dir charts --bucket mybucket --prefix charts/
     """
     if not local_dir.exists() or not local_dir.is_dir():
         print(f"Error: {local_dir} does not exist or is not a directory")

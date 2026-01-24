@@ -89,9 +89,17 @@ class TestCLI:
 
     def test_s3_sync_dry_run_missing_dir(self):
         """Test that s3-sync fails gracefully with missing directory."""
-        result = runner.invoke(app, ["s3-sync", "--local-dir", "nonexistent_dir", "--dry-run"])
+        result = runner.invoke(
+            app,
+            ["s3-sync", "-d", "nonexistent_dir", "-b", "test-bucket", "-p", "test/", "--dry-run"],
+        )
         assert result.exit_code == 1
         assert "does not exist" in result.stdout
+
+    def test_s3_sync_requires_args(self):
+        """Test that s3-sync requires bucket and prefix arguments."""
+        result = runner.invoke(app, ["s3-sync", "--dry-run"])
+        assert result.exit_code == 2  # Missing required options
 
 
 class TestLegacyMainFunction:
