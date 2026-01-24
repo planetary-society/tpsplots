@@ -1,16 +1,25 @@
-"""Command-line interface for tpsplots."""
+"""Command-line interface for tpsplots using Typer."""
 
-import argparse
 import logging
 import sys
 import traceback
 from pathlib import Path
+from typing import Annotated
+
+import typer
 
 from tpsplots import __version__
 from tpsplots.exceptions import ConfigurationError, DataSourceError, RenderingError
 from tpsplots.processors.yaml_chart_processor import YAMLChartProcessor
 from tpsplots.schema import get_chart_types
 from tpsplots.templates import get_available_templates, get_template
+
+app = typer.Typer(
+    name="tpsplots",
+    help="Generate Planetary Society-branded charts from YAML configurations.",
+    add_completion=False,
+    no_args_is_help=True,
+)
 
 
 def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
@@ -86,164 +95,137 @@ def collect_yaml_files(inputs: list[Path]) -> tuple[list[Path], list[str]]:
     return yaml_files, errors
 
 
-def create_parser() -> argparse.ArgumentParser:
-    """Create the argument parser for the CLI."""
-    parser = argparse.ArgumentParser(
-        prog="tpsplots",
-        description="Generate Planetary Society-branded charts from YAML configurations",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  %(prog)s chart.yaml                       Generate a single chart
-  %(prog)s chart1.yaml chart2.yaml          Process multiple charts
-  %(prog)s yaml/                            Process all YAML files in directory
-  %(prog)s --validate chart.yaml            Validate without generating
-  %(prog)s --outdir output/ yaml/           Specify output directory
-  %(prog)s --new line > my_chart.yaml       Generate a line chart template
-  %(prog)s --schema > schema.json           Export JSON Schema
-  %(prog)s --list-types                     List available chart types
-        """,
-    )
-
-    parser.add_argument(
-        "inputs",
-        nargs="*",
-        type=Path,
-        help="YAML configuration file(s) or directory(ies) to process",
-    )
-
-    parser.add_argument(
-        "--validate",
-        action="store_true",
-        help="Validate YAML configuration without generating charts",
-    )
-
-    parser.add_argument(
-        "--outdir",
-        "-o",
-        type=Path,
-        default=Path("charts"),
-        help="Output directory for generated charts (default: charts/)",
-    )
-
-    parser.add_argument(
-        "--strict",
-        action="store_true",
-        help="Error on unresolved data references (default: pass through as-is)",
-    )
-
-    parser.add_argument(
-        "--quiet",
-        "-q",
-        action="store_true",
-        help="Suppress progress output (errors still shown)",
-    )
-
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Enable verbose/debug logging",
-    )
-
-    parser.add_argument(
-        "--schema",
-        action="store_true",
-        help="Print JSON Schema for YAML configuration and exit",
-    )
-
-    parser.add_argument(
-        "--list-types",
-        action="store_true",
-        help="List available chart types and exit",
-    )
-
-    parser.add_argument(
-        "--new",
-        metavar="TYPE",
-        help="Generate a YAML template for the specified chart type (e.g., --new line)",
-    )
-
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"%(prog)s {__version__}",
-    )
-
-    return parser
+def version_callback(value: bool) -> None:
+    """Display version and exit."""
+    if value:
+        print(f"tpsplots {__version__}")
+        raise typer.Exit()
 
 
-def main(args: list[str] | None = None) -> int:
+def schema_callback(value: bool) -> None:
+    """Print JSON Schema and exit."""
+    if value:
+        print(export_schema())
+        raise typer.Exit()
+
+
+def list_types_callback(value: bool) -> None:
+    """List chart types and exit."""
+    if value:
+        list_chart_types()
+        raise typer.Exit()
+
+
+def new_callback(chart_type: str | None) -> None:
+    """Generate template and exit."""
+    if chart_type:
+        try:
+            template = get_template(chart_type)
+            print(template)
+            raise typer.Exit()
+        except ValueError as e:
+            print(str(e), file=sys.stderr)
+            print(f"Available templates: {', '.join(get_available_templates())}", file=sys.stderr)
+            raise typer.Exit(code=2)
+
+
+@app.callback()
+def main(
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            callback=version_callback,
+            is_eager=True,
+            help="Show version and exit",
+        ),
+    ] = False,
+    schema: Annotated[
+        bool,
+        typer.Option(
+            "--schema",
+            callback=schema_callback,
+            is_eager=True,
+            help="Print JSON Schema for YAML configuration and exit",
+        ),
+    ] = False,
+    list_types: Annotated[
+        bool,
+        typer.Option(
+            "--list-types",
+            callback=list_types_callback,
+            is_eager=True,
+            help="List available chart types and exit",
+        ),
+    ] = False,
+    new: Annotated[
+        str | None,
+        typer.Option(
+            "--new",
+            callback=new_callback,
+            is_eager=True,
+            metavar="TYPE",
+            help="Generate a YAML template for the specified chart type",
+        ),
+    ] = None,
+) -> None:
+    """Generate Planetary Society-branded charts from YAML configurations."""
+    pass
+
+
+@app.command("generate")
+def generate(
+    inputs: Annotated[
+        list[Path],
+        typer.Argument(help="YAML configuration file(s) or directory(ies) to process"),
+    ],
+    outdir: Annotated[
+        Path,
+        typer.Option("--outdir", "-o", help="Output directory for generated charts"),
+    ] = Path("charts"),
+    strict: Annotated[
+        bool,
+        typer.Option("--strict", help="Error on unresolved data references"),
+    ] = False,
+    quiet: Annotated[
+        bool,
+        typer.Option("--quiet", "-q", help="Suppress progress output (errors still shown)"),
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", help="Enable verbose/debug logging"),
+    ] = False,
+) -> None:
+    """Generate charts from YAML configuration files.
+
+    Examples:
+
+        tpsplots generate chart.yaml                    Generate a single chart
+
+        tpsplots generate chart1.yaml chart2.yaml       Process multiple charts
+
+        tpsplots generate yaml/                         Process all YAML files in directory
+
+        tpsplots generate --outdir output/ yaml/        Specify output directory
     """
-    Main entry point for the tpsplots CLI.
-
-    Args:
-        args: Command-line arguments (defaults to sys.argv[1:])
-
-    Returns:
-        Exit code (0 for success, non-zero for failure)
-    """
-    parser = create_parser()
-    parsed_args = parser.parse_args(args)
-
     # Setup logging
-    setup_logging(verbose=parsed_args.verbose, quiet=parsed_args.quiet)
+    setup_logging(verbose=verbose, quiet=quiet)
     logger = logging.getLogger(__name__)
 
-    # Handle --schema
-    if parsed_args.schema:
-        print(export_schema())
-        return 0
-
-    # Handle --list-types
-    if parsed_args.list_types:
-        list_chart_types()
-        return 0
-
-    # Handle --new (template generation)
-    if parsed_args.new:
-        try:
-            template = get_template(parsed_args.new)
-            print(template)
-            return 0
-        except ValueError as e:
-            logger.error(str(e))
-            logger.info(f"Available templates: {', '.join(get_available_templates())}")
-            return 2
-
-    # Require inputs for operations that need them
-    if not parsed_args.inputs:
-        parser.print_help()
-        return 2
-
     # Collect all YAML files from inputs
-    yaml_files, input_errors = collect_yaml_files(parsed_args.inputs)
+    yaml_files, input_errors = collect_yaml_files(inputs)
 
     if input_errors:
         for error in input_errors:
             logger.error(error)
-        return 2
+        raise typer.Exit(code=2)
 
     if not yaml_files:
         logger.error("No YAML files found to process")
-        return 2
+        raise typer.Exit(code=2)
 
-    if not parsed_args.quiet:
+    if not quiet:
         logger.info(f"Processing {len(yaml_files)} YAML file(s)...")
-
-    # Handle validation mode
-    if parsed_args.validate:
-        valid_count = 0
-        invalid_count = 0
-
-        for yaml_file in yaml_files:
-            if validate_yaml(yaml_file, strict=parsed_args.strict):
-                valid_count += 1
-            else:
-                invalid_count += 1
-
-        if not parsed_args.quiet:
-            logger.info(f"Validation complete: {valid_count} valid, {invalid_count} invalid")
-        return 0 if invalid_count == 0 else 2
 
     # Generate charts
     success_count = 0
@@ -251,48 +233,143 @@ def main(args: list[str] | None = None) -> int:
     config_error_count = 0
 
     # Create output directory if it doesn't exist
-    parsed_args.outdir.mkdir(parents=True, exist_ok=True)
+    outdir.mkdir(parents=True, exist_ok=True)
 
     for yaml_file in yaml_files:
         try:
-            processor = YAMLChartProcessor(
-                yaml_file, outdir=parsed_args.outdir, strict=parsed_args.strict
-            )
+            processor = YAMLChartProcessor(yaml_file, outdir=outdir, strict=strict)
             result = processor.generate_chart()
 
             if result:
-                if not parsed_args.quiet:
+                if not quiet:
                     logger.info(f"Generated chart from {yaml_file.name}")
                 success_count += 1
             else:
-                if not parsed_args.quiet:
+                if not quiet:
                     logger.warning(f"No output from {yaml_file.name}")
                 failure_count += 1
 
         except ConfigurationError as e:
             logger.error(f"Config error: {yaml_file.name} - {e}")
             config_error_count += 1
-            if parsed_args.verbose:
+            if verbose:
                 traceback.print_exc()
         except (DataSourceError, RenderingError) as e:
             logger.error(f"Failed: {yaml_file.name} - {e}")
             failure_count += 1
-            if parsed_args.verbose:
+            if verbose:
                 traceback.print_exc()
         except Exception as e:
             logger.error(f"Unexpected error: {yaml_file.name} - {e}")
             failure_count += 1
-            if parsed_args.verbose:
+            if verbose:
                 traceback.print_exc()
 
-    if not parsed_args.quiet:
+    if not quiet:
         logger.info(f"Complete: {success_count} succeeded, {failure_count} failed")
 
     if config_error_count > 0:
-        return 2
+        raise typer.Exit(code=2)
     if failure_count > 0:
-        return 1
-    return 0
+        raise typer.Exit(code=1)
+
+
+@app.command("validate")
+def validate_cmd(
+    inputs: Annotated[
+        list[Path],
+        typer.Argument(help="YAML configuration file(s) or directory(ies) to validate"),
+    ],
+    strict: Annotated[
+        bool,
+        typer.Option("--strict", help="Error on unresolved data references"),
+    ] = False,
+    quiet: Annotated[
+        bool,
+        typer.Option("--quiet", "-q", help="Suppress progress output (errors still shown)"),
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", help="Enable verbose/debug logging"),
+    ] = False,
+) -> None:
+    """Validate YAML configuration files without generating charts.
+
+    Examples:
+
+        tpsplots validate chart.yaml                    Validate a single chart
+
+        tpsplots validate chart1.yaml chart2.yaml       Validate multiple charts
+
+        tpsplots validate yaml/                         Validate all YAML files in directory
+    """
+    # Setup logging
+    setup_logging(verbose=verbose, quiet=quiet)
+    logger = logging.getLogger(__name__)
+
+    # Collect all YAML files from inputs
+    yaml_files, input_errors = collect_yaml_files(inputs)
+
+    if input_errors:
+        for error in input_errors:
+            logger.error(error)
+        raise typer.Exit(code=2)
+
+    if not yaml_files:
+        logger.error("No YAML files found to process")
+        raise typer.Exit(code=2)
+
+    valid_count = 0
+    invalid_count = 0
+
+    for yaml_file in yaml_files:
+        if validate_yaml(yaml_file, strict=strict):
+            valid_count += 1
+        else:
+            invalid_count += 1
+
+    if not quiet:
+        logger.info(f"Validation complete: {valid_count} valid, {invalid_count} invalid")
+
+    raise typer.Exit(code=0 if invalid_count == 0 else 2)
+
+
+# Import and register s3-sync subcommand
+from tpsplots.commands.s3_sync import s3_sync
+
+app.command("s3-sync")(s3_sync)
+
+
+def cli_main() -> None:
+    """Entry point for pyproject.toml."""
+    app()
+
+
+# Keep legacy main() for backwards compatibility with existing tests
+def main(args: list[str] | None = None) -> int:
+    """
+    Legacy entry point for backwards compatibility.
+
+    Args:
+        args: Command-line arguments (defaults to sys.argv[1:])
+
+    Returns:
+        Exit code (0 for success, non-zero for failure)
+    """
+    try:
+        if args is not None:
+            # Typer uses sys.argv, so we need to temporarily replace it
+            original_argv = sys.argv
+            sys.argv = ["tpsplots", *args]
+            try:
+                app()
+            finally:
+                sys.argv = original_argv
+        else:
+            app()
+        return 0
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else 0
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ chart:
   type: line_subplots
   output: nasa_science_divisions_quad_plot_fy2025_projections
   title: "A flat future for NASA science in 2025"
-  subtitle: "The 2025 proposal would have cut 30-65% from each division — some to inflation-adjusted historic lows."
+  subtitle: "The 2025 proposal would have generally maintained science funding at current levels."
   source: "NASA Presidential Budget Requests, FYs 1990-2026"
 
   # Subplot configuration with presentation in YAML

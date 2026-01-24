@@ -30,6 +30,8 @@ dependencies = [
     "requests>=2.28",
     "pywaffle>=1.1.0",
     "geopandas>=1.0",
+    "typer>=0.12.0",
+    "boto3>=1.28",
 ]
 
 [project.optional-dependencies]
@@ -40,7 +42,7 @@ dev = [
 ]
 
 [project.scripts]
-tpsplots = "tpsplots.cli:main"
+tpsplots = "tpsplots.cli:cli_main"
 
 [project.urls]
 Homepage = "https://github.com/planetary/tpsplots"
