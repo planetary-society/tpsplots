@@ -1,7 +1,0 @@
-from tpsplots.controllers.nasa_budget_chart import NASABudgetChart
-from tpsplots.views.chart_view import *
-
-chart = NASABudgetChart()
-chart.nasa_budget_pbr_appropriation_by_year_inflation_adjusted()
-chart.nasa_budget_appropriation_by_year_inflation_adjusted()
-chart.nasa_science_by_year_inflation_adjusted_fy2026_threat()
