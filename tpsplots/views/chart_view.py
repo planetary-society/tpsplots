@@ -198,8 +198,9 @@ class ChartView:
             for row in meta_rows:
                 writer.writerow(row)
 
-            # Write column names and data, converting NaN to empty strings
-            # and formatting dates as YYYY-mm-dd
+            # Write column names and data, converting NaN to empty strings,
+            # formatting dates as YYYY-mm-dd, rounding floats to 2 significant
+            # digits, and ensuring integers export as integers
             writer.writerow(csv_df.columns)
             for _, row in csv_df.iterrows():
                 formatted_row = []
@@ -209,6 +210,13 @@ class ChartView:
                     elif hasattr(val, "strftime"):
                         # Format datetime/date/Timestamp as YYYY-mm-dd (no time)
                         formatted_row.append(val.strftime("%Y-%m-%d"))
+                    elif isinstance(val, (int, float, np.integer, np.floating)):
+                        if val == int(val):
+                            formatted_row.append(int(val))
+                        elif abs(val) > 1:
+                            formatted_row.append(round(val, 2))
+                        else:
+                            formatted_row.append(val)
                     else:
                         formatted_row.append(val)
                 writer.writerow(formatted_row)
