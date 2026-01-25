@@ -9,9 +9,9 @@ class NASABudgetDetailSource(GoogleSheetsSource):
     """Data source for detailed NASA budget data from a Google Sheets URL."""
 
     # Base URL for budget detail sheet (gid appended per FY)
-    URL: ClassVar[
-        str
-    ] = "https://docs.google.com/spreadsheets/d/1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/export?format=csv"
+    URL: ClassVar[str] = (
+        "https://docs.google.com/spreadsheets/d/1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/export?format=csv"
+    )
 
     NASA_FY_GOOGLE_SHEET_GID_LOOKUP: ClassVar[dict[int, str]] = {
         2027: "1991531891",
@@ -22,7 +22,7 @@ class NASABudgetDetailSource(GoogleSheetsSource):
         2022: "757486787",
         2021: "1531105314",
         2020: "1883310341",
-        2019: "2070536405"
+        2019: "2070536405",
     }
 
     def __init__(self, fy: int):

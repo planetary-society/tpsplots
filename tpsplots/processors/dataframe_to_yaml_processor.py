@@ -188,9 +188,7 @@ class DataFrameToYAMLProcessor:
             and self.config.fiscal_year_column in export_df.columns
         ):
             fiscal_years = export_df[self.config.fiscal_year_column].apply(
-                lambda x: x.year
-                if hasattr(x, "year")
-                else (int(x) if pd.notna(x) else pd.NA)
+                lambda x: x.year if hasattr(x, "year") else (int(x) if pd.notna(x) else pd.NA)
             )
             export_df.loc[fiscal_years < fy, "White House Budget Projection"] = pd.NA
 
