@@ -210,11 +210,19 @@ class LineChartView(ChartView):
                 - False (default): Use traditional legend
                 - True: Enable direct line labels with default settings
                 - dict: Advanced configuration:
-                  - position : str - Label position ('right', 'left', 'auto')
-                  - offset : float - Distance from line endpoint (fraction of plot width)
-                  - bbox : bool - Add background box to labels
-                  - fontsize : int - Label font size (auto-sized based on style if None)
-                  - avoid_edges : bool - Prevent labels from going off-chart
+                  - position : str - Label position ('right', 'left', 'top', 'bottom', 'auto')
+                  - bbox : bool - Add background box to labels (default True)
+                  - fontsize : int - Label font size (default from style)
+                  - end_point : bool, dict, or list - Draw marker at line endpoint
+                    - True: Show default circular marker for all series
+                    - dict: Custom style for all series with options:
+                      - marker : str - Marker shape ('o', 's', '^', 'D', etc.)
+                      - size : float - Marker size in points
+                      - facecolor : str - Fill color (defaults to line color)
+                      - edgecolor : str - Border color (default 'white')
+                      - edgewidth : float - Border width (default 1.5)
+                      - zorder : int - Draw order (default 9)
+                    - list: Per-series config, each element can be False, True, or dict
 
             Horizontal Lines:
             -----------------
@@ -308,6 +316,40 @@ class LineChartView(ChartView):
         ...     hlines=100,
         ...     hline_labels="Target",
         ...     hline_colors="red",
+        ... )
+
+        With direct line labels and endpoint markers:
+
+        >>> line_view.line_plot(
+        ...     metadata={"title": "Budget Comparison"},
+        ...     stem="budget",
+        ...     x=years,
+        ...     y=[proposed, actual],
+        ...     label=["Proposed", "Actual"],
+        ...     legend=False,
+        ...     direct_line_labels={
+        ...         "position": "right",
+        ...         "fontsize": 10,
+        ...         "end_point": {"marker": "o", "size": 8},
+        ...     },
+        ... )
+
+        With per-series endpoint styles:
+
+        >>> line_view.line_plot(
+        ...     metadata={"title": "Multi-series"},
+        ...     stem="multi",
+        ...     x=dates,
+        ...     y=[series_a, series_b],
+        ...     label=["Series A", "Series B"],
+        ...     legend=False,
+        ...     direct_line_labels={
+        ...         "position": "right",
+        ...         "end_point": [
+        ...             {"marker": "o", "size": 8},  # Series A: circle
+        ...             {"marker": "s", "size": 10},  # Series B: square
+        ...         ],
+        ...     },
         ... )
         """
         return self.generate_chart(metadata, stem, **kwargs)
@@ -913,6 +955,7 @@ class LineChartView(ChartView):
         # - dict: same custom style for all series
         # - list: per-series styles (each element can be False, True, or dict)
         end_point_configs = None
+        end_point_default_opts = {}
         if isinstance(end_point_config, list):
             # Per-series configuration
             end_point_configs = end_point_config
@@ -923,7 +966,6 @@ class LineChartView(ChartView):
         elif end_point_config:
             # True - default style for all series
             end_point_configs = "all_same"
-            end_point_default_opts = {}
 
         if fig is None:
             return
