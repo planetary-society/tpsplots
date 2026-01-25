@@ -10,21 +10,6 @@ A data visualization framework for The Planetary Society that creates consistent
 - **Multi-Format Export** - SVG, PNG, PPTX, and CSV data export
 - **Flexible Data Sources** - Google Sheets, CSV files, or custom controller methods
 - **TPS Brand Styling** - Consistent Planetary Society branding with Poppins fonts
-- **Headless Support** - Auto-detects CI/CD environments for server-side generation
-- **JSON Schema** - IDE autocomplete support for YAML configurations
-- **Template Generation** - Generate starter templates for any chart type
-
-## Installation
-
-```bash
-# Install from git repository
-pip install git+https://github.com/planetary/tpsplots.git
-
-# Or install in development mode
-git clone https://github.com/planetary/tpsplots.git
-cd tpsplots
-pip install -e ".[dev]"
-```
 
 ## Quick Start
 
@@ -52,7 +37,7 @@ chart:
 
 **CLI:**
 ```bash
-tpsplots my_chart.yaml
+tpsplots generate my_chart.yaml
 ```
 
 **Python:**
@@ -380,46 +365,85 @@ Use TPS brand color names instead of hex codes:
 
 ## CLI Reference
 
+The CLI uses subcommands for different operations:
+
 ```bash
-tpsplots [OPTIONS] [INPUTS]
-
-Arguments:
-  INPUTS              YAML file(s) or directory(ies) to process
-
-Options:
-  -o, --outdir PATH   Output directory (default: charts/)
-  --validate          Validate YAML without generating charts
-  --strict            Error on unresolved data references
-  -q, --quiet         Suppress progress output
-  --verbose           Enable debug logging
-  --schema            Print JSON Schema for IDE autocomplete
-  --list-types        List available chart types
-  --new TYPE          Generate a starter template for chart type
-  --version           Show version and exit
-  --help              Show help message
+tpsplots [OPTIONS] COMMAND [ARGS]...
 ```
 
-**Examples:**
+### Global Options
+
+```
+--version       Show version and exit
+--schema        Print JSON Schema for YAML configuration and exit
+--list-types    List available chart types and exit
+--new TYPE      Generate a YAML template for the specified chart type
+--help          Show help message
+```
+
+### Commands
+
+#### `generate` - Generate Charts
+
+```bash
+tpsplots generate [OPTIONS] INPUTS...
+```
+
+| Option | Description |
+|--------|-------------|
+| `-o, --outdir PATH` | Output directory (default: `charts/`) |
+| `--strict` | Error on unresolved data references |
+| `-q, --quiet` | Suppress progress output |
+| `--verbose` | Enable verbose/debug logging |
+
+#### `validate` - Validate Configuration
+
+```bash
+tpsplots validate [OPTIONS] INPUTS...
+```
+
+| Option | Description |
+|--------|-------------|
+| `--strict` | Error on unresolved data references |
+| `-q, --quiet` | Suppress progress output |
+| `--verbose` | Enable verbose/debug logging |
+
+#### `s3-sync` - Upload to S3
+
+```bash
+tpsplots s3-sync [OPTIONS]
+```
+
+| Option | Description |
+|--------|-------------|
+| `-d, --local-dir PATH` | Local directory to upload (required) |
+| `-b, --bucket TEXT` | S3 bucket name (required) |
+| `-p, --prefix TEXT` | S3 prefix/path within bucket (required) |
+| `-n, --dry-run` | Preview changes without uploading |
+
+### Examples
 
 ```bash
 # Generate single chart
-tpsplots yaml/my_chart.yaml
+tpsplots generate yaml/my_chart.yaml
 
 # Process entire directory
-tpsplots yaml/
+tpsplots generate yaml/
 
 # Validate without generating
-tpsplots --validate yaml/my_chart.yaml
+tpsplots validate yaml/my_chart.yaml
 
 # Custom output directory
-tpsplots -o output/ yaml/
+tpsplots generate -o output/ yaml/
 
 # Generate JSON Schema for IDE support
 tpsplots --schema > tpsplots-schema.json
 
 # Generate a new chart template
 tpsplots --new line > yaml/my_new_chart.yaml
-tpsplots --new bar > yaml/my_bar_chart.yaml
+
+# Upload charts to S3 (dry-run first)
+tpsplots s3-sync -d charts -b mybucket -p assets/charts/ --dry-run
 ```
 
 ---
