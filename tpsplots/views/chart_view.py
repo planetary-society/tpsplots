@@ -639,10 +639,7 @@ class ChartView:
                 pad=0,  # No padding
             )
             fig.add_artist(ab)
-
-            # Ensure the figure size accommodates the logo
-            # This is important to prevent the logo from extending beyond the visible area
-            fig.tight_layout(rect=[0, 0.09, 1, 1])
+            # Note: Layout is managed by _adjust_layout_for_header_footer, not here
         except Exception as e:
             logger.error(f"Warning: Could not add logo: {e}")
 

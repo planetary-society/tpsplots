@@ -903,6 +903,7 @@ class LineChartView(ChartView):
         position_mode = config.get("position", "auto")
         add_bbox = config.get("bbox", True)
         fontsize = config.get("fontsize", style.get("legend_size", 12))
+        show_end_point = config.get("end_point", False)
         # Retrieve markersize passed down from _create_chart
         markersize_points = kwargs.get("markersize", style.get("marker_size", 6))
 
@@ -1000,17 +1001,18 @@ class LineChartView(ChartView):
 
             # --- Placement Logic ---
 
-            # 1. Get the bounding box of the text in display coordinates
+            # 1. Get the bounding box of the text in display coordinates (if renderer available)
             text_bbox = self._get_text_bbox_display(
                 label_text, fontsize, color, add_bbox, renderer, ax
             )
 
-            if text_bbox is None:
-                continue
-
             # 2. Determine position
-            # We focus on 'auto' as per the main requirement, but keep simple positioning available if configured.
+            # For 'auto' mode, we need the text_bbox for collision detection
+            # For simple modes (right, left, etc.), we can place without bbox
             if position_mode == "auto":
+                if text_bbox is None:
+                    # Auto mode requires bbox for collision detection, skip this label
+                    continue
                 optimal_pos = self._find_optimal_label_position_display(
                     last_x,
                     last_y,
@@ -1021,6 +1023,7 @@ class LineChartView(ChartView):
                     markersize_points,
                 )
             else:
+                # Simple position modes can work with or without text_bbox
                 optimal_pos = self._get_simple_label_position(
                     last_x, last_y, text_bbox, position_mode, ax, markersize_points
                 )
@@ -1049,72 +1052,105 @@ class LineChartView(ChartView):
                     bbox=bbox_props,
                     zorder=10,
                 )
-                # Store the actual placed bbox for subsequent collision detection
-                existing_labels_bboxes.append(optimal_pos["bbox_display"])
+                # Store the actual placed bbox for subsequent collision detection (if available)
+                if optimal_pos["bbox_display"] is not None:
+                    existing_labels_bboxes.append(optimal_pos["bbox_display"])
+
+                # Draw endpoint marker if enabled
+                if show_end_point:
+                    ax.plot(
+                        last_x,
+                        last_y,
+                        marker="o",
+                        markersize=markersize_points,
+                        color=color,
+                        markerfacecolor=color,
+                        markeredgecolor="white",
+                        markeredgewidth=1.5,
+                        linestyle="None",
+                        zorder=9,
+                    )
 
     def _get_simple_label_position(
         self, x_data, y_data, text_bbox, position_mode, ax, markersize_points
     ):
         """Calculates position for simple modes using point offsets (DPI-aware)."""
+        import matplotlib.dates as mdates
 
         # Define offset in points (marker radius + desired gap)
         gap_points = 8  # Increased gap for better visual separation
         minimum_offset_points = 12  # Ensure minimum distance from endpoint
         offset_points = max((markersize_points / 2.0) + gap_points, minimum_offset_points)
 
+        # Determine offset and alignment based on position mode
+        # offset_copy creates a transform with the offset built-in (cannot be modified after)
+        if position_mode == "right":
+            x_offset, y_offset = offset_points, 0
+            ha, va = "left", "center"
+        elif position_mode == "left":
+            x_offset, y_offset = -offset_points, 0
+            ha, va = "right", "center"
+        elif position_mode == "above" or position_mode == "top":
+            x_offset, y_offset = 0, offset_points
+            ha, va = "center", "bottom"
+        elif position_mode == "below" or position_mode == "bottom":
+            x_offset, y_offset = 0, -offset_points
+            ha, va = "center", "top"
+        else:
+            # Default fallback to right
+            x_offset, y_offset = offset_points, 0
+            ha, va = "left", "center"
+
+        # Convert datetime to matplotlib date numbers for proper transform round-trip
+        # numpy datetime64 nanoseconds don't survive the transform -> inverted transform cycle
+        x_for_transform = x_data
+        is_datetime = False
+        if hasattr(x_data, "dtype") and np.issubdtype(x_data.dtype, np.datetime64):
+            x_for_transform = mdates.date2num(x_data)
+            is_datetime = True
+
         # Use offset_copy to create a transformation that shifts by points
         # This is DPI-aware and handled by Matplotlib.
         transform = matplotlib.transforms.offset_copy(
-            ax.transData, fig=ax.get_figure(), x=0, y=0, units="points"
+            ax.transData, fig=ax.get_figure(), x=x_offset, y=y_offset, units="points"
         )
 
-        # Set the offset based on the desired position
-        if position_mode == "right":
-            transform.x = offset_points
-            ha, va = "left", "center"
-        elif position_mode == "left":
-            transform.x = -offset_points
-            ha, va = "right", "center"
-        elif position_mode == "above" or position_mode == "top":
-            transform.y = offset_points
-            ha, va = "center", "bottom"
-        elif position_mode == "below" or position_mode == "bottom":
-            transform.y = -offset_points
-            ha, va = "center", "top"
-        else:
-            # Default fallback
-            transform.x = offset_points
-            ha, va = "left", "center"
-
         # Calculate anchor location in display coords
-        anchor_display = transform.transform((x_data, y_data))
+        anchor_display = transform.transform((x_for_transform, y_data))
         # Transform back to data coordinates for ax.text()
         anchor_data = ax.transData.inverted().transform(anchor_display)
 
+        # The final x coordinate to use for ax.text()
+        # matplotlib's date numbers (days since epoch) work directly with ax.text
+        final_x = anchor_data[0]
+
         # Calculate the final bounding box in display coordinates for collision tracking
-        width, height = text_bbox.width, text_bbox.height
-        x0, y0 = anchor_display[0], anchor_display[1]
+        # (only if text_bbox is available)
+        final_bbox = None
+        if text_bbox is not None:
+            width, height = text_bbox.width, text_bbox.height
+            x0, y0 = anchor_display[0], anchor_display[1]
 
-        # Determine the starting corner (x_start, y_start) based on alignment
-        if ha == "left":
-            x_start = x0
-        elif ha == "right":
-            x_start = x0 - width
-        else:  # center
-            x_start = x0 - width / 2
+            # Determine the starting corner (x_start, y_start) based on alignment
+            if ha == "left":
+                x_start = x0
+            elif ha == "right":
+                x_start = x0 - width
+            else:  # center
+                x_start = x0 - width / 2
 
-        # Display coordinates (0,0) at bottom-left.
-        if va == "bottom":
-            y_start = y0
-        elif va == "top":
-            y_start = y0 - height
-        else:  # center
-            y_start = y0 - height / 2
+            # Display coordinates (0,0) at bottom-left.
+            if va == "bottom":
+                y_start = y0
+            elif va == "top":
+                y_start = y0 - height
+            else:  # center
+                y_start = y0 - height / 2
 
-        final_bbox = Bbox.from_bounds(x_start, y_start, width, height)
+            final_bbox = Bbox.from_bounds(x_start, y_start, width, height)
 
         return {
-            "x_data": anchor_data[0],
+            "x_data": final_x,
             "y_data": anchor_data[1],
             "ha": ha,
             "va": va,
