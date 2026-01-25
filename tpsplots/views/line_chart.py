@@ -903,9 +903,27 @@ class LineChartView(ChartView):
         position_mode = config.get("position", "auto")
         add_bbox = config.get("bbox", True)
         fontsize = config.get("fontsize", style.get("legend_size", 12))
-        show_end_point = config.get("end_point", False)
+        end_point_config = config.get("end_point", False)
         # Retrieve markersize passed down from _create_chart
         markersize_points = kwargs.get("markersize", style.get("marker_size", 6))
+
+        # Parse end_point config - can be:
+        # - False: no endpoints
+        # - True: default endpoints for all series
+        # - dict: same custom style for all series
+        # - list: per-series styles (each element can be False, True, or dict)
+        end_point_configs = None
+        if isinstance(end_point_config, list):
+            # Per-series configuration
+            end_point_configs = end_point_config
+        elif isinstance(end_point_config, dict):
+            # Same style for all series
+            end_point_configs = "all_same"
+            end_point_default_opts = end_point_config
+        elif end_point_config:
+            # True - default style for all series
+            end_point_configs = "all_same"
+            end_point_default_opts = {}
 
         if fig is None:
             return
@@ -1057,18 +1075,41 @@ class LineChartView(ChartView):
                     existing_labels_bboxes.append(optimal_pos["bbox_display"])
 
                 # Draw endpoint marker if enabled
-                if show_end_point:
+                # Determine endpoint config for this series
+                show_this_endpoint = False
+                this_endpoint_opts = {}
+
+                if end_point_configs == "all_same":
+                    show_this_endpoint = True
+                    this_endpoint_opts = end_point_default_opts
+                elif isinstance(end_point_configs, list) and _i < len(end_point_configs):
+                    series_ep_config = end_point_configs[_i]
+                    if isinstance(series_ep_config, dict):
+                        show_this_endpoint = True
+                        this_endpoint_opts = series_ep_config
+                    elif series_ep_config:
+                        show_this_endpoint = True
+
+                if show_this_endpoint:
+                    # Extract endpoint styling options with defaults
+                    ep_marker = this_endpoint_opts.get("marker", "o")
+                    ep_size = this_endpoint_opts.get("size", markersize_points)
+                    ep_facecolor = this_endpoint_opts.get("facecolor", color)
+                    ep_edgecolor = this_endpoint_opts.get("edgecolor", "white")
+                    ep_edgewidth = this_endpoint_opts.get("edgewidth", 1.5)
+                    ep_zorder = this_endpoint_opts.get("zorder", 9)
+
                     ax.plot(
                         last_x,
                         last_y,
-                        marker="o",
-                        markersize=markersize_points,
+                        marker=ep_marker,
+                        markersize=ep_size,
                         color=color,
-                        markerfacecolor=color,
-                        markeredgecolor="white",
-                        markeredgewidth=1.5,
+                        markerfacecolor=ep_facecolor,
+                        markeredgecolor=ep_edgecolor,
+                        markeredgewidth=ep_edgewidth,
                         linestyle="None",
-                        zorder=9,
+                        zorder=ep_zorder,
                     )
 
     def _get_simple_label_position(
