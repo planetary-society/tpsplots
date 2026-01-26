@@ -200,34 +200,51 @@ class NASABudgetChart(ChartController):
             "export_df": export_df,
         }
 
-    def nasa_major_activites_donut_chart(self):
-        """Generate donut chart breakdown of NASA directorate budgets for the last fiscal year."""
+    def nasa_major_activites_donut_chart(self) -> dict:
+        """Generate donut chart breakdown of NASA directorate budgets for the last fiscal year.
+
+        Returns columnar data for flexible YAML-driven chart generation, following
+        the patterns established in nasa_fy_charts_controller.py.
+
+        Returns:
+            dict with keys:
+                - Directorate: Series of directorate names (sorted by budget descending)
+                - Budget: Series of budget values in dollars
+                - fiscal_year: int - The fiscal year of the data
+                - source: str - Source attribution text
+                - total_budget: float - Total budget across displayed directorates
+                - export_df: DataFrame for CSV export (includes STEM Education)
+        """
+        from tpsplots.processors.dataframe_to_yaml_processor import (
+            DataFrameToYAMLConfig,
+            DataFrameToYAMLProcessor,
+        )
+
         df = Directorates().data()
 
-        # Calculate the last fiscal year
+        # Calculate the last completed fiscal year
         last_completed_fy = datetime(datetime.today().year - 1, 1, 1)
 
-        # Filter to just that fiscal year
-        # First convert the Fiscal Year column to datetime if it's not already
+        # Ensure Fiscal Year is datetime for consistent filtering
         if not pd.api.types.is_datetime64_any_dtype(df["Fiscal Year"]):
             df["Fiscal Year"] = pd.to_datetime(df["Fiscal Year"])
 
-        # Filter the DataFrame to the last completed fiscal year
+        # Filter to just that fiscal year
         year_df = df[df["Fiscal Year"].dt.year == last_completed_fy.year]
 
-        # Check if we have data for the last completed fiscal year
+        # Fallback if no data for last completed FY
         if year_df.empty:
-            # Fall back to the most recent available year
             latest_available_year = df["Fiscal Year"].max()
             year_df = df[df["Fiscal Year"] == latest_available_year]
-
-            # Provide a warning in the logs
+            actual_fy = latest_available_year.year
             logger.warning(
-                f"No data found for FY {last_completed_fy.year}, falling back to {latest_available_year:%Y}"
+                f"No data found for FY {last_completed_fy.year}, falling back to {actual_fy}"
             )
+        else:
+            actual_fy = last_completed_fy.year
 
-        # Select only monetary columns (not fiscal year or adjusted columns)
-        labels = [
+        # Directorates to include in chart (STEM Education excluded due to small relative size)
+        chart_directorates = [
             "Science",
             "Aeronautics",
             "Deep Space Exploration Systems",
@@ -236,32 +253,38 @@ class NASABudgetChart(ChartController):
             "Facilities, IT, & Salaries",
         ]
 
-        # Extract values from the single row
-        directorates_df = year_df[labels]
+        # Build chart DataFrame with Directorate and Budget columns
+        # Preserve original order for consistent display
+        chart_data = [{"Directorate": d, "Budget": year_df[d].iloc[0]} for d in chart_directorates]
+        chart_df = pd.DataFrame(chart_data)
 
-        values = directorates_df.iloc[0].tolist()
+        # Store metadata in DataFrame attrs (consistent with nasa_fy_charts_controller.py)
+        chart_df.attrs["fiscal_year"] = actual_fy
+        chart_df.attrs["source"] = f"FY {actual_fy} Congressional Appropriations"
+        chart_df.attrs["total_budget"] = chart_df["Budget"].sum()
 
-        # Sort values labels
-        sorted_data = list(zip(values, labels, strict=False))
-        sorted_values, sorted_labels = zip(*sorted_data, strict=False)
-
-        # Create export dataframe
-        export_data = []
-        for label, value in zip(sorted_labels, sorted_values, strict=False):
-            export_data.append(
-                {"Directorate": label, f"FY {last_completed_fy.year} Budget ($)": value}
-            )
-        export_data.append(
-            {
-                "Directorate": "STEM Education",
-                f"FY {last_completed_fy.year} Budget ($)": year_df["STEM Education"].values[0],
-            }
-        )  # Add STEM Education back to export
+        # Build export DataFrame with all directorates (including STEM Education)
+        all_directorates = [*chart_directorates, "STEM Education"]
+        export_data = [
+            {"Directorate": d, f"FY {actual_fy} Budget ($)": year_df[d].iloc[0]}
+            for d in all_directorates
+        ]
         export_df = pd.DataFrame(export_data)
 
-        return {
-            "source": f"FY {last_completed_fy:%Y} Congressional Appropriations",
-            "sorted_values": sorted_values,
-            "sorted_labels": sorted_labels,
-            "export_df": export_df,
-        }
+        # Use DataFrameToYAMLProcessor for consistent conversion
+        # Configure for categorical data (no fiscal year column in output)
+        config = DataFrameToYAMLConfig(
+            fiscal_year_column="__none__",  # Column doesn't exist, skips FY-specific logic
+            export_df_key="export_df",
+        )
+        result = DataFrameToYAMLProcessor(config).process(chart_df)
+
+        # Convert Series to lists for donut chart view compatibility
+        # (DonutChartView expects lists, not Series, for values/labels)
+        result["Directorate"] = result["Directorate"].tolist()
+        result["Budget"] = result["Budget"].tolist()
+
+        # Override export_df with our complete version (includes STEM Education)
+        result["export_df"] = export_df
+
+        return result
