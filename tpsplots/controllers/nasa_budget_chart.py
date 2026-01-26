@@ -104,7 +104,23 @@ class NASABudgetChart(ChartController):
         }
 
     def nasa_major_programs_by_year_inflation_adjusted(self):
-        """Line chart of NASA's directorate budgets from 2007 until the last fiscal year."""
+        """Line chart of NASA's directorate budgets from 2007 until the last fiscal year.
+
+        Returns columnar data for flexible YAML-driven chart generation.
+
+        Returns:
+            dict with keys:
+                - fiscal_year: Series of fiscal year dates
+                - deep_space_exploration_systems: Series of adjusted budget values
+                - science: Series of adjusted budget values
+                - aeronautics: Series of adjusted budget values
+                - space_technology: Series of adjusted budget values
+                - stem_education: Series of adjusted budget values
+                - space_operations: Series of adjusted budget values
+                - overhead: Series of adjusted budget values (Facilities, IT, & Salaries)
+                - export_df: DataFrame for CSV export
+                - metadata: dict with max_fiscal_year, min_fiscal_year, source
+        """
         from tpsplots.processors import (
             InflationAdjustmentConfig,
             InflationAdjustmentProcessor,
@@ -116,7 +132,7 @@ class NASABudgetChart(ChartController):
         directorate_cols = [
             "Aeronautics",
             "Deep Space Exploration Systems",
-            "LEO Space Operations",
+            "Space Operations",
             "Space Technology",
             "Science",
             "STEM Education",
@@ -133,31 +149,8 @@ class NASABudgetChart(ChartController):
         # Filter out df to only include years up to the last completed fiscal year
         df = df[df["Fiscal Year"] <= last_completed_fy]
 
-        # Prepare data for view
-        fiscal_years = df["Fiscal Year"]
-
-        y_limit = (
-            df["Deep Space Exploration Systems_adjusted_nnsi"].max() // 5000000000 + 1
-        ) * 5000000000
-
-        y_data = [
-            df["Deep Space Exploration Systems_adjusted_nnsi"],
-            df["Science_adjusted_nnsi"],
-            df["Aeronautics_adjusted_nnsi"],
-            df["Space Technology_adjusted_nnsi"],
-            df["STEM Education_adjusted_nnsi"],
-            df["Space Operations_adjusted_nnsi"],
-            df["Facilities, IT, & Salaries_adjusted_nnsi"],
-        ]
-        labels = [
-            "Deep Space Exploration Systems",
-            "Science Mission Directorate",
-            "Aeronautics",
-            "Space Technology",
-            "STEM Education",
-            "Space Operations",
-            "SSMS/CECR (Overhead)",
-        ]
+        # Calculate max fiscal year for metadata
+        max_fy = df["Fiscal Year"].max().year
 
         # Export data for CSV
         export_df = self._export_helper(
@@ -181,23 +174,26 @@ class NASABudgetChart(ChartController):
             ],
         )
 
+        # Metadata for YAML template interpolation
+        metadata = {
+            "max_fiscal_year": max_fy,
+            "min_fiscal_year": 2008,
+            "source": f"NASA Budget Justifications, FYs 2007-{max_fy}",
+        }
+
         return {
-            "source": f"NASA Budget Justifications, FYs 2007-{fiscal_years.max():%Y}",
-            "fiscal_years": fiscal_years,
-            "y_data": y_data,
-            "labels": labels,
-            "start_date": datetime(2008, 1, 1),
-            "end_date": fiscal_years.max(),
-            "y_limit": y_limit,
-            "ylim": (0, y_limit),
-            "xlim": (datetime(2008, 1, 1), fiscal_years.max()),
-            "legend": {
-                "loc": "upper right",
-                "fontsize": "medium",  # Readable size
-                "ncol": 3,
-                "handlelength": 0.8,
-            },
+            # Core data columns (individual series for YAML binding)
+            "fiscal_year": df["Fiscal Year"],
+            "deep_space_exploration_systems": df["Deep Space Exploration Systems_adjusted_nnsi"],
+            "science": df["Science_adjusted_nnsi"],
+            "aeronautics": df["Aeronautics_adjusted_nnsi"],
+            "space_technology": df["Space Technology_adjusted_nnsi"],
+            "stem_education": df["STEM Education_adjusted_nnsi"],
+            "space_operations": df["Space Operations_adjusted_nnsi"],
+            "overhead": df["Facilities, IT, & Salaries_adjusted_nnsi"],
+            # Export and metadata
             "export_df": export_df,
+            "metadata": metadata,
         }
 
     def nasa_major_activites_donut_chart(self) -> dict:
