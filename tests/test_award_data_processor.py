@@ -31,7 +31,7 @@ class TestAwardDataProcessor:
     @pytest.fixture
     def award_df(self):
         """Create sample award data with a Total row."""
-        months = AwardDataProcessor.MONTHS + ["Total"]
+        months = [*AwardDataProcessor.MONTHS, "Total"]
         data = {
             "Month": months,
             "FY 2024 New Grant Awards": [10] * 12 + [120],

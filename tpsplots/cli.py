@@ -9,6 +9,7 @@ from typing import Annotated
 import typer
 
 from tpsplots import __version__
+from tpsplots.commands.s3_sync import s3_sync
 from tpsplots.exceptions import ConfigurationError, DataSourceError, RenderingError
 from tpsplots.processors.yaml_chart_processor import YAMLChartProcessor
 from tpsplots.schema import get_chart_types
@@ -126,7 +127,7 @@ def new_callback(chart_type: str | None) -> None:
         except ValueError as e:
             print(str(e), file=sys.stderr)
             print(f"Available templates: {', '.join(get_available_templates())}", file=sys.stderr)
-            raise typer.Exit(code=2)
+            raise typer.Exit(code=2) from None
 
 
 @app.callback()
@@ -334,9 +335,7 @@ def validate_cmd(
     raise typer.Exit(code=0 if invalid_count == 0 else 2)
 
 
-# Import and register s3-sync subcommand
-from tpsplots.commands.s3_sync import s3_sync
-
+# Register s3-sync subcommand
 app.command("s3-sync")(s3_sync)
 
 
@@ -345,32 +344,5 @@ def cli_main() -> None:
     app()
 
 
-# Keep legacy main() for backwards compatibility with existing tests
-def main(args: list[str] | None = None) -> int:
-    """
-    Legacy entry point for backwards compatibility.
-
-    Args:
-        args: Command-line arguments (defaults to sys.argv[1:])
-
-    Returns:
-        Exit code (0 for success, non-zero for failure)
-    """
-    try:
-        if args is not None:
-            # Typer uses sys.argv, so we need to temporarily replace it
-            original_argv = sys.argv
-            sys.argv = ["tpsplots", *args]
-            try:
-                app()
-            finally:
-                sys.argv = original_argv
-        else:
-            app()
-        return 0
-    except SystemExit as e:
-        return e.code if isinstance(e.code, int) else 0
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    cli_main()

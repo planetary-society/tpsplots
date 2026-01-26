@@ -1,6 +1,7 @@
 # line_chart.py
 import logging
 import math
+from typing import Any, ClassVar
 
 import matplotlib.path as mpath
 import matplotlib.pyplot as plt
@@ -21,7 +22,7 @@ class LineChartView(ChartView):
 
     # Default styling for series_types (semantic series classification)
     # Views apply these when explicit styling isn't provided in YAML
-    SERIES_TYPE_STYLES = {
+    SERIES_TYPE_STYLES: ClassVar[dict[str, dict[str, Any]]] = {
         "prior": {
             "color": "medium_gray",  # References ChartView.COLORS
             "linestyle": "--",
@@ -1187,10 +1188,8 @@ class LineChartView(ChartView):
         # Convert datetime to matplotlib date numbers for proper transform round-trip
         # numpy datetime64 nanoseconds don't survive the transform -> inverted transform cycle
         x_for_transform = x_data
-        is_datetime = False
         if hasattr(x_data, "dtype") and np.issubdtype(x_data.dtype, np.datetime64):
             x_for_transform = mdates.date2num(x_data)
-            is_datetime = True
 
         # Use offset_copy to create a transformation that shifts by points
         # This is DPI-aware and handled by Matplotlib.

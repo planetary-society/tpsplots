@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import pandas as pd
 
 from tpsplots.controllers.chart_controller import ChartController
@@ -26,7 +28,12 @@ from tpsplots.processors.inflation_adjustment_processor import (
 
 class NASAFYChartsController(ChartController):
     # The four NASA Science Mission Directorate divisions
-    SCIENCE_DIVISIONS = ["Astrophysics", "Planetary Science", "Earth Science", "Heliophysics"]
+    SCIENCE_DIVISIONS: ClassVar[list[str]] = [
+        "Astrophysics",
+        "Planetary Science",
+        "Earth Science",
+        "Heliophysics",
+    ]
 
     def __init__(self):
         self.historical: pd.DataFrame = Historical().data()

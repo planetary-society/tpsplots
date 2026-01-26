@@ -100,36 +100,3 @@ class TestCLI:
         """Test that s3-sync requires bucket and prefix arguments."""
         result = runner.invoke(app, ["s3-sync", "--dry-run"])
         assert result.exit_code == 2  # Missing required options
-
-
-class TestLegacyMainFunction:
-    """Tests for backwards-compatible main() function."""
-
-    def test_main_returns_int(self):
-        """Test that legacy main() returns an integer exit code."""
-        from tpsplots.cli import main
-
-        exit_code = main(["--list-types"])
-        assert isinstance(exit_code, int)
-        assert exit_code == 0
-
-    def test_main_help_exits_zero(self):
-        """Test that --help returns 0."""
-        from tpsplots.cli import main
-
-        exit_code = main(["--help"])
-        assert exit_code == 0
-
-    def test_main_version_exits_zero(self):
-        """Test that --version returns 0."""
-        from tpsplots.cli import main
-
-        exit_code = main(["--version"])
-        assert exit_code == 0
-
-    def test_main_generate_missing_file_exits_nonzero(self):
-        """Test that generate with missing file returns non-zero."""
-        from tpsplots.cli import main
-
-        exit_code = main(["generate", "nonexistent.yaml"])
-        assert exit_code == 2
