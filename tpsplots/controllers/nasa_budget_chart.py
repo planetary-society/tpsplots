@@ -146,7 +146,7 @@ class NASABudgetChart(ChartController):
             df["Aeronautics_adjusted_nnsi"],
             df["Space Technology_adjusted_nnsi"],
             df["STEM Education_adjusted_nnsi"],
-            df["LEO Space Operations_adjusted_nnsi"],
+            df["Space Operations_adjusted_nnsi"],
             df["Facilities, IT, & Salaries_adjusted_nnsi"],
         ]
         labels = [
@@ -155,7 +155,7 @@ class NASABudgetChart(ChartController):
             "Aeronautics",
             "Space Technology",
             "STEM Education",
-            "LEO Space Operations",
+            "Space Operations",
             "SSMS/CECR (Overhead)",
         ]
 
@@ -174,8 +174,8 @@ class NASABudgetChart(ChartController):
                 "Space Technology_adjusted_nnsi",
                 "STEM Education",
                 "STEM Education_adjusted_nnsi",
-                "LEO Space Operations",
-                "LEO Space Operations_adjusted_nnsi",
+                "Space Operations",
+                "Space Operations_adjusted_nnsi",
                 "Facilities, IT, & Salaries",
                 "Facilities, IT, & Salaries_adjusted_nnsi",
             ],
@@ -231,7 +231,7 @@ class NASABudgetChart(ChartController):
             "Science",
             "Aeronautics",
             "Deep Space Exploration Systems",
-            "LEO Space Operations",
+            "Space Operations",
             "Space Technology",
             "Facilities, IT, & Salaries",
         ]
