@@ -156,6 +156,59 @@ class ChartController:
 
         return projection
 
+    def _build_metadata(
+        self,
+        df: pd.DataFrame,
+        fiscal_year_col: str = "Fiscal Year",
+        value_columns: dict[str, str] | None = None,
+    ) -> dict:
+        """Build a consistent metadata dict with helpful context for YAML templates.
+
+        This method extracts common metadata from a DataFrame, including min/max
+        fiscal years for the overall dataset and for specific value columns.
+
+        Args:
+            df: DataFrame containing the data
+            fiscal_year_col: Name of the fiscal year column (default "Fiscal Year")
+            value_columns: Dict mapping output names to column names for per-column
+                          fiscal year calculations. E.g., {"appropriation": "Appropriation"}
+                          will generate max_appropriation_fiscal_year and
+                          min_appropriation_fiscal_year.
+
+        Returns:
+            dict with metadata keys:
+                - max_fiscal_year: int - Maximum fiscal year in dataset
+                - min_fiscal_year: int - Minimum fiscal year in dataset
+                - max_{name}_fiscal_year: int - Max FY with non-null data for each value_column
+                - min_{name}_fiscal_year: int - Min FY with non-null data for each value_column
+
+        Example usage in YAML:
+            title: "NASA Budget {{metadata.min_fiscal_year}}-{{metadata.max_appropriation_fiscal_year}}"
+        """
+        metadata = {}
+
+        # Convert fiscal year to datetime if needed
+        fy_series = df[fiscal_year_col]
+        if not pd.api.types.is_datetime64_any_dtype(fy_series):
+            fy_series = pd.to_datetime(fy_series)
+
+        # Overall min/max fiscal year
+        metadata["max_fiscal_year"] = int(fy_series.max().strftime("%Y"))
+        metadata["min_fiscal_year"] = int(fy_series.min().strftime("%Y"))
+
+        # Per-column fiscal year ranges (only for rows with non-null values)
+        if value_columns:
+            for name, col in value_columns.items():
+                if col in df.columns:
+                    # Get rows where this column has data
+                    mask = df[col].notna()
+                    if mask.any():
+                        col_fy = fy_series[mask]
+                        metadata[f"max_{name}_fiscal_year"] = int(col_fy.max().strftime("%Y"))
+                        metadata[f"min_{name}_fiscal_year"] = int(col_fy.min().strftime("%Y"))
+
+        return metadata
+
     @staticmethod
     def round_to_millions(amount: float) -> str:
         """Format money amount with commas and 2 decimal places, display as millions or billions based on the amount."""

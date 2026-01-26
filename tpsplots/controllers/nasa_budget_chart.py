@@ -34,6 +34,11 @@ class NASABudgetChart(ChartController):
                 - appropriation_adjusted: Inflation-adjusted appropriation (NNSI)
                 - export_df: DataFrame for CSV export
                 - max_fiscal_year: Maximum fiscal year (for source attribution)
+                - metadata: dict with helpful context values:
+                    - max_fiscal_year, min_fiscal_year: Overall FY range
+                    - max_pbr_fiscal_year, min_pbr_fiscal_year: FY range for PBR data
+                    - max_appropriation_fiscal_year, min_appropriation_fiscal_year: FY range for appropriation data
+                    - inflation_adjusted_year: Target FY for inflation adjustment (e.g., 2024)
         """
         from tpsplots.processors import (
             InflationAdjustmentConfig,
@@ -63,8 +68,23 @@ class NASABudgetChart(ChartController):
             ],
         )
 
-        # Get max fiscal year for source attribution
-        max_fy = int(df["Fiscal Year"].max().strftime("%Y"))
+        # Build metadata with fiscal year ranges for each data column
+        metadata = self._build_metadata(
+            df,
+            fiscal_year_col="Fiscal Year",
+            value_columns={
+                "pbr": "PBR",
+                "appropriation": "Appropriation",
+                "projection": "White House Budget Projection",
+            },
+        )
+
+        # Add inflation adjustment target year from processor attrs
+        if "inflation_target_year" in df.attrs:
+            metadata["inflation_adjusted_year"] = df.attrs["inflation_target_year"]
+
+        # Keep max_fiscal_year at top level for backwards compatibility
+        max_fy = metadata["max_fiscal_year"]
 
         return {
             # Core data columns
@@ -79,7 +99,8 @@ class NASABudgetChart(ChartController):
             "appropriation_adjusted": df["Appropriation_adjusted_nnsi"],
             # Export and metadata
             "export_df": export_df,
-            "max_fiscal_year": max_fy,
+            "max_fiscal_year": max_fy,  # Backwards compatible
+            "metadata": metadata,
         }
 
     def nasa_major_programs_by_year_inflation_adjusted(self):
