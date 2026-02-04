@@ -273,6 +273,10 @@ class GoogleSheetsSource:
         This method only applies casting for columns explicitly defined in cast,
         leaving other columns with their pandas-inferred types.
 
+        For numeric types (int, float), uses pd.to_numeric with errors='coerce'
+        to convert invalid values to NaN, then drops rows with NaN in those columns.
+        This is useful for filtering out summary rows like "Totals" from data.
+
         Args:
             df: The input DataFrame
 
@@ -285,6 +289,7 @@ class GoogleSheetsSource:
             return df
 
         df = df.copy()
+        columns_to_dropna = []
 
         for col, dtype in cast_dict.items():
             if col not in df.columns:
@@ -292,17 +297,42 @@ class GoogleSheetsSource:
                 continue
 
             # Normalize simple type names to pandas dtypes
-            dtype = self.TYPE_MAPPING.get(dtype, dtype)
+            normalized_dtype = self.TYPE_MAPPING.get(dtype, dtype)
 
             try:
                 # Special handling for datetime
-                if "datetime" in str(dtype):
+                if "datetime" in str(normalized_dtype):
                     df[col] = pd.to_datetime(df[col], errors="coerce")
+                    columns_to_dropna.append(col)
+                # Special handling for numeric types - use to_numeric for proper coercion
+                elif normalized_dtype in ("int64", "float64") or dtype in ("int", "float"):
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
+                    columns_to_dropna.append(col)
+                    # Convert to int if requested and no NaN values remain after dropna
+                    if dtype == "int" or normalized_dtype == "int64":
+                        # Mark for int conversion after dropna
+                        df[col] = df[col]  # Will convert after dropna
                 else:
-                    df[col] = df[col].astype(dtype, errors="ignore")
-                logger.debug(f"Cast column '{col}' to {dtype}")
+                    df[col] = df[col].astype(normalized_dtype, errors="ignore")
+                logger.debug(f"Cast column '{col}' to {normalized_dtype}")
             except Exception as e:
-                logger.error(f"Failed to cast column '{col}' to {dtype}: {e}")
+                logger.error(f"Failed to cast column '{col}' to {normalized_dtype}: {e}")
+
+        # Drop rows with NaN values in coerced columns (filters out invalid rows like "Totals")
+        if columns_to_dropna:
+            original_len = len(df)
+            df = df.dropna(subset=columns_to_dropna)
+            dropped = original_len - len(df)
+            if dropped > 0:
+                logger.info(
+                    f"Dropped {dropped} rows with invalid values in columns: {columns_to_dropna}"
+                )
+
+        # Now convert float columns to int where requested
+        for col, dtype in cast_dict.items():
+            if col in df.columns and (dtype == "int" or self.TYPE_MAPPING.get(dtype) == "int64"):
+                if df[col].notna().all():
+                    df[col] = df[col].astype("int64")
 
         return df
 
