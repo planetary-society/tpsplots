@@ -31,7 +31,7 @@ class CSVController(ChartController):
         cast: dict[str, str] | None = None,
         columns: list[str] | None = None,
         renames: dict[str, str] | None = None,
-        auto_clean_currency: bool | None = None,
+        auto_clean_currency: bool | dict | None = None,
     ):
         """
         Initialize the CSVController with a CSV file path and optional params.
@@ -42,6 +42,7 @@ class CSVController(ChartController):
             columns: Columns to keep from the CSV
             renames: Column renames (e.g., {"Old Name": "New Name"})
             auto_clean_currency: Auto-detect and clean currency columns (default True).
+                Can be bool or dict with 'enabled' (bool) and 'multiplier' (float) keys.
                 When enabled, columns with 80%+ values matching $X,XXX pattern are
                 converted to float64 and originals are preserved as {column}_raw.
         """
@@ -81,7 +82,14 @@ class CSVController(ChartController):
             df = apply_column_cast(df, self.cast)
 
             # Auto-clean currency columns
-            if self.auto_clean_currency:
+            auto_clean = self.auto_clean_currency
+            if hasattr(auto_clean, "enabled"):
+                # Pydantic model (CurrencyCleaningConfig)
+                auto_clean = auto_clean.enabled
+            elif isinstance(auto_clean, dict):
+                # Raw dict from YAML
+                auto_clean = auto_clean.get("enabled", True)
+            if auto_clean:
                 df = self._clean_currency_columns(df)
 
             logger.info(
@@ -108,13 +116,22 @@ class CSVController(ChartController):
         Returns:
             DataFrame with currency columns cleaned
         """
+        # Extract multiplier from config if present
+        multiplier = 1.0
+        if hasattr(self.auto_clean_currency, "multiplier"):
+            # Pydantic model (CurrencyCleaningConfig)
+            multiplier = self.auto_clean_currency.multiplier
+        elif isinstance(self.auto_clean_currency, dict):
+            # Raw dict
+            multiplier = self.auto_clean_currency.get("multiplier", 1.0)
+
         for col in df.columns:
             if looks_like_currency_column(col, df[col]):
                 # Preserve original as _raw
                 df[f"{col}_raw"] = df[col]
-                # Clean the column
-                df[col] = clean_currency_column(df[col])
-                logger.debug(f"Cleaned currency column '{col}', original preserved as '{col}_raw'")
+                # Clean the column with optional multiplier
+                df[col] = clean_currency_column(df[col], multiplier=multiplier)
+                logger.debug(f"Cleaned currency column '{col}' with multiplier {multiplier}")
         return df
 
     def get_data_summary(self):

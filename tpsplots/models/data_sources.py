@@ -5,6 +5,19 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class CurrencyCleaningConfig(BaseModel):
+    """Configuration for auto-cleaning currency columns.
+
+    Extends the simple boolean auto_clean_currency to support a multiplier.
+    """
+
+    enabled: bool = Field(default=True, description="Enable currency cleaning")
+    multiplier: float = Field(
+        default=1.0,
+        description="Scale factor to apply after cleaning (e.g., 1000000 to convert millions to dollars)",
+    )
+
+
 class DataSourceParams(BaseModel):
     """Parameters for URL/CSV data sources.
 
@@ -22,9 +35,9 @@ class DataSourceParams(BaseModel):
     renames: dict[str, str] | None = Field(
         default=None, description="Column renames (e.g., {'Old Name': 'New Name'})"
     )
-    auto_clean_currency: bool | None = Field(
+    auto_clean_currency: bool | CurrencyCleaningConfig | None = Field(
         default=None,
-        description="Auto-detect and clean currency columns (default True for URLs)",
+        description="Auto-detect and clean currency columns. Can be bool or config with multiplier.",
     )
 
 

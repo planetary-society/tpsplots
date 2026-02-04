@@ -26,7 +26,7 @@ class GoogleSheetsController(ChartController):
         cast: dict[str, str] | None = None,
         columns: list[str] | None = None,
         renames: dict[str, str] | None = None,
-        auto_clean_currency: bool | None = None,
+        auto_clean_currency: bool | dict | None = None,
     ):
         """
         Initialize the GoogleSheetsController with URL and options.
@@ -37,6 +37,7 @@ class GoogleSheetsController(ChartController):
             columns: Columns to keep from the sheet
             renames: Column renames (e.g., {"Old Name": "New Name"})
             auto_clean_currency: Auto-detect and clean currency columns (default True).
+                Can be bool or dict with 'enabled' and 'multiplier' keys.
                 When enabled, columns with 80%+ values matching $X,XXX pattern are
                 converted to float64 and originals are preserved as {column}_raw.
         """

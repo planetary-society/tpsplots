@@ -116,7 +116,7 @@ class GoogleSheetsSource:
         cast: dict[str, str] | None = None,
         columns: list[str] | None = None,
         renames: dict[str, str] | None = None,
-        auto_clean_currency: bool | None = None,
+        auto_clean_currency: bool | dict | None = None,
     ) -> None:
         """
         Initialize the GoogleSheetsSource instance.
@@ -129,6 +129,7 @@ class GoogleSheetsSource:
             columns: Columns to keep (optional, can also be class attribute COLUMNS)
             renames: Column renames (optional, can also be class attribute RENAMES)
             auto_clean_currency: Auto-detect and clean currency columns (default True).
+                Can be bool or dict with 'enabled' (bool) and 'multiplier' (float) keys.
                 When enabled, columns with 80%+ values matching $X,XXX pattern are
                 converted to float64 and originals are preserved as {column}_raw.
         """
@@ -317,16 +318,32 @@ class GoogleSheetsSource:
         - Instance parameter: auto_clean_currency (takes precedence)
         - Class attribute: AUTO_CLEAN_CURRENCY (default True)
 
+        The auto_clean_currency parameter can be:
+        - bool: True to enable with multiplier=1.0, False to disable
+        - dict: {'enabled': bool, 'multiplier': float} for custom multiplier
+
         Args:
             df: The input DataFrame
 
         Returns:
             DataFrame with currency columns cleaned and originals preserved
         """
-        # Determine if auto-cleaning is enabled
+        # Determine if auto-cleaning is enabled and extract multiplier
         auto_clean = self._auto_clean_currency
+        multiplier = 1.0
+
         if auto_clean is None:
             auto_clean = getattr(self.__class__, "AUTO_CLEAN_CURRENCY", True)
+
+        # Handle dict or Pydantic model config with enabled/multiplier
+        if hasattr(auto_clean, "enabled"):
+            # Pydantic model (CurrencyCleaningConfig)
+            multiplier = getattr(auto_clean, "multiplier", 1.0)
+            auto_clean = getattr(auto_clean, "enabled", True)
+        elif isinstance(auto_clean, dict):
+            # Raw dict from YAML
+            multiplier = auto_clean.get("multiplier", 1.0)
+            auto_clean = auto_clean.get("enabled", True)
 
         if not auto_clean:
             return df
@@ -337,8 +354,8 @@ class GoogleSheetsSource:
             if looks_like_currency_column(col, df[col]):
                 # Preserve original values
                 df[f"{col}_raw"] = df[col]
-                # Clean the column (no multiplier - use values as-is)
-                df[col] = clean_currency_column(df[col], multiplier=1.0)
-                logger.debug(f"Auto-cleaned currency column '{col}'")
+                # Clean the column with optional multiplier
+                df[col] = clean_currency_column(df[col], multiplier=multiplier)
+                logger.debug(f"Auto-cleaned currency column '{col}' with multiplier {multiplier}")
 
         return df
