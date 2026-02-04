@@ -92,15 +92,9 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
         if categories is None or groups is None:
             raise ValueError("Both 'categories' and 'groups' are required for grouped_bar_plot")
 
-        # Extract styling parameters
-        figsize = kwargs.pop("figsize", style["figsize"])
-        dpi = kwargs.pop("dpi", style["dpi"])
-        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-
-        # Intercept title and subtitle parameters
-        for text in ["title", "subtitle"]:
-            if kwargs.get(text):
-                metadata[text] = kwargs.pop(text)
+        # Set up figure and extract metadata using base class helpers
+        fig, ax = self._setup_figure(style, kwargs)
+        self._extract_metadata_from_kwargs(metadata, kwargs)
 
         # Extract optional parameters - standardized with BarChartView
         # Support both 'width' (standard) and 'bar_width' (legacy) for backwards compatibility

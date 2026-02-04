@@ -125,15 +125,9 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
             if colors and isinstance(colors, (list, tuple)):
                 colors = [colors[i] for i in sorted_indices]
 
-        # Extract figure parameters
-        figsize = kwargs.pop("figsize", style["figsize"])
-        dpi = kwargs.pop("dpi", style["dpi"])
-        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-
-        # Intercept title and subtitle parameters
-        for text in ["title", "subtitle"]:
-            if kwargs.get(text):
-                metadata[text] = kwargs.pop(text)
+        # Set up figure and extract metadata using base class helpers
+        fig, ax = self._setup_figure(style, kwargs)
+        self._extract_metadata_from_kwargs(metadata, kwargs)
 
         # Extract styling parameters
         orientation = kwargs.pop("orientation", "vertical")
@@ -220,7 +214,13 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
 
         return fig
 
-    def _get_sort_indices(self, categories, values, sort_by, ascending=True):
+    def _get_sort_indices(
+        self,
+        categories: np.ndarray,
+        values: np.ndarray,
+        sort_by: str,
+        ascending: bool = True,
+    ) -> np.ndarray:
         """Get indices for sorting the data."""
         if sort_by == "value":
             sort_values = values
@@ -259,9 +259,8 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
         value_format = kwargs.pop("value_format", None)  # Extract value_format
         show_category_ticks = kwargs.pop("show_category_ticks", False)
 
-        # Scale down tick size on mobile display
-        if style["type"] == "mobile":
-            tick_size = tick_size * 0.8
+        # Scale tick size for mobile using mixin helper
+        tick_size = self._scale_tick_size_for_mobile(tick_size, style["type"])
 
         # Apply axis labels using mixin
         self._apply_axis_labels(
@@ -272,9 +271,8 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
             style_type=style["type"],
         )
 
-        # Apply grid
-        if grid:
-            ax.grid(axis=grid_axis, alpha=0.3, linestyle="--", linewidth=0.5)
+        # Apply grid using mixin method
+        self._apply_grid(ax, grid=grid, grid_axis=grid_axis)
 
         # Add baseline reference line if different from 0
         if baseline != 0:
@@ -283,10 +281,8 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
             else:
                 ax.axvline(x=baseline, color="gray", linestyle="-", linewidth=1, alpha=0.7)
 
-        # Disable minor ticks for both axes
-        ax.xaxis.set_minor_locator(plt.NullLocator())
-        ax.yaxis.set_minor_locator(plt.NullLocator())
-        ax.tick_params(which="minor", left=False, right=False, top=False, bottom=False)
+        # Disable minor ticks using mixin method
+        self._disable_minor_ticks(ax)
 
         # Apply percentage formatting if value_format is 'percentage'
         if value_format == "percentage":
@@ -313,35 +309,15 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
         # Always set y-axis tick size to ensure consistency
         ax.tick_params(axis="y", labelsize=tick_size)
 
-        # Ensure integer-only ticks on value axis
-        # This prevents decimal values like 2.5 or 7.5 from appearing as tick marks
-        if orientation == "vertical":
-            # For vertical bars, y-axis is the value axis
-            ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
-        else:
-            # For horizontal bars, x-axis is the value axis
-            ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+        # Ensure integer-only ticks on value axis using mixin method
+        self._apply_integer_locator(ax, orientation=orientation)
 
-        # Control category tick mark visibility
+        # Control category tick mark visibility using mixin method
         if not show_category_ticks:
-            if orientation == "vertical":
-                # Hide x-axis (category axis) tick marks
-                ax.tick_params(axis="x", length=0, bottom=False, top=False)
-            else:
-                # Hide y-axis (category axis) tick marks
-                ax.tick_params(axis="y", length=0, left=False, right=False)
+            self._hide_category_ticks(ax, orientation=orientation)
 
-        # Apply custom limits
-        if xlim:
-            if isinstance(xlim, dict):
-                ax.set_xlim(**xlim)
-            else:
-                ax.set_xlim(xlim)
-        if ylim:
-            if isinstance(ylim, dict):
-                ax.set_ylim(**ylim)
-            else:
-                ax.set_ylim(ylim)
+        # Apply custom limits using mixin method
+        self._apply_axis_limits(ax, xlim=xlim, ylim=ylim)
 
         # Apply category alignment for non-fiscal year cases or when needed
         if not categories_are_fiscal_years or orientation != "vertical":
@@ -466,7 +442,7 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
                         tick.tick2line.set_linewidth(2)
 
         except Exception as e:
-            print(f"DEBUG: Error in _apply_fiscal_year_bar_ticks: {e}")
+            logger.warning(f"Error in _apply_fiscal_year_bar_ticks: {e}")
             # Fallback to standard formatting
             plt.setp(
                 ax.get_xticklabels(), rotation=style.get("tick_rotation", 0), fontsize=tick_size

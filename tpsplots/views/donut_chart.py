@@ -82,15 +82,9 @@ class DonutChartView(ChartView):
         Raises:
             ValueError: If required parameters are missing
         """
-        # Extract figure parameters
-        figsize = kwargs.pop("figsize", style["figsize"])
-        dpi = kwargs.pop("dpi", style["dpi"])
-        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-
-        # Intercept title and subtitle parameters
-        for text in ["title", "subtitle"]:
-            if kwargs.get(text):
-                metadata[text] = kwargs.pop(text)
+        # Set up figure and extract metadata using base class helpers
+        fig, ax = self._setup_figure(style, kwargs)
+        self._extract_metadata_from_kwargs(metadata, kwargs)
 
         # Get required parameters
         values = kwargs.pop("values", None)

@@ -102,15 +102,9 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
         else:
             raise ValueError("'values' must be a dict or DataFrame")
 
-        # Extract figure parameters
-        figsize = kwargs.pop("figsize", style["figsize"])
-        dpi = kwargs.pop("dpi", style["dpi"])
-        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-
-        # Intercept title and subtitle parameters
-        for text in ["title", "subtitle"]:
-            if kwargs.get(text):
-                metadata[text] = kwargs.pop(text)
+        # Set up figure and extract metadata using base class helpers
+        fig, ax = self._setup_figure(style, kwargs)
+        self._extract_metadata_from_kwargs(metadata, kwargs)
 
         # Extract styling parameters
         orientation = kwargs.pop("orientation", "vertical")
@@ -423,8 +417,7 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
 
         # Apply axis labels using mixin
         label_size = style.get("label_size", 12)
-        if style["type"] == "mobile":
-            tick_size = tick_size * 0.8
+        tick_size = self._scale_tick_size_for_mobile(tick_size, style["type"])
 
         self._apply_axis_labels(
             ax,
@@ -468,20 +461,13 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
 
     def _measure_text_width(self, ax, text, fontsize):
         """Measure the rendered width of text in data coordinates."""
-        # Create a temporary text object to measure its extent
         temp_text = ax.text(0, 0, text, fontsize=fontsize, transform=ax.transData)
-
-        # Get the bounding box in display coordinates
-        bbox = temp_text.get_window_extent(renderer=ax.figure.canvas.get_renderer())
-
-        # Convert to data coordinates
-        bbox_data = bbox.transformed(ax.transData.inverted())
-        width = bbox_data.width
-
-        # Remove the temporary text
-        temp_text.remove()
-
-        return width
+        try:
+            bbox = temp_text.get_window_extent(renderer=ax.figure.canvas.get_renderer())
+            bbox_data = bbox.transformed(ax.transData.inverted())
+            return bbox_data.width
+        finally:
+            temp_text.remove()
 
     def _should_rotate_labels(self, ax, categories, tick_size, available_width_per_bar):
         """Determine if category labels should be rotated based on text width."""

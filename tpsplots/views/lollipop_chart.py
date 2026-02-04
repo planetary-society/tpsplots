@@ -130,10 +130,9 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
             if linestyle and isinstance(linestyle, (list, tuple)):
                 linestyle = [linestyle[i] for i in sort_indices]
 
-        # Extract figure parameters
-        figsize = kwargs.pop("figsize", style["figsize"])
-        dpi = kwargs.pop("dpi", style["dpi"])
-        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+        # Set up figure and extract metadata using base class helpers
+        fig, ax = self._setup_figure(style, kwargs)
+        self._extract_metadata_from_kwargs(metadata, kwargs)
 
         # Extract styling parameters
         # colors and linestyle already extracted earlier (before sorting)
@@ -277,7 +276,12 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
 
         return np.argsort(sort_values) if ascending else np.argsort(sort_values)[::-1]
 
-    def _get_marker_colors(self, specific_colors, fallback_colors, num_categories):
+    def _get_marker_colors(
+        self,
+        specific_colors: str | list | tuple | None,
+        fallback_colors: str | list | tuple | None,
+        num_categories: int,
+    ) -> list[str]:
         """Get colors for markers, handling various input formats."""
         if specific_colors is not None:
             # Use specific colors if provided
@@ -304,7 +308,9 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
             # Use default TPS colors
             return self._get_cycled_colors(num_categories)
 
-    def _get_line_styles(self, linestyles, num_categories):
+    def _get_line_styles(
+        self, linestyles: str | list | tuple | None, num_categories: int
+    ) -> list[str]:
         """
         Get line styles for lollipops, handling various input formats.
         Follows the same pattern as line_chart.py for consistency.

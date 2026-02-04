@@ -151,6 +151,39 @@ class ChartView:
         """
         raise NotImplementedError("Subclasses must implement _create_chart")
 
+    def _extract_metadata_from_kwargs(self, metadata: dict, kwargs: dict) -> None:
+        """
+        Extract title and subtitle from kwargs into metadata dict.
+
+        This pattern is used by all chart views to allow title/subtitle to be
+        passed either via metadata dict or as direct kwargs.
+
+        Args:
+            metadata: Chart metadata dictionary to update (modified in place)
+            kwargs: Keyword arguments dict to extract from (modified in place)
+        """
+        for text in ["title", "subtitle"]:
+            if kwargs.get(text):
+                metadata[text] = kwargs.pop(text)
+
+    def _setup_figure(self, style: dict, kwargs: dict) -> tuple:
+        """
+        Create figure and axes with style-appropriate sizing.
+
+        This pattern is used by all chart views to create the figure with
+        consistent figsize and dpi handling.
+
+        Args:
+            style: Style dictionary (DESKTOP or MOBILE)
+            kwargs: Keyword arguments dict (figsize/dpi are popped if present)
+
+        Returns:
+            tuple: (fig, ax) matplotlib figure and axes objects
+        """
+        figsize = kwargs.pop("figsize", style["figsize"])
+        dpi = kwargs.pop("dpi", style["dpi"])
+        return plt.subplots(figsize=figsize, dpi=dpi)
+
     def _export_csv(self, df, metadata, stem):
         """
         Export chart data as CSV with metadata header rows.

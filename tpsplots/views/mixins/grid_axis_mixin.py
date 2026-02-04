@@ -150,6 +150,24 @@ class GridAxisMixin:
                 ylabel, fontsize=label_size, loc=loc, style=font_style, labelpad=ylabel_pad
             )
 
+    def _scale_tick_size_for_mobile(self, tick_size: float | None, style_type: str) -> float | None:
+        """
+        Scale tick size for mobile display.
+
+        This is a composable helper for charts that need to apply tick styling
+        conditionally (e.g., bar charts with fiscal year detection).
+
+        Args:
+            tick_size: Base font size for tick labels
+            style_type: 'desktop' or 'mobile'
+
+        Returns:
+            Scaled tick size (80% of original for mobile, unchanged for desktop)
+        """
+        if style_type == "mobile" and tick_size:
+            return tick_size * 0.8
+        return tick_size
+
     def _apply_tick_styling(
         self,
         ax,
@@ -158,7 +176,10 @@ class GridAxisMixin:
         style_type="desktop",
     ):
         """
-        Apply consistent tick label styling.
+        Apply consistent tick label styling to both axes.
+
+        For charts needing conditional axis handling (e.g., fiscal year detection),
+        use _scale_tick_size_for_mobile() instead and apply tick_params manually.
 
         Args:
             ax: Matplotlib axes object
@@ -166,9 +187,7 @@ class GridAxisMixin:
             tick_rotation: Rotation angle for x-axis tick labels
             style_type: 'desktop' or 'mobile' for responsive sizing
         """
-        # Scale tick size for mobile
-        if style_type == "mobile" and tick_size:
-            tick_size = tick_size * 0.8
+        tick_size = self._scale_tick_size_for_mobile(tick_size, style_type)
 
         ax.tick_params(axis="x", labelsize=tick_size, rotation=tick_rotation)
         ax.tick_params(axis="y", labelsize=tick_size)

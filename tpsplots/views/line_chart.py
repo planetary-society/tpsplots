@@ -1,8 +1,9 @@
 # line_chart.py
 import logging
 import math
-from typing import Any, ClassVar
+from typing import ClassVar, TypedDict
 
+import matplotlib.dates as mdates
 import matplotlib.path as mpath
 import matplotlib.pyplot as plt
 
@@ -18,12 +19,21 @@ from .mixins import GridAxisMixin
 logger = logging.getLogger(__name__)
 
 
+class SeriesTypeStyle(TypedDict, total=False):
+    """Type definition for series type style configuration."""
+
+    color: str
+    linestyle: str
+    marker: str | None
+    linewidth: float
+
+
 class LineChartView(GridAxisMixin, ChartView):
     """Specialized view for line charts with a focus on exposing matplotlib's API."""
 
     # Default styling for series_types (semantic series classification)
     # Views apply these when explicit styling isn't provided in YAML
-    SERIES_TYPE_STYLES: ClassVar[dict[str, dict[str, Any]]] = {
+    SERIES_TYPE_STYLES: ClassVar[dict[str, SeriesTypeStyle]] = {
         "prior": {
             "color": "medium_gray",  # References ChartView.COLORS
             "linestyle": "--",
@@ -52,7 +62,9 @@ class LineChartView(GridAxisMixin, ChartView):
             return self.TPS_COLORS[color_name]
         return color_name  # Return as-is if not found (might be a hex code)
 
-    def _get_series_type_styles(self, series_types: list | None, num_series: int) -> dict:
+    def _get_series_type_styles(
+        self, series_types: list[str] | None, num_series: int
+    ) -> dict[str, list]:
         """
         Get default styling arrays based on series_types metadata.
 
@@ -360,15 +372,9 @@ class LineChartView(GridAxisMixin, ChartView):
         """
         Create a line plot with appropriate styling.
         """
-        # Extract figure parameters
-        figsize = kwargs.pop("figsize", style["figsize"])
-        dpi = kwargs.pop("dpi", style["dpi"])
-        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-
-        # Intercept title and subtitle parameters
-        for text in ["title", "subtitle"]:
-            if kwargs.get(text):
-                metadata[text] = kwargs.pop(text)
+        # Set up figure and extract metadata using base class helpers
+        fig, ax = self._setup_figure(style, kwargs)
+        self._extract_metadata_from_kwargs(metadata, kwargs)
 
         # Extract data and handle DataFrame input if provided
         data = kwargs.pop("data", kwargs.pop("df", None))
@@ -606,8 +612,6 @@ class LineChartView(GridAxisMixin, ChartView):
         if fiscal_year_ticks and x_data is not None and self._contains_dates(x_data):
             self._apply_fiscal_year_ticks(ax, style, tick_size=tick_size)
         elif x_data is not None and self._contains_dates(x_data):
-            import matplotlib.dates as mdates
-
             ax.xaxis.set_major_locator(mdates.YearLocator())
             ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
             plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
@@ -988,8 +992,8 @@ class LineChartView(GridAxisMixin, ChartView):
         try:
             # Renderer should be available because we called fig.canvas.draw() in _apply_axes_styling
             renderer = fig.canvas.get_renderer()
-        except Exception:
-            logger.warning("Renderer not available. Cannot perform accurate direct labeling.")
+        except Exception as e:
+            logger.warning(f"Renderer not available for direct labeling: {e}")
             # If auto mode relies on the renderer, we must exit if it's not available.
             if position_mode == "auto":
                 return
@@ -1007,8 +1011,8 @@ class LineChartView(GridAxisMixin, ChartView):
             # Attempt conversion to numpy array for consistency
             try:
                 numeric_x = np.array(x_data)
-            except Exception:
-                logger.error("Could not process x_data for direct labeling.")
+            except Exception as e:
+                logger.error(f"Could not process x_data for direct labeling: {e}")
                 return
 
         # Prepare line data in display coordinates for collision detection (only if auto mode)
@@ -1172,8 +1176,6 @@ class LineChartView(GridAxisMixin, ChartView):
         self, x_data, y_data, text_bbox, position_mode, ax, markersize_points
     ):
         """Calculates position for simple modes using point offsets (DPI-aware)."""
-        import matplotlib.dates as mdates
-
         # Define offset in points (marker radius + desired gap)
         gap_points = 8  # Increased gap for better visual separation
         minimum_offset_points = 12  # Ensure minimum distance from endpoint
