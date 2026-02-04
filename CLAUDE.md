@@ -33,6 +33,7 @@ YAML Config → YAMLChartProcessor → DataResolver → View → Output Files
 | `tpsplots/models/` | Pydantic schemas for YAML validation |
 | `tpsplots/processors/` | Data transformations (see [PROCESSORS.md](PROCESSORS.md)) |
 | `tpsplots/data_sources/` | Data loading (NASA budget, Google Sheets, etc.) |
+| `tpsplots/utils/` | Shared utilities (currency cleaning, DataFrame transforms, formatting) |
 
 ## Adding Chart Types
 
@@ -47,6 +48,14 @@ Schema defined in `tpsplots/models/yaml_config.py`. Run `tpsplots --schema` for 
 ```yaml
 data:
   source: data/file.csv | https://url | controller.method
+  params:                         # Optional: customize data loading
+    columns: [col1, col2]         # Keep only these columns
+    cast: {Year: int}             # Type conversion (int, float, str, datetime)
+    renames: {Old: New}           # Rename columns
+    auto_clean_currency: true     # Clean $X,XXX columns (default for URLs)
+  calculate_inflation:            # Optional: inflation adjustment
+    columns: [Amount]             # Columns to adjust
+    type: nnsi                    # nnsi (default) or gdp
 
 chart:
   type: line | bar | donut | lollipop | stacked_bar | waffle

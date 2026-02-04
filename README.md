@@ -313,6 +313,7 @@ data:
 - Sheet must be publicly accessible or "Anyone with link can view"
 - Use the `/export?format=csv` URL format
 - For specific sheets/tabs, add `&gid=SHEET_GID`
+- Currency columns (e.g., `$42,013`) are auto-cleaned to numeric values
 
 ### CSV Files (Local Data)
 
@@ -322,6 +323,43 @@ Load from a local CSV file:
 data:
   source: data/my_data.csv
 ```
+
+### Data Source Parameters
+
+Customize data loading with optional `params`:
+
+```yaml
+data:
+  source: https://docs.google.com/spreadsheets/d/SHEET_ID/export?format=csv
+  params:
+    columns:                    # Keep only these columns
+      - "Fiscal Year"
+      - "Amount"
+    cast:                       # Convert column types
+      Fiscal Year: int
+      Amount: float
+    renames:                    # Rename columns
+      "Old Name": "New Name"
+    auto_clean_currency: true   # Auto-detect and clean $X,XXX columns (default for URLs)
+```
+
+### Inflation Adjustment
+
+Apply inflation adjustment to columns directly from YAML:
+
+```yaml
+data:
+  source: https://docs.google.com/spreadsheets/d/SHEET_ID/export?format=csv
+  calculate_inflation:
+    columns:                    # Columns to adjust
+      - "Apollo"
+      - "Artemis"
+    type: nnsi                  # "nnsi" (default) or "gdp"
+    fiscal_year_column: "Fiscal Year"  # Column with fiscal years
+    target_year: 2025           # Target FY (auto-calculated if omitted)
+```
+
+Creates new columns named `{column}_adjusted_{type}` (e.g., `Apollo_adjusted_nnsi`).
 
 ### Controller Methods (Complex Data Processing)
 
