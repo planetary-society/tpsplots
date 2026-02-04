@@ -68,6 +68,14 @@ class FiscalYearMixin:
         if dropped > 0:
             logger.info(f"Dropped {dropped} rows with invalid FY values in '{col}'")
 
+        # Ensure column is datetime64[ns] dtype for proper matplotlib handling
+        # (.apply() with datetime returns may leave dtype as 'object' depending on input dtype)
+        if df[col].dtype == object and len(df) > 0:
+            # Check if values are datetime objects (not "1976 TQ" strings)
+            first_val = df[col].iloc[0]
+            if isinstance(first_val, datetime):
+                df[col] = pd.to_datetime(df[col])
+
         return df
 
     def _apply_fiscal_year_conversion(
