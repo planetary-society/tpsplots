@@ -27,6 +27,7 @@ class GoogleSheetsController(ChartController):
         columns: list[str] | None = None,
         renames: dict[str, str] | None = None,
         auto_clean_currency: bool | dict | None = None,
+        fiscal_year_column: str | bool | None = None,
     ):
         """
         Initialize the GoogleSheetsController with URL and options.
@@ -40,12 +41,17 @@ class GoogleSheetsController(ChartController):
                 Can be bool or dict with 'enabled' and 'multiplier' keys.
                 When enabled, columns with 80%+ values matching $X,XXX pattern are
                 converted to float64 and originals are preserved as {column}_raw.
+            fiscal_year_column: Column to convert to datetime (default auto-detect).
+                - None: Auto-detect columns named "Fiscal Year", "FY", or "Year"
+                - str: Use this specific column name
+                - False: Disable fiscal year conversion
         """
         self.url = url
         self.cast = cast
         self.columns = columns
         self.renames = renames
         self.auto_clean_currency = auto_clean_currency
+        self.fiscal_year_column = fiscal_year_column
         self._source = None
 
     def load_data(self):
@@ -76,6 +82,8 @@ class GoogleSheetsController(ChartController):
                 source_kwargs["renames"] = self.renames
             if self.auto_clean_currency is not None:
                 source_kwargs["auto_clean_currency"] = self.auto_clean_currency
+            if self.fiscal_year_column is not None:
+                source_kwargs["fiscal_year_column"] = self.fiscal_year_column
 
             self._source = GoogleSheetsSource(url=self.url, **source_kwargs)
             df = self._source.data()

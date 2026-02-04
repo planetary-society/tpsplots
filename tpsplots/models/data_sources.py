@@ -39,6 +39,13 @@ class DataSourceParams(BaseModel):
         default=None,
         description="Auto-detect and clean currency columns. Can be bool or config with multiplier.",
     )
+    fiscal_year_column: str | bool | None = Field(
+        default=None,
+        description=(
+            "Column to convert to datetime. None=auto-detect (Fiscal Year, FY, Year), "
+            "str=column name, False=disable"
+        ),
+    )
 
 
 class InflationConfig(BaseModel):

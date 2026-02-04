@@ -241,7 +241,7 @@ class DataResolver:
             return {}
         return {
             field: getattr(params, field)
-            for field in ("columns", "cast", "renames", "auto_clean_currency")
+            for field in ("columns", "cast", "renames", "auto_clean_currency", "fiscal_year_column")
             if getattr(params, field, None) is not None
         }
 

@@ -293,16 +293,22 @@ class ChartView:
 
         _start_year, _end_year, year_range = year_info
 
-        # if the range is greater than 20 years, show only decade labels
-        if year_range > 20:
-
+        # Adjust tick density based on year range
+        if year_range > 30:
+            # Very long ranges: decade labels only
             def decade_label(year, pos):
                 year_int = int(mdates.num2date(year).year)
                 return str(year_int) if year_int % 10 == 0 else ""
 
             ax.xaxis.set_major_formatter(FuncFormatter(decade_label))
-        elif year_range < 10:
-            # If the range is less than 10 years, show all years
+        elif year_range > 20:
+            # 20-30 years: show every 5 years
+            ax.xaxis.set_major_locator(mdates.YearLocator(5))
+        elif year_range > 10:
+            # 10-20 years: show every 2 years for better readability
+            ax.xaxis.set_major_locator(mdates.YearLocator(2))
+        else:
+            # Less than 10 years: show all years
             ax.xaxis.set_major_locator(mdates.YearLocator(1))
 
         # Make minor ticks visible but unlabeled
@@ -317,6 +323,56 @@ class ChartView:
         plt.setp(ax.get_xticklabels(), rotation=style.get("tick_rotation", 0), fontsize=tick_size)
 
         return ax
+
+    def _convert_xlim_to_datetime(self, xlim, x_data):
+        """
+        Convert xlim integer year values to datetime when x_data contains dates.
+
+        When fiscal year data is converted to datetime objects, xlim values
+        specified as integers (e.g., [2006, 2026]) must also be converted
+        to datetime for matplotlib to properly clip the axis.
+
+        Args:
+            xlim: X-axis limits as tuple (min, max), dict, or None
+            x_data: The x-axis data to check for datetime type
+
+        Returns:
+            Converted xlim (tuple of datetime or original value)
+        """
+        if xlim is None or x_data is None:
+            return xlim
+
+        # Only convert if x_data contains datetime objects
+        if not self._contains_dates(x_data):
+            return xlim
+
+        # Check if x_data actually has datetime objects (not just integer years)
+        try:
+            first_elem = x_data.iloc[0] if hasattr(x_data, "iloc") else x_data[0]
+            # Only convert if x_data has actual datetime objects
+            if not (hasattr(first_elem, "year") and hasattr(first_elem, "month")):
+                return xlim
+        except (KeyError, IndexError):
+            return xlim
+
+        from datetime import datetime
+
+        def convert_value(val):
+            """Convert a single value to datetime if it's an integer year."""
+            if isinstance(val, int) and 1900 <= val <= 2100:
+                return datetime(val, 1, 1)
+            if isinstance(val, float) and 1900 <= val <= 2100:
+                return datetime(int(val), 1, 1)
+            return val
+
+        if isinstance(xlim, dict):
+            # Handle dict format like {'left': 2006, 'right': 2026}
+            return {k: convert_value(v) for k, v in xlim.items()}
+        elif isinstance(xlim, (list, tuple)) and len(xlim) == 2:
+            # Handle tuple/list format like [2006, 2026]
+            return (convert_value(xlim[0]), convert_value(xlim[1]))
+
+        return xlim
 
     # Helper to detect if x_data contains dates
     def _contains_dates(self, x_data):

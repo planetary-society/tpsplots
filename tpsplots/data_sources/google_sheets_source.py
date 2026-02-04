@@ -63,12 +63,13 @@ from typing import Any, ClassVar
 import pandas as pd
 import requests
 
+from tpsplots.data_sources.fiscal_year_mixin import FiscalYearMixin
 from tpsplots.utils.currency_processing import clean_currency_column, looks_like_currency_column
 
 logger = logging.getLogger(__name__)
 
 
-class GoogleSheetsSource:
+class GoogleSheetsSource(FiscalYearMixin):
     """
     Flexible class for loading data from Google Sheets CSV exports.
 
@@ -117,6 +118,7 @@ class GoogleSheetsSource:
         columns: list[str] | None = None,
         renames: dict[str, str] | None = None,
         auto_clean_currency: bool | dict | None = None,
+        fiscal_year_column: str | bool | None = None,
     ) -> None:
         """
         Initialize the GoogleSheetsSource instance.
@@ -132,6 +134,10 @@ class GoogleSheetsSource:
                 Can be bool or dict with 'enabled' (bool) and 'multiplier' (float) keys.
                 When enabled, columns with 80%+ values matching $X,XXX pattern are
                 converted to float64 and originals are preserved as {column}_raw.
+            fiscal_year_column: Column to convert to datetime (default auto-detect).
+                - None: Auto-detect columns named "Fiscal Year", "FY", or "Year"
+                - str: Use this specific column name
+                - False: Disable fiscal year conversion
         """
         # URL resolution: parameter takes precedence over class attribute
         self._url = url or getattr(self.__class__, "URL", None)
@@ -145,6 +151,7 @@ class GoogleSheetsSource:
         self._columns = columns
         self._renames = renames
         self._auto_clean_currency = auto_clean_currency
+        self._fiscal_year_column = fiscal_year_column
 
     def data(self) -> pd.DataFrame:
         """
@@ -232,6 +239,9 @@ class GoogleSheetsSource:
 
         # Auto-clean currency columns if enabled
         df = self._auto_clean_currency_columns(df)
+
+        # Apply fiscal year conversion (auto-detects or uses configured column)
+        df = self._apply_fiscal_year_conversion(df, self._fiscal_year_column)
 
         return df
 

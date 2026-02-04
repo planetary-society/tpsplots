@@ -59,7 +59,7 @@ import logging
 import re
 import ssl
 from collections.abc import Callable
-from datetime import date, datetime
+from datetime import date
 from functools import cached_property
 from pathlib import Path
 from typing import Any, ClassVar
@@ -69,13 +69,14 @@ import certifi
 import pandas as pd
 import requests
 
+from tpsplots.data_sources.fiscal_year_mixin import FiscalYearMixin
 from tpsplots.utils.currency_processing import clean_currency_column
 
 logger = logging.getLogger(__name__)
 
 
 # ─────────────────────────── base class ────────────────────────────
-class NASABudget:
+class NASABudget(FiscalYearMixin):
     """
     Base class for loading, cleaning, and accessing NASA budget data.
 
@@ -310,7 +311,6 @@ class NASABudget:
             ):
                 df[col] = self._clean_currency_column(df[col])
 
-        # Rest of the method remains the same...
         # Clean date-style columns: convert to datetime objects.
         # Identifies columns ending with 'date', 'signed', or 'updated' (case-insensitive).
         for col in df.columns:
@@ -318,28 +318,8 @@ class NASABudget:
                 # Convert to datetime, coercing errors to NaT (Not a Time)
                 df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
 
-        # Clean fiscal-year / year columns: normalize format and handle "1976 TQ".
-        # Identifies columns matching FY followed by 2-4 digits or names like 'fiscal year', 'fy', 'year'.
-        # Modified to keep 4-digit years as strings.
-        def norm(x):
-            """Helper function to normalize fiscal year values, keeping them as strings."""
-            if pd.isna(x):
-                return pd.NA  # Return pandas NA for missing values
-            s = str(x).strip()  # Convert to string and remove leading/trailing whitespace
-            if "TQ" in s.upper():
-                return "1976 TQ"  # Preserve the special '1976 TQ' string
-            if s.isdigit() and len(s) == 4:
-                return datetime(int(s), 1, 1)
-            return pd.NA  # Return pandas NA for any other format
-
-        for col in df.columns:
-            if re.fullmatch(r"FY\d{2,4}", str(col), flags=re.I) or str(col).lower() in {
-                "fiscal year",
-                "fy",
-                "year",
-            }:
-                # Apply the normalization function to the column
-                df[col] = df[col].apply(norm)
+        # Use mixin for fiscal year column conversion (replaces inline norm() function)
+        df = self._apply_fiscal_year_conversion(df)
 
         return df
 
