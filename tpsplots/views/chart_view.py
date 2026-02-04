@@ -16,7 +16,7 @@ import pandas as pd
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.ticker import FuncFormatter
 
-from tpsplots import TPS_STYLE_FILE  # custom mplstyle
+from tpsplots import IMAGES_DIR, TPS_STYLE_FILE
 from tpsplots.colors import COLORS, TPS_COLORS
 from tpsplots.exceptions import RenderingError
 
@@ -598,7 +598,7 @@ class ChartView:
             fig: The matplotlib Figure object
         """
         try:
-            logo_path = Path(__file__).parent.parent.parent / "img" / "TPS_Logo_1Line-Black.png"
+            logo_path = IMAGES_DIR / "TPS_Logo_1Line-Black.png"
             if not logo_path.exists():
                 return
 
