@@ -63,6 +63,8 @@ from typing import Any, ClassVar
 import pandas as pd
 import requests
 
+from tpsplots.utils.currency_processing import clean_currency_column, looks_like_currency_column
+
 logger = logging.getLogger(__name__)
 
 
@@ -105,12 +107,16 @@ class GoogleSheetsSource:
         "date": "datetime64[ns]",
     }
 
+    # Default for auto-cleaning currency columns (can be overridden in subclass)
+    AUTO_CLEAN_CURRENCY: ClassVar[bool] = True
+
     def __init__(
         self,
         url: str | None = None,
         cast: dict[str, str] | None = None,
         columns: list[str] | None = None,
         renames: dict[str, str] | None = None,
+        auto_clean_currency: bool | None = None,
     ) -> None:
         """
         Initialize the GoogleSheetsSource instance.
@@ -122,6 +128,9 @@ class GoogleSheetsSource:
             cast: Column type overrides (optional, can also be class attribute CAST)
             columns: Columns to keep (optional, can also be class attribute COLUMNS)
             renames: Column renames (optional, can also be class attribute RENAMES)
+            auto_clean_currency: Auto-detect and clean currency columns (default True).
+                When enabled, columns with 80%+ values matching $X,XXX pattern are
+                converted to float64 and originals are preserved as {column}_raw.
         """
         # URL resolution: parameter takes precedence over class attribute
         self._url = url or getattr(self.__class__, "URL", None)
@@ -134,6 +143,7 @@ class GoogleSheetsSource:
         self._cast = cast
         self._columns = columns
         self._renames = renames
+        self._auto_clean_currency = auto_clean_currency
 
     def data(self) -> pd.DataFrame:
         """
@@ -219,6 +229,9 @@ class GoogleSheetsSource:
         # Apply type casting overrides
         df = self._cast_columns(df)
 
+        # Auto-clean currency columns if enabled
+        df = self._auto_clean_currency_columns(df)
+
         return df
 
     @staticmethod
@@ -289,5 +302,43 @@ class GoogleSheetsSource:
                 logger.debug(f"Cast column '{col}' to {dtype}")
             except Exception as e:
                 logger.error(f"Failed to cast column '{col}' to {dtype}: {e}")
+
+        return df
+
+    def _auto_clean_currency_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Auto-detect and clean currency columns.
+
+        Scans object-type columns for currency patterns ($X,XXX or $X,XXX.XX).
+        When 80%+ of non-null values match, the column is converted to float64
+        and the original values are preserved in a {column}_raw column.
+
+        This behavior is controlled by:
+        - Instance parameter: auto_clean_currency (takes precedence)
+        - Class attribute: AUTO_CLEAN_CURRENCY (default True)
+
+        Args:
+            df: The input DataFrame
+
+        Returns:
+            DataFrame with currency columns cleaned and originals preserved
+        """
+        # Determine if auto-cleaning is enabled
+        auto_clean = self._auto_clean_currency
+        if auto_clean is None:
+            auto_clean = getattr(self.__class__, "AUTO_CLEAN_CURRENCY", True)
+
+        if not auto_clean:
+            return df
+
+        df = df.copy()
+
+        for col in df.select_dtypes("object").columns:
+            if looks_like_currency_column(col, df[col]):
+                # Preserve original values
+                df[f"{col}_raw"] = df[col]
+                # Clean the column (no multiplier - use values as-is)
+                df[col] = clean_currency_column(df[col], multiplier=1.0)
+                logger.debug(f"Auto-cleaned currency column '{col}'")
 
         return df

@@ -69,6 +69,8 @@ import certifi
 import pandas as pd
 import requests
 
+from tpsplots.utils.currency_processing import clean_currency_column
+
 logger = logging.getLogger(__name__)
 
 
@@ -88,9 +90,6 @@ class NASABudget:
     - MONETARY_COLUMNS (List[str], optional): A list of columns containing
       monetary values that should have adjusted versions created.
     """
-
-    # Regex to find and remove currency symbols, commas, and 'M' or 'B' suffixes
-    _CURRENCY_RE = re.compile(r"[\$,]|\s*[MB]$", flags=re.IGNORECASE)
 
     # ── core API ────────────────────────────────────────────────────
     def __init__(self, csv_source: str | Path) -> None:
@@ -271,19 +270,16 @@ class NASABudget:
     def _clean_currency_column(self, series: pd.Series) -> pd.Series:
         """Clean currency column by converting from millions to dollars.
 
+        Uses the shared clean_currency_column utility with a multiplier
+        of 1,000,000 to convert NASA budget values from millions to dollars.
+
         Args:
             series: A pandas Series containing currency values in millions
 
         Returns:
             A Series of float64 values multiplied by 1,000,000 (converted to dollars)
         """
-        return (
-            series.astype(str)
-            .str.replace(self._CURRENCY_RE, "", regex=True)
-            .apply(pd.to_numeric, errors="coerce")
-            .mul(1_000_000)
-            .astype("float64")
-        )
+        return clean_currency_column(series, multiplier=1_000_000)
 
     def _clean(self, df: pd.DataFrame) -> pd.DataFrame:
         """

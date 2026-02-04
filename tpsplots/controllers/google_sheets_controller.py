@@ -29,6 +29,7 @@ class GoogleSheetsController(ChartController):
         cast: dict[str, str] | None = None,
         columns: list[str] | None = None,
         renames: dict[str, str] | None = None,
+        auto_clean_currency: bool | None = None,
     ):
         """
         Initialize the GoogleSheetsController with URL and options.
@@ -38,11 +39,15 @@ class GoogleSheetsController(ChartController):
             cast: Column type overrides (e.g., {"Date": "datetime", "ID": "str"})
             columns: Columns to keep from the sheet
             renames: Column renames (e.g., {"Old Name": "New Name"})
+            auto_clean_currency: Auto-detect and clean currency columns (default True).
+                When enabled, columns with 80%+ values matching $X,XXX pattern are
+                converted to float64 and originals are preserved as {column}_raw.
         """
         self.url = url
         self.cast = cast
         self.columns = columns
         self.renames = renames
+        self.auto_clean_currency = auto_clean_currency
         self._source = None
 
     def load_data(self):
@@ -71,6 +76,8 @@ class GoogleSheetsController(ChartController):
                 source_kwargs["columns"] = self.columns
             if self.renames:
                 source_kwargs["renames"] = self.renames
+            if self.auto_clean_currency is not None:
+                source_kwargs["auto_clean_currency"] = self.auto_clean_currency
 
             self._source = GoogleSheetsSource(url=self.url, **source_kwargs)
             df = self._source.data()

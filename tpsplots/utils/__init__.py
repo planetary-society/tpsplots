@@ -1,5 +1,9 @@
 """Shared utility functions for tpsplots."""
 
+from tpsplots.utils.currency_processing import (
+    clean_currency_column,
+    looks_like_currency_column,
+)
 from tpsplots.utils.date_processing import (
     looks_like_date_column,
     round_date_to_year,
@@ -10,10 +14,10 @@ from tpsplots.utils.formatting import (
 )
 
 __all__ = [
-    # Formatting
+    "clean_currency_column",
     "format_monetary",
     "format_value",
-    # Date processing
+    "looks_like_currency_column",
     "looks_like_date_column",
     "round_date_to_year",
 ]
