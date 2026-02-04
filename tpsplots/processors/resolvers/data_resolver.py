@@ -9,9 +9,15 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.exceptions import DataSourceError
-from tpsplots.models.data_sources import DataSourceConfig
+from tpsplots.models.data_sources import DataSourceConfig, DataSourceParams, InflationConfig
+from tpsplots.processors.inflation_adjustment_processor import (
+    InflationAdjustmentConfig,
+    InflationAdjustmentProcessor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,17 +44,26 @@ class DataResolver:
             raise DataSourceError("Data source 'source' must not be empty")
 
         kind, target, method = DataResolver._parse_source(source)
+        params = data_source.params
 
         if kind == "url":
-            return DataResolver._resolve_url(target)
-        if kind == "csv":
-            return DataResolver._resolve_csv(target)
-        if kind == "controller_module":
-            return DataResolver._resolve_controller_module(target, method)
-        if kind == "controller_path":
-            return DataResolver._resolve_controller_path(target, method)
+            result = DataResolver._resolve_url(target, params)
+        elif kind == "csv":
+            result = DataResolver._resolve_csv(target, params)
+        elif kind == "controller_module":
+            result = DataResolver._resolve_controller_module(target, method)
+        elif kind == "controller_path":
+            result = DataResolver._resolve_controller_path(target, method)
+        else:
+            raise DataSourceError(f"Unsupported data source: {source}")
 
-        raise DataSourceError(f"Unsupported data source: {source}")
+        # Apply inflation adjustment if configured
+        if data_source.calculate_inflation:
+            result = DataResolver._apply_inflation_adjustment(
+                result, data_source.calculate_inflation
+            )
+
+        return result
 
     @staticmethod
     def _parse_source(source: str) -> tuple[str, str, str | None]:
@@ -128,8 +143,10 @@ class DataResolver:
         return "controller_module", module_name, method_name
 
     @staticmethod
-    def _resolve_controller_module(module_name: str, method_name: str) -> dict[str, Any]:
+    def _resolve_controller_module(module_name: str, method_name: str | None) -> dict[str, Any]:
         """Resolve data from a controller method within tpsplots.controllers."""
+        if method_name is None:
+            raise DataSourceError("Controller method name is required")
         try:
             module = importlib.import_module(f"tpsplots.controllers.{module_name}")
         except Exception as e:
@@ -141,8 +158,10 @@ class DataResolver:
         return DataResolver._call_controller_method(controller_class, method_name)
 
     @staticmethod
-    def _resolve_controller_path(path: str, method_name: str) -> dict[str, Any]:
+    def _resolve_controller_path(path: str, method_name: str | None) -> dict[str, Any]:
         """Resolve data from a controller method in a local Python file."""
+        if method_name is None:
+            raise DataSourceError("Controller method name is required")
         module_path = Path(path).expanduser().resolve()
         if not module_path.exists():
             raise DataSourceError(f"Controller path not found: {module_path}")
@@ -209,23 +228,98 @@ class DataResolver:
         return result
 
     @staticmethod
-    def _resolve_csv(path: str) -> dict[str, Any]:
+    def _params_to_kwargs(params: DataSourceParams | None) -> dict[str, Any]:
+        """Convert DataSourceParams to controller kwargs.
+
+        Args:
+            params: DataSourceParams instance or None
+
+        Returns:
+            Dict of non-None param values suitable for controller kwargs
+        """
+        if not params:
+            return {}
+        return {
+            field: getattr(params, field)
+            for field in ("columns", "cast", "renames", "auto_clean_currency")
+            if getattr(params, field, None) is not None
+        }
+
+    @staticmethod
+    def _resolve_csv(path: str, params: DataSourceParams | None = None) -> dict[str, Any]:
         """Resolve data from a CSV file using CSVController."""
         try:
             from tpsplots.controllers.csv_controller import CSVController
 
-            controller = CSVController(csv_path=path)
+            kwargs = {"csv_path": path, **DataResolver._params_to_kwargs(params)}
+            controller = CSVController(**kwargs)
             return controller.load_data()
         except Exception as e:
             raise DataSourceError(f"Error loading CSV data: {e}") from e
 
     @staticmethod
-    def _resolve_url(url: str) -> dict[str, Any]:
+    def _resolve_url(url: str, params: DataSourceParams | None = None) -> dict[str, Any]:
         """Resolve data from a URL (Google Sheets, direct CSV, etc.)."""
         try:
             from tpsplots.controllers.google_sheets_controller import GoogleSheetsController
 
-            controller = GoogleSheetsController(url=url)
+            kwargs = {"url": url, **DataResolver._params_to_kwargs(params)}
+            controller = GoogleSheetsController(**kwargs)
             return controller.load_data()
         except Exception as e:
             raise DataSourceError(f"Error loading URL data: {e}") from e
+
+    @staticmethod
+    def _apply_inflation_adjustment(
+        result: dict[str, Any], inflation_config: InflationConfig
+    ) -> dict[str, Any]:
+        """Apply inflation adjustment to the result data.
+
+        Args:
+            result: Dictionary containing 'data' DataFrame and column arrays
+            inflation_config: Configuration specifying columns and adjustment type
+
+        Returns:
+            Updated result dictionary with inflation-adjusted columns added
+        """
+        if "data" not in result or not isinstance(result["data"], pd.DataFrame):
+            raise DataSourceError(
+                "Cannot apply inflation adjustment: result must contain 'data' DataFrame"
+            )
+
+        df = result["data"]
+
+        # Build InflationAdjustmentConfig using dynamic key for column type
+        column_key = f"{inflation_config.type}_columns"
+        config = InflationAdjustmentConfig(
+            target_year=inflation_config.target_year,
+            fiscal_year_column=inflation_config.fiscal_year_column,
+            **{column_key: inflation_config.columns},
+        )
+
+        # Apply the processor
+        processor = InflationAdjustmentProcessor(config)
+        df = processor.process(df)
+
+        # Update the result dictionary
+        result["data"] = df
+
+        # Expose new columns as top-level keys
+        suffix = f"_adjusted_{inflation_config.type}"
+        for col in inflation_config.columns:
+            adjusted_col = f"{col}{suffix}"
+            if adjusted_col in df.columns:
+                result[adjusted_col] = df[adjusted_col].values
+
+        # Expose inflation_target_year for use in titles/subtitles
+        if "inflation_target_year" in df.attrs:
+            result["inflation_target_year"] = df.attrs["inflation_target_year"]
+
+        logger.info(
+            "Applied %s inflation adjustment to columns: %s (target year: %s)",
+            inflation_config.type.upper(),
+            inflation_config.columns,
+            config.target_year,
+        )
+
+        return result

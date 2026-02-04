@@ -3,12 +3,9 @@
 import logging
 import re
 
-import pandas as pd
-
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.data_sources.google_sheets_source import GoogleSheetsSource
 from tpsplots.exceptions import DataSourceError
-from tpsplots.utils.date_processing import looks_like_date_column, round_date_to_year
 
 logger = logging.getLogger(__name__)
 
@@ -86,24 +83,8 @@ class GoogleSheetsController(ChartController):
                 f"Loaded Google Sheets data from {self.url} ({len(df)} rows, {len(df.columns)} columns)"
             )
 
-            # Build result dictionary with multiple access patterns
-            result = {"data": df}  # Keep full DataFrame for export_data
-
-            # Expose each column as a top-level key for YAML parameter resolution
-            for col in df.columns:
-                result[col] = df[col].values
-
-                # Auto-detect date columns and create _year variants with mid-year rounding
-                if looks_like_date_column(col, df[col]):
-                    try:
-                        dt_series = pd.to_datetime(df[col], errors="coerce")
-                        year_col_name = f"{col}_year"
-                        result[year_col_name] = round_date_to_year(dt_series).values
-                        logger.debug(f"Created year column '{year_col_name}' from '{col}'")
-                    except Exception as e:
-                        logger.debug(f"Could not convert '{col}' to years: {e}")
-
-            return result
+            # Use base class method to build result dictionary
+            return self._build_result_dict(df)
 
         except Exception as e:
             raise DataSourceError(

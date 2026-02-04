@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -18,6 +19,40 @@ class ChartController:
     Subclasses implement methods that return data dictionaries for YAML-driven
     chart generation.
     """
+
+    def _build_result_dict(self, df: pd.DataFrame) -> dict[str, Any]:
+        """Build standard result dictionary from DataFrame.
+
+        Creates a consistent output format for YAML parameter resolution:
+        - 'data': Full DataFrame for export_data
+        - Column names: numpy arrays for direct access
+        - '{column}_year': Year extraction for date columns
+
+        Args:
+            df: DataFrame containing the loaded data
+
+        Returns:
+            dict: Result dictionary with multiple access patterns
+        """
+        from tpsplots.utils.date_processing import looks_like_date_column, round_date_to_year
+
+        result: dict[str, Any] = {"data": df}
+
+        # Expose each column as a top-level key for YAML parameter resolution
+        for col in df.columns:
+            result[col] = df[col].values
+
+            # Auto-detect date columns and create _year variants with mid-year rounding
+            if looks_like_date_column(col, df[col]):
+                try:
+                    dt_series = pd.to_datetime(df[col], errors="coerce")
+                    year_col_name = f"{col}_year"
+                    result[year_col_name] = round_date_to_year(dt_series).values
+                    logger.debug(f"Created year column '{year_col_name}' from '{col}'")
+                except Exception as e:
+                    logger.debug(f"Could not convert '{col}' to years: {e}")
+
+        return result
 
     def _get_rounded_axis_limit_y(
         self, max_value: float, multiple: float = 5000000000, always_extend: bool = True
