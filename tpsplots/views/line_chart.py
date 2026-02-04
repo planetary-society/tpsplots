@@ -586,7 +586,21 @@ class LineChartView(GridAxisMixin, ChartView):
         ax.tick_params(axis="x", labelsize=tick_size)
         ax.tick_params(axis="y", labelsize=tick_size)
 
-        # Apply appropriate tick formatting
+        # Apply axis limits BEFORE tick formatting so year range is computed correctly
+        if xlim:
+            # Convert integer years to datetime if x_data contains datetime objects
+            xlim = self._convert_xlim_to_datetime(xlim, x_data)
+            if isinstance(xlim, dict):
+                ax.set_xlim(**xlim)
+            else:
+                ax.set_xlim(xlim)
+        if ylim:
+            if isinstance(ylim, dict):
+                ax.set_ylim(**ylim)
+            else:
+                ax.set_ylim(ylim)
+
+        # Apply appropriate tick formatting (AFTER xlim/ylim so year range is correct)
         fiscal_year_ticks = kwargs.pop("fiscal_year_ticks", True)
 
         if fiscal_year_ticks and x_data is not None and self._contains_dates(x_data):
@@ -618,20 +632,9 @@ class LineChartView(GridAxisMixin, ChartView):
                 except Exception:
                     logger.warning("Could not set categorical xticklabels.")
 
-        # Apply scale formatter, custom limits, custom ticks
+        # Apply scale formatter
         if scale:
             self._apply_scale_formatter(ax, scale, axis_scale)
-
-        if xlim:
-            if isinstance(xlim, dict):
-                ax.set_xlim(**xlim)
-            else:
-                ax.set_xlim(xlim)
-        if ylim:
-            if isinstance(ylim, dict):
-                ax.set_ylim(**ylim)
-            else:
-                ax.set_ylim(ylim)
 
         if xticks is not None:
             ax.set_xticks(xticks)
