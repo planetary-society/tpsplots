@@ -421,16 +421,19 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
         tick_rotation = kwargs.pop("tick_rotation", tick_rotation)
         show_category_ticks = kwargs.pop("show_category_ticks", False)
 
-        # Apply axis labels
+        # Apply axis labels using mixin
         label_size = style.get("label_size", 12)
         if style["type"] == "mobile":
-            label_size = label_size * 0.8
             tick_size = tick_size * 0.8
 
-        if xlabel:
-            ax.set_xlabel(xlabel, fontsize=label_size)
-        if ylabel:
-            ax.set_ylabel(ylabel, fontsize=label_size)
+        self._apply_axis_labels(
+            ax,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            label_size=label_size,
+            style_type=style["type"],
+            italic=False,
+        )
 
         # Apply grid using mixin
         self._apply_grid(ax, grid=grid, grid_axis=grid_axis)

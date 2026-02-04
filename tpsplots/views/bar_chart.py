@@ -6,12 +6,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .chart_view import ChartView
-from .mixins import BarChartMixin
+from .mixins import BarChartMixin, GridAxisMixin
 
 logger = logging.getLogger(__name__)
 
 
-class BarChartView(BarChartMixin, ChartView):
+class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
     """Specialized view for standard bar charts with a focus on exposing matplotlib's API."""
 
     def bar_plot(self, metadata, stem, **kwargs):
@@ -263,14 +263,14 @@ class BarChartView(BarChartMixin, ChartView):
         if style["type"] == "mobile":
             tick_size = tick_size * 0.8
 
-        # Set axis label size from style settings
-        if style["type"] == "mobile":
-            label_size = label_size * 0.6
-
-        if xlabel:
-            ax.set_xlabel(xlabel, fontsize=label_size, loc="center", style="italic")
-        if ylabel:
-            ax.set_ylabel(ylabel, fontsize=label_size, loc="center", style="italic")
+        # Apply axis labels using mixin
+        self._apply_axis_labels(
+            ax,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            label_size=label_size,
+            style_type=style["type"],
+        )
 
         # Apply grid
         if grid:

@@ -118,6 +118,8 @@ class GridAxisMixin:
         *,
         italic=True,
         loc="center",
+        xlabel_pad=10,
+        ylabel_pad=4,
     ):
         """
         Apply consistent axis label styling.
@@ -130,6 +132,8 @@ class GridAxisMixin:
             style_type: 'desktop' or 'mobile' for responsive sizing
             italic: Whether to use italic style (default: True)
             loc: Label location (default: 'center')
+            xlabel_pad: Spacing in points between x-axis and label (default: 8)
+            ylabel_pad: Spacing in points between y-axis and label (default: 4)
         """
         # Scale label size for mobile
         if style_type == "mobile" and label_size:
@@ -138,9 +142,13 @@ class GridAxisMixin:
         font_style = "italic" if italic else "normal"
 
         if xlabel:
-            ax.set_xlabel(xlabel, fontsize=label_size, loc=loc, style=font_style)
+            ax.set_xlabel(
+                xlabel, fontsize=label_size, loc=loc, style=font_style, labelpad=xlabel_pad
+            )
         if ylabel:
-            ax.set_ylabel(ylabel, fontsize=label_size, loc=loc, style=font_style)
+            ax.set_ylabel(
+                ylabel, fontsize=label_size, loc=loc, style=font_style, labelpad=ylabel_pad
+            )
 
     def _apply_tick_styling(
         self,

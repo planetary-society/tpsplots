@@ -303,16 +303,18 @@ class BarChartMixin:
         if tick_rotation is None:
             tick_rotation = style.get("tick_rotation", 45) if orientation == "vertical" else 0
 
-        # Scale down sizes on mobile display
+        # Scale down tick size on mobile display
         if style["type"] == "mobile":
             tick_size = tick_size * 0.8
-            label_size = label_size * 0.6
 
-        # Apply axis labels
-        if xlabel:
-            ax.set_xlabel(xlabel, fontsize=label_size, loc="center", style="italic")
-        if ylabel:
-            ax.set_ylabel(ylabel, fontsize=label_size, loc="center", style="italic")
+        # Apply axis labels using GridAxisMixin method
+        self._apply_axis_labels(
+            ax,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            label_size=label_size,
+            style_type=style["type"],
+        )
 
         # Apply grid
         if grid:

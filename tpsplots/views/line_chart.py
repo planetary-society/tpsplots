@@ -13,11 +13,12 @@ import pandas as pd
 from matplotlib.transforms import Bbox
 
 from .chart_view import ChartView
+from .mixins import GridAxisMixin
 
 logger = logging.getLogger(__name__)
 
 
-class LineChartView(ChartView):
+class LineChartView(GridAxisMixin, ChartView):
     """Specialized view for line charts with a focus on exposing matplotlib's API."""
 
     # Default styling for series_types (semantic series classification)
@@ -562,11 +563,15 @@ class LineChartView(ChartView):
         # Ensure markersize is available (passed from _create_chart)
         kwargs.get("markersize", style.get("marker_size", 6))
 
-        # Apply axis labels, grid, tick params
-        if xlabel:
-            ax.set_xlabel(xlabel, fontsize=label_size)
-        if ylabel:
-            ax.set_ylabel(ylabel, fontsize=label_size)
+        # Apply axis labels using mixin
+        self._apply_axis_labels(
+            ax,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            label_size=label_size,
+            style_type=style["type"],
+            italic=False,
+        )
 
         if grid or style.get("grid"):
             if grid:

@@ -522,11 +522,15 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
         tick_size = kwargs.pop("tick_size", style.get("tick_size", 12))
         hide_y_spine = kwargs.pop("hide_y_spine", False)
 
-        # Apply axis labels
-        if xlabel:
-            ax.set_xlabel(xlabel, fontsize=style.get("label_size", 14))
-        if ylabel:
-            ax.set_ylabel(ylabel, fontsize=style.get("label_size", 14))
+        # Apply axis labels using mixin
+        self._apply_axis_labels(
+            ax,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            label_size=style.get("label_size", 14),
+            style_type=style["type"],
+            italic=False,
+        )
 
         # Apply grid using mixin
         self._apply_grid(ax, grid=grid, grid_axis=grid_axis)

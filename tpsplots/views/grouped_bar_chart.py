@@ -321,14 +321,15 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
         ax.set_xticks(x)
         ax.set_xticklabels(categories, fontsize=tick_size, rotation=tick_rotation)
 
-        # Apply axis labels
+        # Apply axis labels using mixin
         label_size = style.get("label_size", 20)
-        if style["type"] == "mobile":
-            label_size = label_size * 0.6
-        if xlabel:
-            ax.set_xlabel(xlabel, fontsize=label_size, loc="center", style="italic")
-        if ylabel:
-            ax.set_ylabel(ylabel, fontsize=label_size, loc="center", style="italic")
+        self._apply_axis_labels(
+            ax,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            label_size=label_size,
+            style_type=style["type"],
+        )
 
         # Apply axis limits using mixin
         self._apply_axis_limits(ax, xlim=xlim, ylim=ylim)

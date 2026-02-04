@@ -7,11 +7,12 @@ import numpy as np
 import pandas as pd
 
 from .chart_view import ChartView
+from .mixins import GridAxisMixin
 
 logger = logging.getLogger(__name__)
 
 
-class LineSubplotsView(ChartView):
+class LineSubplotsView(GridAxisMixin, ChartView):
     """Specialized view for creating line plots in a grid of subplots."""
 
     def line_subplots_plot(self, metadata, stem, **kwargs):
@@ -289,11 +290,15 @@ class LineSubplotsView(ChartView):
         max_xticks = kwargs.get("max_xticks", style.get("max_ticks"))
         fiscal_year_ticks = kwargs.get("fiscal_year_ticks", True)
 
-        # Apply axis labels if provided
-        if xlabel:
-            ax.set_xlabel(xlabel, fontsize=style["label_size"] * 0.9)
-        if ylabel:
-            ax.set_ylabel(ylabel, fontsize=style["label_size"] * 0.9)
+        # Apply axis labels using mixin (scaled smaller for subplots)
+        self._apply_axis_labels(
+            ax,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            label_size=style["label_size"] * 0.9,
+            style_type=style["type"],
+            italic=False,
+        )
 
         # Apply grid setting
         if grid:
