@@ -50,7 +50,8 @@ class ChartView:
         "footer_height": 0.08,
         "header": True,
         "header_height": 0.1,
-        "subtitle_offset": 0.93,  # y position of subtitle
+        "header_min_height": 0.06,  # Never smaller than 6%
+        "header_max_height": 0.18,  # Never larger than 18%
         "subtitle_wrap_length": 120,
         "label_wrap_length": 30,
     }
@@ -73,7 +74,8 @@ class ChartView:
         "footer_height": 0.08,
         "header": True,
         "header_height": 0.14,
-        "subtitle_offset": 0.93,
+        "header_min_height": 0.08,  # Never smaller than 8% (mobile needs more)
+        "header_max_height": 0.22,  # Never larger than 22%
         "subtitle_wrap_length": 64,
         "label_wrap_length": 15,
     }
@@ -537,26 +539,117 @@ class ChartView:
         if axis in ("x", "both"):
             ax.xaxis.set_major_formatter(FuncFormatter(formatter))
 
+    def _measure_text_height(self, fig, text, fontsize) -> float:
+        """
+        Measure text height in figure-fraction coordinates.
+
+        Creates a temporary invisible text element, measures its bounding box,
+        then removes it. This allows dynamic header sizing based on actual content.
+
+        Args:
+            fig: The matplotlib Figure object
+            text: The text string to measure
+            fontsize: Font size for the text
+
+        Returns:
+            float: Height of the text in figure-fraction coordinates (0.0-1.0)
+        """
+        if not text:
+            return 0.0
+
+        # Create temporary invisible text element to measure
+        temp_text = fig.text(0, 0, text, fontsize=fontsize, visible=False)
+
+        # Force a draw to ensure renderer is available
+        fig.canvas.draw_idle()
+        renderer = fig.canvas.get_renderer()
+
+        # Get bounding box in display (pixel) coordinates
+        bbox = temp_text.get_window_extent(renderer)
+
+        # Convert to figure-fraction coordinates
+        fig_height_px = fig.get_figheight() * fig.dpi
+        height = bbox.height / fig_height_px
+
+        # Clean up the temporary text
+        temp_text.remove()
+
+        return height
+
+    def _calculate_header_height(self, fig, metadata, style) -> float:
+        """
+        Calculate header height based on actual content dimensions.
+
+        Measures the title and wrapped subtitle to determine the exact
+        header space needed, avoiding both wasted space and text overlap.
+
+        Args:
+            fig: The matplotlib Figure object
+            metadata: Chart metadata dictionary containing title/subtitle
+            style: Style dictionary (DESKTOP or MOBILE)
+
+        Returns:
+            float: Required header height in figure-fraction coordinates
+        """
+        title = metadata.get("title")
+        subtitle = metadata.get("subtitle")
+
+        if not title and not subtitle:
+            return 0.0
+
+        # Measure title height
+        title_height = self._measure_text_height(fig, title, style["title_size"])
+
+        # Measure subtitle height (with wrapping applied)
+        if subtitle:
+            wrapped = "\n".join(
+                textwrap.wrap(
+                    self._escape_svg_text(subtitle),
+                    width=style.get("subtitle_wrap_length", 65),
+                )
+            )
+            subtitle_height = self._measure_text_height(fig, wrapped, style["title_size"] * 0.7)
+        else:
+            subtitle_height = 0.0
+
+        # Add padding: top margin + gap between title/subtitle + bottom margin
+        padding = 0.03
+
+        # Get min/max constraints from style (with sensible defaults)
+        min_height = style.get("header_min_height", 0.06)
+        max_height = style.get("header_max_height", 0.18)
+
+        # Calculate total height and constrain to bounds
+        total_height = title_height + subtitle_height + padding
+        return max(min_height, min(max_height, total_height))
+
     def _add_header(self, fig, metadata, style, top_margin=0.2):
         """
         Add header elements to the figure: title and subtitle with left alignment.
+
+        Subtitle is positioned dynamically relative to the title's actual height,
+        rather than using a hardcoded y-offset.
 
         Args:
             fig: The matplotlib Figure object
             metadata: Chart metadata dictionary
             style: Style dictionary (DESKTOP or MOBILE)
-            top_margin: Top margin to reserve for the header
+            top_margin: Top margin to reserve for the header (used for subtitle positioning)
         """
         # NOTE: Caller (_adjust_layout_for_header_footer) already checks whether
         # header should be displayed based on style and metadata settings.
+        # Layout spacing is handled by tight_layout(rect=...) in _adjust_layout_for_header_footer,
+        # so we do NOT call fig.subplots_adjust here to avoid conflicting layout calls.
 
-        # Reserve space at the top for header
-        fig.subplots_adjust(top=(1.0 - top_margin))
+        title = metadata.get("title")
+        subtitle = metadata.get("subtitle")
+
+        # Track vertical position (starts at top of figure)
+        title_bottom_y = 0.98  # Default if no title
 
         # Add title if provided
-        title = metadata.get("title")
         if title:
-            fig.text(
+            title_text = fig.text(
                 0.01,  # x position (left side)
                 0.98,  # y position (top)
                 title,
@@ -566,8 +659,20 @@ class ChartView:
                 va="top",
             )
 
-        # Add subtitle if provided, with word wrapping at 68 characters
-        subtitle = metadata.get("subtitle")
+            # Measure title to position subtitle correctly
+            fig.canvas.draw_idle()
+            renderer = fig.canvas.get_renderer()
+            title_bbox = title_text.get_window_extent(renderer)
+            fig_height_px = fig.get_figheight() * fig.dpi
+
+            # Calculate where title bottom is in figure coordinates
+            # title_bbox.y0 is the bottom of the text in display coordinates
+            title_bottom_y = title_bbox.y0 / fig_height_px
+
+            # Add small gap between title and subtitle
+            title_bottom_y -= 0.005
+
+        # Add subtitle if provided, positioned relative to title
         if subtitle:
             wrapped_subtitle = "\n".join(
                 textwrap.wrap(
@@ -576,7 +681,7 @@ class ChartView:
             )
             fig.text(
                 0.01,  # x position (left side)
-                style.get("subtitle_offset", 0.93),  # y position (below title)
+                title_bottom_y,  # y position (dynamically below title)
                 wrapped_subtitle,
                 fontsize=style["title_size"] * 0.7,
                 ha="left",
@@ -595,9 +700,8 @@ class ChartView:
         """
         # NOTE: Caller (_adjust_layout_for_header_footer) already checks whether
         # footer should be displayed based on style and metadata settings.
-
-        # Reserve space at the bottom for footer
-        fig.subplots_adjust(bottom=bottom_margin)
+        # Layout spacing is handled by tight_layout(rect=...) in _adjust_layout_for_header_footer,
+        # so we do NOT call fig.subplots_adjust here to avoid conflicting layout calls.
 
         # Add horizontal spacer line
         spacer_y = bottom_margin / 2  # Place line halfway in the margin
@@ -616,8 +720,9 @@ class ChartView:
         """
         Adjust figure layout to accommodate headers and footers.
 
-        This method handles the spacing and layout adjustments needed for
-        headers and footers, and applies tight_layout with appropriate margins.
+        This is the SINGLE SOURCE OF TRUTH for layout spacing. Uses tight_layout(rect=...)
+        to allocate space for header/footer, with dynamic header sizing based on actual
+        content measurements.
 
         Args:
             fig: The matplotlib Figure object
@@ -630,19 +735,29 @@ class ChartView:
         # Determine if footer should be displayed
         show_footer = style.get("footer") or metadata.get("footer")
 
-        # Add header if enabled
+        # Calculate dynamic header height based on actual content
         if show_header:
-            self._add_header(fig, metadata, style, style["header_height"])
+            # Use dynamic calculation, falling back to style default
+            header_height = self._calculate_header_height(fig, metadata, style)
+            # Ensure we don't go below the style minimum
+            style_min = style.get("header_height", 0.1)
+            header_height = max(header_height, style_min)
+        else:
+            header_height = 0
+
+        # Footer height is fixed (source text + logo don't vary much)
+        footer_height = style.get("footer_height", 0) if show_footer else 0
+
+        # Add header if enabled (after calculating height so it knows space available)
+        if show_header:
+            self._add_header(fig, metadata, style, header_height)
 
         # Add footer if enabled
         if show_footer:
-            self._add_footer(fig, metadata, style, style["footer_height"])
-
-        # Calculate layout bounds based on header/footer presence
-        header_height = style.get("header_height", 0) if show_header else 0
-        footer_height = style.get("footer_height", 0) if show_footer else 0
+            self._add_footer(fig, metadata, style, footer_height)
 
         # Apply tight layout with adjusted rectangle
+        # rect = [left, bottom, right, top] in figure-fraction coordinates
         fig.tight_layout(rect=[0, footer_height, 1, 1 - header_height])
 
         return fig
