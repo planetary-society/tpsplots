@@ -17,7 +17,7 @@ class NASAFY2026Controller(NASAFYChartsController):
     ACCOUNTS: ClassVar[dict[str, str]] = {
         "Deep Space Exploration Systems": "Exploration",
         "LEO & Space Ops": "Space Ops",
-        "Space Technology": "Tech",
+        "Space Technology": "Space Tech",
         "Science": "Science",
         "Aeronautics": "Aero",
         "STEM Engagement": "STEM",
