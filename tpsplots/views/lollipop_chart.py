@@ -5,6 +5,8 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 
+from tpsplots.models.charts.lollipop import LollipopChartConfig
+
 from .chart_view import ChartView
 from .mixins import ColorCycleMixin, GridAxisMixin
 
@@ -13,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
     """Specialized view for horizontal lollipop charts with time value ranges."""
+
+    CONFIG_CLASS = LollipopChartConfig
 
     def lollipop_plot(self, metadata, stem, **kwargs):
         """

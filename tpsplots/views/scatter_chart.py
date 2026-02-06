@@ -1,10 +1,14 @@
 """Scatter chart view built on top of the line chart rendering pipeline."""
 
+from tpsplots.models.charts.scatter import ScatterChartConfig
+
 from .line_chart import LineChartView
 
 
 class ScatterChartView(LineChartView):
     """Specialized view for scatter charts with line-chart-compatible API."""
+
+    CONFIG_CLASS = ScatterChartConfig
 
     def scatter_plot(self, metadata, stem, **kwargs):
         """

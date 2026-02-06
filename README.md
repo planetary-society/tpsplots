@@ -5,7 +5,7 @@ A data visualization framework for The Planetary Society that creates consistent
 ## Features
 
 - **YAML-Driven Chart Generation** - Define charts declaratively without writing Python code
-- **Multiple Chart Types** - Line, bar, lollipop, donut, waffle, stacked bar, and more
+- **Multiple Chart Types** - Line, scatter, bar, donut, lollipop, stacked bar, waffle, grouped bar, US map pie, and line subplots
 - **Automatic Responsive Output** - Generates both desktop (16:10) and mobile (8:9) versions
 - **Multi-Format Export** - SVG, PNG, PPTX, and CSV data export
 - **Flexible Data Sources** - Google Sheets, CSV files, or custom controller methods
@@ -284,11 +284,13 @@ chart:
 | Type | Description | Key Parameters |
 |------|-------------|----------------|
 | `line` | Multi-series line charts | `x`, `y`, `color`, `linestyle`, `marker`, `label` |
+| `scatter` | Scatter plots (line chart variant) | `x`, `y`, `color`, `marker`, `label` |
 | `bar` | Vertical or horizontal bars | `categories`, `values`, `orientation`, `colors` |
-| `lollipop` | Timeline/range visualization | `categories`, `start_values`, `end_values`, `colors` |
 | `donut` | Donut/pie charts | `values`, `labels`, `hole_size`, `center_text` |
+| `lollipop` | Timeline/range visualization | `categories`, `start_values`, `end_values`, `colors` |
 | `stacked_bar` | Stacked bar charts | `categories`, `values`, `colors` |
 | `waffle` | Waffle/grid charts | `values`, `labels`, `rows`, `columns` |
+| `grouped_bar` | Side-by-side grouped bars | `categories`, `groups`, `width`, `colors` |
 | `us_map_pie` | US map with pie overlays | `state_data`, `pie_values` |
 | `line_subplots` | Multiple subplot panels | `subplot_data`, `grid_shape` |
 
@@ -551,7 +553,16 @@ tpsplots/
 │   ├── nasa_budget_data_source.py
 │   └── ...
 ├── models/                  # Pydantic validation models
-│   ├── chart_config.py
+│   ├── chart_config.py      # ChartConfig discriminated union
+│   ├── charts/              # Per-chart-type config models
+│   │   ├── line.py          # LineChartConfig, SeriesConfig, etc.
+│   │   ├── bar.py           # BarChartConfig
+│   │   ├── donut.py         # DonutChartConfig
+│   │   └── ...              # One file per chart type
+│   ├── mixins/              # Shared field groups
+│   │   ├── base.py          # ChartConfigBase (common fields)
+│   │   ├── shared.py        # SharedFieldsMixin (axes, grid, ticks)
+│   │   └── bar.py           # BarFieldsMixin (bar-specific styling)
 │   ├── data_sources.py
 │   ├── parameters.py
 │   └── yaml_config.py
@@ -637,7 +648,7 @@ In VS Code, add to `.vscode/settings.json`:
 
 ```bash
 # Install with dev dependencies
-pip install -e ".[dev]"
+uv sync --extra dev
 
 # Run tests
 pytest
@@ -647,6 +658,14 @@ ruff check tpsplots/
 
 # Format code
 ruff format tpsplots/
+```
+
+### Config/View Sync
+
+Each chart view has a `CONFIG_CLASS` linking it to its Pydantic config model. The test at `tests/test_config_view_sync.py` uses AST analysis to verify every `kwargs.pop("key")` in view code has a matching config model field. This prevents configuration drift between models and rendering code. Run it with:
+
+```bash
+pytest tests/test_config_view_sync.py -v
 ```
 
 ---

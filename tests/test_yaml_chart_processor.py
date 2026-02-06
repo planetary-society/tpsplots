@@ -229,3 +229,44 @@ class TestYAMLChartProcessorCore:
         assert result["stem"] == "scatter_chart"
         assert list(result["kwargs"]["x"]) == [2024, 2025]
         assert list(result["kwargs"]["y"]) == [10, 20]
+
+    def test_series_overrides_expand_to_series_n_kwargs(self, tmp_path, monkeypatch):
+        """Typed series_overrides should reach line view as series_<n> kwargs."""
+        csv_path = tmp_path / "data.csv"
+        csv_path.write_text("Year,A,B\n2024,10,30\n2025,20,40\n")
+
+        yaml_path = tmp_path / "series_overrides.yaml"
+        yaml_path.write_text(
+            textwrap.dedent(
+                f"""
+                data:
+                  source: csv:{csv_path}
+
+                chart:
+                  type: line
+                  output: line_series_override
+                  title: "Series Override"
+                  x: "{{{{Year}}}}"
+                  y:
+                    - "{{{{A}}}}"
+                    - "{{{{B}}}}"
+                  series_0:
+                    color: "Neptune Blue"
+                    linewidth: 5
+                """
+            ).strip()
+        )
+
+        monkeypatch.setattr(
+            YAMLChartProcessor,
+            "VIEW_REGISTRY",
+            {"line_plot": self.DummyView},
+        )
+
+        processor = YAMLChartProcessor(yaml_path, outdir=tmp_path / "charts")
+        result = processor.generate_chart()
+
+        assert "series_overrides" not in result["kwargs"]
+        assert "series_0" in result["kwargs"]
+        assert result["kwargs"]["series_0"]["linewidth"] == 5
+        assert result["kwargs"]["series_0"]["color"] == "#037CC2"

@@ -2,6 +2,10 @@
 
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
+
+import tpsplots.views.chart_view as chart_view_module
 from tpsplots.views.chart_view import ChartView
 
 
@@ -74,3 +78,51 @@ def test_generate_chart_reports_generated_files(tmp_path):
         str(tmp_path / "budget.csv"),
     ]
     assert result["files"] == expected
+
+
+def test_save_chart_uses_high_dpi_for_svg_and_png(tmp_path, monkeypatch):
+    """_save_chart should export both SVG and PNG with high DPI."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    fig = plt.figure()
+    save_calls: list[tuple[str, str | None, int | None]] = []
+
+    def fake_savefig(path, **kwargs):
+        save_calls.append((str(path), kwargs.get("format"), kwargs.get("dpi")))
+
+    monkeypatch.setattr(fig, "savefig", fake_savefig)
+    view._save_chart(fig, "dpi_test", metadata={}, create_pptx=False)
+
+    assert len(save_calls) == 2
+    assert save_calls[0][1] == "svg"
+    assert save_calls[0][2] == 600
+    assert save_calls[1][1] == "png"
+    assert save_calls[1][2] == 600
+
+
+def test_add_logo_uses_non_smoothed_raster_settings(tmp_path, monkeypatch):
+    """_add_logo should avoid smoothing that blurs thin logo details."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    fig = plt.figure()
+    image_dir = tmp_path / "images"
+    image_dir.mkdir()
+    logo_path = image_dir / "TPS_Logo_1Line-Black-Cutout.png"
+
+    # Tiny synthetic RGBA logo file for deterministic testing.
+    logo = np.zeros((12, 120, 4), dtype=np.float32)
+    logo[:, :, 3] = 1.0
+    plt.imsave(logo_path, logo)
+
+    captured_kwargs: dict = {}
+    real_offset_image = chart_view_module.OffsetImage
+
+    def capture_offset_image(arr, **kwargs):
+        captured_kwargs.update(kwargs)
+        return real_offset_image(arr, **kwargs)
+
+    monkeypatch.setattr(chart_view_module, "IMAGES_DIR", image_dir)
+    monkeypatch.setattr(chart_view_module, "OffsetImage", capture_offset_image)
+
+    view._add_logo(fig, {"logo_zoom": 0.08, "logo_x": 0.01, "logo_y": 0.005})
+
+    assert captured_kwargs["resample"] is False
+    assert captured_kwargs["interpolation"] == "none"

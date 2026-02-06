@@ -1,14 +1,34 @@
-"""Chart parameters configuration model."""
+"""Chart parameters configuration model.
 
+.. deprecated::
+    ``ParametersConfig`` is superseded by per-chart-type config models in
+    ``tpsplots.models.charts``.  Use the discriminated ``ChartConfig`` union
+    or a specific model (e.g. ``LineChartConfig``) instead.
+"""
+
+import warnings
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from tpsplots.models.chart_config import DirectLineLabelsConfig
+from tpsplots.models.charts.line import DirectLineLabelsConfig
 
 
 class ParametersConfig(BaseModel):
-    """Chart parameters configuration."""
+    """Chart parameters configuration.
+
+    .. deprecated::
+        Use per-chart-type config models in ``tpsplots.models.charts`` instead.
+    """
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        warnings.warn(
+            "ParametersConfig is deprecated. Use per-chart-type config models "
+            "(e.g. LineChartConfig, BarChartConfig) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     # Data mapping - most can be strings (data references) or actual values
     x: str | None = Field(None, description="X-axis data reference")

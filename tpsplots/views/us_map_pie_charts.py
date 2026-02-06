@@ -7,6 +7,8 @@ from typing import ClassVar
 import matplotlib.pyplot as plt
 import numpy as np
 
+from tpsplots.models.charts.us_map_pie import USMapPieChartConfig
+
 from .chart_view import ChartView
 from .mixins import ColorCycleMixin
 
@@ -15,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 class USMapPieChartView(ColorCycleMixin, ChartView):
     """Specialized view for displaying pie charts overlaid on a US map at specific locations."""
+
+    CONFIG_CLASS = USMapPieChartConfig
 
     # NASA Center locations (updated coordinates)
     NASA_CENTERS: ClassVar[dict[str, dict[str, float | str]]] = {

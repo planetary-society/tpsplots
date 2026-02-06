@@ -5,11 +5,15 @@ import textwrap
 import matplotlib.pyplot as plt
 import numpy as np
 
+from tpsplots.models.charts.donut import DonutChartConfig
+
 from .chart_view import ChartView
 
 
 class DonutChartView(ChartView):
     """Specialized view for donut charts with a focus on exposing matplotlib's API."""
+
+    CONFIG_CLASS = DonutChartConfig
 
     def donut_plot(self, metadata, stem, **kwargs):
         """

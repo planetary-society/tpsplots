@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from tpsplots.models.charts.stacked_bar import StackedBarChartConfig
+
 from .chart_view import ChartView
 from .mixins import BarChartMixin, ColorCycleMixin, GridAxisMixin
 
@@ -14,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartView):
     """Specialized view for stacked bar charts with a focus on exposing matplotlib's API."""
+
+    CONFIG_CLASS = StackedBarChartConfig
 
     def stacked_bar_plot(self, metadata, stem, **kwargs):
         """

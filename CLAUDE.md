@@ -31,15 +31,19 @@ YAML Config → YAMLChartProcessor → DataResolver → View → Output Files
 | `tpsplots/views/` | Chart rendering (inherit from `ChartView`) |
 | `tpsplots/controllers/` | Data preparation (inherit from `ChartController`) |
 | `tpsplots/models/` | Pydantic schemas for YAML validation |
+| `tpsplots/models/charts/` | Per-chart-type config models (one file per chart type) |
+| `tpsplots/models/mixins/` | Shared field groups (bar styling, base params, etc.) |
 | `tpsplots/processors/` | Data transformations (see [PROCESSORS.md](PROCESSORS.md)) |
 | `tpsplots/data_sources/` | Data loading (NASA budget, Google Sheets, etc.) |
 | `tpsplots/utils/` | Shared utilities (currency cleaning, DataFrame transforms, formatting) |
 
 ## Adding Chart Types
 
-1. Create view class in `tpsplots/views/`
-2. Register in `VIEW_REGISTRY` in `tpsplots/views/__init__.py`
-3. Add type to `CHART_TYPES` in `tpsplots/models/chart_config.py`
+1. Create a config model in `tpsplots/models/charts/<type>.py` inheriting from `ChartConfigBase` (and relevant mixins)
+2. Register the config in `CONFIG_REGISTRY` in `tpsplots/models/charts/__init__.py` and add to the `ChartConfig` union in `tpsplots/models/chart_config.py`
+3. Create a view class in `tpsplots/views/` with `CONFIG_CLASS = <YourConfig>`
+4. Register the view in `VIEW_REGISTRY` in `tpsplots/views/__init__.py`
+5. Run `pytest tests/test_config_view_sync.py` to verify every `kwargs.pop()` in the view has a matching config field
 
 ## YAML Structure
 
@@ -58,12 +62,16 @@ data:
     type: nnsi                    # nnsi (default) or gdp
 
 chart:
-  type: line | bar | donut | lollipop | stacked_bar | waffle
+  type: line | scatter | bar | donut | lollipop | stacked_bar | waffle | grouped_bar | us_map_pie | line_subplots
   output: filename_stem
   title: "Chart Title"
   x: "{{column_name}}"      # Data reference syntax
   y: "{{other_column}}"
 ```
+
+## Config/View Sync
+
+Each view class has a `CONFIG_CLASS` pointing to its Pydantic config model. An AST-based test (`tests/test_config_view_sync.py`) enforces that every `kwargs.pop("key")` in view code has a matching field on the config model. If you add a new parameter to a view, add the field to its config model — the test will catch the drift.
 
 ## Semantic Colors
 

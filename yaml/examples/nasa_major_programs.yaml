@@ -1,0 +1,48 @@
+data:
+  source: nasa_budget_chart.nasa_major_programs_by_year_inflation_adjusted
+
+chart:
+  type: line
+  output: nasa_major_programs_by_year_inflation_adjusted
+  title: NASA directorates can have diverging fortunes
+  subtitle: Each major activity gets its own budget from Congress, and they don't
+    always grow together.
+  source: "{{metadata.source}}"
+
+  # Data bindings from controller
+  x: "{{fiscal_year}}"
+  y:
+    - "{{deep_space_exploration_systems}}"
+    - "{{science}}"
+    - "{{aeronautics}}"
+    - "{{space_technology}}"
+    - "{{stem_education}}"
+    - "{{space_operations}}"
+    - "{{overhead}}"
+
+  direct_line_labels:
+    position: right
+    fontsize: 10
+    end_point:
+      marker: "o"
+      size: 10
+  label:
+    - "Exploration"
+    - "Science"
+    - "Aero"
+    - "Space Tech"
+    - "STEM"
+    - "Space Ops"
+    - "SSMS/CECR"
+  linestyle: "-"
+  xlim: [2008-01-01, 2026-01-01]
+  ylim: [0, 11000000000]
+  fiscal_year_ticks: true
+  tick_rotation: 0
+  scale: billions
+  legend:
+    loc: upper right
+    fontsize: medium
+    ncol: 3
+    handlelength: 0.8
+  export_data: "{{export_df}}"

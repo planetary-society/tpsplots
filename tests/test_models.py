@@ -1,6 +1,7 @@
 """Tests for Pydantic models and schema generation (v2.0 spec)."""
 
 import pytest
+from pydantic import TypeAdapter, ValidationError
 
 
 class TestSchema:
@@ -37,32 +38,38 @@ class TestSchema:
 
 
 class TestModels:
-    """Tests for Pydantic models (v2.0 spec)."""
+    """Tests for Pydantic models (v2.0 spec).
+
+    ChartConfig is a discriminated union (type alias), not a callable class.
+    Use TypeAdapter to construct from dicts, or use specific config classes.
+    """
 
     def test_chart_config_valid(self):
         """Test valid ChartConfig with v2.0 structure."""
-        from tpsplots.models import ChartConfig
+        from tpsplots.models import ChartConfig, LineChartConfig
 
-        # v2.0: type uses simplified name, output instead of output_name, title required
-        config = ChartConfig(type="line", output="test_chart", title="Test Chart")
+        adapter = TypeAdapter(ChartConfig)
+        config = adapter.validate_python(
+            {"type": "line", "output": "test_chart", "title": "Test Chart"}
+        )
+        assert isinstance(config, LineChartConfig)
         assert config.type == "line"
         assert config.output == "test_chart"
         assert config.title == "Test Chart"
 
     def test_chart_config_invalid_type(self):
         """Test that invalid chart type raises error."""
-        from pydantic import ValidationError
-
         from tpsplots.models import ChartConfig
 
+        adapter = TypeAdapter(ChartConfig)
         with pytest.raises(ValidationError):
-            ChartConfig(type="invalid_type", output="test", title="Test")
+            adapter.validate_python({"type": "invalid_type", "output": "test", "title": "Test"})
 
     def test_chart_config_with_all_metadata(self):
         """Test ChartConfig with all metadata fields."""
-        from tpsplots.models import ChartConfig
+        from tpsplots.models import BarChartConfig
 
-        config = ChartConfig(
+        config = BarChartConfig(
             type="bar",
             output="test_bar",
             title="Test Title",
@@ -75,16 +82,20 @@ class TestModels:
 
     def test_chart_config_scatter_type_valid(self):
         """Test ChartConfig accepts scatter chart type."""
-        from tpsplots.models import ChartConfig
+        from tpsplots.models import ChartConfig, ScatterChartConfig
 
-        config = ChartConfig(type="scatter", output="test_scatter", title="Test Scatter")
+        adapter = TypeAdapter(ChartConfig)
+        config = adapter.validate_python(
+            {"type": "scatter", "output": "test_scatter", "title": "Test Scatter"}
+        )
+        assert isinstance(config, ScatterChartConfig)
         assert config.type == "scatter"
 
     def test_chart_config_extra_params(self):
-        """Test that ChartConfig accepts extra parameters."""
-        from tpsplots.models import ChartConfig
+        """Test that ChartConfig dispatches and accepts typed parameters."""
+        from tpsplots.models import LineChartConfig
 
-        config = ChartConfig(
+        config = LineChartConfig(
             type="line",
             output="test",
             title="Test",
@@ -92,8 +103,7 @@ class TestModels:
             legend=False,
             color="NeptuneBlue",
         )
-        # Extra params should be accessible via model_dump
-        params = config.model_dump()
+        params = config.model_dump(exclude_none=True)
         assert params["grid"] is True
         assert params["legend"] is False
         assert params["color"] == "NeptuneBlue"

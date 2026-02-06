@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from tpsplots.models.charts.line_subplots import LineSubplotsChartConfig
+
 from .chart_view import ChartView
 from .mixins import GridAxisMixin
 
@@ -14,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 class LineSubplotsView(GridAxisMixin, ChartView):
     """Specialized view for creating line plots in a grid of subplots."""
+
+    CONFIG_CLASS = LineSubplotsChartConfig
 
     def line_subplots_plot(self, metadata, stem, **kwargs):
         """

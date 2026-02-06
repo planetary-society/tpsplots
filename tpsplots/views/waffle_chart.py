@@ -5,11 +5,15 @@ import math
 import matplotlib.pyplot as plt
 from pywaffle import Waffle
 
+from tpsplots.models.charts.waffle import WaffleChartConfig
+
 from .chart_view import ChartView
 
 
 class WaffleChartView(ChartView):
     """Specialized view for waffle charts with a focus on exposing the Waffle API."""
+
+    CONFIG_CLASS = WaffleChartConfig
 
     def waffle_plot(self, metadata, stem, **kwargs):
         """

@@ -14,6 +14,8 @@ import pandas as pd
 from matplotlib.transforms import Bbox
 from pandas.api.extensions import ExtensionArray
 
+from tpsplots.models.charts.line import LineChartConfig
+
 from .chart_view import ChartView
 from .mixins import GridAxisMixin
 
@@ -31,6 +33,8 @@ class SeriesTypeStyle(TypedDict, total=False):
 
 class LineChartView(GridAxisMixin, ChartView):
     """Specialized view for line charts with a focus on exposing matplotlib's API."""
+
+    CONFIG_CLASS = LineChartConfig
 
     # Default styling for series_types (semantic series classification)
     # Views apply these when explicit styling isn't provided in YAML

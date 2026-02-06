@@ -5,6 +5,8 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 
+from tpsplots.models.charts.bar import BarChartConfig
+
 from .chart_view import ChartView
 from .mixins import BarChartMixin, GridAxisMixin
 
@@ -13,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
     """Specialized view for standard bar charts with a focus on exposing matplotlib's API."""
+
+    CONFIG_CLASS = BarChartConfig
 
     def bar_plot(self, metadata, stem, **kwargs):
         """

@@ -5,6 +5,8 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 
+from tpsplots.models.charts.grouped_bar import GroupedBarChartConfig
+
 from .chart_view import ChartView
 from .mixins import BarChartMixin, GridAxisMixin
 
@@ -13,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
     """Specialized view for grouped bar charts with optional stacking on last group."""
+
+    CONFIG_CLASS = GroupedBarChartConfig
 
     def grouped_bar_plot(self, metadata, stem, **kwargs):
         """
