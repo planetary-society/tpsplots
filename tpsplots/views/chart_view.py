@@ -56,6 +56,9 @@ class ChartView(AxisTickFormatMixin):
         "header_max_height": 0.18,  # Never larger than 18%
         "subtitle_wrap_length": 120,
         "label_wrap_length": 30,
+        "logo_zoom": 0.08,
+        "logo_x": 0.0,
+        "source_size": 13,
     }
 
     MOBILE: ClassVar[dict[str, object]] = {
@@ -80,6 +83,9 @@ class ChartView(AxisTickFormatMixin):
         "header_max_height": 0.22,  # Never larger than 22%
         "subtitle_wrap_length": 64,
         "label_wrap_length": 15,
+        "logo_zoom": 0.08,
+        "logo_x": 0.0,
+        "source_size": 11,
     }
 
     def __init__(self, outdir: Path = Path("charts"), style_file=TPS_STYLE_FILE):
@@ -734,18 +740,18 @@ class ChartView(AxisTickFormatMixin):
         # Layout spacing is handled by tight_layout(rect=...) in _adjust_layout_for_header_footer,
         # so we do NOT call fig.subplots_adjust here to avoid conflicting layout calls.
 
-        # Add horizontal spacer line
+        # Add horizontal spacer line, matching header text margins
         spacer_y = bottom_margin / 2  # Place line halfway in the margin
-        self._add_horizontal_spacer(fig, y_position=spacer_y, linewidth=1)
+        self._add_horizontal_spacer(fig, y_position=spacer_y, linewidth=1, extent=(0.01, 0.99))
 
         # Add source if provided
         source_text = metadata.get("source")
         if source_text:
-            self._add_source(fig, source_text)
+            self._add_source(fig, source_text, style)
 
         # Add logo if enabled in the style
         if style.get("add_logo", True):
-            self._add_logo(fig)
+            self._add_logo(fig, style)
 
     def _adjust_layout_for_header_footer(self, fig, metadata, style):
         """
@@ -825,12 +831,13 @@ class ChartView(AxisTickFormatMixin):
             )
         )
 
-    def _add_logo(self, fig):
+    def _add_logo(self, fig, style):
         """
         Add The Planetary Society logo to the figure.
 
         Args:
             fig: The matplotlib Figure object
+            style: Style dictionary (DESKTOP or MOBILE)
         """
         try:
             logo_path = IMAGES_DIR / "TPS_Logo_1Line-Black.png"
@@ -863,13 +870,13 @@ class ChartView(AxisTickFormatMixin):
 
                 logo = new_logo
 
-            imagebox = OffsetImage(logo, zoom=0.08)
+            imagebox = OffsetImage(logo, zoom=style.get("logo_zoom", 0.08))
 
             ab = AnnotationBbox(
                 imagebox,
-                xy=(0.99, 0.001),  # Position at right, bottom corner
+                xy=(style.get("logo_x", 0.01), 0.001),  # Position at left, bottom corner
                 xycoords="figure fraction",
-                box_alignment=(1, 0),  # Align the right edge of the logo with the xy point
+                box_alignment=(0, 0),  # Align the left edge of the logo with the xy point
                 frameon=False,
                 pad=0,  # No padding
             )
@@ -878,25 +885,26 @@ class ChartView(AxisTickFormatMixin):
         except Exception as e:
             logger.error(f"Warning: Could not add logo: {e}")
 
-    def _add_source(self, fig, source_text):
+    def _add_source(self, fig, source_text, style):
         """
-        Add source text to the bottom left of the figure.
+        Add source text to the bottom right of the figure.
 
         Args:
             fig: The matplotlib Figure object
             source_text: Source text to display
+            style: Style dictionary (DESKTOP or MOBILE)
         """
         if not source_text:
             return
 
-        # Add text at the bottom left
+        # Add text at the bottom right, matching footer line right edge
         fig.text(
-            0.02,  # x position (left side)
+            0.99,  # x position (right side, matches footer line)
             0.01,  # y position (bottom)
             f"Source: {source_text}".upper(),
-            fontsize=11,
+            fontsize=style.get("source_size", 11),
             color="#545454",
-            ha="left",
+            ha="right",
             va="bottom",
         )
 
