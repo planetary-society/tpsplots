@@ -1,5 +1,7 @@
 """Tests for GoogleSheetsSource data loading and transformations."""
 
+from typing import ClassVar
+
 import pandas as pd
 
 from tpsplots.data_sources.google_sheets_source import GoogleSheetsSource
@@ -231,7 +233,7 @@ class TestGoogleSheetsSourceClassAttribute:
 
         class TestSource(GoogleSheetsSource):
             URL = "https://example.com/test.csv"
-            CAST = {"Year": "int"}
+            CAST: ClassVar[dict[str, str]] = {"Year": "int"}
 
         # Create instance without passing cast parameter
         source = TestSource.__new__(TestSource)
@@ -253,7 +255,7 @@ class TestGoogleSheetsSourceClassAttribute:
 
         class TestSource(GoogleSheetsSource):
             URL = "https://example.com/test.csv"
-            CAST = {"Year": "str"}  # Class says string
+            CAST: ClassVar[dict[str, str]] = {"Year": "str"}  # Class says string
 
         source = TestSource.__new__(TestSource)
         source._cast = {"Year": "int"}  # Instance says int

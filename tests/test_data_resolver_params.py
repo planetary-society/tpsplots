@@ -2,6 +2,7 @@
 
 import pandas as pd
 import pytest
+from pydantic import ValidationError
 
 from tpsplots.exceptions import DataSourceError
 from tpsplots.models.data_sources import DataSourceConfig, DataSourceParams, InflationConfig
@@ -46,7 +47,7 @@ class TestInflationConfig:
 
     def test_columns_required(self):
         """Test that columns is a required field."""
-        with pytest.raises(Exception):  # Pydantic ValidationError
+        with pytest.raises(ValidationError):
             InflationConfig()
 
     def test_type_defaults_to_nnsi(self):
@@ -61,7 +62,7 @@ class TestInflationConfig:
 
     def test_type_rejects_invalid(self):
         """Test that invalid type values are rejected."""
-        with pytest.raises(Exception):  # Pydantic ValidationError
+        with pytest.raises(ValidationError):
             InflationConfig(columns=["Amount"], type="invalid")
 
     def test_fiscal_year_column_default(self):
@@ -80,7 +81,7 @@ class TestDataSourceConfig:
 
     def test_source_required(self):
         """Test that source is required."""
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             DataSourceConfig()
 
     def test_params_optional(self):

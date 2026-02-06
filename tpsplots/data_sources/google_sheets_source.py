@@ -341,9 +341,8 @@ class GoogleSheetsSource(FiscalYearMixin):
         # Now convert float columns to int where requested
         for col, dtype in cast_dict.items():
             is_int_type = dtype in ("int", "int64") or self.TYPE_MAPPING.get(dtype) == "int64"
-            if col in df.columns and is_int_type:
-                if df[col].notna().all():
-                    df[col] = df[col].astype("int64")
+            if col in df.columns and is_int_type and df[col].notna().all():
+                df[col] = df[col].astype("int64")
 
         return df
 
