@@ -85,11 +85,12 @@ class GoogleSheetsController(ChartController):
             if self.fiscal_year_column is not None:
                 source_kwargs["fiscal_year_column"] = self.fiscal_year_column
 
-            self._source = GoogleSheetsSource(url=self.url, **source_kwargs)
+            normalized_url = self.normalize_google_sheets_url(self.url)
+            self._source = GoogleSheetsSource(url=normalized_url, **source_kwargs)
             df = self._source.data()
 
             logger.info(
-                f"Loaded Google Sheets data from {self.url} ({len(df)} rows, {len(df.columns)} columns)"
+                f"Loaded Google Sheets data from {normalized_url} ({len(df)} rows, {len(df.columns)} columns)"
             )
 
             # Use base class method to build result dictionary
