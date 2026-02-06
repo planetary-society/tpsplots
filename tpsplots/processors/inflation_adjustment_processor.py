@@ -126,9 +126,9 @@ class InflationAdjustmentProcessor:
                     continue
                 output_col = f"{col}_adjusted_nnsi"
                 df[output_col] = df.apply(
-                    lambda row, c=col: self._nnsi.calc(row[fy_col], row[c])
-                    if pd.notna(row[c])
-                    else np.nan,
+                    lambda row, c=col: (
+                        self._nnsi.calc(row[fy_col], row[c]) if pd.notna(row[c]) else np.nan
+                    ),
                     axis=1,
                 )
 
@@ -139,9 +139,9 @@ class InflationAdjustmentProcessor:
                     continue
                 output_col = f"{col}_adjusted_gdp"
                 df[output_col] = df.apply(
-                    lambda row, c=col: self._gdp.calc(row[fy_col], row[c])
-                    if pd.notna(row[c])
-                    else np.nan,
+                    lambda row, c=col: (
+                        self._gdp.calc(row[fy_col], row[c]) if pd.notna(row[c]) else np.nan
+                    ),
                     axis=1,
                 )
 

@@ -20,11 +20,12 @@ from matplotlib.ticker import FuncFormatter
 from tpsplots import IMAGES_DIR, TPS_STYLE_FILE
 from tpsplots.colors import COLORS, TPS_COLORS
 from tpsplots.exceptions import RenderingError
+from tpsplots.views.mixins import AxisTickFormatMixin
 
 logger = logging.getLogger(__name__)
 
 
-class ChartView:
+class ChartView(AxisTickFormatMixin):
     """Base class for all chart views with shared functionality."""
 
     # Color palettes imported from tpsplots.colors for backward compatibility
@@ -481,6 +482,7 @@ class ChartView:
         axis: str = "y",
         decimals: int | None = None,
         prefix: str | None = "$",
+        tick_format: str | None = None,
     ):
         """
         Apply scale formatting to axis.
@@ -539,19 +541,22 @@ class ChartView:
                 if factor == 0:
                     return ""
                 scaled_value = x / factor
-                # If range_value < 10, only show whole numbers
-                if (
-                    axis in ("y", "both")
-                    and decimals == 1
-                    and range_value is not None
-                    and range_value < 10
-                ):
-                    if not np.isclose(scaled_value, round(scaled_value)):
-                        return ""
-                    format_spec = ".0f"
+                if tick_format:
+                    formatted_num = format(scaled_value, tick_format)
                 else:
-                    format_spec = f".{decimals}f"
-                formatted_num = f"{scaled_value:{format_spec}}"
+                    # If range_value < 10, only show whole numbers
+                    if (
+                        axis in ("y", "both")
+                        and decimals == 1
+                        and range_value is not None
+                        and range_value < 10
+                    ):
+                        if not np.isclose(scaled_value, round(scaled_value)):
+                            return ""
+                        format_spec = ".0f"
+                    else:
+                        format_spec = f".{decimals}f"
+                    formatted_num = f"{scaled_value:{format_spec}}"
                 return f"{prefix}{formatted_num}{suffix}"
             except Exception as e:
                 logger.error(f"Formatter error for value x={x}, pos={pos}: {e}")

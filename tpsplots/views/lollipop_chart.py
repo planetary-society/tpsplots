@@ -519,6 +519,7 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
     def _apply_lollipop_styling(self, ax, style, **kwargs):
         """Apply consistent styling to the lollipop chart."""
         # Extract styling parameters
+        x_tick_format, y_tick_format = self._pop_axis_tick_format_kwargs(kwargs)
         scale = kwargs.pop("scale", None)
         xlim = kwargs.pop("xlim", None)
         grid = kwargs.pop("grid", True)
@@ -555,9 +556,19 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
 
         # Note: Custom tick markers are handled after axis positioning
 
+        scaled_x = False
+
         # Apply scale formatter if specified
         if scale:
-            self._apply_scale_formatter(ax, scale, axis="x")
+            self._apply_scale_formatter(ax, scale, axis="x", tick_format=x_tick_format)
+            scaled_x = True
+
+        self._apply_tick_format_specs(
+            ax,
+            x_tick_format=x_tick_format if not scaled_x else None,
+            y_tick_format=y_tick_format,
+            has_explicit_yticklabels=True,
+        )
 
         # Apply custom x-limits using mixin
         self._apply_axis_limits(ax, xlim=xlim)

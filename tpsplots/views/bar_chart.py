@@ -238,6 +238,7 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
     def _apply_bar_styling(self, ax, style, orientation, categories_are_fiscal_years, **kwargs):
         """Apply consistent styling to the bar chart."""
         # Extract styling parameters
+        x_tick_format, y_tick_format = self._pop_axis_tick_format_kwargs(kwargs)
         scale = kwargs.pop("scale", None)
         xlim = kwargs.pop("xlim", None)
         ylim = kwargs.pop("ylim", None)
@@ -284,14 +285,22 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
         # Disable minor ticks using mixin method
         self._disable_minor_ticks(ax)
 
+        scaled_x = False
+        scaled_y = False
+
         # Apply percentage formatting if value_format is 'percentage'
         if value_format == "percentage":
             self._apply_percentage_tick_formatter(ax, orientation)
+            scaled_y = orientation == "vertical"
+            scaled_x = orientation == "horizontal"
 
         # Apply scale formatter if specified (but not if we already applied percentage formatting)
         elif scale:
             axis_to_scale = "y" if orientation == "vertical" else "x"
-            self._apply_scale_formatter(ax, scale, axis=axis_to_scale)
+            tick_format = y_tick_format if axis_to_scale == "y" else x_tick_format
+            self._apply_scale_formatter(ax, scale, axis=axis_to_scale, tick_format=tick_format)
+            scaled_y = axis_to_scale == "y"
+            scaled_x = axis_to_scale == "x"
 
         # Apply appropriate tick formatting based on fiscal year detection
         if categories_are_fiscal_years and orientation == "vertical":
@@ -308,6 +317,14 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
 
         # Always set y-axis tick size to ensure consistency
         ax.tick_params(axis="y", labelsize=tick_size)
+
+        self._apply_tick_format_specs(
+            ax,
+            x_tick_format=x_tick_format if not scaled_x else None,
+            y_tick_format=y_tick_format if not scaled_y else None,
+            has_explicit_xticklabels=orientation == "vertical",
+            has_explicit_yticklabels=orientation == "horizontal",
+        )
 
         # Ensure integer-only ticks on value axis using mixin method
         self._apply_integer_locator(ax, orientation=orientation)

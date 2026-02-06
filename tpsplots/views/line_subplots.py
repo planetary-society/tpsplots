@@ -289,6 +289,8 @@ class LineSubplotsView(GridAxisMixin, ChartView):
         xticklabels = kwargs.get("xticklabels")
         max_xticks = kwargs.get("max_xticks", style.get("max_ticks"))
         fiscal_year_ticks = kwargs.get("fiscal_year_ticks", True)
+        tick_format_kwargs = dict(kwargs)
+        x_tick_format, y_tick_format = self._pop_axis_tick_format_kwargs(tick_format_kwargs)
 
         # Apply axis labels using mixin (scaled smaller for subplots)
         self._apply_axis_labels(
@@ -333,9 +335,22 @@ class LineSubplotsView(GridAxisMixin, ChartView):
             if max_xticks:
                 ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
 
+        scaled_x = False
+        scaled_y = False
+
         # Apply scale formatter if specified
         if scale:
-            self._apply_scale_formatter(ax, scale, axis=axis_scale)
+            if axis_scale == "both":
+                self._apply_scale_formatter(ax, scale, axis="x", tick_format=x_tick_format)
+                self._apply_scale_formatter(ax, scale, axis="y", tick_format=y_tick_format)
+                scaled_x = True
+                scaled_y = True
+            elif axis_scale == "x":
+                self._apply_scale_formatter(ax, scale, axis="x", tick_format=x_tick_format)
+                scaled_x = True
+            else:
+                self._apply_scale_formatter(ax, scale, axis="y", tick_format=y_tick_format)
+                scaled_y = True
 
         # Apply custom limits
         if xlim:
@@ -356,6 +371,13 @@ class LineSubplotsView(GridAxisMixin, ChartView):
                 ax.set_xticklabels(xticklabels)
             elif all(isinstance(x, (int, float)) and float(x).is_integer() for x in xticks):
                 ax.set_xticklabels([f"{int(x)}" for x in xticks])
+
+        self._apply_tick_format_specs(
+            ax,
+            x_tick_format=x_tick_format if not scaled_x else None,
+            y_tick_format=y_tick_format if not scaled_y else None,
+            has_explicit_xticklabels=xticklabels is not None,
+        )
 
         # Special rotation for mobile
         if style == self.MOBILE and tick_rotation == 0:

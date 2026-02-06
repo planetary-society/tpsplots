@@ -196,6 +196,14 @@ class LineChartView(GridAxisMixin, ChartView):
             tick_size : float
                 Font size for tick labels (default from style)
 
+            x_tick_format : str
+                Python format spec for x-axis ticks (e.g., ".1f", ",.0f")
+                Also accepts 'x_axis_format' as an alias.
+
+            y_tick_format : str
+                Python format spec for y-axis ticks (e.g., ",.0f")
+                Also accepts 'y_axis_format' as an alias.
+
             Grid and Formatting:
             --------------------
             grid : bool
@@ -553,6 +561,7 @@ class LineChartView(GridAxisMixin, ChartView):
         xticks = kwargs.pop("xticks", None)
         xticklabels = kwargs.pop("xticklabels", None)
         max_xticks = kwargs.pop("max_xticks", style.get("max_ticks"))
+        x_tick_format, y_tick_format = self._pop_axis_tick_format_kwargs(kwargs)
         x_data = kwargs.pop("x_data", None)
 
         grid = kwargs.pop("grid", None)
@@ -640,8 +649,20 @@ class LineChartView(GridAxisMixin, ChartView):
                     logger.warning("Could not set categorical xticklabels.")
 
         # Apply scale formatter
+        scaled_x = False
+        scaled_y = False
         if scale:
-            self._apply_scale_formatter(ax, scale, axis_scale)
+            if axis_scale == "both":
+                self._apply_scale_formatter(ax, scale, "x", tick_format=x_tick_format)
+                self._apply_scale_formatter(ax, scale, "y", tick_format=y_tick_format)
+                scaled_x = True
+                scaled_y = True
+            elif axis_scale == "x":
+                self._apply_scale_formatter(ax, scale, "x", tick_format=x_tick_format)
+                scaled_x = True
+            else:
+                self._apply_scale_formatter(ax, scale, "y", tick_format=y_tick_format)
+                scaled_y = True
 
         if xticks is not None:
             ax.set_xticks(xticks)
@@ -649,6 +670,13 @@ class LineChartView(GridAxisMixin, ChartView):
                 ax.set_xticklabels(xticklabels)
             elif all(isinstance(x, (int, float)) and float(x).is_integer() for x in xticks):
                 ax.set_xticklabels([f"{int(x)}" for x in xticks])
+
+        self._apply_tick_format_specs(
+            ax,
+            x_tick_format=x_tick_format if not scaled_x else None,
+            y_tick_format=y_tick_format if not scaled_y else None,
+            has_explicit_xticklabels=xticklabels is not None,
+        )
 
         # Apply horizontal lines if specified
         self._apply_horizontal_lines(ax, **kwargs)

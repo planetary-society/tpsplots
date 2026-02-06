@@ -380,6 +380,7 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
     def _apply_stacked_bar_styling(self, ax, style, orientation, **kwargs):
         """Apply consistent styling to the stacked bar chart."""
         # Extract styling parameters
+        x_tick_format, y_tick_format = self._pop_axis_tick_format_kwargs(kwargs)
         scale = kwargs.pop("scale", None)
         xlim = kwargs.pop("xlim", None)
         ylim = kwargs.pop("ylim", None)
@@ -448,10 +449,24 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
         else:
             self._apply_horizontal_category_alignment(ax)
 
+        scaled_x = False
+        scaled_y = False
+
         # Apply scale formatter if specified
         if scale:
             axis_to_scale = "y" if orientation == "vertical" else "x"
-            self._apply_scale_formatter(ax, scale, axis=axis_to_scale)
+            tick_format = y_tick_format if axis_to_scale == "y" else x_tick_format
+            self._apply_scale_formatter(ax, scale, axis=axis_to_scale, tick_format=tick_format)
+            scaled_y = axis_to_scale == "y"
+            scaled_x = axis_to_scale == "x"
+
+        self._apply_tick_format_specs(
+            ax,
+            x_tick_format=x_tick_format if not scaled_x else None,
+            y_tick_format=y_tick_format if not scaled_y else None,
+            has_explicit_xticklabels=orientation == "vertical",
+            has_explicit_yticklabels=orientation == "horizontal",
+        )
 
         # Ensure integer-only ticks for count-based data using mixin
         self._apply_integer_locator(ax, orientation)

@@ -119,6 +119,7 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
         grid = kwargs.pop("grid", False)
         grid_axis = kwargs.pop("grid_axis", "y")
         scale = kwargs.pop("scale", None)
+        x_tick_format, y_tick_format = self._pop_axis_tick_format_kwargs(kwargs)
         tick_rotation = kwargs.pop("tick_rotation", 0)
         tick_size = kwargs.pop("tick_size", style.get("tick_size", 14))
         show_yticks = kwargs.pop("show_yticks", False)
@@ -328,6 +329,8 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
         # Apply axis limits using mixin
         self._apply_axis_limits(ax, xlim=xlim, ylim=ylim)
 
+        scaled_y = False
+
         # Style the chart - y-axis ticks
         if not show_yticks:
             ax.set_yticks([])
@@ -336,7 +339,15 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
             ax.tick_params(axis="y", labelsize=tick_size)
             # Apply scale formatter if specified
             if scale:
-                self._apply_scale_formatter(ax, scale, axis="y")
+                self._apply_scale_formatter(ax, scale, axis="y", tick_format=y_tick_format)
+                scaled_y = True
+
+            self._apply_tick_format_specs(
+                ax,
+                x_tick_format=x_tick_format,
+                y_tick_format=y_tick_format if not scaled_y else None,
+                has_explicit_xticklabels=True,
+            )
 
         # Apply grid using mixin
         self._apply_grid(ax, grid=grid, grid_axis=grid_axis)

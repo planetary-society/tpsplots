@@ -25,6 +25,8 @@ chart:
   max_xticks: 10
   xlabel: "Year"
   ylabel: "Word Count"
+  y_tick_format: ",.0f"
+  tick_size: 14
   color: "Neptune Blue"
   markersize: 8
   alpha: 0.8
