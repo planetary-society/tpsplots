@@ -1,0 +1,52 @@
+data:
+  source: https://docs.google.com/spreadsheets/d/1imyz1qDgrCG-vVcnKTbQBSAOYmFo1nMeUcsEupZarf4/export?format=csv&gid=1100078543
+  params:
+    columns: ["Fiscal Year", "SLS", "Orion", "Exploration Ground Systems"]
+    auto_clean_currency:
+      enabled: true
+      multiplier: 1000000
+  calculate_inflation:
+    fiscal_year_column: "Fiscal Year"
+    columns:
+      - "SLS"
+      - "Orion"
+      - "Exploration Ground Systems"
+
+chart:
+  type: line
+  output: sls_orion
+  title: "SLS and Orion Funding Over Time"
+  subtitle: "NASA's Space Launch System and Orion spacecraft funding from 2005 to 2026."
+  source: "NASA Budget Justifications 2005-2026."
+
+  x: "{{Fiscal Year}}"
+  y:
+    - "{{SLS_adjusted_nnsi}}"
+    - "{{Orion_adjusted_nnsi}}"
+    - "{{Exploration Ground Systems_adjusted_nnsi}}"
+  color:
+    - "Neptune Blue"
+    - "Rocket Flame"
+    - "Plasma Purple"
+  linestyle:
+    - "-"
+    - "-"
+    - "-"
+  linewidth: 4
+  label:
+    - "SLS"
+    - "Orion"
+    - "Ground\nSystems"
+  direct_line_labels:
+    position: right
+    fontsize: 10
+    end_point:
+      marker: "o"
+      size: 10
+  scale: billions
+  ylim: [0.01, 3000000000]
+  xlim: [2006-01-01,2026-01-01]
+  grid: true
+  tick_size: 14
+  legend: false
+  export_data: "{{data}}"

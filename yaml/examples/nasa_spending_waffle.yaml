@@ -1,0 +1,30 @@
+data:
+  source: comparison_charts_controller.nasa_spending_as_part_of_annual_us_expenditures
+
+chart:
+  type: waffle
+  output: nasa_spending_as_part_of_annual_us_expenditures
+  title: "NASA is a fraction of U.S. spending"
+  subtitle: "One small block for NASA ($25 billion), one giant expenditure for everything else ($6.8 trillion)."
+  source: "Congressional Budget Office, FY {{fiscal_year}}"
+
+  # Data bindings from controller
+  values: "{{values}}"
+  labels: "{{labels}}"
+
+  # View/styling config (moved from controller)
+  colors:
+    - Neptune Blue
+    - Comet Dust
+  vertical: true
+  starting_location: SW
+  interval_ratio_x: 0.1
+  interval_ratio_y: 0.1
+  legend:
+    loc: lower left
+    frameon: false
+    bbox_to_anchor: [0, -0.09]
+    ncol: 2
+    handlelength: 0.8
+
+  export_data: "{{export_df}}"

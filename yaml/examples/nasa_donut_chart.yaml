@@ -1,0 +1,18 @@
+data:
+  source: nasa_budget_chart.nasa_major_activites_donut_chart
+
+chart:
+  type: donut
+  output: nasa_directorate_breakdown_donut_chart
+  title: NASA's budget is subdivided by mission area
+  subtitle: "Directorates are responsible for distinct activities - from science to facilities - and they don't share funding."
+  source: "{{source}}"
+
+  values: "{{Budget}}"
+  labels: "{{Directorate}}"
+  show_percentages: true
+  label_distance: 1.1
+  hole_size: 0.6
+  center_text: NASA
+  center_color: white
+  export_data: "{{export_df}}"

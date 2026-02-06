@@ -1,0 +1,30 @@
+data:
+  source: nasa_budget_chart.nasa_budget_by_year
+
+chart:
+  type: line
+  output: nasa_budget_pbr_appropriation_by_year_inflation_adjusted
+  title: NASA's budget from 1959 to {{metadata.max_appropriation_fiscal_year}}
+  subtitle: Adjusted for inflation, NASA's budget has remained relatively steady after the end of Apollo.
+  source: "NASA Budget Requests, 1961-{{metadata.max_pbr_fiscal_year}}. Adjusted to {{metadata.inflation_adjusted_year}} USD."
+
+  x: "{{fiscal_year}}"
+  y:
+    - "{{pbr_adjusted}}"
+    - "{{appropriation_adjusted}}"
+  color: ["light_blue", "Neptune Blue"]
+  linestyle: [":", "-"]
+  linewidth: [2.5, 4]
+  label: ["{{metadata.max_pbr_fiscal_year}}\nProposed", "{{metadata.max_appropriation_fiscal_year}} Final"]
+  direct_line_labels:
+    position: "right"
+    fontsize: 11
+    end_point:
+      marker: "o"
+      size: 10
+    offset: [0,0]
+  xlim: [1958-01-01, 2030-01-01]
+  ylim: [0, 80000000000]
+  scale: billions
+  legend: false
+  export_data: "{{export_df}}"

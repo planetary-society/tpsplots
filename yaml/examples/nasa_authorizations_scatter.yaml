@@ -16,9 +16,9 @@ data:
 chart:
   type: scatter
   output: nasa_authorizations_word_count_vs_year
-  title: "NASA Authorization Bills: Word Count vs Year"
-  subtitle: "Each point is a NASA authorization bill with available text and page metrics."
-  source: "Planetary Society analysis of NASA authorization legislation"
+  title: "NASA's Authorizations: Infrequent & Longer"
+  subtitle: "Starting in the late 1980s, Congress stopped passing annual NASA authorization bills. Those that do pass have grown longer over time."
+  source: "Congress.gov"
 
   x: "{{Year}}"
   y: "{{Word Count}}"

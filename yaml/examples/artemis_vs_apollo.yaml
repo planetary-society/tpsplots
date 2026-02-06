@@ -1,0 +1,45 @@
+data:
+  source: https://docs.google.com/spreadsheets/d/1imyz1qDgrCG-vVcnKTbQBSAOYmFo1nMeUcsEupZarf4/export?format=csv&gid=322252293
+  params:
+    columns: ["Years from Start", "Apollo (2025 $)", "Artemis (2025 $)"]
+    auto_clean_currency:
+      enabled: true
+      multiplier: 1000000
+
+chart:
+  type: line
+  output: artemis_vs_apollo
+  title: "Artemis vs Apollo: Annual Spending Comparison"
+  subtitle: "Development costs adjusted to 2025 dollars"
+  source: "NASA Budget Justifications, adjusted for inflation"
+
+  x: "{{Years from Start}}"
+  y:
+    - "{{Apollo (2025 $)}}"
+    - "{{Artemis (2025 $)}}"
+  color:
+    - "Neptune Blue"
+    - "Rocket Flame"
+  linestyle:
+    - "-"
+    - "-"
+  linewidth: 4
+  marker:
+    - "o"
+    - "o"
+  markersize: 6
+  label:
+    - "Apollo"
+    - "Artemis"
+  scale: billions
+  xlim: [0, 20.01]
+  ylim: [0.01, 50000000000]
+  xlabel: "Years from Program Start"
+
+  grid: true
+  tick_rotation: 0
+  tick_size: 14
+  legend:
+    loc: upper right
+
+  export_data: "{{data}}"
