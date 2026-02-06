@@ -5,9 +5,9 @@ data:
   source: csv:yaml/examples/data/nasa_authorizations.csv
   params:
     columns:
-      - Year
-      - Word Count
-      - Page Length
+    - Year
+    - Word Count
+    - Page Length
     cast:
       Word Count: int
       Page Length: int
@@ -17,7 +17,9 @@ chart:
   type: scatter
   output: nasa_authorizations_word_count_vs_year
   title: "NASA's Authorizations: Infrequent & Longer"
-  subtitle: "Starting in the late 1980s, Congress stopped passing annual NASA authorization bills. Those that do pass have grown longer over time."
+  subtitle: "Starting in the late 1980s, Congress stopped passing regular NASA authorization
+    bills. This led to longer, more prescriptive bills passed on an unpredictable
+    timetable."
   source: "Congress.gov"
 
   x: "{{Year}}"

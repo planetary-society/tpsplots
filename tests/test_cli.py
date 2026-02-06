@@ -27,6 +27,7 @@ class TestCLI:
         assert "generate" in result.stdout
         assert "validate" in result.stdout
         assert "s3-sync" in result.stdout
+        assert "textedit" in result.stdout
 
     def test_cli_version(self):
         """Test that --version works."""

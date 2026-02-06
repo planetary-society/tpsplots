@@ -112,6 +112,7 @@ class ChartView(AxisTickFormatMixin):
         """
 
         export_data = kwargs.pop("export_data", None)
+        preview = kwargs.pop("preview", False)
         generated_files: list[str] = []
 
         try:
@@ -119,20 +120,22 @@ class ChartView(AxisTickFormatMixin):
             desktop_kwargs = self._clone_chart_kwargs(kwargs)
             desktop_kwargs["style"] = self.DESKTOP
             desktop_fig = self._create_chart(metadata, **desktop_kwargs)
-            generated_files.extend(
-                self._save_chart(desktop_fig, f"{stem}_desktop", metadata, create_pptx=True)
-            )
+            if not preview:
+                generated_files.extend(
+                    self._save_chart(desktop_fig, f"{stem}_desktop", metadata, create_pptx=True)
+                )
 
             # Create mobile version
             mobile_kwargs = self._clone_chart_kwargs(kwargs)
             mobile_kwargs["style"] = self.MOBILE
             mobile_fig = self._create_chart(metadata, **mobile_kwargs)
-            generated_files.extend(
-                self._save_chart(mobile_fig, f"{stem}_mobile", metadata, create_pptx=False)
-            )
+            if not preview:
+                generated_files.extend(
+                    self._save_chart(mobile_fig, f"{stem}_mobile", metadata, create_pptx=False)
+                )
 
             # Export CSV if export_data is present
-            if export_data is not None:
+            if export_data is not None and not preview:
                 csv_path = self._export_csv(export_data, metadata, stem)
                 generated_files.append(str(csv_path))
 

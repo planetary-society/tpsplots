@@ -10,6 +10,7 @@ import typer
 
 from tpsplots import __version__
 from tpsplots.commands.s3_sync import s3_sync
+from tpsplots.commands.textedit import textedit
 from tpsplots.exceptions import ConfigurationError, DataSourceError, RenderingError
 from tpsplots.processors.yaml_chart_processor import YAMLChartProcessor
 from tpsplots.schema import get_chart_types
@@ -329,6 +330,7 @@ def validate_cmd(
 
 # Register s3-sync subcommand
 app.command("s3-sync")(s3_sync)
+app.command("textedit")(textedit)
 
 
 def cli_main() -> None:
