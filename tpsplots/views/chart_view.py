@@ -4,6 +4,7 @@ import csv
 import logging
 import textwrap
 import warnings
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import ClassVar
@@ -113,13 +114,13 @@ class ChartView:
 
         try:
             # Create desktop version
-            desktop_kwargs = kwargs.copy()
+            desktop_kwargs = self._clone_chart_kwargs(kwargs)
             desktop_kwargs["style"] = self.DESKTOP
             desktop_fig = self._create_chart(metadata, **desktop_kwargs)
             self._save_chart(desktop_fig, f"{stem}_desktop", metadata, create_pptx=True)
 
             # Create mobile version
-            mobile_kwargs = kwargs.copy()
+            mobile_kwargs = self._clone_chart_kwargs(kwargs)
             mobile_kwargs["style"] = self.MOBILE
             mobile_fig = self._create_chart(metadata, **mobile_kwargs)
             self._save_chart(mobile_fig, f"{stem}_mobile", metadata, create_pptx=False)
@@ -135,6 +136,14 @@ class ChartView:
         logger.info(f"✓ generated charts for {stem}")
 
         return {"desktop": desktop_fig, "mobile": mobile_fig}
+
+    @staticmethod
+    def _clone_chart_kwargs(kwargs: dict) -> dict:
+        """Clone nested container kwargs so desktop/mobile renders cannot mutate shared state."""
+        return {
+            key: deepcopy(value) if isinstance(value, (dict, list, tuple, set)) else value
+            for key, value in kwargs.items()
+        }
 
     def _create_chart(self, metadata, style, **kwargs):
         """
