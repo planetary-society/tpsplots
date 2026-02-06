@@ -72,6 +72,52 @@ chart:
 
   # === Data Export ===
   # export_data: "{{export_df}}"     # Reference to export data
+    """,
+    "scatter": """# Scatter Chart Template (v2.0)
+# Generate with: tpsplots --new scatter
+
+data:
+  source: data/your_data.csv
+
+chart:
+  type: scatter
+  output: my_scatter_chart
+  title: "Your Scatter Chart Title"
+  # subtitle: "Optional subtitle with {{variable}} templates"
+  # source: "Data source attribution"
+
+  # === Data References ===
+  x: "{{x_column}}"                  # X-axis data (required)
+  y: "{{y_column}}"                  # Y-axis data (required)
+
+  # === Multi-Series ===
+  # y: ["{{series1}}", "{{series2}}"]
+  # label: ["Series 1", "Series 2"]
+  # color: [NeptuneBlue, RocketFlame]
+
+  # === Scatter Styling ===
+  # marker: o                        # o, s, ^, D, v, <, >, p, h, +, x
+  # markersize: 6
+  # alpha: 0.9
+
+  # Optional: connect points (disabled by default)
+  # linestyle: solid                 # solid, dashed, dotted, dashdot
+  # linewidth: 2
+
+  # === Axis Configuration ===
+  # xlabel: "X-Axis Label"
+  # ylabel: "Y-Axis Label"
+  # xlim: [0, 100]
+  # ylim: [0, 100]
+  # scale: billions                  # billions, millions, thousands, percentage
+  # axis_scale: y                    # x, y, or both
+
+  # === Display Options ===
+  # grid: true
+  # legend: true
+
+  # === Data Export ===
+  # export_data: "{{export_df}}"
 """,
     "bar": """# Bar Chart Template (v2.0)
 # Generate with: tpsplots --new bar

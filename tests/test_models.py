@@ -24,6 +24,7 @@ class TestSchema:
         # v2.0 uses simplified names
         assert "line" in types
         assert "bar" in types
+        assert "scatter" in types
 
     def test_get_data_source_types(self):
         """Test that data source prefixes can be retrieved."""
@@ -71,6 +72,13 @@ class TestModels:
         assert config.title == "Test Title"
         assert config.subtitle == "Test Subtitle"
         assert config.source == "Test Source"
+
+    def test_chart_config_scatter_type_valid(self):
+        """Test ChartConfig accepts scatter chart type."""
+        from tpsplots.models import ChartConfig
+
+        config = ChartConfig(type="scatter", output="test_scatter", title="Test Scatter")
+        assert config.type == "scatter"
 
     def test_chart_config_extra_params(self):
         """Test that ChartConfig accepts extra parameters."""

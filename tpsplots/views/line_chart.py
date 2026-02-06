@@ -12,6 +12,7 @@ import matplotlib.transforms
 import numpy as np
 import pandas as pd
 from matplotlib.transforms import Bbox
+from pandas.api.extensions import ExtensionArray
 
 from .chart_view import ChartView
 from .mixins import GridAxisMixin
@@ -396,7 +397,9 @@ class LineChartView(GridAxisMixin, ChartView):
             y_data = y
 
         # Handle single y series
-        if y_data is None and isinstance(x_data, (list, tuple, np.ndarray, pd.Series)):
+        if y_data is None and isinstance(
+            x_data, (list, tuple, np.ndarray, pd.Series, ExtensionArray)
+        ):
             y_data = [x_data]
             x_data = np.arange(len(x_data))
 
@@ -404,7 +407,7 @@ class LineChartView(GridAxisMixin, ChartView):
         if (
             y_data is not None
             and not isinstance(y_data, (list, tuple))
-            and isinstance(y_data, (pd.Series, np.ndarray))
+            and isinstance(y_data, (pd.Series, np.ndarray, ExtensionArray))
         ):
             y_data = [y_data]
 

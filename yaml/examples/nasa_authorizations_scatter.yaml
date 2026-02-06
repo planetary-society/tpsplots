@@ -1,0 +1,34 @@
+# Example scatter chart using NASA authorization bill metadata.
+# Plots bill word count against bill page length.
+
+data:
+  source: csv:yaml/examples/data/nasa_authorizations.csv
+  params:
+    columns:
+      - Year
+      - Word Count
+      - Page Length
+    cast:
+      Word Count: int
+      Page Length: int
+      Year: int
+
+chart:
+  type: scatter
+  output: nasa_authorizations_word_count_vs_year
+  title: "NASA Authorization Bills: Word Count vs Year"
+  subtitle: "Each point is a NASA authorization bill with available text and page metrics."
+  source: "Planetary Society analysis of NASA authorization legislation"
+
+  x: "{{Year}}"
+  y: "{{Word Count}}"
+  max_xticks: 10
+  xlabel: "Year"
+  ylabel: "Word Count"
+  color: "Neptune Blue"
+  markersize: 8
+  alpha: 0.8
+  grid: true
+  legend: false
+
+  export_data: "{{data}}"

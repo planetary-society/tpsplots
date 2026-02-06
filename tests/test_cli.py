@@ -41,6 +41,7 @@ class TestCLI:
         # v2.0 uses simplified type names
         assert "line" in result.stdout
         assert "bar" in result.stdout
+        assert "scatter" in result.stdout
 
     def test_cli_schema(self):
         """Test that --schema outputs valid JSON."""

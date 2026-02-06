@@ -117,7 +117,7 @@ def generate(
 
             result["succeeded"] += 1
             if chart_result and isinstance(chart_result, dict) and "files" in chart_result:
-                result["files"].extend(chart_result["files"])
+                result["files"].extend(str(path) for path in chart_result["files"])
 
         except (ConfigurationError, DataSourceError, RenderingError) as e:
             result["failed"] += 1

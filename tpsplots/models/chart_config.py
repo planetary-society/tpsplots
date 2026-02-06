@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 # Chart type mapping: v2.0 name → v1.0 view method name
 CHART_TYPES = {
     "line": "line_plot",
+    "scatter": "scatter_plot",
     "bar": "bar_plot",
     "donut": "donut_plot",
     "lollipop": "lollipop_plot",
@@ -19,6 +20,7 @@ CHART_TYPES = {
 
 ChartType = Literal[
     "line",
+    "scatter",
     "bar",
     "donut",
     "lollipop",

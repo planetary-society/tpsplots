@@ -117,6 +117,17 @@ class TestYAMLChartProcessorCore:
             self.called = {"metadata": metadata, "stem": stem, "kwargs": kwargs}
             return self.called
 
+    class DummyScatterView:
+        """Minimal scatter view used to verify scatter dispatch."""
+
+        def __init__(self, outdir):
+            self.outdir = outdir
+            self.called = None
+
+        def scatter_plot(self, metadata, stem, **kwargs):
+            self.called = {"metadata": metadata, "stem": stem, "kwargs": kwargs}
+            return self.called
+
     def test_generate_chart_resolves_params_and_colors(self, tmp_path, monkeypatch):
         """Processor should resolve references and semantic colors before plotting."""
         csv_path = tmp_path / "data.csv"
@@ -183,3 +194,38 @@ class TestYAMLChartProcessorCore:
         processor = YAMLChartProcessor(yaml_path, outdir=tmp_path / "charts")
         with pytest.raises(ConfigurationError, match="Unknown chart type"):
             processor.generate_chart()
+
+    def test_scatter_type_dispatches_to_scatter_plot(self, tmp_path, monkeypatch):
+        """Scatter chart type should dispatch to scatter_plot view method."""
+        csv_path = tmp_path / "data.csv"
+        csv_path.write_text("Year,Value\n2024,10\n2025,20\n")
+
+        yaml_path = tmp_path / "scatter.yaml"
+        yaml_path.write_text(
+            textwrap.dedent(
+                f"""
+                data:
+                  source: csv:{csv_path}
+
+                chart:
+                  type: scatter
+                  output: scatter_chart
+                  title: "Scatter Test"
+                  x: "{{{{Year}}}}"
+                  y: "{{{{Value}}}}"
+                """
+            ).strip()
+        )
+
+        monkeypatch.setattr(
+            YAMLChartProcessor,
+            "VIEW_REGISTRY",
+            {"scatter_plot": self.DummyScatterView},
+        )
+
+        processor = YAMLChartProcessor(yaml_path, outdir=tmp_path / "charts")
+        result = processor.generate_chart()
+
+        assert result["stem"] == "scatter_chart"
+        assert list(result["kwargs"]["x"]) == [2024, 2025]
+        assert list(result["kwargs"]["y"]) == [10, 20]

@@ -107,27 +107,33 @@ class ChartView:
             **kwargs: Additional parameters for chart creation
 
         Returns:
-            dict: Dictionary with desktop and mobile figure objects
+            dict: Dictionary with desktop/mobile figure objects and generated files
         """
 
         export_data = kwargs.pop("export_data", None)
+        generated_files: list[str] = []
 
         try:
             # Create desktop version
             desktop_kwargs = self._clone_chart_kwargs(kwargs)
             desktop_kwargs["style"] = self.DESKTOP
             desktop_fig = self._create_chart(metadata, **desktop_kwargs)
-            self._save_chart(desktop_fig, f"{stem}_desktop", metadata, create_pptx=True)
+            generated_files.extend(
+                self._save_chart(desktop_fig, f"{stem}_desktop", metadata, create_pptx=True)
+            )
 
             # Create mobile version
             mobile_kwargs = self._clone_chart_kwargs(kwargs)
             mobile_kwargs["style"] = self.MOBILE
             mobile_fig = self._create_chart(metadata, **mobile_kwargs)
-            self._save_chart(mobile_fig, f"{stem}_mobile", metadata, create_pptx=False)
+            generated_files.extend(
+                self._save_chart(mobile_fig, f"{stem}_mobile", metadata, create_pptx=False)
+            )
 
             # Export CSV if export_data is present
             if export_data is not None:
-                self._export_csv(export_data, metadata, stem)
+                csv_path = self._export_csv(export_data, metadata, stem)
+                generated_files.append(str(csv_path))
 
         except Exception as e:
             logger.error(f"Error generating chart {stem}: {e}")
@@ -135,7 +141,7 @@ class ChartView:
 
         logger.info(f"✓ generated charts for {stem}")
 
-        return {"desktop": desktop_fig, "mobile": mobile_fig}
+        return {"desktop": desktop_fig, "mobile": mobile_fig, "files": generated_files}
 
     @staticmethod
     def _clone_chart_kwargs(kwargs: dict) -> dict:
@@ -447,9 +453,17 @@ class ChartView:
         if isinstance(first_elem, np.datetime64):
             return True
 
-        # Check array dtype for datetime64 (handles numpy arrays of datetime64)
-        if hasattr(x_data, "dtype") and np.issubdtype(x_data.dtype, np.datetime64):
-            return True
+        # Check array dtype for datetime64 (handles numpy arrays and pandas dtypes)
+        if hasattr(x_data, "dtype"):
+            try:
+                if np.issubdtype(x_data.dtype, np.datetime64):
+                    return True
+            except TypeError:
+                # pandas extension dtypes (e.g., Int64Dtype) are not always NumPy-compatible
+                pass
+
+            if pd.api.types.is_datetime64_any_dtype(x_data.dtype):
+                return True
 
         # Check for integer years (1980, 1990, etc.)
         if isinstance(first_elem, int) and 1900 <= first_elem <= 2100:
@@ -878,7 +892,7 @@ class ChartView:
             va="bottom",
         )
 
-    def _save_chart(self, fig, filename, metadata, create_pptx=False):
+    def _save_chart(self, fig, filename, metadata, create_pptx=False) -> list[str]:
         """
         Save chart as SVG, PNG, and optionally PPTX.
 
@@ -887,6 +901,9 @@ class ChartView:
             filename: Base filename for saving
             metadata: title, source, etc context for chart
             create_pptx: Whether to create a PowerPoint file
+
+        Returns:
+            list[str]: File paths created by this save operation
         """
 
         clean_filename = filename.replace("_desktop", "").replace("_mobile", "")
@@ -904,13 +921,16 @@ class ChartView:
         fig.savefig(svg_path, metadata=svg_metadata, format="svg", dpi=150)
         fig.savefig(png_path, metadata=svg_metadata, format="png", dpi=300)
         logger.debug(f"✓ saved {svg_path.name} and {png_path.name}")
+        files = [str(svg_path), str(png_path)]
 
         if create_pptx:
             pptx_path = self.outdir / f"{filename.replace('_desktop', '')}.pptx"
             self._create_pptx(png_path, pptx_path, metadata)
             logger.debug(f"✓ saved {pptx_path.name}")
+            files.append(str(pptx_path))
 
         plt.close(fig)
+        return files
 
     def _create_pptx(self, png_path, pptx_path, metadata=None):
         """

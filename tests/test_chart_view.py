@@ -1,5 +1,7 @@
 """Tests for ChartView base behavior."""
 
+from pathlib import Path
+
 from tpsplots.views.chart_view import ChartView
 
 
@@ -18,7 +20,7 @@ class MutatingChartView(ChartView):
         return object()
 
     def _save_chart(self, *_args, **_kwargs):
-        return None
+        return []
 
 
 def test_generate_chart_isolates_nested_kwargs_between_renders(tmp_path):
@@ -34,3 +36,41 @@ def test_generate_chart_isolates_nested_kwargs_between_renders(tmp_path):
     desktop_legend, mobile_legend = view.legend_snapshots
     assert desktop_legend["rendered_for"] == ["desktop"]
     assert mobile_legend["rendered_for"] == ["mobile"]
+
+
+class FileTrackingChartView(ChartView):
+    """Minimal view that returns deterministic file paths for save/export."""
+
+    def __init__(self, outdir):
+        super().__init__(outdir=outdir, style_file=None)
+
+    def _create_chart(self, metadata, style, **kwargs):
+        return object()
+
+    def _save_chart(self, fig, filename, metadata, create_pptx=False):
+        files = [
+            str(self.outdir / f"{filename}.svg"),
+            str(self.outdir / f"{filename}.png"),
+        ]
+        if create_pptx:
+            files.append(str(self.outdir / f"{filename.replace('_desktop', '')}.pptx"))
+        return files
+
+    def _export_csv(self, df, metadata, stem):
+        return Path(self.outdir / f"{stem}.csv")
+
+
+def test_generate_chart_reports_generated_files(tmp_path):
+    """generate_chart should include all output file paths in result['files']."""
+    view = FileTrackingChartView(outdir=tmp_path)
+    result = view.generate_chart(metadata={}, stem="budget", export_data=object())
+
+    expected = [
+        str(tmp_path / "budget_desktop.svg"),
+        str(tmp_path / "budget_desktop.png"),
+        str(tmp_path / "budget.pptx"),
+        str(tmp_path / "budget_mobile.svg"),
+        str(tmp_path / "budget_mobile.png"),
+        str(tmp_path / "budget.csv"),
+    ]
+    assert result["files"] == expected

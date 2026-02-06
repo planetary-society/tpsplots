@@ -8,6 +8,7 @@ from .line_chart import LineChartView
 from .line_subplots import LineSubplotsView
 from .lollipop_chart import LollipopChartView
 from .mixins import BarChartMixin
+from .scatter_chart import ScatterChartView
 from .stacked_bar_chart import StackedBarChartView
 from .us_map_pie_charts import USMapPieChartView
 from .waffle_chart import WaffleChartView
@@ -16,6 +17,7 @@ from .waffle_chart import WaffleChartView
 # This is the single source of truth for available chart types
 VIEW_REGISTRY: dict[str, type[ChartView]] = {
     "line_plot": LineChartView,
+    "scatter_plot": ScatterChartView,
     "bar_plot": BarChartView,
     "donut_plot": DonutChartView,
     "lollipop_plot": LollipopChartView,
@@ -40,6 +42,7 @@ __all__ = [
     "LineChartView",
     "LineSubplotsView",
     "LollipopChartView",
+    "ScatterChartView",
     "StackedBarChartView",
     "USMapPieChartView",
     "WaffleChartView",

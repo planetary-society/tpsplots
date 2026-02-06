@@ -51,6 +51,35 @@ class TestGenerate:
         with tempfile.TemporaryDirectory() as tmpdir, pytest.raises(tpsplots.ConfigurationError):
             tpsplots.generate(tmpdir)
 
+    def test_generate_aggregates_generated_files(self, tmp_path, monkeypatch):
+        """Test that generate() collects files reported by chart processors."""
+        import tpsplots.api as api
+        from tpsplots.processors import yaml_chart_processor
+
+        yaml_path = tmp_path / "chart.yaml"
+        yaml_path.write_text("chart: {}\n")
+
+        expected_files = [
+            str(tmp_path / "budget_desktop.svg"),
+            str(tmp_path / "budget_mobile.svg"),
+        ]
+
+        class DummyProcessor:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            def generate_chart(self):
+                return {"files": expected_files}
+
+        monkeypatch.setattr(yaml_chart_processor, "YAMLChartProcessor", DummyProcessor)
+
+        result = api.generate(yaml_path, outdir=tmp_path / "charts", quiet=True)
+
+        assert result["succeeded"] == 1
+        assert result["failed"] == 0
+        assert result["errors"] == []
+        assert result["files"] == expected_files
+
 
 class TestAssets:
     """Tests for bundled assets."""
