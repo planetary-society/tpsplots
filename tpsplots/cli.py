@@ -39,10 +39,10 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
     logging.getLogger("matplotlib.category").setLevel(logging.WARNING)
 
 
-def validate_yaml(yaml_path: Path, strict: bool = False) -> bool:
+def validate_yaml(yaml_path: Path) -> bool:
     """Validate a YAML configuration without generating charts."""
     try:
-        YAMLChartProcessor(yaml_path, strict=strict)
+        YAMLChartProcessor(yaml_path)
         print(f"Valid: {yaml_path.name}")
         return True
     except (ConfigurationError, DataSourceError) as e:
@@ -184,10 +184,6 @@ def generate(
         Path,
         typer.Option("--outdir", "-o", help="Output directory for generated charts"),
     ] = Path("charts"),
-    strict: Annotated[
-        bool,
-        typer.Option("--strict", help="Error on unresolved data references"),
-    ] = False,
     quiet: Annotated[
         bool,
         typer.Option("--quiet", "-q", help="Suppress progress output (errors still shown)"),
@@ -238,7 +234,7 @@ def generate(
 
     for yaml_file in yaml_files:
         try:
-            processor = YAMLChartProcessor(yaml_file, outdir=outdir, strict=strict)
+            processor = YAMLChartProcessor(yaml_file, outdir=outdir)
             result = processor.generate_chart()
 
             if result:
@@ -281,10 +277,6 @@ def validate_cmd(
         list[Path],
         typer.Argument(help="YAML configuration file(s) or directory(ies) to validate"),
     ],
-    strict: Annotated[
-        bool,
-        typer.Option("--strict", help="Error on unresolved data references"),
-    ] = False,
     quiet: Annotated[
         bool,
         typer.Option("--quiet", "-q", help="Suppress progress output (errors still shown)"),
@@ -324,7 +316,7 @@ def validate_cmd(
     invalid_count = 0
 
     for yaml_file in yaml_files:
-        if validate_yaml(yaml_file, strict=strict):
+        if validate_yaml(yaml_file):
             valid_count += 1
         else:
             invalid_count += 1
