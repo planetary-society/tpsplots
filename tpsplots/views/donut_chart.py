@@ -71,6 +71,69 @@ class DonutChartView(ChartView):
                 wrapped_labels.append(label)
         return wrapped_labels
 
+    def _calculate_donut_label_positions(self, values, labels, total, label_distance):
+        """Calculate initial donut label anchor positions."""
+        wedge_angles = []
+        cumulative = 0
+        for val in values:
+            wedge_angle = val / total * 360
+            midpoint = 90 - (cumulative + wedge_angle / 2)
+            wedge_angles.append(midpoint)
+            cumulative += wedge_angle
+
+        positions = []
+        percentages = [val / total * 100 for val in values]
+        pct_strings = [f"{p:.1f}%" for p in percentages]
+
+        for angle, label, pct in zip(wedge_angles, labels, pct_strings, strict=False):
+            rad_angle = np.radians(angle)
+            x = label_distance * np.cos(rad_angle)
+            y = label_distance * np.sin(rad_angle)
+            positions.append((x, y, rad_angle, label, pct))
+        return positions
+
+    @staticmethod
+    def _adjust_quadrant_positions(positions, vertical_spacing=0.3):
+        """Adjust one quadrant list of label positions to reduce overlap."""
+        adjusted = []
+        if not positions:
+            return adjusted
+
+        adjusted.append(positions[0])
+        for i in range(1, len(positions)):
+            prev = adjusted[i - 1]
+            curr = positions[i]
+
+            if prev[1] - curr[1] < vertical_spacing:
+                new_y = prev[1] - vertical_spacing
+                new_x = curr[0]
+                adjusted.append((new_x, new_y, curr[2], curr[3], curr[4]))
+            else:
+                adjusted.append(curr)
+
+        return adjusted
+
+    def _render_donut_labels(self, ax, positions, show_percentages, legend_size):
+        """Render donut labels from adjusted positions."""
+        for x, y, _angle, label, pct in positions:
+            ha = "left" if x >= 0 else "right"
+            va = "center"
+
+            if abs(y) > 0.8:
+                va = "top" if y < 0 else "bottom"
+
+            label_text = f"{label}\n({pct})" if show_percentages else label
+            ax.text(
+                x,
+                y,
+                label_text,
+                ha=ha,
+                va=va,
+                fontsize=legend_size,
+                fontweight="normal",
+                bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="none", alpha=0.7),
+            )
+
     def _create_chart(self, metadata, style, **kwargs):
         """
         Create a donut chart with appropriate styling.
@@ -118,16 +181,11 @@ class DonutChartView(ChartView):
         center_color = kwargs.pop("center_color", self.COLORS["light_gray"])
         show_percentages = kwargs.pop("show_percentages", True)
 
-        # Calculate percentages for labels
         total = sum(values)
-        percentages = [val / total * 100 for val in values]
-
-        # Create formatted percentage strings
-        pct_strings = [f"{p:.1f}%" for p in percentages]
 
         # Create the pie chart (which will become our donut)
         # No labels at this point, we'll add them manually
-        wedges, _ = ax.pie(
+        _wedges, _ = ax.pie(
             values,
             labels=None,
             colors=colors,
@@ -141,112 +199,42 @@ class DonutChartView(ChartView):
 
         # Add custom positioned and formatted labels
         if labels:
-            # Calculate wedge angles
-            wedge_angles = []
-            cumulative = 0
-            for val in values:
-                # The start and end angle of each wedge
-                wedge_angle = val / total * 360
-                midpoint = 90 - (
-                    cumulative + wedge_angle / 2
-                )  # 90 is the start angle (top of circle)
-                wedge_angles.append(midpoint)
-                cumulative += wedge_angle
+            label_positions = self._calculate_donut_label_positions(
+                values, labels, total, label_distance
+            )
 
-            # Place labels with optimized positions and prevent overlap
-            label_positions = []
-
-            # Precalculate positions
-            for _i, (_wedge, angle, label, pct) in enumerate(
-                zip(wedges, wedge_angles, labels, pct_strings, strict=False)
-            ):
-                # Convert angle to radians for calculation
-                rad_angle = np.radians(angle)
-
-                # Calculate the position
-                x = label_distance * np.cos(rad_angle)
-                y = label_distance * np.sin(rad_angle)
-
-                label_positions.append((x, y, rad_angle, label, pct))
-
-            # Sort labels into quadrants
             top_right = []
             top_left = []
             bottom_left = []
             bottom_right = []
-
             for pos in label_positions:
-                x, y = pos[0], pos[1]
-                if x >= 0 and y >= 0:
+                x_pos, y_pos = pos[0], pos[1]
+                if x_pos >= 0 and y_pos >= 0:
                     top_right.append(pos)
-                elif x < 0 and y >= 0:
+                elif x_pos < 0 and y_pos >= 0:
                     top_left.append(pos)
-                elif x < 0 and y < 0:
+                elif x_pos < 0 and y_pos < 0:
                     bottom_left.append(pos)
                 else:
                     bottom_right.append(pos)
 
-            # Sort each quadrant to avoid overlap (sort by y for left/right, by x for top/bottom)
-            top_right.sort(key=lambda p: -p[1])  # Sort from top to bottom
-            top_left.sort(key=lambda p: -p[1])  # Sort from top to bottom
-            bottom_left.sort(key=lambda p: p[1])  # Sort from bottom to top
-            bottom_right.sort(key=lambda p: p[1])  # Sort from bottom to top
+            top_right.sort(key=lambda p: -p[1])
+            top_left.sort(key=lambda p: -p[1])
+            bottom_left.sort(key=lambda p: p[1])
+            bottom_right.sort(key=lambda p: p[1])
 
-            # Function to add vertical separation between labels
-            def adjust_positions(positions, vertical_spacing=0.3):
-                adjusted = []
-                if not positions:
-                    return adjusted
-
-                adjusted.append(positions[0])
-                for i in range(1, len(positions)):
-                    prev = adjusted[i - 1]
-                    curr = positions[i]
-
-                    # Calculate adjusted y-position with minimum spacing
-                    if prev[1] - curr[1] < vertical_spacing:
-                        # Adjust y-coordinate
-                        new_y = prev[1] - vertical_spacing
-                        # Keep x-coordinate proportional to the adjusted position
-                        new_x = curr[0]
-                        adjusted.append((new_x, new_y, curr[2], curr[3], curr[4]))
-                    else:
-                        adjusted.append(curr)
-
-                return adjusted
-
-            # Apply vertical spacing adjustment to each quadrant
-            top_right = adjust_positions(top_right, 0.1)
-            top_left = adjust_positions(top_left, 0.22)
-            bottom_left = adjust_positions(bottom_left, -0.3)  # Negative for bottom sections
-            bottom_right = adjust_positions(bottom_right, -0.4)  # Negative for bottom sections
-
-            # Combine all adjusted positions
-            adjusted_positions = top_right + top_left + bottom_left + bottom_right
-
-            # Now draw the labels
-            for _i, (x, y, _angle, label, pct) in enumerate(adjusted_positions):
-                # Determine text alignment based on position
-                ha = "left" if x >= 0 else "right"
-                va = "center"
-
-                # For labels near the top or bottom, adjust vertical alignment
-                if abs(y) > 0.8:
-                    va = "top" if y < 0 else "bottom"
-
-                # Add the label with percentage
-                label_text = f"{label}\n({pct})" if show_percentages else label
-
-                ax.text(
-                    x,
-                    y,
-                    label_text,
-                    ha=ha,
-                    va=va,
-                    fontsize=style.get("legend_size", 14),
-                    fontweight="normal",
-                    bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="none", alpha=0.7),
-                )
+            adjusted_positions = (
+                self._adjust_quadrant_positions(top_right, 0.1)
+                + self._adjust_quadrant_positions(top_left, 0.22)
+                + self._adjust_quadrant_positions(bottom_left, -0.3)
+                + self._adjust_quadrant_positions(bottom_right, -0.4)
+            )
+            self._render_donut_labels(
+                ax,
+                adjusted_positions,
+                show_percentages=show_percentages,
+                legend_size=style.get("legend_size", 14),
+            )
 
         # Add the center circle to create the donut effect
         center_circle = plt.Circle((0, 0), hole_size, fc=center_color)

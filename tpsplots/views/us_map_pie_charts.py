@@ -121,6 +121,171 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
         """
         return self.generate_chart(metadata, stem, **kwargs)
 
+    def _load_states_map(self, ax, show_state_boundaries):
+        """Load and draw the US states base map, with fallback geometry."""
+        try:
+            import geopandas as gpd
+
+            try:
+                from tpsplots import PACKAGE_ROOT
+
+                states_file = PACKAGE_ROOT / "data_sources" / "us-states.geojson"
+                states = gpd.read_file(states_file)
+                states = states[~states["id"].isin(["AK", "HI"])]
+            except Exception:
+                states = gpd.read_file(
+                    "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_1_states_provinces.geojson"
+                ).query(
+                    "iso_3166_2.str.startswith('US-') and iso_3166_2 != 'US-AK' and iso_3166_2 != 'US-HI'"
+                )
+
+            states.plot(
+                ax=ax,
+                facecolor="lightgray",
+                edgecolor="white" if show_state_boundaries else "lightgray",
+                linewidth=0.5 if show_state_boundaries else 0.1,
+                alpha=0.7,
+            )
+        except Exception as e:
+            logger.warning(f"Could not load US states data: {e}, using fallback map")
+            self._create_fallback_map(ax)
+
+    @staticmethod
+    def _scale_pie_size_params(style, base_pie_size, min_pie_size, max_pie_size):
+        """Scale map pie sizing for desktop/mobile outputs."""
+        if style.get("type") == "desktop":
+            desktop_scale_factor = 2.0
+            return (
+                base_pie_size * desktop_scale_factor,
+                min_pie_size * desktop_scale_factor,
+                max_pie_size * desktop_scale_factor,
+            )
+        return base_pie_size, min_pie_size, max_pie_size
+
+    def _collect_pie_positions_and_sizes(
+        self, pie_data, all_locations, offset_positions, pie_sizes, base_pie_size
+    ):
+        """Collect final pie positions and sizes for bound expansion."""
+        pie_positions_and_sizes = []
+        for location_name, _data in pie_data.items():
+            if location_name not in all_locations:
+                continue
+
+            location_info = all_locations[location_name]
+            original_lat, original_lon = location_info["lat"], location_info["lon"]
+
+            if location_name in self.OFFSET_CENTERS and location_name in offset_positions:
+                lon, lat = offset_positions[location_name]
+            else:
+                lat, lon = original_lat, original_lon
+
+            pie_size = pie_sizes.get(location_name, base_pie_size)
+            pie_positions_and_sizes.append((lon, lat, pie_size))
+        return pie_positions_and_sizes
+
+    def _draw_pies_and_collect_legend(
+        self,
+        ax,
+        pie_data,
+        all_locations,
+        offset_positions,
+        pie_sizes,
+        show_pie_labels,
+        show_percentages,
+        offset_line_color,
+        offset_line_style,
+        offset_line_width,
+        figsize,
+        dpi,
+        style,
+        base_pie_size,
+    ):
+        """Draw pie charts for all centers and collect unique legend entries."""
+        legend_elements = []
+        legend_labels = set()
+
+        for location_name, data in pie_data.items():
+            if location_name not in all_locations:
+                logger.warning(f"Location '{location_name}' not found in location database")
+                continue
+
+            location_info = all_locations[location_name]
+            original_lat, original_lon = location_info["lat"], location_info["lon"]
+
+            if location_name in self.OFFSET_CENTERS and location_name in offset_positions:
+                lon, lat = offset_positions[location_name]
+                ax.plot(
+                    [original_lon, lon],
+                    [original_lat, lat],
+                    color=offset_line_color,
+                    linestyle=offset_line_style,
+                    linewidth=offset_line_width,
+                    alpha=0.7,
+                    zorder=5,
+                )
+                ax.scatter(
+                    original_lon, original_lat, s=30, color=offset_line_color, alpha=0.7, zorder=6
+                )
+            else:
+                lat, lon = original_lat, original_lon
+
+            values = data.get("values", [])
+            labels = data.get("labels", [])
+            colors = data.get("colors", self._get_cycled_colors(len(values)))
+            if not values:
+                continue
+
+            pie_size = pie_sizes.get(location_name, base_pie_size)
+            self._draw_pie_improved(
+                values, lon, lat, pie_size, colors, ax, show_percentages, figsize, dpi, style
+            )
+
+            font_size = 12 if style and style.get("type") == "desktop" else 10.5
+            if show_pie_labels:
+                ax.text(
+                    lon,
+                    lat,
+                    location_name,
+                    ha="center",
+                    va="center",
+                    fontsize=font_size,
+                    fontweight="bold",
+                    color="black",
+                    bbox=dict(boxstyle="round,pad=0.2", facecolor="white", edgecolor="none"),
+                    zorder=20,
+                )
+
+            for label, color in zip(labels, colors, strict=False):
+                if label not in legend_labels:
+                    legend_elements.append(
+                        plt.Rectangle((0, 0), 1, 1, facecolor=color, edgecolor="white")
+                    )
+                    legend_labels.add(label)
+
+        return legend_elements, legend_labels
+
+    def _add_map_legend(self, ax, legend_elements, legend_labels, style):
+        """Render collected legend entries onto the map axes."""
+        if legend_elements:
+            legend_labels_list = list(legend_labels)
+            legend_labels_list.reverse()
+            ax.legend(
+                legend_elements,
+                legend_labels_list,
+                loc="lower left",
+                fontsize=style.get("legend_size", 12),
+                frameon=True,
+                fancybox=True,
+            )
+
+    @staticmethod
+    def _finalize_map_axes(ax):
+        """Remove map axis ticks/spines for presentation output."""
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
     def _create_chart(self, metadata, style, **kwargs):
         """
         Create a US map with pie charts using the scatter-based approach.
@@ -163,52 +328,14 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
         # Create figure and axis
         fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
 
-        # Load and plot US states
-        try:
-            import geopandas as gpd
-
-            # Try local file first, then fallback to remote
-            try:
-                from tpsplots import PACKAGE_ROOT
-
-                states_file = PACKAGE_ROOT / "data_sources" / "us-states.geojson"
-                states = gpd.read_file(states_file)
-                # Filter out Alaska and Hawaii
-                states = states[~states["id"].isin(["AK", "HI"])]
-            except Exception:
-                # Fallback to remote Natural Earth data
-                states = gpd.read_file(
-                    "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_1_states_provinces.geojson"
-                ).query(
-                    "iso_3166_2.str.startswith('US-') and iso_3166_2 != 'US-AK' and iso_3166_2 != 'US-HI'"
-                )
-
-            # Plot the base map
-            states.plot(
-                ax=ax,
-                facecolor="lightgray",
-                edgecolor="white" if show_state_boundaries else "lightgray",
-                linewidth=0.5 if show_state_boundaries else 0.1,
-                alpha=0.7,
-            )
-
-        except Exception as e:
-            logger.warning(f"Could not load US states data: {e}, using fallback map")
-            self._create_fallback_map(ax)
+        self._load_states_map(ax, show_state_boundaries)
 
         # Combine default locations with custom ones
         all_locations = {**self.NASA_CENTERS, **custom_locations}
 
-        # Apply desktop scaling factor to pie sizes
-        if style.get("type") == "desktop":
-            desktop_scale_factor = 2.0
-            scaled_base_pie_size = base_pie_size * desktop_scale_factor
-            scaled_min_pie_size = min_pie_size * desktop_scale_factor
-            scaled_max_pie_size = max_pie_size * desktop_scale_factor
-        else:
-            scaled_base_pie_size = base_pie_size
-            scaled_min_pie_size = min_pie_size
-            scaled_max_pie_size = max_pie_size
+        scaled_base_pie_size, scaled_min_pie_size, scaled_max_pie_size = self._scale_pie_size_params(
+            style, base_pie_size, min_pie_size, max_pie_size
+        )
 
         # Calculate pie sizes if using proportional sizing
         pie_sizes = self._calculate_pie_sizes(
@@ -230,23 +357,13 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
             pie_data, all_locations, ax, pie_sizes, scaled_base_pie_size
         )
 
-        # Calculate actual pie positions and sizes for bounds checking
-        pie_positions_and_sizes = []
-        for location_name, _data in pie_data.items():
-            if location_name not in all_locations:
-                continue
-
-            location_info = all_locations[location_name]
-            original_lat, original_lon = location_info["lat"], location_info["lon"]
-
-            # Determine final position
-            if location_name in self.OFFSET_CENTERS and location_name in offset_positions:
-                lon, lat = offset_positions[location_name]
-            else:
-                lat, lon = original_lat, original_lon
-
-            pie_size = pie_sizes.get(location_name, scaled_base_pie_size)
-            pie_positions_and_sizes.append((lon, lat, pie_size))
+        pie_positions_and_sizes = self._collect_pie_positions_and_sizes(
+            pie_data,
+            all_locations,
+            offset_positions,
+            pie_sizes,
+            scaled_base_pie_size,
+        )
 
         # Auto-expand bounds if requested
         if auto_expand_bounds:
@@ -255,103 +372,24 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
         # Use appropriate aspect ratio for continental US (not equal)
         ax.set_aspect(1.3)  # Adjust this value to get the right map proportions
 
-        # Create pie charts at each location using scatter-based approach
-        legend_elements = []
-        legend_labels = set()
-
-        for location_name, data in pie_data.items():
-            if location_name not in all_locations:
-                logger.warning(f"Location '{location_name}' not found in location database")
-                continue
-
-            location_info = all_locations[location_name]
-            original_lat, original_lon = location_info["lat"], location_info["lon"]
-
-            # Check if this location should be offset
-            if location_name in self.OFFSET_CENTERS and location_name in offset_positions:
-                # Use offset position
-                lon, lat = offset_positions[location_name]
-
-                # Draw connecting line from original position to offset position
-                ax.plot(
-                    [original_lon, lon],
-                    [original_lat, lat],
-                    color=offset_line_color,
-                    linestyle=offset_line_style,
-                    linewidth=offset_line_width,
-                    alpha=0.7,
-                    zorder=5,
-                )
-
-                # Add a small marker at the original location
-                ax.scatter(
-                    original_lon, original_lat, s=30, color=offset_line_color, alpha=0.7, zorder=6
-                )
-            else:
-                # Use original position
-                lat, lon = original_lat, original_lon
-
-            # Get pie chart data
-            values = data.get("values", [])
-            labels = data.get("labels", [])
-            colors = data.get("colors", self._get_cycled_colors(len(values)))
-
-            if not values:
-                continue
-
-            # Get pie size
-            pie_size = pie_sizes.get(location_name, base_pie_size)
-
-            # Draw pie chart using improved scatter-based method
-            self._draw_pie_improved(
-                values, lon, lat, pie_size, colors, ax, show_percentages, figsize, dpi, style
-            )
-
-            font_size = 12 if style and style.get("type") == "desktop" else 10.5
-
-            # Add center name label if requested
-            if show_pie_labels:
-                # Place label at the center of the pie chart
-                ax.text(
-                    lon,
-                    lat,
-                    location_name,
-                    ha="center",
-                    va="center",
-                    fontsize=font_size,
-                    fontweight="bold",
-                    color="black",
-                    bbox=dict(boxstyle="round,pad=0.2", facecolor="white", edgecolor="none"),
-                    zorder=20,
-                )  # Ensure label appears on top
-
-            # Collect legend information (avoid duplicates)
-            for label, color in zip(labels, colors, strict=False):
-                if label not in legend_labels:
-                    legend_elements.append(
-                        plt.Rectangle((0, 0), 1, 1, facecolor=color, edgecolor="white")
-                    )
-                    legend_labels.add(label)
-
-        # Add legend
-        if legend_elements:
-            legend_labels_list = list(legend_labels)
-            legend_labels_list.reverse()
-
-            ax.legend(
-                legend_elements,
-                legend_labels_list,
-                loc="lower left",
-                fontsize=style.get("legend_size", 12),
-                frameon=True,
-                fancybox=True,
-            )
-
-        # Remove axes for cleaner look
-        ax.set_xticks([])
-        ax.set_yticks([])
-        for spine in ax.spines.values():
-            spine.set_visible(False)
+        legend_elements, legend_labels = self._draw_pies_and_collect_legend(
+            ax,
+            pie_data,
+            all_locations,
+            offset_positions,
+            pie_sizes,
+            show_pie_labels,
+            show_percentages,
+            offset_line_color,
+            offset_line_style,
+            offset_line_width,
+            figsize,
+            dpi,
+            style,
+            scaled_base_pie_size,
+        )
+        self._add_map_legend(ax, legend_elements, legend_labels, style)
+        self._finalize_map_axes(ax)
 
         # Apply layout adjustments
         self._adjust_layout_for_header_footer(fig, metadata, style)
@@ -422,20 +460,14 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
         Returns:
             float: Pie radius in data coordinates
         """
-        # Convert scatter size to radius using a fixed conversion factor
-        # This approach is independent of current axis limits or figure dimensions
+        return self._calculate_pie_radius_data(scatter_size)
 
-        # scatter size is in points^2, so we take sqrt to get radius in points
+    @staticmethod
+    def _calculate_pie_radius_data(scatter_size):
+        """Canonical scatter-size to map-data radius conversion."""
         radius_points = np.sqrt(scatter_size)
-
-        # Use a fixed conversion factor from points to data coordinates
-        # This factor is calibrated for the typical US map coordinate system
-        # (longitude range ~65 degrees, latitude range ~30 degrees)
-        points_to_data_conversion = 0.02  # Adjust this value if needed
-
-        radius_data = radius_points * points_to_data_conversion
-
-        return radius_data
+        points_to_data_conversion = 0.02
+        return radius_points * points_to_data_conversion
 
     def _draw_pie_improved(
         self,
@@ -597,41 +629,33 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
         Returns:
             float: Pie radius in data coordinates
         """
-        # Base formula for converting scatter size to approximate radius
-        # scatter size is in points^2, so we take sqrt to get radius in points
+        del dpi, style
+
+        # Base formula for converting scatter size to approximate radius:
+        # scatter size is in points^2, so sqrt gives radius in points.
         radius_points = np.sqrt(scatter_size)
 
-        # Convert points to data coordinates
-        # 1 point = 1/72 inch
+        # Convert points to inches.
         radius_inches = radius_points / 72
 
-        # Get current axis limits
+        # Get current axis limits, with fallback to map defaults.
         try:
             xlim = plt.gca().get_xlim()
             ylim = plt.gca().get_ylim()
         except Exception:
-            # Fallback to default map bounds
             xlim = (-122, -66)
             ylim = (22, 48)
 
-        # Calculate data units per inch based on current axis and figure
+        # Convert inches to data units.
         if figsize is not None:
             data_width = xlim[1] - xlim[0]
             data_height = ylim[1] - ylim[0]
-
-            # Use the smaller dimension to be conservative
             data_units_per_inch = min(data_width / figsize[0], data_height / figsize[1])
         else:
-            # Use a reasonable default conversion factor
             data_units_per_inch = 8
 
-        # Convert radius from inches to data coordinates
         radius_data = radius_inches * data_units_per_inch
-
-        # Apply a normalization factor to ensure consistent visual positioning
-        # This accounts for the fact that matplotlib's scatter sizing may not be perfectly linear
-        normalization_factor = 0.8  # Adjust this if needed based on visual testing
-
+        normalization_factor = 0.8
         return radius_data * normalization_factor
 
     def _calculate_offset_positions(self, pie_data, all_locations, ax, pie_sizes, base_pie_size):

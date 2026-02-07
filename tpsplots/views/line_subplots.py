@@ -4,17 +4,16 @@ import logging
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 
 from tpsplots.models.charts.line_subplots import LineSubplotsChartConfig
 
 from .chart_view import ChartView
-from .mixins import GridAxisMixin
+from .mixins import GridAxisMixin, LineSeriesMixin
 
 logger = logging.getLogger(__name__)
 
 
-class LineSubplotsView(GridAxisMixin, ChartView):
+class LineSubplotsView(LineSeriesMixin, GridAxisMixin, ChartView):
     """Specialized view for creating line plots in a grid of subplots."""
 
     CONFIG_CLASS = LineSubplotsChartConfig
@@ -65,7 +64,66 @@ class LineSubplotsView(GridAxisMixin, ChartView):
         """
         return self.generate_chart(metadata, stem, **kwargs)
 
-    # Add this method to your LineSubplotsView class
+    def _plot_subplot_series(
+        self,
+        ax,
+        plot_data,
+        style,
+        *,
+        shared_legend=False,
+        is_first_subplot=False,
+    ):
+        """Plot all series for one subplot and return shared legend handles/labels."""
+        x = plot_data.get("x")
+        y_series_list = self._coerce_series_list(plot_data.get("y"))
+        labels = plot_data.get("labels", None)
+        colors = plot_data.get("colors", None)
+        linestyles = plot_data.get("linestyles", None)
+        markers = plot_data.get("markers", None)
+
+        if x is None or y_series_list is None:
+            return [], []
+
+        num_series = len(y_series_list)
+        color_values = self._normalize_series_param(colors, num_series)
+        linestyle_values = self._normalize_series_param(linestyles, num_series, default="-")
+        marker_values = self._normalize_series_param(markers, num_series)
+
+        shared_handles = []
+        shared_labels = []
+
+        for i, y_series in enumerate(y_series_list):
+            if y_series is None:
+                continue
+
+            x_valid, y_valid = self._filter_valid_xy(x, y_series)
+            if len(x_valid) == 0 or len(y_valid) == 0:
+                continue
+
+            plot_kwargs = {"linestyle": linestyle_values[i], "linewidth": style["line_width"]}
+            if color_values[i] is not None:
+                plot_kwargs["color"] = color_values[i]
+            if marker_values[i] is not None:
+                plot_kwargs["marker"] = marker_values[i]
+                plot_kwargs["markersize"] = style.get("marker_size", 5)
+
+            current_label = None
+            if isinstance(labels, (list, tuple)) and i < len(labels):
+                current_label = labels[i]
+            elif labels is not None and i == 0:
+                current_label = labels
+
+            if (shared_legend and is_first_subplot and current_label) or (
+                not shared_legend and current_label
+            ):
+                plot_kwargs["label"] = current_label
+
+            line = ax.plot(x_valid, y_valid, **plot_kwargs)
+            if shared_legend and is_first_subplot and current_label:
+                shared_handles.extend(line)
+                shared_labels.append(current_label)
+
+        return shared_handles, shared_labels
 
     def _create_chart(self, metadata, style, **kwargs):
         """
@@ -136,92 +194,19 @@ class LineSubplotsView(GridAxisMixin, ChartView):
         for idx, (ax, plot_data) in enumerate(
             zip(axes_flat[: len(subplot_data)], subplot_data, strict=False)
         ):
-            # Extract data for this subplot
-            x = plot_data.get("x")
-            y = plot_data.get("y")
             subplot_title = plot_data.get("title", f"Subplot {idx + 1}")
             labels = plot_data.get("labels", None)
-            colors = plot_data.get("colors", None)
-            linestyles = plot_data.get("linestyles", None)
-            markers = plot_data.get("markers", None)
-
-            # Handle single y series
-            if y is not None and not isinstance(y, (list, tuple)):
-                y = [y]
-
-            # Plot each line in this subplot
-            if x is not None and y is not None:
-                for i, y_series in enumerate(y):
-                    # Skip if y_series is None or empty
-                    if y_series is None:
-                        continue
-
-                    # Convert to numpy array for easier handling
-                    x_array = np.array(x)
-                    y_array = np.array(y_series)
-
-                    # Remove NaN/NaT values
-                    valid_mask = ~pd.isna(y_array)
-
-                    # Also check for NaT in x if it's datetime
-                    if hasattr(x_array, "dtype") and np.issubdtype(x_array.dtype, np.datetime64):
-                        valid_mask &= ~pd.isna(x_array)
-
-                    # Filter out invalid values
-                    x_valid = x_array[valid_mask]
-                    y_valid = y_array[valid_mask]
-
-                    # Skip if no valid data points
-                    if len(x_valid) == 0 or len(y_valid) == 0:
-                        continue
-
-                    plot_kwargs = {}
-
-                    # Handle colors
-                    if isinstance(colors, (list, tuple)) and i < len(colors):
-                        plot_kwargs["color"] = colors[i]
-                    elif colors is not None and not isinstance(colors, (list, tuple)):
-                        plot_kwargs["color"] = colors
-
-                    # Handle linestyles
-                    if isinstance(linestyles, (list, tuple)) and i < len(linestyles):
-                        plot_kwargs["linestyle"] = linestyles[i]
-                    elif linestyles is not None and not isinstance(linestyles, (list, tuple)):
-                        plot_kwargs["linestyle"] = linestyles
-                    else:
-                        plot_kwargs["linestyle"] = "-"
-
-                    # Handle markers
-                    if isinstance(markers, (list, tuple)) and i < len(markers):
-                        plot_kwargs["marker"] = markers[i]
-                    elif markers is not None and not isinstance(markers, (list, tuple)):
-                        plot_kwargs["marker"] = markers
-
-                    # Handle labels
-                    current_label = None
-                    if isinstance(labels, (list, tuple)) and i < len(labels):
-                        current_label = labels[i]
-                    elif labels is not None and i == 0:
-                        current_label = labels
-
-                    # For shared legend, only set label on first subplot to avoid duplicates
-                    if (shared_legend and idx == 0 and current_label) or (
-                        not shared_legend and current_label
-                    ):
-                        plot_kwargs["label"] = current_label
-
-                    # Set line properties
-                    plot_kwargs["linewidth"] = style["line_width"]
-                    if plot_kwargs.get("marker"):
-                        plot_kwargs["markersize"] = style.get("marker_size", 5)
-
-                    # Plot the line with valid data only
-                    line = ax.plot(x_valid, y_valid, **plot_kwargs)
-
-                    # Collect handles and labels for shared legend from first subplot
-                    if shared_legend and idx == 0 and current_label:
-                        all_handles.extend(line)
-                        all_labels.append(current_label)
+            subplot_handles, subplot_labels = self._plot_subplot_series(
+                ax,
+                plot_data,
+                style,
+                shared_legend=shared_legend,
+                is_first_subplot=idx == 0,
+            )
+            if subplot_handles:
+                all_handles.extend(subplot_handles)
+            if subplot_labels:
+                all_labels.extend(subplot_labels)
 
             # Set subplot title
             title_fontsize = (
@@ -296,23 +281,22 @@ class LineSubplotsView(GridAxisMixin, ChartView):
         tick_format_kwargs = dict(kwargs)
         x_tick_format, y_tick_format = self._pop_axis_tick_format_kwargs(tick_format_kwargs)
 
-        # Apply axis labels using mixin (scaled smaller for subplots)
-        self._apply_axis_labels(
+        self._apply_common_axis_styling(
             ax,
+            style=style,
             xlabel=xlabel,
             ylabel=ylabel,
             label_size=style["label_size"] * 0.9,
-            style_type=style["type"],
+            tick_size=tick_size,
+            tick_rotation=tick_rotation,
+            grid=grid,
+            grid_axis=grid_axis,
+            grid_alpha=0.3,
+            grid_linestyle="-",
+            grid_linewidth=0.8,
             italic=False,
+            scale_ticks_for_mobile=False,
         )
-
-        # Apply grid setting
-        if grid:
-            ax.grid(axis=grid_axis, alpha=0.3)
-
-        # Set tick sizes
-        ax.tick_params(axis="x", labelsize=tick_size)
-        ax.tick_params(axis="y", labelsize=tick_size)
 
         # Get x-axis data for date detection
         lines = ax.get_lines()
@@ -356,17 +340,7 @@ class LineSubplotsView(GridAxisMixin, ChartView):
                 self._apply_scale_formatter(ax, scale, axis="y", tick_format=y_tick_format)
                 scaled_y = True
 
-        # Apply custom limits
-        if xlim:
-            if isinstance(xlim, dict):
-                ax.set_xlim(**xlim)
-            else:
-                ax.set_xlim(xlim)
-        if ylim:
-            if isinstance(ylim, dict):
-                ax.set_ylim(**ylim)
-            else:
-                ax.set_ylim(ylim)
+        self._apply_axis_limits(ax, xlim=xlim, ylim=ylim)
 
         # Apply custom ticks
         if xticks is not None:

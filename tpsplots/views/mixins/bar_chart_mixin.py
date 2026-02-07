@@ -293,7 +293,6 @@ class BarChartMixin:
             value_format: Value format (for percentage formatting)
             baseline: Baseline value for reference line
         """
-        # Determine defaults
         if grid_axis is None:
             grid_axis = "y" if orientation == "vertical" else "x"
         if tick_size is None:
@@ -303,22 +302,20 @@ class BarChartMixin:
         if tick_rotation is None:
             tick_rotation = style.get("tick_rotation", 45) if orientation == "vertical" else 0
 
-        # Scale down tick size on mobile display
-        if style["type"] == "mobile":
-            tick_size = tick_size * 0.8
-
-        # Apply axis labels using GridAxisMixin method
-        self._apply_axis_labels(
+        tick_size = self._apply_common_axis_styling(
             ax,
+            style=style,
             xlabel=xlabel,
             ylabel=ylabel,
             label_size=label_size,
-            style_type=style["type"],
+            tick_size=tick_size,
+            tick_rotation=tick_rotation,
+            grid=grid,
+            grid_axis=grid_axis,
+            xlim=xlim,
+            ylim=ylim,
+            scale_ticks_for_mobile=True,
         )
-
-        # Apply grid
-        if grid:
-            ax.grid(axis=grid_axis, alpha=0.3, linestyle="--", linewidth=0.5)
 
         # Add baseline reference line if different from 0
         if baseline != 0:
@@ -328,9 +325,7 @@ class BarChartMixin:
                 ax.axvline(x=baseline, color="gray", linestyle="-", linewidth=1, alpha=0.7)
 
         # Disable minor ticks for both axes
-        ax.xaxis.set_minor_locator(plt.NullLocator())
-        ax.yaxis.set_minor_locator(plt.NullLocator())
-        ax.tick_params(which="minor", left=False, right=False, top=False, bottom=False)
+        self._disable_minor_ticks(ax)
 
         # Apply percentage formatting if value_format is 'percentage'
         if value_format == "percentage":
@@ -340,34 +335,12 @@ class BarChartMixin:
             axis_to_scale = "y" if orientation == "vertical" else "x"
             self._apply_scale_formatter(ax, scale, axis=axis_to_scale)
 
-        # Set tick sizes
-        ax.tick_params(axis="x", labelsize=tick_size, rotation=tick_rotation)
-        ax.tick_params(axis="y", labelsize=tick_size)
-
         # Ensure integer-only ticks on value axis
-        if orientation == "vertical":
-            ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
-        else:
-            ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+        self._apply_integer_locator(ax, orientation=orientation)
 
         # Control category tick mark visibility
         if not show_category_ticks:
-            if orientation == "vertical":
-                ax.tick_params(axis="x", length=0, bottom=False, top=False)
-            else:
-                ax.tick_params(axis="y", length=0, left=False, right=False)
-
-        # Apply custom limits
-        if xlim:
-            if isinstance(xlim, dict):
-                ax.set_xlim(**xlim)
-            else:
-                ax.set_xlim(xlim)
-        if ylim:
-            if isinstance(ylim, dict):
-                ax.set_ylim(**ylim)
-            else:
-                ax.set_ylim(ylim)
+            self._hide_category_ticks(ax, orientation=orientation)
 
         # Apply category alignment
         if orientation == "vertical":

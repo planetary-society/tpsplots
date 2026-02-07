@@ -320,18 +320,21 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
         ax.set_xticks(x)
         ax.set_xticklabels(categories, fontsize=tick_size, rotation=tick_rotation)
 
-        # Apply axis labels using mixin
         label_size = style.get("label_size", 20)
-        self._apply_axis_labels(
+        self._apply_common_axis_styling(
             ax,
+            style=style,
             xlabel=xlabel,
             ylabel=ylabel,
             label_size=label_size,
-            style_type=style["type"],
+            tick_size=tick_size,
+            tick_rotation=tick_rotation,
+            grid=grid,
+            grid_axis=grid_axis,
+            xlim=xlim,
+            ylim=ylim,
+            scale_ticks_for_mobile=False,
         )
-
-        # Apply axis limits using mixin
-        self._apply_axis_limits(ax, xlim=xlim, ylim=ylim)
 
         scaled_y = False
 
@@ -352,9 +355,6 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
                 y_tick_format=y_tick_format if not scaled_y else None,
                 has_explicit_xticklabels=True,
             )
-
-        # Apply grid using mixin
-        self._apply_grid(ax, grid=grid, grid_axis=grid_axis)
 
         # Add legend
         if legend_config:

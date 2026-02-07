@@ -123,18 +123,23 @@ class TextEditSession:
         normalized_subtitle = None if subtitle is None else subtitle.strip()
         normalized_source = None if source is None else source.strip()
 
-        if YAML is not None and DoubleQuotedScalarString is not None:
-            self._save_text_with_ruamel(
-                title=normalized_title,
-                subtitle=normalized_subtitle,
-                source=normalized_source,
-            )
-        else:
+        # Prefer in-place editing to preserve comments/order and avoid unrelated rewrites.
+        # Fall back to ruamel round-trip only when in-place editing cannot proceed.
+        try:
             self._save_text_in_place(
                 title=normalized_title,
                 subtitle=normalized_subtitle,
                 source=normalized_source,
             )
+        except Exception:
+            if YAML is not None and DoubleQuotedScalarString is not None:
+                self._save_text_with_ruamel(
+                    title=normalized_title,
+                    subtitle=normalized_subtitle,
+                    source=normalized_source,
+                )
+            else:
+                raise
 
         self.metadata["title"] = normalized_title
         self.metadata["subtitle"] = normalized_subtitle or ""

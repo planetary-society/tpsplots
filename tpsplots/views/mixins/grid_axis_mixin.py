@@ -191,3 +191,93 @@ class GridAxisMixin:
 
         ax.tick_params(axis="x", labelsize=tick_size, rotation=tick_rotation)
         ax.tick_params(axis="y", labelsize=tick_size)
+
+    def _apply_common_axis_styling(
+        self,
+        ax,
+        *,
+        style,
+        xlabel=None,
+        ylabel=None,
+        label_size=None,
+        tick_size=None,
+        tick_rotation=0,
+        grid=True,
+        grid_axis="y",
+        grid_alpha=0.3,
+        grid_linestyle="--",
+        grid_linewidth=0.5,
+        xlim=None,
+        ylim=None,
+        italic=True,
+        loc="center",
+        xlabel_pad=10,
+        ylabel_pad=4,
+        scale_ticks_for_mobile=True,
+    ):
+        """
+        Compose common label/grid/tick/limit styling across chart views.
+
+        Args:
+            ax: Matplotlib axes object
+            style: Style dictionary (DESKTOP or MOBILE)
+            xlabel: X-axis label text
+            ylabel: Y-axis label text
+            label_size: Label font size (defaults from style)
+            tick_size: Tick font size (defaults from style)
+            tick_rotation: X-axis tick rotation
+            grid: Whether to show grid
+            grid_axis: Grid axis ('x', 'y', or 'both')
+            grid_alpha: Grid line alpha
+            grid_linestyle: Grid line style
+            grid_linewidth: Grid line width
+            xlim: X-axis limits
+            ylim: Y-axis limits
+            italic: Axis label font style flag
+            loc: Axis label location
+            xlabel_pad: X-axis label pad
+            ylabel_pad: Y-axis label pad
+            scale_ticks_for_mobile: Apply mobile tick downscaling when True
+
+        Returns:
+            float | None: Effective tick size after optional mobile scaling
+        """
+        if label_size is None:
+            label_size = style.get("label_size")
+        if tick_size is None:
+            tick_size = style.get("tick_size")
+
+        style_type = style.get("type", "desktop")
+
+        self._apply_axis_labels(
+            ax,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            label_size=label_size,
+            style_type=style_type,
+            italic=italic,
+            loc=loc,
+            xlabel_pad=xlabel_pad,
+            ylabel_pad=ylabel_pad,
+        )
+        self._apply_grid(
+            ax,
+            grid=grid,
+            grid_axis=grid_axis,
+            alpha=grid_alpha,
+            linestyle=grid_linestyle,
+            linewidth=grid_linewidth,
+        )
+
+        tick_style_type = style_type if scale_ticks_for_mobile else "desktop"
+        self._apply_tick_styling(
+            ax,
+            tick_size=tick_size,
+            tick_rotation=tick_rotation,
+            style_type=tick_style_type,
+        )
+        self._apply_axis_limits(ax, xlim=xlim, ylim=ylim)
+
+        if scale_ticks_for_mobile:
+            return self._scale_tick_size_for_mobile(tick_size, style_type)
+        return tick_size

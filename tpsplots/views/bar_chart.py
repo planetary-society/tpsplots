@@ -264,20 +264,20 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
         value_format = kwargs.pop("value_format", None)  # Extract value_format
         show_category_ticks = kwargs.pop("show_category_ticks", False)
 
-        # Scale tick size for mobile using mixin helper
-        tick_size = self._scale_tick_size_for_mobile(tick_size, style["type"])
-
-        # Apply axis labels using mixin
-        self._apply_axis_labels(
+        tick_size = self._apply_common_axis_styling(
             ax,
+            style=style,
             xlabel=xlabel,
             ylabel=ylabel,
             label_size=label_size,
-            style_type=style["type"],
+            tick_size=tick_size,
+            tick_rotation=tick_rotation,
+            grid=grid,
+            grid_axis=grid_axis,
+            xlim=None,
+            ylim=None,
+            scale_ticks_for_mobile=True,
         )
-
-        # Apply grid using mixin method
-        self._apply_grid(ax, grid=grid, grid_axis=grid_axis)
 
         # Add baseline reference line if different from 0
         if baseline != 0:
@@ -312,15 +312,10 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
             # but with bar chart-specific xlim calculation
             self._apply_fiscal_year_bar_ticks(ax, style, tick_size=tick_size)
         else:
-            # Apply standard tick formatting
-            ax.tick_params(axis="x", labelsize=tick_size, rotation=tick_rotation)
             # Set tick locators if needed
             max_xticks = kwargs.pop("max_xticks", style.get("max_ticks"))
             if max_xticks and orientation == "vertical":
                 ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
-
-        # Always set y-axis tick size to ensure consistency
-        ax.tick_params(axis="y", labelsize=tick_size)
 
         self._apply_tick_format_specs(
             ax,

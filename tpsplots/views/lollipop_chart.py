@@ -533,22 +533,21 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
         tick_size = kwargs.pop("tick_size", style.get("tick_size", 12))
         hide_y_spine = kwargs.pop("hide_y_spine", False)
 
-        # Apply axis labels using mixin
-        self._apply_axis_labels(
+        self._apply_common_axis_styling(
             ax,
+            style=style,
             xlabel=xlabel,
             ylabel=ylabel,
             label_size=style.get("label_size", 14),
-            style_type=style["type"],
+            tick_size=tick_size,
+            tick_rotation=0,
+            grid=grid,
+            grid_axis=grid_axis,
+            xlim=None,
+            ylim=None,
             italic=False,
+            scale_ticks_for_mobile=False,
         )
-
-        # Apply grid using mixin
-        self._apply_grid(ax, grid=grid, grid_axis=grid_axis)
-
-        # Set tick sizes
-        ax.tick_params(axis="x", labelsize=tick_size)
-        ax.tick_params(axis="y", labelsize=tick_size)
 
         # Explicitly disable y-axis minor ticks (categories are discrete)
         ax.yaxis.set_minor_locator(plt.NullLocator())
