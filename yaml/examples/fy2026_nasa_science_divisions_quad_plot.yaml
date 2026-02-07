@@ -1,0 +1,63 @@
+data:
+  source: nasa_fy2026_controller.science_division_context
+
+chart:
+  type: line_subplots
+  output: nasa_science_divisions_quad_plot_fy2026_threat
+  title: "Every science division faced deep cuts"
+  subtitle: "The 2026 proposal would have cut 30-65% from each division — some to inflation-adjusted historic lows."
+  source: "NASA Presidential Budget Requests, FYs 1990-2026"
+
+  # Subplot configuration with presentation in YAML
+  subplot_data:
+    - title: "Astrophysics"
+      x: "{{Fiscal Year}}"
+      y:
+        - "{{Astrophysics_adjusted_nnsi}}"
+        - "{{Astrophysics White House Budget Projection}}"
+      labels: ["Division funding", "Proposed"]
+      colors: ["Neptune Blue", "Rocket Flame"]
+      linestyles: ["-", "-"]
+      markers: ["", "o"]
+      linewidths: [3, 3]
+    - title: "Planetary Science"
+      x: "{{Fiscal Year}}"
+      y:
+        - "{{Planetary Science_adjusted_nnsi}}"
+        - "{{Planetary Science White House Budget Projection}}"
+      labels: ["Division funding", "Proposed"]
+      colors: ["Neptune Blue", "Rocket Flame"]
+      linestyles: ["-", "-"]
+      markers: ["", "o"]
+      linewidths: [3, 3]
+    - title: "Earth Science"
+      x: "{{Fiscal Year}}"
+      y:
+        - "{{Earth Science_adjusted_nnsi}}"
+        - "{{Earth Science White House Budget Projection}}"
+      labels: ["Division funding", "Proposed"]
+      colors: ["Neptune Blue", "Rocket Flame"]
+      linestyles: ["-", "-"]
+      markers: ["", "o"]
+      linewidths: [3, 3]
+    - title: "Heliophysics"
+      x: "{{Fiscal Year}}"
+      y:
+        - "{{Heliophysics_adjusted_nnsi}}"
+        - "{{Heliophysics White House Budget Projection}}"
+      labels: ["Division funding", "Proposed"]
+      colors: ["Neptune Blue", "Rocket Flame"]
+      linestyles: ["-", "-"]
+      markers: ["", "o"]
+      linewidths: [3, 3]
+
+  grid_shape: [2, 2]
+  xlim: [1990-01-01, 2030-01-01]
+  ylim: [0, 4000000000]
+  scale: billions
+  shared_x: false
+  shared_y: false
+  shared_legend: true
+  legend: true
+  subplot_title_size: 14
+  export_data: "{{export_df}}"
