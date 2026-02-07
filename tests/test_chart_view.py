@@ -80,8 +80,8 @@ def test_generate_chart_reports_generated_files(tmp_path):
     assert result["files"] == expected
 
 
-def test_save_chart_uses_high_dpi_for_svg_and_png(tmp_path, monkeypatch):
-    """_save_chart should export both SVG and PNG with high DPI."""
+def test_save_chart_uses_figure_dpi_for_svg_and_png(tmp_path, monkeypatch):
+    """_save_chart should rely on figure DPI as the single source of truth."""
     view = ChartView(outdir=tmp_path, style_file=None)
     fig = plt.figure()
     save_calls: list[tuple[str, str | None, int | None]] = []
@@ -94,9 +94,9 @@ def test_save_chart_uses_high_dpi_for_svg_and_png(tmp_path, monkeypatch):
 
     assert len(save_calls) == 2
     assert save_calls[0][1] == "svg"
-    assert save_calls[0][2] == 600
+    assert save_calls[0][2] == "figure"
     assert save_calls[1][1] == "png"
-    assert save_calls[1][2] == 600
+    assert save_calls[1][2] == "figure"
 
 
 def test_add_logo_uses_non_smoothed_raster_settings(tmp_path, monkeypatch):

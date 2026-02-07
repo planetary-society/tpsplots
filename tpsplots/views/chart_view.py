@@ -28,10 +28,12 @@ logger = logging.getLogger(__name__)
 class ChartView(AxisTickFormatMixin):
     """Base class for all chart views with shared functionality."""
 
+    # Pydantic config model for this chart type (set by subclasses)
+    CONFIG_CLASS: ClassVar[type | None] = None
+
     # Color palettes imported from tpsplots.colors for backward compatibility
     COLORS: ClassVar[dict[str, str]] = COLORS
     TPS_COLORS: ClassVar[dict[str, str]] = TPS_COLORS
-
     # Device-specific visual settings
     DESKTOP: ClassVar[dict[str, object]] = {
         "type": "desktop",
@@ -56,8 +58,9 @@ class ChartView(AxisTickFormatMixin):
         "header_max_height": 0.18,  # Never larger than 18%
         "subtitle_wrap_length": 120,
         "label_wrap_length": 30,
-        "logo_zoom": 0.08,
-        "logo_x": 0.0,
+        "logo_zoom": 0.12,
+        "logo_x": 0.01,
+        "logo_y": 0.004,
         "source_size": 13,
     }
 
@@ -83,9 +86,10 @@ class ChartView(AxisTickFormatMixin):
         "header_max_height": 0.22,  # Never larger than 22%
         "subtitle_wrap_length": 64,
         "label_wrap_length": 15,
-        "logo_zoom": 0.08,
-        "logo_x": 0.0,
-        "source_size": 11,
+        "logo_zoom": 0.10,
+        "logo_x": 0.008,
+        "logo_y": 0.0044,
+        "source_size": 10,
     }
 
     def __init__(self, outdir: Path = Path("charts"), style_file=TPS_STYLE_FILE):
@@ -840,7 +844,7 @@ class ChartView(AxisTickFormatMixin):
             style: Style dictionary (DESKTOP or MOBILE)
         """
         try:
-            logo_path = IMAGES_DIR / "TPS_Logo_1Line-Black.png"
+            logo_path = IMAGES_DIR / "TPS_Logo_1Line-Black-Cutout.png"
             if not logo_path.exists():
                 return
 
@@ -870,11 +874,16 @@ class ChartView(AxisTickFormatMixin):
 
                 logo = new_logo
 
-            imagebox = OffsetImage(logo, zoom=style.get("logo_zoom", 0.08))
+            imagebox = OffsetImage(
+                logo,
+                zoom=style.get("logo_zoom", 0.08),
+                interpolation="none",
+                resample=False,
+            )
 
             ab = AnnotationBbox(
                 imagebox,
-                xy=(style.get("logo_x", 0.01), 0.001),  # Position at left, bottom corner
+                xy=(style.get("logo_x", 0.01), style.get("logo_y", 0.005)),  # Position at left, bottom corner
                 xycoords="figure fraction",
                 box_alignment=(0, 0),  # Align the left edge of the logo with the xy point
                 frameon=False,
@@ -934,8 +943,8 @@ class ChartView(AxisTickFormatMixin):
             "Source": metadata.get("source"),
         }
 
-        fig.savefig(svg_path, metadata=svg_metadata, format="svg", dpi=150)
-        fig.savefig(png_path, metadata=svg_metadata, format="png", dpi=300)
+        fig.savefig(svg_path, metadata=svg_metadata, format="svg", dpi="figure")
+        fig.savefig(png_path, metadata=svg_metadata, format="png", dpi="figure")
         logger.debug(f"✓ saved {svg_path.name} and {png_path.name}")
         files = [str(svg_path), str(png_path)]
 
