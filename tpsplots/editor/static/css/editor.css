@@ -1,0 +1,1139 @@
+/* ==========================================================================
+   TPS Plots — Chart Editor
+   The Planetary Society · Split-Pane YAML Chart Editor
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Custom Properties
+   -------------------------------------------------------------------------- */
+
+:root {
+  /* Brand palette */
+  --neptune-blue: #037CC2;
+  --rocket-flame: #FF5D47;
+  --plasma-purple: #643788;
+  --crater-shadow: #414141;
+  --lunar-soil: #8C8C8C;
+  --comet-dust: #C3C3C3;
+
+  /* Surfaces */
+  --bg-app: #F7F8FA;
+  --bg-panel: #fff;
+  --bg-hover: #f0f2f5;
+
+  /* Borders */
+  --border-subtle: #E2E6EA;
+  --border-focus: #037CC2;
+
+  /* Text */
+  --text-primary: #16222e;
+  --text-muted: #536477;
+  --text-accent: #037CC2;
+
+  /* Elevation */
+  --shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-hover: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+
+  /* Typography */
+  --font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Layout */
+  --header-height: 52px;
+
+  /* Semantic */
+  --color-error: #A32E2E;
+  --color-success: #2E7D32;
+}
+
+/* --------------------------------------------------------------------------
+   2. Reset & Base
+   -------------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-family);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-app);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --------------------------------------------------------------------------
+   3. Editor Header
+   -------------------------------------------------------------------------- */
+
+.editor-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: var(--header-height);
+  padding: 0 20px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.editor-header .logo {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.editor-header .logo span {
+  color: var(--neptune-blue);
+}
+
+.editor-header .chart-type-select {
+  width: 160px;
+  padding: 6px 10px;
+  font-family: var(--font-family);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23536477' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+.editor-header .chart-type-select:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(3, 124, 194, 0.12);
+}
+
+.editor-header .filename {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   4. Buttons
+   -------------------------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 150ms ease, box-shadow 150ms ease, transform 80ms ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.btn:active {
+  transform: translateY(0.5px);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn-primary {
+  color: #fff;
+  background: var(--neptune-blue);
+}
+
+.btn-primary:hover {
+  background: #026bab;
+  box-shadow: var(--shadow-hover);
+}
+
+.btn-secondary {
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-hover);
+}
+
+/* --------------------------------------------------------------------------
+   5. Editor Layout (Split Pane)
+   -------------------------------------------------------------------------- */
+
+.editor-layout {
+  display: grid;
+  grid-template-columns: 380px 6px 1fr;
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* --------------------------------------------------------------------------
+   6. Resize Handle
+   -------------------------------------------------------------------------- */
+
+.resize-handle {
+  grid-column: 2;
+  width: 6px;
+  cursor: col-resize;
+  position: relative;
+  background: transparent;
+  z-index: 10;
+}
+
+.resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: transparent;
+  transition: background 200ms ease;
+  border-radius: 1px;
+}
+
+.resize-handle:hover::after,
+.resize-handle.active::after {
+  background: var(--neptune-blue);
+}
+
+/* --------------------------------------------------------------------------
+   7. Form Panel (Left)
+   -------------------------------------------------------------------------- */
+
+.form-panel {
+  grid-column: 1;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border-subtle);
+  overflow-y: auto;
+  padding: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--comet-dust) transparent;
+}
+
+.form-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.form-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.form-panel::-webkit-scrollbar-thumb {
+  background: var(--comet-dust);
+  border-radius: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   8. Metadata Section
+   -------------------------------------------------------------------------- */
+
+.metadata-section {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.metadata-section .form-group:last-child {
+  margin-bottom: 0;
+}
+
+/* --------------------------------------------------------------------------
+   9. Collapsible Field Groups (Accordion)
+   -------------------------------------------------------------------------- */
+
+.field-group {
+  border-bottom: 1px solid var(--border-subtle);
+  border-left: 3px solid transparent;
+  transition: border-left-color 200ms ease;
+}
+
+.field-group[open] {
+  border-left-color: var(--neptune-blue);
+}
+
+.field-group summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px 10px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  transition: color 150ms ease;
+}
+
+.field-group summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Arrow is rendered via .group-arrow span in JS component */
+
+.field-group summary:hover {
+  color: var(--text-primary);
+}
+
+.field-group-badge {
+  margin-left: auto;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--text-accent);
+  background: rgba(3, 124, 194, 0.08);
+  border-radius: 10px;
+}
+
+.field-group-content {
+  padding: 12px 0 8px 0;
+}
+
+/* --------------------------------------------------------------------------
+   10. Form Fields
+   -------------------------------------------------------------------------- */
+
+.form-group {
+  margin-bottom: 14px;
+}
+
+label.control-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.field-description {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="url"],
+input[type="email"],
+select,
+textarea {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  font-family: var(--font-family);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="url"]:focus,
+input[type="email"]:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(3, 124, 194, 0.12);
+}
+
+input[type="text"]::placeholder,
+textarea::placeholder {
+  color: var(--comet-dust);
+}
+
+textarea {
+  min-height: 72px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23536477' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+  cursor: pointer;
+}
+
+/* Checkbox */
+.checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--neptune-blue);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   11. RJSF Overrides
+   -------------------------------------------------------------------------- */
+
+.rjsf > .form-group > p {
+  display: none;
+}
+
+.rjsf .btn-group {
+  display: none;
+}
+
+.rjsf [type="submit"] {
+  display: none;
+}
+
+.rjsf fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.rjsf fieldset legend {
+  display: none;
+}
+
+.rjsf .field-array .array-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.rjsf .field-array .array-item-toolbox {
+  flex-shrink: 0;
+}
+
+.rjsf .field-array .array-item-toolbox .btn {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.rjsf .errors-list {
+  margin: 8px 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--color-error);
+  background: #FFEBEE;
+  border-radius: var(--radius-sm);
+  list-style: none;
+}
+
+/* --------------------------------------------------------------------------
+   12. Preview Panel (Right)
+   -------------------------------------------------------------------------- */
+
+.preview-panel {
+  grid-column: 3;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-app);
+  overflow: hidden;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-panel);
+  flex-shrink: 0;
+}
+
+.preview-header .preview-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.preview-header .spacer {
+  flex: 1;
+}
+
+/* --------------------------------------------------------------------------
+   13. Device Toggle (Segmented Control)
+   -------------------------------------------------------------------------- */
+
+.device-toggle {
+  display: inline-flex;
+  background: var(--bg-app);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+}
+
+.device-toggle button {
+  padding: 4px 12px;
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+  line-height: 1.4;
+}
+
+.device-toggle button:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.device-toggle button.active {
+  color: #fff;
+  background: var(--neptune-blue);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* --------------------------------------------------------------------------
+   14. Preview Container & Card
+   -------------------------------------------------------------------------- */
+
+.preview-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 24px;
+}
+
+.preview-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
+  overflow: hidden;
+  max-width: 100%;
+  transition: box-shadow 200ms ease;
+}
+
+.preview-card:hover {
+  box-shadow: var(--shadow-hover);
+}
+
+.preview-card svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.preview-card img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* --------------------------------------------------------------------------
+   15. Status Indicator
+   -------------------------------------------------------------------------- */
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.status.error {
+  color: var(--color-error);
+}
+
+.status.success {
+  color: var(--color-success);
+}
+
+.status .spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--comet-dust);
+  border-top-color: var(--neptune-blue);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* --------------------------------------------------------------------------
+   16. Toast Notifications
+   -------------------------------------------------------------------------- */
+
+.toast {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 1000;
+  padding: 12px 20px;
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-hover);
+  border-left: 4px solid transparent;
+  animation: toast-in 300ms ease forwards;
+  max-width: 360px;
+}
+
+.toast.hiding {
+  animation: toast-out 250ms ease forwards;
+}
+
+.toast-success {
+  color: #2E7D32;
+  background: #E8F5E9;
+  border-left-color: #2E7D32;
+}
+
+.toast-error {
+  color: #C62828;
+  background: #FFEBEE;
+  border-left-color: #C62828;
+}
+
+/* --------------------------------------------------------------------------
+   17. Color Widget
+   -------------------------------------------------------------------------- */
+
+.color-widget {
+  margin-top: 4px;
+}
+
+.swatch-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.swatch {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 100ms ease;
+  flex-shrink: 0;
+}
+
+.swatch:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.06);
+}
+
+.swatch.selected {
+  border-color: var(--neptune-blue);
+  box-shadow: 0 0 0 3px rgba(3, 124, 194, 0.18);
+}
+
+.swatch.selected::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 6px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: translate(-50%, -60%) rotate(-45deg);
+}
+
+.hex-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hex-input-row .hex-preview {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.hex-input-row input[type="text"] {
+  flex: 1;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+/* --------------------------------------------------------------------------
+   18. Empty State
+   -------------------------------------------------------------------------- */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: 300px;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.empty-state .empty-icon {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 16px;
+  border-radius: 50%;
+  background: var(--bg-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--comet-dust);
+  font-size: 24px;
+}
+
+.empty-state p {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.empty-state .empty-hint {
+  font-size: 12px;
+  color: var(--comet-dust);
+  margin-top: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   19. Keyframe Animations
+   -------------------------------------------------------------------------- */
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   20. Utility Classes
+   -------------------------------------------------------------------------- */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-accent {
+  color: var(--text-accent);
+}
+
+.text-error {
+  color: var(--color-error);
+}
+
+.text-success {
+  color: var(--color-success);
+}
+
+.mt-4 { margin-top: 4px; }
+.mt-8 { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.mb-4 { margin-bottom: 4px; }
+.mb-8 { margin-bottom: 8px; }
+.mb-12 { margin-bottom: 12px; }
+
+/* --------------------------------------------------------------------------
+   21. Responsive Layout
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 980px) {
+  .editor-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .resize-handle {
+    display: none;
+  }
+
+  .form-panel {
+    grid-column: 1;
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+
+  .preview-panel {
+    grid-column: 1;
+  }
+
+  .preview-container {
+    min-height: 400px;
+  }
+
+  .editor-header {
+    gap: 10px;
+    padding: 0 12px;
+  }
+
+  .editor-header .filename {
+    display: none;
+  }
+
+  .editor-header .chart-type-select {
+    width: 130px;
+  }
+}
+
+@media (max-width: 600px) {
+  .editor-header .logo {
+    font-size: 13px;
+  }
+
+  .preview-container {
+    padding: 12px;
+  }
+
+  .device-toggle {
+    display: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   22. Component Class Aliases (JS component class references)
+   -------------------------------------------------------------------------- */
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-logo {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.header-center {
+  display: flex;
+  align-items: center;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.header-filename {
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+/* Metadata section layout */
+.metadata-field {
+  margin-bottom: 12px;
+}
+
+.metadata-field label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.metadata-row {
+  display: flex;
+  gap: 12px;
+}
+
+.meta-input {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  font-family: var(--font-family);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  resize: vertical;
+  min-height: 36px;
+}
+
+.meta-input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(3, 124, 194, 0.12);
+}
+
+/* GroupedObjectFieldTemplate section elements */
+.group-arrow {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 5px solid var(--lunar-soil);
+  transition: transform 200ms ease;
+  flex-shrink: 0;
+}
+
+.field-group[open] .group-arrow {
+  transform: rotate(90deg);
+}
+
+.group-name {
+  flex: 1;
+}
+
+.group-badge {
+  margin-left: auto;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--text-accent);
+  background: rgba(3, 124, 194, 0.08);
+  border-radius: 10px;
+}
+
+.group-fields {
+  padding: 12px 0 8px 4px;
+}
+
+/* Override for field-group summary when using custom arrow span */
+.field-group summary .group-arrow + .group-name {
+  flex: 1;
+}
+
+/* Device toggle button variant */
+.device-btn {
+  padding: 4px 12px;
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+  line-height: 1.4;
+}
+
+.device-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.device-btn.active {
+  color: #fff;
+  background: var(--neptune-blue);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Small inline spinner */
+.spinner-sm {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--comet-dust);
+  border-top-color: var(--neptune-blue);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+/* File menu overlay */
+.file-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 80px;
+}
+
+.file-menu {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-hover);
+  width: 360px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.file-menu-header {
+  padding: 14px 16px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.file-menu-item {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  font-family: var(--font-family);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 100ms ease;
+}
+
+.file-menu-item:hover {
+  background: var(--bg-hover);
+}
+
+.file-menu-empty {
+  padding: 20px 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Toast icon */
+.toast-icon {
+  margin-right: 8px;
+  font-weight: 700;
+}
+
+.toast-message {
+  flex: 1;
+}
+
+/* Loading state */
+#loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-family: var(--font-family);
+}
+
+#loading .spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-subtle);
+  border-top-color: var(--neptune-blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+#loading.error {
+  color: var(--color-error);
+}
+
+#root {
+  display: none;
+}

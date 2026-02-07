@@ -9,6 +9,7 @@ from typing import Annotated
 import typer
 
 from tpsplots import __version__
+from tpsplots.commands.editor import editor
 from tpsplots.commands.s3_sync import s3_sync
 from tpsplots.commands.textedit import textedit
 from tpsplots.exceptions import ConfigurationError, DataSourceError, RenderingError
@@ -331,6 +332,7 @@ def validate_cmd(
 # Register s3-sync subcommand
 app.command("s3-sync")(s3_sync)
 app.command("textedit")(textedit)
+app.command("editor")(editor)
 
 
 def cli_main() -> None:

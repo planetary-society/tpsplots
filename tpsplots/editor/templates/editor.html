@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>tpsplots editor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/editor.css">
+</head>
+<body>
+  <div id="loading">
+    <div class="spinner"></div>
+    <div>Loading editor…</div>
+  </div>
+  <div id="root"></div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@19.0.0",
+      "react/jsx-runtime": "https://esm.sh/react@19.0.0/jsx-runtime",
+      "react-dom": "https://esm.sh/react-dom@19.0.0",
+      "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+      "htm": "https://esm.sh/htm@3.1.1",
+      "@rjsf/core": "https://esm.sh/@rjsf/core@5.22.4?external=react,react-dom",
+      "@rjsf/utils": "https://esm.sh/@rjsf/utils@5.22.4?external=react,react-dom",
+      "@rjsf/validator-ajv8": "https://esm.sh/@rjsf/validator-ajv8@5.22.4?external=react,react-dom"
+    }
+  }
+  </script>
+
+  <!-- CDN timeout fallback -->
+  <script>
+    window.__editorReady = false;
+    setTimeout(function() {
+      if (!window.__editorReady) {
+        var el = document.getElementById("loading");
+        el.innerHTML =
+          '<div style="text-align:center;padding:40px">' +
+          '<h2 style="color:#A32E2E;margin-bottom:8px">CDN Loading Failed</h2>' +
+          '<p style="color:#536477;font-size:13px">Could not load dependencies from esm.sh.<br>' +
+          'Check your internet connection and try again.</p>' +
+          '<p style="color:#536477;font-size:12px;margin-top:12px">' +
+          'Open DevTools console for details.</p></div>';
+        el.className = "error";
+      }
+    }, 15000);
+  </script>
+
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

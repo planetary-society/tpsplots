@@ -68,6 +68,8 @@ tpsplots = [
     "assets/fonts/**/*.txt",
     "assets/images/**/*.png",
     "views/style/**/*.mplstyle",
+    "editor/templates/**/*",
+    "editor/static/**/*",
 ]
 
 # Ruff configuration
