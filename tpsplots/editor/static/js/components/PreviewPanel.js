@@ -126,6 +126,11 @@ export function PreviewPanel({
           ? html`<img class="preview-img" src=${previewUrl} alt="Chart preview" />`
           : html`
               <div class="empty-state">
+                <img
+                  class="empty-state-logo"
+                  src="/static/tpsplots-logo.png"
+                  alt="tpsplots logo"
+                />
                 ${hasSource
                   ? html`<p>Loading preview…</p>`
                   : html`<p>Open a YAML file or configure a data source<br/>to see a live preview</p>`

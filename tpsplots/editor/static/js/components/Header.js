@@ -93,6 +93,13 @@ export function Header(props) {
   return html`
     <header class="editor-header">
       <div class="header-left">
+        <span class="header-logo-badge">
+          <img
+            class="header-logo-image"
+            src="/static/tpsplots-logo-no-text.png"
+            alt="tpsplots logo"
+          />
+        </span>
         <span class="header-logo">tpsplots</span>
       </div>
 
