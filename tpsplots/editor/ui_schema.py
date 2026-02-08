@@ -243,9 +243,12 @@ def get_ui_schema(chart_type: str) -> dict[str, Any]:
     return ui
 
 
+_EDITOR_EXCLUDED_TYPES = {"line_subplots"}
+
+
 def get_available_chart_types() -> list[str]:
     """Return sorted list of available chart type strings."""
-    return sorted(CONFIG_REGISTRY.keys())
+    return sorted(k for k in CONFIG_REGISTRY if k not in _EDITOR_EXCLUDED_TYPES)
 
 
 def get_primary_binding_fields(chart_type: str) -> list[str]:
@@ -265,13 +268,19 @@ def get_editor_hints(chart_type: str) -> dict[str, Any]:
     annotation = [f for f in ("title", "subtitle", "source", "output") if f in fields]
 
     visual = [f for f in fields if f not in set(primary) | set(annotation) | {"type"}]
-    advanced = [f for f in visual if _get_field_group(f, config_cls) in {"Chart-Specific", "Axis", "Grid"}]
+    advanced = [
+        f for f in visual if _get_field_group(f, config_cls) in {"Chart-Specific", "Axis", "Grid"}
+    ]
     suggested = [*primary, *[f for f in fields if f not in set(primary)]]
 
     return {
         "primary_binding_fields": primary,
         "step_field_map": {
-            "data_source_and_preparation": ["data.source", "data.params", "data.calculate_inflation"],
+            "data_source_and_preparation": [
+                "data.source",
+                "data.params",
+                "data.calculate_inflation",
+            ],
             "data_bindings": primary,
             "visual_design": visual,
             "annotation_output": annotation,
