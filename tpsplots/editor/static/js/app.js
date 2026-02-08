@@ -233,6 +233,7 @@ function App() {
     onForceRender: () => setRenderTick((v) => v + 1),
     onSetStep: (step) => setActiveStep(step),
     onToggleDevice: () => setPreviewDevice((d) => (d === "desktop" ? "mobile" : "desktop")),
+    onSetDevice: (device) => setPreviewDevice(device),
   });
 
   // ── Toast helper ───────────────────────────────────────────

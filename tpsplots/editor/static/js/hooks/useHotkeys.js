@@ -50,6 +50,19 @@ export function useHotkeys(handlers) {
       if (!editable && e.altKey && ["1", "2", "3", "4"].includes(e.key)) {
         e.preventDefault();
         ref.current.onSetStep?.(Number(e.key));
+        return;
+      }
+
+      if (!editable && !mod && !e.altKey && !e.shiftKey) {
+        const key = e.key.toLowerCase();
+        if (key === "d") {
+          ref.current.onSetDevice?.("desktop");
+          return;
+        }
+        if (key === "m") {
+          ref.current.onSetDevice?.("mobile");
+          return;
+        }
       }
     };
 
