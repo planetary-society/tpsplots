@@ -82,6 +82,26 @@ def test_line_chart_grid_dict_still_applies_custom_axis(tmp_path):
     assert not any(line.get_visible() for line in ax.get_ygridlines())
 
 
+def test_line_chart_grid_axis_kwarg_controls_visible_axis(tmp_path):
+    """Line chart should honor explicit grid_axis when grid is enabled."""
+    view = LineChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Grid Axis"},
+        style=view.DESKTOP,
+        x=[1, 2, 3, 4],
+        y=[[10, 20, 30, 40]],
+        legend=False,
+        fiscal_year_ticks=False,
+        grid=True,
+        grid_axis="x",
+    )
+    ax = fig.axes[0]
+    fig.canvas.draw()
+
+    assert any(line.get_visible() for line in ax.get_xgridlines())
+    assert not any(line.get_visible() for line in ax.get_ygridlines())
+
+
 def test_line_chart_direct_labels_do_not_duplicate_markersize_kwarg(tmp_path):
     """Direct labels should render without passing markersize twice."""
     view = LineChartView(outdir=tmp_path, style_file=None)

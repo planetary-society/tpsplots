@@ -14,7 +14,7 @@ export function MetadataSection({ formData, onFormDataChange }) {
   return html`
     <div class="metadata-section">
       <div class="metadata-field">
-        <label class="control-label" for="meta-title">Title *</label>
+        <label class="control-label" for="meta-title" title="YAML key: title">Chart Title *</label>
         <textarea
           id="meta-title"
           class="meta-input"
@@ -26,7 +26,9 @@ export function MetadataSection({ formData, onFormDataChange }) {
       </div>
 
       <div class="metadata-field">
-        <label class="control-label" for="meta-subtitle">Subtitle</label>
+        <label class="control-label" for="meta-subtitle" title="YAML key: subtitle">
+          Chart Subtitle
+        </label>
         <textarea
           id="meta-subtitle"
           class="meta-input"
@@ -39,7 +41,9 @@ export function MetadataSection({ formData, onFormDataChange }) {
 
       <div class="metadata-row">
         <div class="metadata-field" style=${{ flex: 1 }}>
-          <label class="control-label" for="meta-output">Output filename</label>
+          <label class="control-label" for="meta-output" title="YAML key: output">
+            Output File Name
+          </label>
           <input
             id="meta-output"
             type="text"
@@ -50,7 +54,9 @@ export function MetadataSection({ formData, onFormDataChange }) {
         </div>
 
         <div class="metadata-field" style=${{ flex: 1 }}>
-          <label class="control-label" for="meta-source">Source</label>
+          <label class="control-label" for="meta-source" title="YAML key: source">
+            Source Attribution
+          </label>
           <input
             id="meta-source"
             type="text"

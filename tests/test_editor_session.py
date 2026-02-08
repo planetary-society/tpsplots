@@ -243,3 +243,83 @@ class TestCleanFormData:
 
         result = _clean_form_data({"colors": ["2024-01-01T00:00", "not-a-date"]})
         assert result == {"colors": ["2024-01-01T00:00", "not-a-date"]}
+
+    def test_preserves_legend_dict(self):
+        """Legend dict values survive clean_form_data unchanged (original bug scenario)."""
+        from tpsplots.editor.session import _clean_form_data
+
+        result = _clean_form_data({"legend": {"loc": "upper right", "fontsize": "medium"}})
+        assert result == {"legend": {"loc": "upper right", "fontsize": "medium"}}
+
+    def test_preserves_legend_false(self):
+        """Legend=False (disable legend) survives clean_form_data."""
+        from tpsplots.editor.session import _clean_form_data
+
+        result = _clean_form_data({"legend": False})
+        assert result == {"legend": False}
+
+
+class TestLegendDictIntegration:
+    """Integration test: legend dict survives clean → validate → build_render_context."""
+
+    def test_legend_dict_reaches_render_context(self, tmp_path):
+        """Legend dict form data flows through the full editor pipeline."""
+        csv = tmp_path / "data.csv"
+        csv.write_text("Year,A,B\n2024,10,30\n2025,20,40\n")
+
+        config = {
+            "data": {"source": f"csv:{csv}"},
+            "chart": {
+                "type": "line",
+                "output": "legend_integration",
+                "title": "Legend Test",
+                "x": "{{Year}}",
+                "y": ["{{A}}", "{{B}}"],
+                "legend": {"loc": "upper right", "fontsize": "medium", "ncol": 3},
+            },
+        }
+
+        from tpsplots.editor.session import _clean_form_data
+        from tpsplots.models.yaml_config import YAMLChartConfig
+        from tpsplots.processors.render_pipeline import build_render_context
+        from tpsplots.processors.resolvers import DataResolver
+
+        cleaned = _clean_form_data(config)
+        validated = YAMLChartConfig(**cleaned)
+        data = DataResolver.resolve(validated.data)
+        ctx = build_render_context(validated, data, log_conflicts=False)
+
+        # Legend dict should survive the full pipeline
+        assert isinstance(ctx.resolved_params["legend"], dict)
+        assert ctx.resolved_params["legend"]["loc"] == "upper right"
+        assert ctx.resolved_params["legend"]["fontsize"] == "medium"
+        assert ctx.resolved_params["legend"]["ncol"] == 3
+
+    def test_grid_false_reaches_render_context(self, tmp_path):
+        """grid=False survives the full editor pipeline."""
+        csv = tmp_path / "data.csv"
+        csv.write_text("Category,Amount\nA,100\n")
+
+        config = {
+            "data": {"source": f"csv:{csv}"},
+            "chart": {
+                "type": "bar",
+                "output": "grid_test",
+                "title": "Grid Test",
+                "categories": "{{Category}}",
+                "values": "{{Amount}}",
+                "grid": False,
+            },
+        }
+
+        from tpsplots.editor.session import _clean_form_data
+        from tpsplots.models.yaml_config import YAMLChartConfig
+        from tpsplots.processors.render_pipeline import build_render_context
+        from tpsplots.processors.resolvers import DataResolver
+
+        cleaned = _clean_form_data(config)
+        validated = YAMLChartConfig(**cleaned)
+        data = DataResolver.resolve(validated.data)
+        ctx = build_render_context(validated, data, log_conflicts=False)
+
+        assert ctx.resolved_params["grid"] is False

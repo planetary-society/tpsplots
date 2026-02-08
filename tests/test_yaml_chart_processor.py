@@ -52,15 +52,17 @@ class TestColorParameterResolution:
             )
 
     def test_processor_uses_resolve_deep(self):
-        """Verify processor uses ColorResolver.resolve_deep() for recursive resolution."""
+        """Verify render pipeline uses ColorResolver.resolve_deep() for recursive resolution."""
         import inspect
 
-        # Get the source of the generate_chart method
-        source = inspect.getsource(YAMLChartProcessor.generate_chart)
+        from tpsplots.processors.render_pipeline import build_render_context
+
+        # The pipeline logic now lives in build_render_context
+        source = inspect.getsource(build_render_context)
 
         # Verify it uses resolve_deep (not field-by-field resolution)
         assert "ColorResolver.resolve_deep" in source, (
-            "YAMLChartProcessor.generate_chart() should use ColorResolver.resolve_deep() "
+            "build_render_context() should use ColorResolver.resolve_deep() "
             "for recursive color resolution in nested structures like subplot_data."
         )
 

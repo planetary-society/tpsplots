@@ -17,15 +17,13 @@ _TEMPLATE_PATH = _EDITOR_DIR / "templates" / "editor.html"
 
 # Content Security Policy — no CORS middleware because any website in the
 # same browser could call localhost APIs and overwrite YAML files.
-# 'unsafe-eval' required because AJV (used by @rjsf/validator-ajv8) compiles
-# JSON Schema into validator functions via new Function().
 _CSP = (
     "default-src 'self'; "
-    "script-src 'self' https://esm.sh 'unsafe-inline' 'unsafe-eval'; "
+    "script-src 'self' https://esm.sh 'unsafe-inline'; "
     "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; "
     "font-src https://fonts.gstatic.com; "
     "connect-src 'self' https://esm.sh; "
-    "img-src 'self' data:; "
+    "img-src 'self' data: blob:; "
     "frame-src 'none'; "
     "object-src 'none'"
 )

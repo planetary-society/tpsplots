@@ -40,7 +40,7 @@ class TextEditSession:
         self.output_name: str = ""
         self.metadata: dict[str, Any] = {}
         self.parameters: dict[str, Any] = {}
-        self._plot_method = None
+        self._view = None
         self._prepare_render_context()
 
     def _prepare_render_context(self) -> None:
@@ -61,8 +61,7 @@ class TextEditSession:
         self.parameters = ColorResolver.resolve_deep(self.parameters)
         self.metadata = MetadataResolver.resolve(metadata, self.data)
 
-        view = self.processor._get_view(chart_type_v1)
-        self._plot_method = getattr(view, chart_type_v1)
+        self._view = self.processor._get_view(chart_type_v1)
 
     def get_initial_text(self) -> dict[str, str]:
         """Return current text fields for pre-populating the UI."""
@@ -92,25 +91,17 @@ class TextEditSession:
         if source is not None:
             metadata["source"] = source
 
-        result: dict[str, Any] | None = None
+        fig = self._view.create_figure(
+            metadata=metadata,
+            device=device,
+            **deepcopy(self.parameters),
+        )
         try:
-            result = self._plot_method(
-                metadata=metadata,
-                stem=f"{self.output_name}_textedit_preview",
-                preview=True,
-                **deepcopy(self.parameters),
-            )
-
-            fig = result[device]
             svg_buffer = io.StringIO()
             fig.savefig(svg_buffer, format="svg", dpi=150)
             return svg_buffer.getvalue()
         finally:
-            if result is not None:
-                for figure_key in ("desktop", "mobile"):
-                    figure = result.get(figure_key)
-                    if figure is not None:
-                        plt.close(figure)
+            plt.close(fig)
 
     def save_text(
         self, *, title: str, subtitle: str | None = None, source: str | None = None

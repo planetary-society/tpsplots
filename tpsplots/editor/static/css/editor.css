@@ -424,56 +424,339 @@ select {
 }
 
 /* --------------------------------------------------------------------------
-   11. RJSF Overrides
+   11. Custom Form Fields (SchemaForm)
    -------------------------------------------------------------------------- */
 
-.rjsf > .form-group > p {
-  display: none;
+.schema-form {
+  padding: 0 4px;
 }
 
-.rjsf .btn-group {
-  display: none;
+/* --- Field Row (shared by all field types) --- */
+.field-row {
+  margin-bottom: 2px;
 }
 
-.rjsf [type="submit"] {
-  display: none;
+.field-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
 }
 
-.rjsf fieldset {
-  border: none;
-  padding: 0;
-  margin: 0;
+.field-help {
+  display: block;
+  margin-top: 2px;
+  margin-bottom: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.field-input {
+  display: block;
+  width: 100%;
+}
+
+.template-chip-input-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.template-chip-input-wrap .template-chip-input {
+  width: 100%;
+}
+
+.template-chip-input--masked {
+  color: transparent !important;
+  caret-color: transparent;
+}
+
+.template-chip-input-wrap.is-chip .template-chip-input::placeholder {
+  color: transparent;
+}
+
+.template-chip-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 9px;
+  border: 0;
+  background: transparent;
+  cursor: default;
+  text-align: left;
+}
+
+.template-chip-overlay:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -1px;
+  border-radius: var(--radius-sm);
+}
+
+.template-ref-chip-list {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.template-ref-chip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  max-width: 100%;
+  margin-top: 0;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #0b4f77;
+  background: linear-gradient(
+    135deg,
+    rgba(3, 124, 194, 0.14),
+    rgba(255, 93, 71, 0.12)
+  );
+  border: 1px solid rgba(3, 124, 194, 0.24);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.field-invalid {
+  border-color: var(--color-error) !important;
+  box-shadow: 0 0 0 2px rgba(163, 46, 46, 0.1) !important;
+}
+
+/* --- Checkbox variant --- */
+.field-row-checkbox {
+  margin-bottom: 2px;
+}
+
+.field-row-checkbox .field-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.field-row-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--neptune-blue);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* --- Inline row (side-by-side fields e.g. xlim + ylim) --- */
+.field-inline-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 2px;
+}
+
+.field-inline-col {
+  flex: 1;
   min-width: 0;
 }
 
-.rjsf fieldset legend {
-  display: none;
+.field-inline-col .field-row {
+  margin-bottom: 0;
 }
 
-.rjsf .field-array .array-item {
+/* --- Object field (key-value editor) --- */
+.obj-entries {
+  margin-top: 4px;
+}
+
+.obj-entry {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 6px;
 }
 
-.rjsf .field-array .array-item-toolbox {
+.obj-key {
+  flex: 0 0 auto;
+  min-width: 60px;
+  max-width: 120px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obj-value-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.obj-value-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.obj-value-checkbox {
+  width: 16px !important;
+  height: 16px;
+  accent-color: var(--neptune-blue);
+  cursor: pointer;
+}
+
+.obj-remove,
+.array-item-remove {
   flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
 }
 
-.rjsf .field-array .array-item-toolbox .btn {
-  padding: 4px 8px;
-  font-size: 12px;
-}
-
-.rjsf .errors-list {
-  margin: 8px 0;
-  padding: 8px 12px;
-  font-size: 12px;
+.obj-remove:hover,
+.array-item-remove:hover {
   color: var(--color-error);
   background: #FFEBEE;
+  border-color: rgba(163, 46, 46, 0.15);
+}
+
+.obj-add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.obj-key-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px !important;
+  font-size: 12px !important;
+}
+
+.obj-add-btn,
+.array-add-btn {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-accent);
+  background: rgba(3, 124, 194, 0.06);
+  border: 1px solid rgba(3, 124, 194, 0.15);
   border-radius: var(--radius-sm);
-  list-style: none;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.obj-add-btn:hover,
+.array-add-btn:hover {
+  background: rgba(3, 124, 194, 0.12);
+  border-color: rgba(3, 124, 194, 0.25);
+}
+
+.obj-add-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* --- Array field (list editor) --- */
+.array-items {
+  margin-top: 4px;
+}
+
+.array-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.array-item-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.array-item-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.array-add-btn {
+  margin-top: 4px;
+}
+
+/* --- Union field (anyOf type switching) --- */
+.union-field-wrapper {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  overflow: hidden;
+}
+
+.union-type-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.union-type-switch,
+.union-type-select {
+  padding: 3px 24px 3px 6px !important;
+  font-size: 11px !important;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background-color: var(--bg-panel);
+}
+
+.union-clear-btn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-left: auto;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease;
+}
+
+.union-clear-btn:hover {
+  color: var(--color-error);
+  background: #FFEBEE;
+}
+
+.union-field-wrapper > .field-row {
+  padding: 8px;
+  margin-bottom: 0;
 }
 
 /* --------------------------------------------------------------------------
@@ -554,8 +837,9 @@ select {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: auto;
+  overflow: hidden;
   padding: 24px;
+  min-height: 0;
 }
 
 .preview-card {
@@ -582,6 +866,20 @@ select {
   display: block;
   max-width: 100%;
   height: auto;
+}
+
+.preview-img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-panel);
+  background: var(--bg-panel);
+  transition: box-shadow 200ms ease;
+}
+
+.preview-img:hover {
+  box-shadow: var(--shadow-hover);
 }
 
 /* --------------------------------------------------------------------------

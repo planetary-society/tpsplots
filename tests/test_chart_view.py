@@ -80,6 +80,47 @@ def test_generate_chart_reports_generated_files(tmp_path):
     assert result["files"] == expected
 
 
+class SingleDeviceChartView(ChartView):
+    """Minimal view for testing create_figure."""
+
+    def __init__(self, outdir):
+        super().__init__(outdir=outdir, style_file=None)
+        self.create_calls = []
+
+    def _create_chart(self, metadata, style, **kwargs):
+        self.create_calls.append(style["type"])
+        return object()
+
+
+def test_create_figure_renders_single_device(tmp_path):
+    """create_figure should only invoke _create_chart once for the requested device."""
+    view = SingleDeviceChartView(outdir=tmp_path)
+
+    fig = view.create_figure(metadata={"title": "Test"}, device="mobile", legend=True)
+
+    assert fig is not None
+    assert view.create_calls == ["mobile"]
+
+
+def test_create_figure_defaults_to_desktop(tmp_path):
+    """create_figure with no device argument should render desktop."""
+    view = SingleDeviceChartView(outdir=tmp_path)
+
+    view.create_figure(metadata={"title": "Test"})
+
+    assert view.create_calls == ["desktop"]
+
+
+def test_create_figure_ignores_export_data(tmp_path):
+    """create_figure should silently discard export_data without error."""
+    view = SingleDeviceChartView(outdir=tmp_path)
+
+    fig = view.create_figure(metadata={}, export_data=object())
+
+    assert fig is not None
+    assert len(view.create_calls) == 1
+
+
 def test_save_chart_uses_figure_dpi_for_svg_and_png(tmp_path, monkeypatch):
     """_save_chart should rely on figure DPI as the single source of truth."""
     view = ChartView(outdir=tmp_path, style_file=None)

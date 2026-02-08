@@ -1,4 +1,4 @@
-"""Generate JSON Schema and uiSchema for the chart editor RJSF forms."""
+"""Generate JSON Schema and uiSchema for the chart editor forms."""
 
 from __future__ import annotations
 
@@ -118,16 +118,15 @@ def get_chart_type_schema(chart_type: str) -> dict[str, Any]:
     Uses ``CONFIG_REGISTRY[chart_type].model_json_schema()`` for a flat,
     per-type schema (NOT the full discriminated union).
 
-    Post-processes the schema to simplify Pydantic's ``anyOf`` patterns:
-    - ``anyOf: [{type: X}, {type: null}]`` → just ``{type: X}``
-    - Multi-type anyOf: removes the null branch only
+    Post-processes the schema to strip null branches from anyOf while
+    preserving multi-type union information for the custom form.
     """
     config_cls = CONFIG_REGISTRY.get(chart_type)
     if config_cls is None:
         raise ValueError(f"Unknown chart type: {chart_type}. Available: {list(CONFIG_REGISTRY)}")
 
     schema = config_cls.model_json_schema()
-    schema = _simplify_any_of(schema)
+    schema = _strip_null_from_any_of(schema)
 
     # Strip excluded system fields from the schema
     excluded = _get_excluded_fields(config_cls)
@@ -239,97 +238,50 @@ def get_available_chart_types() -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def _simplify_any_of(schema: dict[str, Any]) -> dict[str, Any]:
-    """Flatten Pydantic's anyOf patterns into simple types for RJSF.
+def _strip_null_from_any_of(schema: dict[str, Any]) -> dict[str, Any]:
+    """Strip null branches from Pydantic's anyOf, preserving union types.
 
-    RJSF + AJV have trouble with multi-branch anyOf when form data is null
-    (``getClosestMatchingOption`` produces empty anyOf arrays internally).
-    This function aggressively simplifies all anyOf to a single type,
-    recursively throughout the entire schema tree.
+    Pydantic generates ``anyOf: [{type: X}, {type: null}]`` for Optional
+    fields. This strips the null branch so the form sees only real types.
+    Multi-type unions (e.g. ``bool | dict | str``) are preserved intact
+    so the custom form can render the appropriate field per value type.
+
+    For single non-null branches, collapses to a flat type.
     """
     if not isinstance(schema, dict):
         return schema
 
     cleaned = {**schema}
 
-    # Simplify anyOf at this level
     if "anyOf" in cleaned:
-        cleaned = _simplify_property_any_of(cleaned)
+        branches = cleaned["anyOf"]
+        non_null = [b for b in branches if b.get("type") != "null"]
 
-    # Recurse into all dict-valued keys
+        if len(non_null) == 1:
+            # Single type: collapse anyOf to flat schema
+            best = non_null[0]
+            result = {k: v for k, v in cleaned.items() if k != "anyOf"}
+            result.update(best)
+            cleaned = result
+        elif len(non_null) > 1:
+            # Multi-type union: keep anyOf with just the non-null branches
+            cleaned["anyOf"] = non_null
+        else:
+            # Only null branches — treat as string
+            result = {k: v for k, v in cleaned.items() if k != "anyOf"}
+            result["type"] = "string"
+            cleaned = result
+
+    # Recurse into nested schemas
     for key in ("properties", "$defs"):
         if key in cleaned and isinstance(cleaned[key], dict):
             cleaned[key] = {
-                k: _simplify_any_of(v) if isinstance(v, dict) else v
+                k: _strip_null_from_any_of(v) if isinstance(v, dict) else v
                 for k, v in cleaned[key].items()
             }
 
-    # Recurse into schema-valued keys
     for key in ("items", "additionalProperties"):
         if key in cleaned and isinstance(cleaned[key], dict):
-            cleaned[key] = _simplify_any_of(cleaned[key])
+            cleaned[key] = _strip_null_from_any_of(cleaned[key])
 
     return cleaned
-
-
-# Priority order for picking a single type from anyOf branches.
-_TYPE_PRIORITY = ["boolean", "integer", "number", "string", "array", "object"]
-
-
-def _pick_best_branch(branches: list[dict[str, Any]]) -> dict[str, Any]:
-    """Pick the most useful single branch from a multi-type anyOf.
-
-    Prefers $ref branches (specific models) over generic objects,
-    then concrete types (boolean > integer > number > string) over
-    complex ones (array, object). Falls back to string if nothing matches.
-    """
-    # Prefer $ref branches — they reference a specific model definition
-    ref_branches = [b for b in branches if "$ref" in b]
-    if ref_branches:
-        return ref_branches[0]
-
-    # Merge all string enums into one if all branches are string-typed
-    string_branches = [b for b in branches if b.get("type") == "string"]
-    if len(string_branches) == len(branches):
-        all_enums = []
-        for b in string_branches:
-            if "enum" in b:
-                all_enums.extend(b["enum"])
-        if all_enums:
-            return {"type": "string", "enum": list(dict.fromkeys(all_enums))}
-        return {"type": "string"}
-
-    # Pick by type priority
-    for preferred in _TYPE_PRIORITY:
-        for branch in branches:
-            if branch.get("type") == preferred:
-                return branch
-
-    # Fallback: use first branch
-    return branches[0] if branches else {"type": "string"}
-
-
-def _simplify_property_any_of(prop: dict[str, Any]) -> dict[str, Any]:
-    """Simplify a single property's anyOf to a single type."""
-    if "anyOf" not in prop:
-        return prop
-
-    branches = prop["anyOf"]
-    non_null = [b for b in branches if b.get("type") != "null"]
-
-    if len(non_null) == 0:
-        # Only null branches — collapse to string
-        result = {k: v for k, v in prop.items() if k != "anyOf"}
-        result["type"] = "string"
-        return result
-
-    # Pick the single best branch (works for both 1 and multi-branch)
-    best = _pick_best_branch(non_null)
-    result = {k: v for k, v in prop.items() if k != "anyOf"}
-    result.update(best)
-
-    # Remove default: null since the field is now a concrete type
-    if result.get("default") is None:
-        result.pop("default", None)
-
-    return result

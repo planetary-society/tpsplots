@@ -13,12 +13,27 @@ const DEBOUNCE_MS = 800;
 export function PreviewPanel({ buildFullConfig, formData, dataConfig }) {
   const [device, setDevice] = useState("desktop");
   const [svg, setSvg] = useState("");
+  const [svgUrl, setSvgUrl] = useState(null);
   const [status, setStatus] = useState("idle");
   const [renderTime, setRenderTime] = useState(null);
 
   const timerRef = useRef(null);
   const controllerRef = useRef(null);
   const requestIdRef = useRef(0);
+
+  // Convert SVG string to blob URL for <img> rendering.
+  // Replaced elements (<img>) resolve max-height: 100% against the
+  // flex container, allowing the chart to scale to fit both dimensions.
+  useEffect(() => {
+    if (!svg) {
+      setSvgUrl(null);
+      return;
+    }
+    const blob = new Blob([svg], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    setSvgUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [svg]);
 
   // Debounced preview render
   const scheduleRender = useCallback(() => {
@@ -99,8 +114,8 @@ export function PreviewPanel({ buildFullConfig, formData, dataConfig }) {
       </div>
 
       <div class="preview-container">
-        ${svg
-          ? html`<div class="preview-card" dangerouslySetInnerHTML=${{ __html: svg }} />`
+        ${svgUrl
+          ? html`<img class="preview-img" src=${svgUrl} alt="Chart preview" />`
           : html`
               <div class="empty-state">
                 ${hasSource

@@ -22,12 +22,8 @@ import yaml
 
 from tpsplots.models.chart_config import CHART_TYPES
 from tpsplots.models.yaml_config import YAMLChartConfig
-from tpsplots.processors.resolvers import (
-    ColorResolver,
-    DataResolver,
-    MetadataResolver,
-    ParameterResolver,
-)
+from tpsplots.processors.render_pipeline import build_render_context
+from tpsplots.processors.resolvers import DataResolver
 from tpsplots.views import VIEW_REGISTRY
 
 logger = logging.getLogger(__name__)
@@ -131,61 +127,26 @@ class EditorSession:
         # Resolve data
         data = self._resolve_data(config["data"])
 
-        # Extract chart params (mirrors YAMLChartProcessor.generate_chart)
-        chart_dict = validated.chart.model_dump(exclude_none=True)
-
-        metadata_fields = {"title", "subtitle", "source"}
-        metadata = {k: chart_dict.pop(k) for k in metadata_fields if k in chart_dict}
-
-        chart_type_v2 = chart_dict.pop("type")
-        output_name = chart_dict.pop("output")
-        chart_type_v1 = CHART_TYPES.get(chart_type_v2, f"{chart_type_v2}_plot")
-
-        parameters = chart_dict
-
-        # Pop escape-hatch dicts before resolution
-        matplotlib_config = parameters.pop("matplotlib_config", None)
-        pywaffle_config = parameters.pop("pywaffle_config", None)
-
-        # Resolve references, colors, series overrides
-        resolved_params = ParameterResolver.resolve(parameters, data)
-        resolved_metadata = MetadataResolver.resolve(metadata, data)
-        resolved_params = ColorResolver.resolve_deep(resolved_params)
-        resolved_params = _expand_series_overrides(resolved_params)
-
-        # Flatten escape hatches
-        for escape_dict in (matplotlib_config, pywaffle_config):
-            if escape_dict:
-                resolved_params.update(escape_dict)
+        # Build render context (shared with CLI path)
+        ctx = build_render_context(validated, data, log_conflicts=False)
 
         # Dispatch to view
-        view_class = VIEW_REGISTRY.get(chart_type_v1)
+        view_class = VIEW_REGISTRY.get(ctx.chart_type_v1)
         if view_class is None:
-            raise ValueError(f"Unknown chart type: {chart_type_v2}")
+            raise ValueError(f"Unknown chart type: {ctx.chart_type_v1}")
 
         view = view_class(outdir=self._outdir)
-        plot_method = getattr(view, chart_type_v1)
-
-        result: dict[str, Any] | None = None
+        fig = view.create_figure(
+            metadata=ctx.resolved_metadata,
+            device=device,
+            **deepcopy(ctx.resolved_params),
+        )
         try:
-            result = plot_method(
-                metadata=resolved_metadata,
-                stem=f"{output_name}_editor_preview",
-                preview=True,
-                **deepcopy(resolved_params),
-            )
-
-            fig = result[device]
             buf = io.StringIO()
             fig.savefig(buf, format="svg", dpi="figure")
             return buf.getvalue()
         finally:
-            # Always close all figures to prevent leaks
-            if result is not None:
-                for key in ("desktop", "mobile"):
-                    fig = result.get(key)
-                    if fig is not None:
-                        plt.close(fig)
+            plt.close(fig)
 
     # ------------------------------------------------------------------
     # File I/O
@@ -292,24 +253,6 @@ def _deep_replace(target: MutableMapping[str, Any], source: Mapping[str, Any]) -
             _deep_replace(existing, value)
         else:
             target[key] = value
-
-
-def _expand_series_overrides(parameters: dict[str, Any]) -> dict[str, Any]:
-    """Expand series_overrides into legacy series_<n> kwargs."""
-    overrides = parameters.pop("series_overrides", None)
-    if not overrides or not isinstance(overrides, dict):
-        return parameters
-
-    for raw_index, override in overrides.items():
-        index = raw_index
-        if isinstance(raw_index, str):
-            if not raw_index.isdigit():
-                continue
-            index = int(raw_index)
-        if isinstance(index, int):
-            parameters[f"series_{index}"] = override
-
-    return parameters
 
 
 def _clean_form_data(config: dict[str, Any]) -> dict[str, Any]:

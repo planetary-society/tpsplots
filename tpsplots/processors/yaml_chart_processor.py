@@ -8,13 +8,8 @@ import yaml
 
 from tpsplots.exceptions import ConfigurationError
 from tpsplots.models import YAMLChartConfig
-from tpsplots.models.chart_config import CHART_TYPES
-from tpsplots.processors.resolvers import (
-    ColorResolver,
-    DataResolver,
-    MetadataResolver,
-    ParameterResolver,
-)
+from tpsplots.processors.render_pipeline import build_render_context
+from tpsplots.processors.resolvers import DataResolver
 from tpsplots.views import VIEW_REGISTRY
 
 logger = logging.getLogger(__name__)
@@ -81,114 +76,27 @@ class YAMLChartProcessor:
             )
         return view_class(outdir=self.outdir)
 
-    @staticmethod
-    def _expand_series_overrides(parameters: dict[str, Any]) -> dict[str, Any]:
-        """Expand structured series_overrides into legacy series_<n> kwargs.
-
-        The line/scatter renderer expects per-series overrides under keys like
-        ``series_0`` and ``series_1``. The chart config model stores these as a
-        typed ``series_overrides`` dict keyed by index.
-        """
-        overrides = parameters.pop("series_overrides", None)
-        if not overrides:
-            return parameters
-
-        if not isinstance(overrides, dict):
-            logger.warning(
-                "Expected series_overrides to be a dict, got %s; skipping expansion",
-                type(overrides).__name__,
-            )
-            return parameters
-
-        for raw_index, override in overrides.items():
-            index = raw_index
-            if isinstance(raw_index, str):
-                if not raw_index.isdigit():
-                    logger.warning("Skipping non-numeric series_overrides key: %r", raw_index)
-                    continue
-                index = int(raw_index)
-
-            if not isinstance(index, int):
-                logger.warning("Skipping invalid series_overrides key type: %r", raw_index)
-                continue
-
-            series_key = f"series_{index}"
-            if series_key in parameters:
-                logger.warning(
-                    "%s already exists in resolved params and will be overwritten by series_overrides",
-                    series_key,
-                )
-            parameters[series_key] = override
-
-        return parameters
-
     def generate_chart(self) -> dict[str, Any]:
         """Generate the chart based on the YAML configuration."""
         # Step 1: Resolve data source
         logger.info("Resolving data source...")
         self.data = DataResolver.resolve(self.config.data)
 
-        # Step 2: Extract chart configuration
-        chart = self.config.chart
+        # Step 2: Build render context (shared with editor preview)
+        ctx = build_render_context(self.config, self.data, log_conflicts=True)
 
-        # Get all chart parameters (everything in chart except type, output, title, subtitle, source)
-        chart_dict = chart.model_dump(exclude_none=True)
+        # Step 3: Get view and generate chart
+        logger.info(f"Generating chart: {ctx.output_name}")
+        self.view = self._get_view(ctx.chart_type_v1)
 
-        # Extract metadata fields
-        metadata_fields = {"title", "subtitle", "source"}
-        metadata = {k: chart_dict.pop(k) for k in metadata_fields if k in chart_dict}
+        plot_method = getattr(self.view, ctx.chart_type_v1)
+        result = plot_method(
+            metadata=ctx.resolved_metadata,
+            stem=ctx.output_name,
+            **ctx.resolved_params,
+        )
 
-        # Extract control fields
-        chart_type_v2 = chart_dict.pop("type")
-        output_name = chart_dict.pop("output")
-
-        # Map v2.0 type to v1.0 method name
-        chart_type_v1 = CHART_TYPES.get(chart_type_v2, f"{chart_type_v2}_plot")
-
-        # Remaining fields are chart parameters
-        parameters = chart_dict
-
-        # Pop escape-hatch dicts before reference resolution — they get
-        # flattened into the resolved params *after* resolution so that
-        # raw matplotlib / pywaffle kwargs are passed through untouched.
-        matplotlib_config = parameters.pop("matplotlib_config", None)
-        pywaffle_config = parameters.pop("pywaffle_config", None)
-
-        # Step 3: Resolve {{...}} references in parameters and metadata
-        logger.info("Resolving references...")
-        resolved_params = ParameterResolver.resolve(parameters, self.data)
-        resolved_metadata = MetadataResolver.resolve(metadata, self.data)
-
-        # Step 3b: Resolve semantic color names to hex codes (recursively)
-        resolved_params = ColorResolver.resolve_deep(resolved_params)
-
-        # Step 3c: Expand typed series_overrides for the line/scatter view API
-        resolved_params = self._expand_series_overrides(resolved_params)
-
-        # Step 3d: Flatten escape-hatch dicts into resolved params
-        for escape_name, escape_dict in [
-            ("matplotlib_config", matplotlib_config),
-            ("pywaffle_config", pywaffle_config),
-        ]:
-            if escape_dict:
-                conflicts = set(escape_dict.keys()) & set(resolved_params.keys())
-                if conflicts:
-                    logger.warning(
-                        "%s keys overlap with typed params and will override: %s",
-                        escape_name,
-                        conflicts,
-                    )
-                resolved_params.update(escape_dict)
-
-        # Step 4: Get view and generate chart
-        logger.info(f"Generating {chart_type_v2} chart: {output_name}")
-        self.view = self._get_view(chart_type_v1)
-
-        # Call the appropriate plot method
-        plot_method = getattr(self.view, chart_type_v1)
-        result = plot_method(metadata=resolved_metadata, stem=output_name, **resolved_params)
-
-        logger.info(f"Successfully generated chart: {output_name}")
+        logger.info(f"Successfully generated chart: {ctx.output_name}")
         return result
 
 

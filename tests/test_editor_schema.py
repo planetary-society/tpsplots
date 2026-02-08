@@ -38,13 +38,47 @@ class TestGetChartTypeSchema:
         assert subtitle.get("type") == "string"
         assert "anyOf" not in subtitle
 
-    def test_anyof_collapsed_for_complex_types(self):
-        """Multi-type anyOf (e.g. legend: bool|object|string) collapses to best type."""
+    def test_anyof_preserved_for_multi_type_unions(self):
+        """Multi-type anyOf (e.g. legend: bool|object|string) preserves branches (null stripped)."""
         schema = get_chart_type_schema("bar")
         legend = schema["properties"]["legend"]
-        # anyOf fully collapsed — boolean wins by type priority
-        assert "anyOf" not in legend
-        assert legend["type"] == "boolean"
+        # anyOf preserved with null branch stripped
+        assert "anyOf" in legend
+        branch_types = [b.get("type") for b in legend["anyOf"]]
+        assert "boolean" in branch_types
+        assert "object" in branch_types
+        assert "string" in branch_types
+        assert "null" not in branch_types
+
+    def test_grid_schema_preserves_anyof(self):
+        """grid: bool | dict | str | None should preserve multi-type anyOf (null stripped)."""
+        schema = get_chart_type_schema("bar")
+        grid = schema["properties"]["grid"]
+        # Multi-type union: anyOf preserved with null stripped
+        assert "anyOf" in grid
+        branch_types = [b.get("type") for b in grid["anyOf"]]
+        assert "boolean" in branch_types
+        assert "null" not in branch_types
+
+    def test_fiscal_year_ticks_schema(self):
+        """fiscal_year_ticks (when present) should be boolean with default null."""
+        # Only line charts have fiscal_year_ticks
+        schema = get_chart_type_schema("line")
+        props = schema["properties"]
+        if "fiscal_year_ticks" in props:
+            fyt = props["fiscal_year_ticks"]
+            assert fyt.get("type") == "boolean"
+
+    def test_no_null_branches_in_any_schema(self):
+        """No schema should have null branches in anyOf after processing."""
+        for chart_type in CONFIG_REGISTRY:
+            schema = get_chart_type_schema(chart_type)
+            for field_name, prop in schema.get("properties", {}).items():
+                if "anyOf" in prop:
+                    branch_types = [b.get("type") for b in prop["anyOf"]]
+                    assert "null" not in branch_types, (
+                        f"{chart_type}.{field_name} has null branch in anyOf: {branch_types}"
+                    )
 
     def test_unknown_type_raises_value_error(self):
         with pytest.raises(ValueError, match="Unknown chart type"):
