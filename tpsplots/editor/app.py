@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.gzip import GZipMiddleware
 
 from tpsplots.editor.routes import create_api_router
 from tpsplots.editor.session import EditorSession
@@ -36,6 +37,9 @@ def create_editor_app(session: EditorSession) -> FastAPI:
         docs_url=None,
         redoc_url=None,
     )
+
+    # GZip compression for API responses (JSON, PNG)
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
 
     # Mount static assets
     if _STATIC_DIR.is_dir():

@@ -1,4 +1,4 @@
-"""Preview API: render chart SVG from config dict."""
+"""Preview API: render chart PNG from config dict."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response as RawResponse
 from pydantic import BaseModel
 
 from tpsplots.editor.session import EditorSession
@@ -29,11 +30,11 @@ def create_preview_router(session: EditorSession) -> APIRouter:
     router = APIRouter(tags=["preview"])
 
     @router.post("/preview")
-    async def preview(payload: PreviewRequest) -> dict:
-        """Render a chart preview as SVG."""
+    async def preview(payload: PreviewRequest) -> RawResponse:
+        """Render a chart preview as PNG."""
         loop = asyncio.get_running_loop()
         try:
-            svg = await asyncio.wait_for(
+            png_bytes = await asyncio.wait_for(
                 loop.run_in_executor(
                     _executor,
                     session.render_preview,
@@ -42,7 +43,7 @@ def create_preview_router(session: EditorSession) -> APIRouter:
                 ),
                 timeout=_PREVIEW_TIMEOUT_SECONDS,
             )
-            return {"svg": svg}
+            return RawResponse(content=png_bytes, media_type="image/png")
         except asyncio.TimeoutError as exc:
             raise HTTPException(
                 status_code=504,

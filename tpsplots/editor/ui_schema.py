@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from tpsplots.models.charts import CONFIG_REGISTRY
+from tpsplots.models.data_sources import DataSourceConfig
 from tpsplots.models.mixins import (
     AxisMixin,
     BarStylingMixin,
@@ -110,6 +111,20 @@ _INLINE_ROWS = [
     ("xlabel", "ylabel"),
     ("x_tick_format", "y_tick_format"),
 ]
+
+# Primary binding fields shown first in guided editor flows.
+PRIMARY_BINDING_FIELDS: dict[str, list[str]] = {
+    "line": ["x", "y"],
+    "scatter": ["x", "y"],
+    "bar": ["categories", "values"],
+    "grouped_bar": ["categories", "groups"],
+    "stacked_bar": ["categories", "values"],
+    "lollipop": ["categories", "start_values", "end_values"],
+    "donut": ["labels", "values"],
+    "waffle": ["values"],
+    "us_map_pie": ["state_data", "pie_values"],
+    "line_subplots": ["subplot_data"],
+}
 
 
 def get_chart_type_schema(chart_type: str) -> dict[str, Any]:
@@ -231,6 +246,68 @@ def get_ui_schema(chart_type: str) -> dict[str, Any]:
 def get_available_chart_types() -> list[str]:
     """Return sorted list of available chart type strings."""
     return sorted(CONFIG_REGISTRY.keys())
+
+
+def get_primary_binding_fields(chart_type: str) -> list[str]:
+    """Return chart-type-specific primary binding fields."""
+    return list(PRIMARY_BINDING_FIELDS.get(chart_type, []))
+
+
+def get_editor_hints(chart_type: str) -> dict[str, Any]:
+    """Return editor-specific metadata for guided form rendering."""
+    config_cls = CONFIG_REGISTRY.get(chart_type)
+    if config_cls is None:
+        raise ValueError(f"Unknown chart type: {chart_type}")
+
+    excluded = _get_excluded_fields(config_cls)
+    fields = [f for f in config_cls.model_fields if f not in excluded]
+    primary = [f for f in get_primary_binding_fields(chart_type) if f in fields]
+    annotation = [f for f in ("title", "subtitle", "source", "output") if f in fields]
+
+    visual = [f for f in fields if f not in set(primary) | set(annotation) | {"type"}]
+    advanced = [f for f in visual if _get_field_group(f, config_cls) in {"Chart-Specific", "Axis", "Grid"}]
+    suggested = [*primary, *[f for f in fields if f not in set(primary)]]
+
+    return {
+        "primary_binding_fields": primary,
+        "step_field_map": {
+            "data_source_and_preparation": ["data.source", "data.params", "data.calculate_inflation"],
+            "data_bindings": primary,
+            "visual_design": visual,
+            "annotation_output": annotation,
+        },
+        "advanced_fields": advanced,
+        "suggested_field_order": suggested,
+    }
+
+
+def get_data_source_schema() -> dict[str, Any]:
+    """Return cleaned JSON schema for DataSourceConfig."""
+    schema = DataSourceConfig.model_json_schema()
+    return _strip_null_from_any_of(schema)
+
+
+def get_data_ui_schema() -> dict[str, Any]:
+    """Return uiSchema metadata for data source form rendering."""
+    model_fields = DataSourceConfig.model_fields
+    ui: dict[str, Any] = {}
+
+    for field_name, info in model_fields.items():
+        field_ui: dict[str, Any] = {}
+        if info.description:
+            field_ui["ui:help"] = info.description
+        if field_ui:
+            ui[field_name] = field_ui
+
+    order = ["source", "params", "calculate_inflation"]
+    ui["ui:order"] = [f for f in order if f in model_fields]
+    ui["ui:groups"] = [
+        {"name": "Data Source", "fields": ["source"], "defaultOpen": True},
+        {"name": "Parameters", "fields": ["params"], "defaultOpen": True},
+        {"name": "Inflation", "fields": ["calculate_inflation"], "defaultOpen": False},
+    ]
+    ui["ui:layout"] = {"rows": []}
+    return ui
 
 
 # ---------------------------------------------------------------------------

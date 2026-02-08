@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from tpsplots.editor.ui_schema import (
     get_available_chart_types,
     get_chart_type_schema,
+    get_editor_hints,
     get_ui_schema,
 )
 
@@ -21,6 +22,7 @@ def create_schema_router() -> APIRouter:
             return {
                 "json_schema": get_chart_type_schema(type),
                 "ui_schema": get_ui_schema(type),
+                "editor_hints": get_editor_hints(type),
             }
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

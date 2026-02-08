@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import logging
 from collections.abc import Mapping, MutableMapping
 from copy import deepcopy
@@ -12,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import matplotlib.pyplot as plt
+import pandas as pd
 
 try:
     from ruamel.yaml import YAML
@@ -21,6 +23,7 @@ except ImportError:
 import yaml
 
 from tpsplots.models.chart_config import CHART_TYPES
+from tpsplots.models.data_sources import DataSourceConfig
 from tpsplots.models.yaml_config import YAMLChartConfig
 from tpsplots.processors.render_pipeline import build_render_context
 from tpsplots.processors.resolvers import DataResolver
@@ -41,6 +44,7 @@ class EditorSession:
         self._root = yaml_dir.resolve(strict=True)
         self._outdir = outdir or Path("charts")
         self._data_cache: dict[str, Any] = {}
+        self._profile_cache: dict[str, dict[str, Any]] = {}
 
     # ------------------------------------------------------------------
     # Path security
@@ -83,19 +87,130 @@ class EditorSession:
     # Data resolution (cached by source hash)
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _hash_payload(payload: dict[str, Any]) -> str:
+        serialized = json.dumps(payload, sort_keys=True, default=str)
+        return hashlib.sha256(serialized.encode()).hexdigest()[:16]
+
     def _resolve_data(self, data_config: dict[str, Any]) -> dict[str, Any]:
         """Resolve data source, caching by content hash."""
-        cache_key = hashlib.sha256(repr(sorted(data_config.items())).encode()).hexdigest()[:16]
+        cache_key = self._hash_payload(data_config)
 
         if cache_key in self._data_cache:
             return self._data_cache[cache_key]
-
-        from tpsplots.models.data_sources import DataSourceConfig
 
         data_source = DataSourceConfig(**data_config)
         resolved = DataResolver.resolve(data_source)
         self._data_cache[cache_key] = resolved
         return resolved
+
+    def profile_data(self, data_config: dict[str, Any]) -> dict[str, Any]:
+        """Return data profile details for a source configuration."""
+        cache_key = self._hash_payload(data_config)
+        if cache_key in self._profile_cache:
+            return self._profile_cache[cache_key]
+
+        data_source = DataSourceConfig(**data_config)
+        resolved = self._resolve_data(data_config)
+        parsed_kind, _, _ = DataResolver._parse_source(data_source.source)
+        source_kind = "controller" if parsed_kind.startswith("controller") else parsed_kind
+
+        data_frame = resolved.get("data")
+        warnings: list[str] = []
+        columns: list[dict[str, Any]] = []
+        sample_rows: list[dict[str, Any]] = []
+        row_count = 0
+
+        if isinstance(data_frame, pd.DataFrame):
+            row_count = len(data_frame)
+            columns = [
+                {
+                    "name": str(col),
+                    "dtype": str(data_frame[col].dtype),
+                }
+                for col in data_frame.columns
+            ]
+            sample_rows = data_frame.head(5).to_dict(orient="records")
+        else:
+            warnings.append("Resolved source did not return a 'data' DataFrame")
+            row_count = 0
+
+        profile = {
+            "source_kind": source_kind,
+            "row_count": row_count,
+            "columns": columns,
+            "sample_rows": sample_rows,
+            "warnings": warnings,
+        }
+        self._profile_cache[cache_key] = profile
+        return profile
+
+    def preflight(self, config: dict[str, Any]) -> dict[str, Any]:
+        """Run lightweight guided preflight checks for editor UX."""
+        from tpsplots.editor.ui_schema import get_primary_binding_fields
+
+        cleaned = _clean_form_data(config)
+        validation_errors = self.validate_config(cleaned)
+        blocking_errors = [{"path": e["path"], "message": e["message"]} for e in validation_errors]
+        missing_paths: list[str] = []
+        warnings: list[str] = []
+
+        data_cfg = cleaned.get("data", {}) if isinstance(cleaned.get("data"), dict) else {}
+        chart_cfg = cleaned.get("chart", {}) if isinstance(cleaned.get("chart"), dict) else {}
+        source = data_cfg.get("source")
+        chart_type = chart_cfg.get("type")
+        primary_bindings = get_primary_binding_fields(chart_type) if chart_type else []
+
+        if not source:
+            missing_paths.append("/data/source")
+            data_ready = False
+        else:
+            data_ready = True
+            try:
+                profile = self.profile_data(data_cfg)
+                if profile.get("warnings"):
+                    warnings.extend(profile["warnings"])
+            except Exception as exc:
+                data_ready = False
+                blocking_errors.append({"path": "/data/source", "message": str(exc)})
+
+        for field in primary_bindings:
+            value = chart_cfg.get(field)
+            if value in (None, "", [], {}):
+                missing_paths.append(f"/chart/{field}")
+
+        if data_ready and not blocking_errors and not missing_paths:
+            try:
+                validated = YAMLChartConfig(**cleaned)
+                data = self._resolve_data(cleaned["data"])
+                build_render_context(validated, data, log_conflicts=False)
+            except Exception as exc:
+                blocking_errors.append({"path": "/chart", "message": str(exc)})
+
+        missing_paths = sorted(set(missing_paths))
+        ready = len(blocking_errors) == 0 and len(missing_paths) == 0
+
+        step_status = {
+            "data_source_and_preparation": (
+                "complete" if data_ready else ("error" if source else "not_started")
+            ),
+            "data_bindings": (
+                "complete"
+                if primary_bindings
+                and all(f"/chart/{f}" not in missing_paths for f in primary_bindings)
+                else ("error" if primary_bindings else "not_started")
+            ),
+            "visual_design": "in_progress" if source else "not_started",
+            "annotation_output": "in_progress" if source else "not_started",
+        }
+
+        return {
+            "ready_for_preview": ready,
+            "missing_paths": missing_paths,
+            "blocking_errors": blocking_errors,
+            "warnings": warnings,
+            "step_status": step_status,
+        }
 
     # ------------------------------------------------------------------
     # Preview rendering
@@ -105,15 +220,15 @@ class EditorSession:
         self,
         config: dict[str, Any],
         device: str = "desktop",
-    ) -> str:
-        """Render a chart preview as SVG from a full config dict.
+    ) -> bytes:
+        """Render a chart preview as PNG from a full config dict.
 
         Args:
             config: Full ``{data: {...}, chart: {...}}`` config dict.
             device: ``"desktop"`` or ``"mobile"``.
 
         Returns:
-            SVG string.
+            PNG image bytes.
         """
         if device not in {"desktop", "mobile"}:
             raise ValueError(f"Unsupported device: {device}")
@@ -139,11 +254,12 @@ class EditorSession:
         fig = view.create_figure(
             metadata=ctx.resolved_metadata,
             device=device,
+            dpi=150,
             **deepcopy(ctx.resolved_params),
         )
         try:
-            buf = io.StringIO()
-            fig.savefig(buf, format="svg", dpi="figure")
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", dpi="figure")
             return buf.getvalue()
         finally:
             plt.close(fig)
@@ -218,6 +334,7 @@ class EditorSession:
     def invalidate_data_cache(self) -> None:
         """Clear the data cache (e.g. after data source changes)."""
         self._data_cache.clear()
+        self._profile_cache.clear()
 
 
 # ------------------------------------------------------------------

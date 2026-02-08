@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
 
+from tpsplots.editor.routes.data import create_data_router
 from tpsplots.editor.routes.files import create_files_router
 from tpsplots.editor.routes.meta import create_meta_router
 from tpsplots.editor.routes.preview import create_preview_router
@@ -19,6 +20,7 @@ def create_api_router(session: EditorSession) -> APIRouter:
     """Aggregate all editor API sub-routers."""
     router = APIRouter(prefix="/api")
     router.include_router(create_schema_router())
+    router.include_router(create_data_router(session))
     router.include_router(create_preview_router(session))
     router.include_router(create_files_router(session))
     router.include_router(create_meta_router())

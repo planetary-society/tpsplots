@@ -8,6 +8,10 @@ import { Header } from "./Header.js";
 import { ChartForm } from "./ChartForm.js";
 import { MetadataSection } from "./MetadataSection.js";
 import { PreviewPanel } from "./PreviewPanel.js";
+import { StepNavigator } from "./StepNavigator.js";
+import { ValidationSummary } from "./ValidationSummary.js";
+import { DataSourceStep } from "./DataSourceStep.js";
+import { BindingStep } from "./BindingStep.js";
 import { Toast } from "./Toast.js";
 
 const html = htm.bind(createElement);
@@ -16,8 +20,12 @@ export function EditorLayout(props) {
   const {
     chartType, chartTypes, schema, uiSchema, formData, dataConfig,
     currentFile, colors, toast,
+    editorHints, preflight, stepStatus, activeStep,
+    dataSchema, dataUiSchema, dataProfile, dataProfileStatus,
+    previewDevice, renderTick, unsavedChanges,
     onChartTypeChange, onFormDataChange, onDataConfigChange,
-    onFileChange, buildFullConfig, showToast,
+    onFileChange, onStepChange, onPreviewDeviceChange,
+    onRunDataProfile, onSaved, buildFullConfig, showToast,
   } = props;
 
   // Resize state
@@ -58,22 +66,78 @@ export function EditorLayout(props) {
       buildFullConfig=${buildFullConfig}
       showToast=${showToast}
       dataConfig=${dataConfig}
+      onSaved=${onSaved}
+      unsavedChanges=${unsavedChanges}
+      preflight=${preflight}
     />
 
     <div class="editor-layout" style=${{ gridTemplateColumns: `${formWidth}px 6px 1fr` }}>
       <div class="form-panel">
-        <${MetadataSection}
-          formData=${formData}
-          onFormDataChange=${onFormDataChange}
+        <${StepNavigator}
+          activeStep=${activeStep}
+          onStepChange=${onStepChange}
+          stepStatus=${stepStatus}
         />
 
-        <${ChartForm}
-          schema=${schema}
-          uiSchema=${uiSchema}
-          formData=${formData}
-          colors=${colors}
-          onFormDataChange=${onFormDataChange}
-        />
+        <${ValidationSummary} preflight=${preflight} />
+
+        ${activeStep === 1 &&
+        html`
+          <${DataSourceStep}
+            dataSchema=${dataSchema}
+            dataUiSchema=${dataUiSchema}
+            dataConfig=${dataConfig}
+            onDataConfigChange=${onDataConfigChange}
+            onTestSource=${onRunDataProfile}
+            profile=${dataProfile}
+            profileStatus=${dataProfileStatus}
+          />
+        `}
+
+        ${activeStep === 2 &&
+        html`
+          <${BindingStep}
+            schema=${schema}
+            uiSchema=${uiSchema}
+            formData=${formData}
+            onFormDataChange=${onFormDataChange}
+            colors=${colors}
+            editorHints=${editorHints}
+            dataProfile=${dataProfile}
+          />
+        `}
+
+        ${activeStep === 3 &&
+        html`
+          <section class="guided-step">
+            <div class="guided-step-header">
+              <h3>Visual Design</h3>
+              <p>Tune styling, scales, legends, and axis behavior.</p>
+            </div>
+            <${ChartForm}
+              schema=${schema}
+              uiSchema=${uiSchema}
+              formData=${formData}
+              colors=${colors}
+              onFormDataChange=${onFormDataChange}
+              includeFields=${new Set(editorHints?.step_field_map?.visual_design || [])}
+            />
+          </section>
+        `}
+
+        ${activeStep === 4 &&
+        html`
+          <section class="guided-step">
+            <div class="guided-step-header">
+              <h3>Annotation & Output</h3>
+              <p>Finalize chart narrative and output metadata.</p>
+            </div>
+            <${MetadataSection}
+              formData=${formData}
+              onFormDataChange=${onFormDataChange}
+            />
+          </section>
+        `}
       </div>
 
       <div
@@ -85,6 +149,10 @@ export function EditorLayout(props) {
         buildFullConfig=${buildFullConfig}
         formData=${formData}
         dataConfig=${dataConfig}
+        device=${previewDevice}
+        onDeviceChange=${onPreviewDeviceChange}
+        preflight=${preflight}
+        renderTick=${renderTick}
       />
     </div>
 

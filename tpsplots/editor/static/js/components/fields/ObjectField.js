@@ -3,7 +3,7 @@
  *
  * Supports add/remove keys, auto-detects value type per entry.
  */
-import { useState, useCallback, createElement } from "react";
+import { useState, useEffect, useCallback, createElement } from "react";
 import htm from "htm";
 import { TemplateChipInput } from "./TemplateChipInput.js";
 import { formatFieldLabel, yamlKeyTooltip } from "./fieldLabelUtils.js";
@@ -13,6 +13,8 @@ const html = htm.bind(createElement);
 function detectType(val) {
   if (val === true || val === false) return "boolean";
   if (typeof val === "number") return "number";
+  if (Array.isArray(val)) return "array";
+  if (val && typeof val === "object") return "object";
   return "string";
 }
 
@@ -25,8 +27,38 @@ function parseValue(text, type) {
   return text;
 }
 
+function parseComplex(text, type) {
+  try {
+    const parsed = JSON.parse(text);
+    if (type === "array") return Array.isArray(parsed) ? parsed : null;
+    if (type === "object") return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function canonicalComplexText(val, type) {
+  if (type === "array" && !Array.isArray(val)) return "[]";
+  if (type === "object" && (!val || typeof val !== "object" || Array.isArray(val))) return "{}";
+  try {
+    return JSON.stringify(val, null, 2);
+  } catch {
+    return type === "array" ? "[]" : "{}";
+  }
+}
+
 function ValueInput({ entryKey, val, onValueChange }) {
   const type = detectType(val);
+  const [complexText, setComplexText] = useState(() => canonicalComplexText(val, type));
+  const [complexInvalid, setComplexInvalid] = useState(false);
+
+  useEffect(() => {
+    if (type === "array" || type === "object") {
+      setComplexText(canonicalComplexText(val, type));
+      setComplexInvalid(false);
+    }
+  }, [val, type]);
 
   if (type === "boolean") {
     return html`
@@ -36,6 +68,34 @@ function ValueInput({ entryKey, val, onValueChange }) {
         onChange=${(e) => onValueChange(entryKey, e.target.checked)}
         class="obj-value-input obj-value-checkbox"
       />
+    `;
+  }
+
+  if (type === "array" || type === "object") {
+    return html`
+      <div class="obj-value-wrap obj-complex-wrap">
+        <textarea
+          class=${`obj-value-input obj-complex-input ${complexInvalid ? "invalid" : ""}`}
+          value=${complexText}
+          rows="3"
+          onInput=${(e) => {
+            const text = e.target.value;
+            setComplexText(text);
+            const parsed = parseComplex(text, type);
+            if (parsed == null) {
+              setComplexInvalid(true);
+              return;
+            }
+            setComplexInvalid(false);
+            onValueChange(entryKey, parsed);
+          }}
+          onBlur=${() => {
+            if (!complexInvalid) return;
+            setComplexText(canonicalComplexText(val, type));
+            setComplexInvalid(false);
+          }}
+        />
+      </div>
     `;
   }
 

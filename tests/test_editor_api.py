@@ -38,7 +38,13 @@ class TestSchemaEndpoint:
         data = resp.json()
         assert "json_schema" in data
         assert "ui_schema" in data
+        assert "editor_hints" in data
         assert data["json_schema"]["type"] == "object"
+        hints = data["editor_hints"]
+        assert "primary_binding_fields" in hints
+        assert "step_field_map" in hints
+        assert "advanced_fields" in hints
+        assert "suggested_field_order" in hints
 
     def test_get_schema_all_types(self, client):
         types_resp = client.get("/api/chart-types")
@@ -137,6 +143,54 @@ class TestColorsEndpoint:
         assert "colors" in data
         assert "tps_colors" in data
         assert "Neptune Blue" in data["tps_colors"]
+
+
+class TestDataEndpoints:
+    def test_get_data_schema(self, client):
+        resp = client.get("/api/data-schema")
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert "json_schema" in payload
+        assert "ui_schema" in payload
+        assert payload["json_schema"]["type"] == "object"
+        assert "source" in payload["json_schema"]["properties"]
+
+    def test_data_profile_valid_csv_source(self, client, yaml_dir):
+        csv_path = yaml_dir / "profile.csv"
+        csv_path.write_text("Year,Value\n2024,10\n2025,20\n", encoding="utf-8")
+
+        resp = client.post(
+            "/api/data-profile",
+            json={"data": {"source": f"csv:{csv_path}"}},
+        )
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["source_kind"] == "csv"
+        assert payload["row_count"] == 2
+        assert any(col["name"] == "Year" for col in payload["columns"])
+        assert isinstance(payload["sample_rows"], list)
+        assert "warnings" in payload
+
+    def test_data_profile_invalid_source_returns_400(self, client):
+        resp = client.post(
+            "/api/data-profile",
+            json={"data": {"source": "csv:/definitely/missing/file.csv"}},
+        )
+        assert resp.status_code == 400
+
+    def test_preflight_reports_missing_bindings(self, client):
+        config = {
+            "data": {"source": "data/test.csv"},
+            "chart": {"type": "line", "output": "x", "title": "T"},
+        }
+        resp = client.post("/api/preflight", json={"config": config})
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["ready_for_preview"] is False
+        missing = set(payload["missing_paths"])
+        assert "/chart/x" in missing
+        assert "/chart/y" in missing
+        assert "step_status" in payload
 
 
 class TestSecurityHeaders:

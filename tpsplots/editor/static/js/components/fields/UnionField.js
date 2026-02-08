@@ -13,14 +13,16 @@ import { BooleanField } from "./BooleanField.js";
 import { ObjectField } from "./ObjectField.js";
 import { ArrayField } from "./ArrayField.js";
 import { formatFieldLabel, yamlKeyTooltip } from "./fieldLabelUtils.js";
+import { resolveSchemaRef } from "./schemaRefUtils.js";
 
 const html = htm.bind(createElement);
 
 /** Extract available non-null types from anyOf branches. */
-function getAnyOfTypes(schema) {
+function getAnyOfTypes(schema, rootSchema) {
   const branches = schema?.anyOf || [];
   const types = [];
-  for (const branch of branches) {
+  for (const rawBranch of branches) {
+    const branch = resolveSchemaRef(rawBranch, rootSchema);
     const t = branch?.type;
     if (t && t !== "null") types.push(t);
   }
@@ -38,9 +40,10 @@ function detectValueType(val) {
 }
 
 /** Find the matching anyOf branch schema for a given type. */
-function branchForType(schema, type) {
+function branchForType(schema, type, rootSchema) {
   const branches = schema?.anyOf || [];
-  for (const branch of branches) {
+  for (const rawBranch of branches) {
+    const branch = resolveSchemaRef(rawBranch, rootSchema);
     if (branch?.type === type) return branch;
     // "number" also matches "integer"
     if (type === "integer" && branch?.type === "number") return branch;
@@ -77,8 +80,8 @@ const FIELD_MAP = {
   array: ArrayField,
 };
 
-export function UnionField({ name, schema, value, onChange, uiSchema }) {
-  const availableTypes = getAnyOfTypes(schema);
+export function UnionField({ name, schema, value, onChange, uiSchema, rootSchema }) {
+  const availableTypes = getAnyOfTypes(schema, rootSchema);
   const currentType = detectValueType(value);
   const help = uiSchema?.["ui:help"];
   const label = formatFieldLabel(name, schema);
@@ -116,7 +119,7 @@ export function UnionField({ name, schema, value, onChange, uiSchema }) {
 
   // Value exists — render the matching field with a type indicator + clear button
   const FieldComponent = FIELD_MAP[currentType] || StringField;
-  const branchSchema = branchForType(schema, currentType);
+  const branchSchema = branchForType(schema, currentType, rootSchema);
 
   return html`
     <div class="union-field-wrapper">
@@ -146,6 +149,7 @@ export function UnionField({ name, schema, value, onChange, uiSchema }) {
         value=${value}
         onChange=${onChange}
         uiSchema=${uiSchema}
+        rootSchema=${rootSchema}
       />
     </div>
   `;

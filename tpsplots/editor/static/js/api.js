@@ -19,6 +19,10 @@ export async function fetchSchema(chartType) {
   return request(`/api/schema?type=${encodeURIComponent(chartType)}`);
 }
 
+export async function fetchDataSchema() {
+  return request("/api/data-schema");
+}
+
 export async function fetchChartTypes() {
   return request("/api/chart-types");
 }
@@ -28,10 +32,32 @@ export async function fetchColors() {
 }
 
 export async function fetchPreview(config, device, signal) {
-  return request("/api/preview", {
+  const resp = await fetch("/api/preview", {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ config, device }),
     signal,
+  });
+  if (!resp.ok) {
+    // Error responses are JSON with a detail field
+    const err = await resp.json().catch(() => ({ detail: `Request failed: ${resp.status}` }));
+    throw new Error(err.detail || `Request failed: ${resp.status}`);
+  }
+  const blob = await resp.blob();
+  return URL.createObjectURL(blob);
+}
+
+export async function fetchDataProfile(dataConfig) {
+  return request("/api/data-profile", {
+    method: "POST",
+    body: JSON.stringify({ data: dataConfig }),
+  });
+}
+
+export async function fetchPreflight(config) {
+  return request("/api/preflight", {
+    method: "POST",
+    body: JSON.stringify({ config }),
   });
 }
 

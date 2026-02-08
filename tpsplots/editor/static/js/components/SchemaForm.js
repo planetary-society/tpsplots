@@ -15,11 +15,11 @@ import { ObjectField } from "./fields/ObjectField.js";
 import { ArrayField } from "./fields/ArrayField.js";
 import { UnionField } from "./fields/UnionField.js";
 import { formatFieldLabel, yamlKeyTooltip } from "./fields/fieldLabelUtils.js";
+import { resolveSchemaRef } from "./fields/schemaRefUtils.js";
 
 const html = htm.bind(createElement);
 
-// Fields managed by MetadataSection — hidden from the form groups
-const METADATA_FIELDS = new Set(["title", "subtitle", "source", "output", "type"]);
+const DEFAULT_HIDDEN_FIELDS = new Set(["title", "subtitle", "source", "output", "type"]);
 
 const FIELD_COMPONENTS = {
   string: StringField,
@@ -67,6 +67,7 @@ export function SchemaForm({
   formData,
   onChange,
   widgets,
+  hiddenFields = DEFAULT_HIDDEN_FIELDS,
 }) {
   const properties = schema?.properties || {};
   const groups = uiSchema?.["ui:groups"] || [];
@@ -108,7 +109,8 @@ export function SchemaForm({
   // Render a single field
   const renderField = useCallback(
     (fieldName) => {
-      const propSchema = properties[fieldName];
+      const rawPropSchema = properties[fieldName];
+      const propSchema = resolveSchemaRef(rawPropSchema, schema);
       if (!propSchema) return null;
 
       // Hidden fields
@@ -151,16 +153,17 @@ export function SchemaForm({
           value=${value}
           onChange=${(v) => handleFieldChange(fieldName, v)}
           uiSchema=${fieldUiSchema}
+          rootSchema=${schema}
         />
       `;
     },
-    [properties, uiSchema, formData, widgets, handleFieldChange]
+    [properties, uiSchema, formData, widgets, handleFieldChange, schema]
   );
 
   // Render an inline row of fields (e.g. xlim + ylim side by side)
   const renderRow = useCallback(
     (row) => {
-      const fields = row.filter((f) => properties[f] && !METADATA_FIELDS.has(f));
+      const fields = row.filter((f) => properties[f] && !hiddenFields.has(f));
       if (fields.length === 0) return null;
       return html`
         <div class="field-inline-row" key=${row.join("-")}>
@@ -168,15 +171,13 @@ export function SchemaForm({
         </div>
       `;
     },
-    [properties, renderField]
+    [properties, renderField, hiddenFields]
   );
 
   return html`
     <div class="schema-form">
       ${groups.map((group) => {
-        const visibleFields = group.fields.filter(
-          (f) => !METADATA_FIELDS.has(f) && properties[f]
-        );
+        const visibleFields = group.fields.filter((f) => !hiddenFields.has(f) && properties[f]);
         if (visibleFields.length === 0) return null;
 
         // Split into row fields and standalone fields

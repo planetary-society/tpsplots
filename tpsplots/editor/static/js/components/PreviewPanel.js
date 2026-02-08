@@ -1,39 +1,32 @@
 /**
- * Preview panel: device toggle + live SVG preview with debounced rendering.
+ * Preview panel: device toggle + live PNG preview with debounced rendering.
  */
 import { useState, useEffect, useRef, useCallback, createElement } from "react";
 import htm from "htm";
 
 import { fetchPreview } from "../api.js";
+import { PreflightPanel } from "./PreflightPanel.js";
 
 const html = htm.bind(createElement);
 
-const DEBOUNCE_MS = 800;
+const DEBOUNCE_MS = 200;
 
-export function PreviewPanel({ buildFullConfig, formData, dataConfig }) {
-  const [device, setDevice] = useState("desktop");
-  const [svg, setSvg] = useState("");
-  const [svgUrl, setSvgUrl] = useState(null);
+export function PreviewPanel({
+  buildFullConfig,
+  formData,
+  dataConfig,
+  device,
+  onDeviceChange,
+  preflight,
+  renderTick = 0,
+}) {
+  const [previewUrl, setPreviewUrl] = useState(null);
   const [status, setStatus] = useState("idle");
   const [renderTime, setRenderTime] = useState(null);
 
   const timerRef = useRef(null);
   const controllerRef = useRef(null);
   const requestIdRef = useRef(0);
-
-  // Convert SVG string to blob URL for <img> rendering.
-  // Replaced elements (<img>) resolve max-height: 100% against the
-  // flex container, allowing the chart to scale to fit both dimensions.
-  useEffect(() => {
-    if (!svg) {
-      setSvgUrl(null);
-      return;
-    }
-    const blob = new Blob([svg], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
-    setSvgUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [svg]);
 
   // Debounced preview render
   const scheduleRender = useCallback(() => {
@@ -44,7 +37,15 @@ export function PreviewPanel({ buildFullConfig, formData, dataConfig }) {
       // Skip if no data source configured
       if (!config.data?.source) {
         setStatus("idle");
-        setSvg("");
+        setPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+        return;
+      }
+
+      // Preflight gating (required fields + blocking issues)
+      if (preflight && !preflight.ready_for_preview) {
+        setStatus("error");
+        setPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+        setRenderTime("Resolve preflight issues first");
         return;
       }
 
@@ -59,28 +60,31 @@ export function PreviewPanel({ buildFullConfig, formData, dataConfig }) {
       const startTime = performance.now();
 
       try {
-        const data = await fetchPreview(config, device, controllerRef.current.signal);
-        if (currentId !== requestIdRef.current) return;
+        const blobUrl = await fetchPreview(config, device, controllerRef.current.signal);
+        if (currentId !== requestIdRef.current) {
+          URL.revokeObjectURL(blobUrl);
+          return;
+        }
 
         const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-        setSvg(data.svg);
+        setPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return blobUrl; });
         setStatus("updated");
         setRenderTime(elapsed);
       } catch (err) {
         if (err.name === "AbortError") return;
         if (currentId !== requestIdRef.current) return;
         setStatus("error");
-        setSvg("");
+        setPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
         setRenderTime(err.message || "Preview failed");
       }
     }, DEBOUNCE_MS);
-  }, [buildFullConfig, device]);
+  }, [buildFullConfig, device, preflight]);
 
   // Re-render when formData, dataConfig, or device changes
   useEffect(() => {
     scheduleRender();
     return () => clearTimeout(timerRef.current);
-  }, [formData, dataConfig, device, scheduleRender]);
+  }, [formData, dataConfig, device, preflight, renderTick, scheduleRender]);
 
   const statusText = {
     idle: "Configure a data source to see preview",
@@ -99,11 +103,11 @@ export function PreviewPanel({ buildFullConfig, formData, dataConfig }) {
         <div class="device-toggle">
           <button
             class="device-btn ${device === "desktop" ? "active" : ""}"
-            onClick=${() => setDevice("desktop")}
+            onClick=${() => onDeviceChange("desktop")}
           >Desktop</button>
           <button
             class="device-btn ${device === "mobile" ? "active" : ""}"
-            onClick=${() => setDevice("mobile")}
+            onClick=${() => onDeviceChange("mobile")}
           >Mobile</button>
         </div>
 
@@ -114,8 +118,10 @@ export function PreviewPanel({ buildFullConfig, formData, dataConfig }) {
       </div>
 
       <div class="preview-container">
-        ${svgUrl
-          ? html`<img class="preview-img" src=${svgUrl} alt="Chart preview" />`
+        ${preflight && !preflight.ready_for_preview
+          ? html`<${PreflightPanel} preflight=${preflight} />`
+          : previewUrl
+          ? html`<img class="preview-img" src=${previewUrl} alt="Chart preview" />`
           : html`
               <div class="empty-state">
                 ${hasSource
