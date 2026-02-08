@@ -107,6 +107,27 @@ class ChartView(AxisTickFormatMixin):
         if style_file:
             plt.style.use(style_file)
 
+    def create_figure(self, metadata, device="desktop", **kwargs):
+        """Create a single chart figure for the given device.
+
+        Unlike ``generate_chart``, this does not save files or create
+        both device variants — it returns one matplotlib Figure for
+        in-memory use (e.g. editor previews).
+
+        Args:
+            metadata: Chart metadata dictionary
+            device: ``"desktop"`` or ``"mobile"``
+            **kwargs: Additional parameters for chart creation
+
+        Returns:
+            matplotlib.figure.Figure: The created figure
+        """
+        kwargs.pop("export_data", None)
+        style = self.DESKTOP if device == "desktop" else self.MOBILE
+        chart_kwargs = self._clone_chart_kwargs(kwargs)
+        chart_kwargs["style"] = style
+        return self._create_chart(metadata, **chart_kwargs)
+
     def generate_chart(self, metadata, stem, **kwargs):
         """
         Generate desktop and mobile versions of a chart.
@@ -114,7 +135,6 @@ class ChartView(AxisTickFormatMixin):
         Args:
             metadata: Chart metadata dictionary
             stem: Base filename for the chart
-            export: dataframe to export to CSV
             **kwargs: Additional parameters for chart creation
 
         Returns:
@@ -122,7 +142,6 @@ class ChartView(AxisTickFormatMixin):
         """
 
         export_data = kwargs.pop("export_data", None)
-        preview = kwargs.pop("preview", False)
         generated_files: list[str] = []
 
         try:
@@ -130,22 +149,20 @@ class ChartView(AxisTickFormatMixin):
             desktop_kwargs = self._clone_chart_kwargs(kwargs)
             desktop_kwargs["style"] = self.DESKTOP
             desktop_fig = self._create_chart(metadata, **desktop_kwargs)
-            if not preview:
-                generated_files.extend(
-                    self._save_chart(desktop_fig, f"{stem}_desktop", metadata, create_pptx=True)
-                )
+            generated_files.extend(
+                self._save_chart(desktop_fig, f"{stem}_desktop", metadata, create_pptx=True)
+            )
 
             # Create mobile version
             mobile_kwargs = self._clone_chart_kwargs(kwargs)
             mobile_kwargs["style"] = self.MOBILE
             mobile_fig = self._create_chart(metadata, **mobile_kwargs)
-            if not preview:
-                generated_files.extend(
-                    self._save_chart(mobile_fig, f"{stem}_mobile", metadata, create_pptx=False)
-                )
+            generated_files.extend(
+                self._save_chart(mobile_fig, f"{stem}_mobile", metadata, create_pptx=False)
+            )
 
             # Export CSV if export_data is present
-            if export_data is not None and not preview:
+            if export_data is not None:
                 csv_path = self._export_csv(export_data, metadata, stem)
                 generated_files.append(str(csv_path))
 
@@ -770,10 +787,8 @@ class ChartView(AxisTickFormatMixin):
             metadata: Chart metadata dictionary
             style: Style dictionary (DESKTOP or MOBILE, etc)
         """
-        # Determine if header should be displayed
+        # Determine if header/footer should be displayed
         show_header = style.get("header") or metadata.get("header")
-
-        # Determine if footer should be displayed
         show_footer = style.get("footer") or metadata.get("footer")
 
         # Calculate dynamic header height based on actual content
@@ -883,7 +898,10 @@ class ChartView(AxisTickFormatMixin):
 
             ab = AnnotationBbox(
                 imagebox,
-                xy=(style.get("logo_x", 0.01), style.get("logo_y", 0.005)),  # Position at left, bottom corner
+                xy=(
+                    style.get("logo_x", 0.01),
+                    style.get("logo_y", 0.005),
+                ),  # Position at left, bottom corner
                 xycoords="figure fraction",
                 box_alignment=(0, 0),  # Align the left edge of the logo with the xy point
                 frameon=False,
