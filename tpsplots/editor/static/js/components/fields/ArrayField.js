@@ -2,12 +2,10 @@
  * Array field: editable list with add/remove items.
  * Infers item type from existing values.
  */
-import { useCallback, createElement } from "react";
-import htm from "htm";
+import { useCallback } from "react";
+import { html } from "../../lib/html.js";
 import { TemplateChipInput } from "./TemplateChipInput.js";
 import { formatFieldLabel, yamlKeyTooltip } from "./fieldLabelUtils.js";
-
-const html = htm.bind(createElement);
 
 function inferItemType(arr) {
   if (!arr || arr.length === 0) return "string";

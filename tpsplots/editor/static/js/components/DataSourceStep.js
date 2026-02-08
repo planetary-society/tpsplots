@@ -1,12 +1,12 @@
 /**
  * Guided Data Source & Preparation step.
  */
-import { useMemo, createElement } from "react";
-import htm from "htm";
+import { useMemo } from "react";
+import { html } from "../lib/html.js";
 
 import { SchemaForm } from "./SchemaForm.js";
 
-const html = htm.bind(createElement);
+const EMPTY_HIDDEN = new Set();
 
 export function DataSourceStep({
   dataSchema,
@@ -45,7 +45,7 @@ export function DataSourceStep({
           uiSchema=${dataUiSchema || {}}
           formData=${dataConfig || {}}
           onChange=${onDataConfigChange}
-          hiddenFields=${new Set()}
+          hiddenFields=${EMPTY_HIDDEN}
         />
       `}
 

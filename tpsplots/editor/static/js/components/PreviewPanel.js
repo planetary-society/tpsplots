@@ -1,13 +1,11 @@
 /**
  * Preview panel: device toggle + live PNG preview with debounced rendering.
  */
-import { useState, useEffect, useRef, useCallback, createElement } from "react";
-import htm from "htm";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { html } from "../lib/html.js";
 
 import { fetchPreview } from "../api.js";
 import { PreflightPanel } from "./PreflightPanel.js";
-
-const html = htm.bind(createElement);
 
 const DEBOUNCE_MS = 200;
 

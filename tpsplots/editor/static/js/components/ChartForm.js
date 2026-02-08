@@ -1,13 +1,11 @@
 /**
  * Chart form wrapper: delegates to SchemaForm with TPS color options injected.
  */
-import { useMemo, useCallback, createElement } from "react";
-import htm from "htm";
+import { useMemo } from "react";
+import { html } from "../lib/html.js";
 
 import { SchemaForm } from "./SchemaForm.js";
 import { ColorWidget } from "../widgets/ColorWidget.js";
-
-const html = htm.bind(createElement);
 
 const DEFAULT_HIDDEN_FIELDS = new Set(["title", "subtitle", "source", "output", "type"]);
 
@@ -94,11 +92,6 @@ export function ChartForm({
     [schema, enhancedUiSchema, includeFields, excludeFields]
   );
 
-  const handleChange = useCallback(
-    (data) => onFormDataChange(data),
-    [onFormDataChange]
-  );
-
   if (!filtered.schema) return null;
 
   return html`
@@ -107,7 +100,7 @@ export function ChartForm({
         schema=${filtered.schema}
         uiSchema=${filtered.uiSchema}
         formData=${formData}
-        onChange=${handleChange}
+        onChange=${onFormDataChange}
         widgets=${widgets}
         hiddenFields=${hiddenFields}
       />

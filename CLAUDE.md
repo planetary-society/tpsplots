@@ -12,6 +12,7 @@ uv sync --extra dev                    # Install dependencies
 tpsplots generate yaml/chart.yaml      # Generate single chart
 tpsplots generate yaml/                # Process all YAML in directory
 tpsplots validate yaml/chart.yaml      # Validate without generating
+tpsplots editor [yaml_dir]             # Launch interactive chart editor (default: yaml/)
 tpsplots s3-sync --bucket X --prefix Y --local-dir charts/  # Sync to S3
 
 pytest                                 # Run tests
@@ -35,6 +36,7 @@ YAML Config → YAMLChartProcessor → DataResolver → View → Output Files
 | `tpsplots/models/mixins/` | Shared field groups (bar styling, base params, etc.) |
 | `tpsplots/processors/` | Data transformations (see [PROCESSORS.md](PROCESSORS.md)) |
 | `tpsplots/data_sources/` | Data loading (NASA budget, Google Sheets, etc.) |
+| `tpsplots/editor/` | Interactive web editor (session, routes, static frontend) |
 | `tpsplots/utils/` | Shared utilities (currency cleaning, DataFrame transforms, formatting) |
 
 ## Adding Chart Types
@@ -62,12 +64,29 @@ data:
     type: nnsi                    # nnsi (default) or gdp
 
 chart:
-  type: line | scatter | bar | donut | lollipop | stacked_bar | waffle | grouped_bar | us_map_pie | line_subplots
+  type: line | scatter | bar | donut | lollipop | stacked_bar | waffle | grouped_bar | us_map_pie | line_subplots  # line_subplots excluded from editor
   output: filename_stem
   title: "Chart Title"
   x: "{{column_name}}"      # Data reference syntax
   y: "{{other_column}}"
 ```
+
+## Editor Frontend (JS)
+
+Zero-build React 19 app using `htm` (tagged template literals, no JSX). CDN-loaded via ES module import maps — no TypeScript, no bundler, no transpilation.
+
+**Shared modules — use these, don't duplicate:**
+
+| Module | Provides | Import as |
+|--------|----------|-----------|
+| `static/js/lib/html.js` | `html` tagged template binding | `import { html } from "../lib/html.js"` |
+| `static/js/components/fields/fieldComponents.js` | `FIELD_COMPONENTS` type→component map | `import { FIELD_COMPONENTS } from "./fieldComponents.js"` |
+| `static/js/api.js` | All `fetch` wrappers | Named exports (`fetchSchema`, `fetchPreview`, etc.) |
+
+**Key conventions:**
+- Never `new Set()` / `new Map()` / `{}` inline in render — busts `useMemo` caches. Hoist to module-level constants or wrap in `useMemo`.
+- Event handlers passed to hooks: use `useRef` to hold the latest handler (see `useHotkeys.js`) so the effect runs once.
+- `window.dispatchEvent` bridges hotkeys (in App) to Header save/open actions — keep this pattern until save logic is lifted.
 
 ## Config/View Sync
 

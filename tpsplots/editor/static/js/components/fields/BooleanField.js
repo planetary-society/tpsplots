@@ -1,11 +1,9 @@
 /**
  * Boolean field: checkbox.
  */
-import { useCallback, createElement } from "react";
-import htm from "htm";
+import { useCallback } from "react";
+import { html } from "../../lib/html.js";
 import { formatFieldLabel, yamlKeyTooltip } from "./fieldLabelUtils.js";
-
-const html = htm.bind(createElement);
 
 export function BooleanField({ name, value, onChange, uiSchema }) {
   const handleChange = useCallback(

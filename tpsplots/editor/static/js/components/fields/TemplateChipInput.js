@@ -2,13 +2,11 @@
  * Input that renders template refs ({{...}}) as an inline chip overlay.
  * Double-click the chip to enter raw text editing mode.
  */
-import { useCallback, useEffect, useRef, useState, createElement } from "react";
-import htm from "htm";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { html } from "../../lib/html.js";
 
 import { isTemplateReference } from "./templateRefUtils.js";
 import { TemplateRefChip } from "./TemplateRefChip.js";
-
-const html = htm.bind(createElement);
 
 export function TemplateChipInput({
   id,

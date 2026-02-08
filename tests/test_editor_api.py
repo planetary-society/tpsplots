@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from tpsplots.editor.app import create_editor_app
 from tpsplots.editor.session import EditorSession
+from tpsplots.editor.ui_schema import get_available_chart_types
 
 
 @pytest.fixture
@@ -62,9 +63,11 @@ class TestChartTypesEndpoint:
         resp = client.get("/api/chart-types")
         assert resp.status_code == 200
         types = resp.json()["types"]
+        expected = get_available_chart_types()
+        assert types == expected
         assert "bar" in types
         assert "line" in types
-        assert len(types) == 10
+        assert "line_subplots" not in types
 
 
 class TestFilesEndpoint:

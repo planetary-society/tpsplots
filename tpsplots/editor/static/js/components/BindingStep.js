@@ -1,14 +1,12 @@
 /**
  * Guided Data Bindings step with suggested column mapping.
  */
-import { createElement } from "react";
-import htm from "htm";
+import { useMemo } from "react";
+import { html } from "../lib/html.js";
 
 import { ChartForm } from "./ChartForm.js";
 import { parseTemplateReferences } from "./fields/templateRefUtils.js";
 import { formatFieldLabel } from "./fields/fieldLabelUtils.js";
-
-const html = htm.bind(createElement);
 
 function classifyColumn(col) {
   const name = String(col?.name || "");
@@ -82,6 +80,7 @@ export function BindingStep({
   dataProfile,
 }) {
   const primary = editorHints?.primary_binding_fields || [];
+  const primarySet = useMemo(() => new Set(primary), [primary]);
   const columns = dataProfile?.columns || [];
   const columnNames = columns.map((c) => String(c.name));
 
@@ -142,7 +141,7 @@ export function BindingStep({
         formData=${formData}
         colors=${colors}
         onFormDataChange=${onFormDataChange}
-        includeFields=${new Set(primary)}
+        includeFields=${primarySet}
       />
     </section>
   `;

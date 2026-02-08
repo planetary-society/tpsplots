@@ -5,30 +5,16 @@
  * handles anyOf (union types) natively via UnionField, and groups
  * fields into collapsible sections using ui:groups from the backend.
  */
-import { useCallback, useMemo, createElement } from "react";
-import htm from "htm";
+import { useCallback, useMemo } from "react";
+import { html } from "../lib/html.js";
 
+import { FIELD_COMPONENTS } from "./fields/fieldComponents.js";
 import { StringField } from "./fields/StringField.js";
-import { NumberField } from "./fields/NumberField.js";
-import { BooleanField } from "./fields/BooleanField.js";
-import { ObjectField } from "./fields/ObjectField.js";
-import { ArrayField } from "./fields/ArrayField.js";
 import { UnionField } from "./fields/UnionField.js";
 import { formatFieldLabel, yamlKeyTooltip } from "./fields/fieldLabelUtils.js";
 import { resolveSchemaRef } from "./fields/schemaRefUtils.js";
 
-const html = htm.bind(createElement);
-
 const DEFAULT_HIDDEN_FIELDS = new Set(["title", "subtitle", "source", "output", "type"]);
-
-const FIELD_COMPONENTS = {
-  string: StringField,
-  integer: NumberField,
-  number: NumberField,
-  boolean: BooleanField,
-  object: ObjectField,
-  array: ArrayField,
-};
 
 /**
  * Select the right field component for a schema property.

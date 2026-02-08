@@ -1,11 +1,8 @@
 /**
  * Visual badge for template references like {{Column Name}}.
  */
-import { createElement } from "react";
-import htm from "htm";
+import { html } from "../../lib/html.js";
 import { parseTemplateReferences } from "./templateRefUtils.js";
-
-const html = htm.bind(createElement);
 
 export function TemplateRefChip({ value }) {
   const refs = parseTemplateReferences(value);

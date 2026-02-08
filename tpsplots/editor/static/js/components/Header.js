@@ -1,12 +1,10 @@
 /**
  * Editor header: chart type selector, file name, save button.
  */
-import { useState, useCallback, useEffect, createElement } from "react";
-import htm from "htm";
+import { useState, useCallback, useEffect } from "react";
+import { html } from "../lib/html.js";
 
 import { saveYaml, loadYaml, listFiles } from "../api.js";
-
-const html = htm.bind(createElement);
 
 export function Header(props) {
   const {

@@ -1,10 +1,7 @@
 /**
  * Toast notification component.
  */
-import { createElement } from "react";
-import htm from "htm";
-
-const html = htm.bind(createElement);
+import { html } from "../lib/html.js";
 
 export function Toast({ message, type = "success" }) {
   return html`

@@ -3,12 +3,10 @@
  *
  * Supports add/remove keys, auto-detects value type per entry.
  */
-import { useState, useEffect, useCallback, createElement } from "react";
-import htm from "htm";
+import { useState, useEffect, useCallback } from "react";
+import { html } from "../../lib/html.js";
 import { TemplateChipInput } from "./TemplateChipInput.js";
 import { formatFieldLabel, yamlKeyTooltip } from "./fieldLabelUtils.js";
-
-const html = htm.bind(createElement);
 
 function detectType(val) {
   if (val === true || val === false) return "boolean";

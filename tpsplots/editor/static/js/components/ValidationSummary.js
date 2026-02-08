@@ -1,10 +1,7 @@
 /**
  * Compact preflight summary with "next action" guidance.
  */
-import { createElement } from "react";
-import htm from "htm";
-
-const html = htm.bind(createElement);
+import { html } from "../lib/html.js";
 
 function humanizePath(path) {
   if (!path) return "General";

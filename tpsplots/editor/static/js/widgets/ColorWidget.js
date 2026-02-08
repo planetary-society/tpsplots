@@ -2,10 +2,8 @@
  * TPS color widget.
  * Supports both single color and list-of-colors fields based on schema types.
  */
-import { useState, useMemo, useEffect, useRef, useCallback, createElement } from "react";
-import htm from "htm";
-
-const html = htm.bind(createElement);
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { html } from "../lib/html.js";
 
 function normalizeColorToken(input) {
   return typeof input === "string" ? input.trim() : "";

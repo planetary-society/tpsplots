@@ -4,18 +4,13 @@
  *
  * When value is null/undefined, shows a type selector dropdown.
  */
-import { useCallback, useEffect, useRef, createElement } from "react";
-import htm from "htm";
+import { useCallback, useEffect, useRef } from "react";
+import { html } from "../../lib/html.js";
 
+import { FIELD_COMPONENTS } from "./fieldComponents.js";
 import { StringField } from "./StringField.js";
-import { NumberField } from "./NumberField.js";
-import { BooleanField } from "./BooleanField.js";
-import { ObjectField } from "./ObjectField.js";
-import { ArrayField } from "./ArrayField.js";
 import { formatFieldLabel, yamlKeyTooltip } from "./fieldLabelUtils.js";
 import { resolveSchemaRef } from "./schemaRefUtils.js";
-
-const html = htm.bind(createElement);
 
 /** Extract available non-null types from anyOf branches. */
 function getAnyOfTypes(schema, rootSchema) {
@@ -201,15 +196,6 @@ function convertValueForType(value, targetType) {
   return TYPE_DEFAULTS[targetType] ?? "";
 }
 
-const FIELD_MAP = {
-  string: StringField,
-  integer: NumberField,
-  number: NumberField,
-  boolean: BooleanField,
-  object: ObjectField,
-  array: ArrayField,
-};
-
 export function UnionField({ name, schema, value, onChange, uiSchema, rootSchema }) {
   const availableTypes = getAnyOfTypes(schema, rootSchema);
   const currentType = detectValueType(value);
@@ -257,7 +243,7 @@ export function UnionField({ name, schema, value, onChange, uiSchema, rootSchema
   }
 
   // Value exists — render the matching field with a type indicator + clear button
-  const FieldComponent = FIELD_MAP[currentType] || StringField;
+  const FieldComponent = FIELD_COMPONENTS[currentType] || StringField;
   const branchSchema = branchForType(schema, currentType, rootSchema);
 
   return html`

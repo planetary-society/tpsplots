@@ -1,10 +1,9 @@
 /**
  * Chart editor entry point.
- * Loads React 19 + RJSF from CDN via import map, renders the editor UI.
+ * Loads React 19 + htm from CDN via import map, renders the editor UI.
  */
-import React, { useState, useEffect, useCallback, useRef, createElement } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import htm from "htm";
 
 import {
   fetchSchema,
@@ -16,8 +15,7 @@ import {
 } from "./api.js";
 import { EditorLayout } from "./components/EditorLayout.js";
 import { useHotkeys } from "./hooks/useHotkeys.js";
-
-const html = htm.bind(createElement);
+import { html } from "./lib/html.js";
 
 // Re-export html for use by all components
 export { html, React };
@@ -107,6 +105,7 @@ function App() {
   const [previewDevice, setPreviewDevice] = useState("desktop");
   const [renderTick, setRenderTick] = useState(0);
   const preflightTimerRef = useRef(null);
+  const toastTimerRef = useRef(null);
 
   // ── Init: load chart types + colors ────────────────────────
   useEffect(() => {
@@ -236,15 +235,11 @@ function App() {
     onToggleDevice: () => setPreviewDevice((d) => (d === "desktop" ? "mobile" : "desktop")),
   });
 
-  // ── Build full config for preview/save ─────────────────────
-  const buildFullConfig = useCallback(() => {
-    return buildConfigNow();
-  }, [buildConfigNow]);
-
   // ── Toast helper ───────────────────────────────────────────
   const showToast = useCallback((message, type = "success") => {
+    clearTimeout(toastTimerRef.current);
     setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
   }, []);
 
   // ── Render ─────────────────────────────────────────────────
@@ -282,7 +277,7 @@ function App() {
       onPreviewDeviceChange=${setPreviewDevice}
       onRunDataProfile=${handleRunDataProfile}
       onSaved=${handleSaved}
-      buildFullConfig=${buildFullConfig}
+      buildFullConfig=${buildConfigNow}
       showToast=${showToast}
     />
   `;

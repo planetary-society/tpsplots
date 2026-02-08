@@ -1,10 +1,7 @@
 /**
  * Preview-side checklist for preflight blockers.
  */
-import { createElement } from "react";
-import htm from "htm";
-
-const html = htm.bind(createElement);
+import { html } from "../lib/html.js";
 
 function humanize(path) {
   return path?.replace(/^\//, "").replaceAll("/", " \u2192 ") || "General";

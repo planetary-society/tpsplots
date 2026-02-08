@@ -1,11 +1,9 @@
 /**
  * Number/integer field with basic type validation.
  */
-import { useCallback, useState, createElement } from "react";
-import htm from "htm";
+import { useCallback, useState } from "react";
+import { html } from "../../lib/html.js";
 import { formatFieldLabel, yamlKeyTooltip } from "./fieldLabelUtils.js";
-
-const html = htm.bind(createElement);
 
 export function NumberField({ name, schema, value, onChange, uiSchema }) {
   const [raw, setRaw] = useState(value != null ? String(value) : "");

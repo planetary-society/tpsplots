@@ -1,10 +1,8 @@
 /**
- * Metadata section: title, subtitle, source — always visible above RJSF form.
+ * Metadata section: title, subtitle, source, output fields.
  */
-import { useCallback, createElement } from "react";
-import htm from "htm";
-
-const html = htm.bind(createElement);
+import { useCallback } from "react";
+import { html } from "../lib/html.js";
 
 export function MetadataSection({ formData, onFormDataChange }) {
   const handleChange = useCallback((field, value) => {

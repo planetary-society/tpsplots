@@ -1,12 +1,10 @@
 /**
  * String field: text input or enum dropdown.
  */
-import { useCallback, createElement } from "react";
-import htm from "htm";
+import { useCallback } from "react";
+import { html } from "../../lib/html.js";
 import { TemplateChipInput } from "./TemplateChipInput.js";
 import { formatFieldLabel, yamlKeyTooltip } from "./fieldLabelUtils.js";
-
-const html = htm.bind(createElement);
 
 export function StringField({ name, schema, value, onChange, uiSchema, rawTextMode = false }) {
   const handleChange = useCallback(

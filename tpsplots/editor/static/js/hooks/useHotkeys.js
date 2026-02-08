@@ -1,7 +1,7 @@
 /**
  * Core editor hotkeys.
  */
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 function isEditableTarget(target) {
   if (!target) return false;
@@ -15,6 +15,9 @@ function isEditableTarget(target) {
 }
 
 export function useHotkeys(handlers) {
+  const ref = useRef(handlers);
+  ref.current = handlers;
+
   useEffect(() => {
     const onKeyDown = (e) => {
       const mod = e.metaKey || e.ctrlKey;
@@ -22,36 +25,35 @@ export function useHotkeys(handlers) {
 
       if (mod && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        handlers.onSave?.();
+        ref.current.onSave?.();
         return;
       }
 
       if (mod && e.key.toLowerCase() === "o") {
         e.preventDefault();
-        handlers.onOpen?.();
+        ref.current.onOpen?.();
         return;
       }
 
       if (mod && e.key === "Enter") {
         e.preventDefault();
-        handlers.onForceRender?.();
+        ref.current.onForceRender?.();
         return;
       }
 
       if (mod && e.shiftKey && e.key.toLowerCase() === "m") {
         e.preventDefault();
-        handlers.onToggleDevice?.();
+        ref.current.onToggleDevice?.();
         return;
       }
 
       if (!editable && e.altKey && ["1", "2", "3", "4"].includes(e.key)) {
         e.preventDefault();
-        handlers.onSetStep?.(Number(e.key));
+        ref.current.onSetStep?.(Number(e.key));
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handlers]);
+  }, []);
 }
-

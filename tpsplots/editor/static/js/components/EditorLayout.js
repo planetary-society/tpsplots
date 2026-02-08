@@ -1,8 +1,8 @@
 /**
  * Main editor layout: header + split pane (form | preview).
  */
-import { useState, useCallback, createElement } from "react";
-import htm from "htm";
+import { useState, useCallback, useMemo } from "react";
+import { html } from "../lib/html.js";
 
 import { Header } from "./Header.js";
 import { ChartForm } from "./ChartForm.js";
@@ -12,8 +12,6 @@ import { ValidationSummary } from "./ValidationSummary.js";
 import { DataSourceStep } from "./DataSourceStep.js";
 import { BindingStep } from "./BindingStep.js";
 import { Toast } from "./Toast.js";
-
-const html = htm.bind(createElement);
 
 const STEPS = [
   { id: 1, key: "data_source_and_preparation", label: "1. Data Source & Prep" },
@@ -67,6 +65,11 @@ export function EditorLayout(props) {
     document.addEventListener("mouseup", onUp);
   }, [formWidth]);
 
+  const visualDesignFields = useMemo(
+    () => new Set(editorHints?.step_field_map?.visual_design || []),
+    [editorHints]
+  );
+
   const dataReady = stepStatus?.data_source_and_preparation === "complete";
   const toggleStep = useCallback(
     (stepId, isOpen) => {
@@ -117,7 +120,7 @@ export function EditorLayout(props) {
             formData=${formData}
             colors=${colors}
             onFormDataChange=${onFormDataChange}
-            includeFields=${new Set(editorHints?.step_field_map?.visual_design || [])}
+            includeFields=${visualDesignFields}
           />
         </section>
       `;
