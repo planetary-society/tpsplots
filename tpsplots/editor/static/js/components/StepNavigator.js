@@ -33,8 +33,9 @@ export function StepNavigator({ activeStep, onStepChange, stepStatus = {} }) {
             key=${step.key}
             type="button"
             class="step-nav-item ${activeStep === step.id ? "active" : ""} status-${status}"
-            onClick=${() => !disabled && onStepChange(step.id)}
+            onClick=${() => !disabled && onStepChange(activeStep === step.id ? null : step.id)}
             disabled=${disabled}
+            aria-pressed=${activeStep === step.id}
             title=${disabled ? "Complete Data Source & Prep first" : statusLabel(status)}
           >
             <span class="step-nav-label">${step.label}</span>
@@ -45,4 +46,3 @@ export function StepNavigator({ activeStep, onStepChange, stepStatus = {} }) {
     </nav>
   `;
 }
-

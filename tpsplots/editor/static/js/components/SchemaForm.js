@@ -140,6 +140,7 @@ export function SchemaForm({
               value=${value}
               onChange=${(v) => handleFieldChange(fieldName, v)}
               options=${options}
+              schema=${effectiveSchema}
             />
           </div>
         `;

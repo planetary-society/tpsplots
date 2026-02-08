@@ -45,6 +45,7 @@ function remapAndPruneFormData(formData, nextType, nextSchema) {
     return { ...formData, type: nextType };
   }
 
+  const previousType = formData.type;
   const allowed = new Set(Object.keys(nextSchema.properties));
   const next = {};
 
@@ -61,6 +62,21 @@ function remapAndPruneFormData(formData, nextType, nextSchema) {
     const value = formData[from];
     if (value !== undefined && value !== null && value !== "") {
       next[to] = value;
+    }
+  }
+
+  // Type-switch normalization:
+  // line -> scatter should not preserve explicit line connectors unless re-added.
+  if (previousType !== "scatter" && nextType === "scatter") {
+    delete next.linestyle;
+  }
+
+  // scatter -> line should restore default line connectors when the scatter
+  // config explicitly forced no line.
+  if (previousType === "scatter" && nextType === "line") {
+    const linestyle = next.linestyle;
+    if (typeof linestyle === "string" && linestyle.toLowerCase() === "none") {
+      delete next.linestyle;
     }
   }
 
@@ -126,7 +142,6 @@ function App() {
   // ── Chart type change handler ──────────────────────────────
   const handleChartTypeChange = useCallback((newType) => {
     setChartType(newType);
-    setFormData(prev => ({ ...prev, type: newType }));
     setUnsavedChanges(true);
   }, []);
 
@@ -194,6 +209,16 @@ function App() {
       setDataProfileStatus("error");
     }
   }, [dataConfig]);
+
+  // Auto-fetch data profile when the source changes (e.g. file load, URL paste)
+  useEffect(() => {
+    if (!dataConfig?.source) {
+      setDataProfile(null);
+      setDataProfileStatus("idle");
+      return;
+    }
+    handleRunDataProfile();
+  }, [dataConfig?.source, handleRunDataProfile]);
 
   const triggerSave = useCallback(() => {
     window.dispatchEvent(new Event("editor:save"));

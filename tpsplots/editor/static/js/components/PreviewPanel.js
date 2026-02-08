@@ -102,11 +102,15 @@ export function PreviewPanel({
 
         <div class="device-toggle">
           <button
+            type="button"
             class="device-btn ${device === "desktop" ? "active" : ""}"
+            aria-pressed=${device === "desktop"}
             onClick=${() => onDeviceChange("desktop")}
           >Desktop</button>
           <button
+            type="button"
             class="device-btn ${device === "mobile" ? "active" : ""}"
+            aria-pressed=${device === "mobile"}
             onClick=${() => onDeviceChange("mobile")}
           >Mobile</button>
         </div>

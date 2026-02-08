@@ -45,18 +45,30 @@ function suggestionsForField(fieldName, columns) {
   return decorated.slice(0, 6);
 }
 
+function stripBraces(ref) {
+  return ref.replace(/^\{\{\s*/, "").replace(/\s*\}\}$/, "");
+}
+
 function bindingStatus(fieldName, formData, columnNames) {
   const value = formData?.[fieldName];
   if (value == null || value === "" || (Array.isArray(value) && value.length === 0)) {
     return "unbound";
   }
-  if (typeof value === "string") {
-    const refs = parseTemplateReferences(value);
-    if (refs.length > 0) {
-      const missing = refs.some((ref) => !columnNames.includes(ref.replace(/^\{\{\s*/, "").replace(/\s*\}\}$/, "")));
-      return missing ? "invalid-ref" : "bound";
-    }
+
+  // Collect all template refs from string or array-of-strings values
+  const values = Array.isArray(value) ? value : [value];
+  const refs = values
+    .filter((v) => typeof v === "string")
+    .flatMap((v) => parseTemplateReferences(v));
+
+  if (refs.length > 0 && columnNames.length > 0) {
+    const missing = refs.some((ref) => !columnNames.includes(stripBraces(ref)));
+    return missing ? "invalid-ref" : "bound";
   }
+
+  // Refs found but no columns loaded yet — don't flag as invalid
+  if (refs.length > 0) return "pending";
+
   return "bound";
 }
 

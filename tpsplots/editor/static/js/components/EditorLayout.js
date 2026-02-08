@@ -8,13 +8,26 @@ import { Header } from "./Header.js";
 import { ChartForm } from "./ChartForm.js";
 import { MetadataSection } from "./MetadataSection.js";
 import { PreviewPanel } from "./PreviewPanel.js";
-import { StepNavigator } from "./StepNavigator.js";
 import { ValidationSummary } from "./ValidationSummary.js";
 import { DataSourceStep } from "./DataSourceStep.js";
 import { BindingStep } from "./BindingStep.js";
 import { Toast } from "./Toast.js";
 
 const html = htm.bind(createElement);
+
+const STEPS = [
+  { id: 1, key: "data_source_and_preparation", label: "1. Data Source & Prep" },
+  { id: 2, key: "data_bindings", label: "2. Data Bindings" },
+  { id: 3, key: "visual_design", label: "3. Visual Design" },
+  { id: 4, key: "annotation_output", label: "4. Annotation & Output" },
+];
+
+function statusLabel(status) {
+  if (status === "complete") return "Complete";
+  if (status === "error") return "Needs attention";
+  if (status === "in_progress") return "In progress";
+  return "Not started";
+}
 
 export function EditorLayout(props) {
   const {
@@ -54,6 +67,76 @@ export function EditorLayout(props) {
     document.addEventListener("mouseup", onUp);
   }, [formWidth]);
 
+  const dataReady = stepStatus?.data_source_and_preparation === "complete";
+  const toggleStep = useCallback(
+    (stepId, isOpen) => {
+      onStepChange(isOpen ? null : stepId);
+    },
+    [onStepChange]
+  );
+
+  const renderStepContent = (stepId) => {
+    if (stepId === 1) {
+      return html`
+        <${DataSourceStep}
+          dataSchema=${dataSchema}
+          dataUiSchema=${dataUiSchema}
+          dataConfig=${dataConfig}
+          onDataConfigChange=${onDataConfigChange}
+          onTestSource=${onRunDataProfile}
+          profile=${dataProfile}
+          profileStatus=${dataProfileStatus}
+        />
+      `;
+    }
+
+    if (stepId === 2) {
+      return html`
+        <${BindingStep}
+          schema=${schema}
+          uiSchema=${uiSchema}
+          formData=${formData}
+          onFormDataChange=${onFormDataChange}
+          colors=${colors}
+          editorHints=${editorHints}
+          dataProfile=${dataProfile}
+        />
+      `;
+    }
+
+    if (stepId === 3) {
+      return html`
+        <section class="guided-step">
+          <div class="guided-step-header">
+            <h3>Visual Design</h3>
+            <p>Tune styling, scales, legends, and axis behavior.</p>
+          </div>
+          <${ChartForm}
+            schema=${schema}
+            uiSchema=${uiSchema}
+            formData=${formData}
+            colors=${colors}
+            onFormDataChange=${onFormDataChange}
+            includeFields=${new Set(editorHints?.step_field_map?.visual_design || [])}
+          />
+        </section>
+      `;
+    }
+
+    return html`
+      <section class="guided-step">
+        <div class="guided-step-header">
+          <h3>Annotation & Output</h3>
+          <p>Finalize chart narrative and output metadata.</p>
+        </div>
+        <${MetadataSection}
+          formData=${formData}
+          onFormDataChange=${onFormDataChange}
+        />
+      </section>
+    `;
+  };
+
   return html`
     <${Header}
       chartType=${chartType}
@@ -73,71 +156,35 @@ export function EditorLayout(props) {
 
     <div class="editor-layout" style=${{ gridTemplateColumns: `${formWidth}px 6px 1fr` }}>
       <div class="form-panel">
-        <${StepNavigator}
-          activeStep=${activeStep}
-          onStepChange=${onStepChange}
-          stepStatus=${stepStatus}
-        />
-
-        <${ValidationSummary} preflight=${preflight} />
-
-        ${activeStep === 1 &&
-        html`
-          <${DataSourceStep}
-            dataSchema=${dataSchema}
-            dataUiSchema=${dataUiSchema}
-            dataConfig=${dataConfig}
-            onDataConfigChange=${onDataConfigChange}
-            onTestSource=${onRunDataProfile}
-            profile=${dataProfile}
-            profileStatus=${dataProfileStatus}
-          />
-        `}
-
-        ${activeStep === 2 &&
-        html`
-          <${BindingStep}
-            schema=${schema}
-            uiSchema=${uiSchema}
-            formData=${formData}
-            onFormDataChange=${onFormDataChange}
-            colors=${colors}
-            editorHints=${editorHints}
-            dataProfile=${dataProfile}
-          />
-        `}
-
-        ${activeStep === 3 &&
-        html`
-          <section class="guided-step">
-            <div class="guided-step-header">
-              <h3>Visual Design</h3>
-              <p>Tune styling, scales, legends, and axis behavior.</p>
-            </div>
-            <${ChartForm}
-              schema=${schema}
-              uiSchema=${uiSchema}
-              formData=${formData}
-              colors=${colors}
-              onFormDataChange=${onFormDataChange}
-              includeFields=${new Set(editorHints?.step_field_map?.visual_design || [])}
-            />
-          </section>
-        `}
-
-        ${activeStep === 4 &&
-        html`
-          <section class="guided-step">
-            <div class="guided-step-header">
-              <h3>Annotation & Output</h3>
-              <p>Finalize chart narrative and output metadata.</p>
-            </div>
-            <${MetadataSection}
-              formData=${formData}
-              onFormDataChange=${onFormDataChange}
-            />
-          </section>
-        `}
+        <div class="step-accordion">
+          ${STEPS.map((step) => {
+            const status = stepStatus?.[step.key] || "not_started";
+            const isOpen = activeStep === step.id;
+            const disabled = step.id > 1 && !dataReady;
+            return html`
+              <section key=${step.key} class="step-accordion-item ${isOpen ? "is-open" : ""}">
+                <button
+                  type="button"
+                  class="step-nav-item ${isOpen ? "active" : ""} status-${status}"
+                  onClick=${() => !disabled && toggleStep(step.id, isOpen)}
+                  disabled=${disabled}
+                  aria-expanded=${isOpen}
+                  aria-pressed=${isOpen}
+                  title=${disabled ? "Complete Data Source & Prep first" : statusLabel(status)}
+                >
+                  <span class="step-nav-label">${step.label}</span>
+                  <span class="step-nav-state">${statusLabel(status)}</span>
+                </button>
+                <div class="step-panel ${isOpen ? "is-open" : ""}" aria-hidden=${!isOpen}>
+                  <div class="step-panel-inner">
+                    ${isOpen && html`<${ValidationSummary} preflight=${preflight} />`}
+                    ${renderStepContent(step.id)}
+                  </div>
+                </div>
+              </section>
+            `;
+          })}
+        </div>
       </div>
 
       <div

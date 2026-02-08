@@ -135,8 +135,10 @@ class TestGetUiSchema:
 
 class TestGetAvailableChartTypes:
     def test_returns_all_registered_types(self):
+        from tpsplots.editor.ui_schema import _EDITOR_EXCLUDED_TYPES
+
         types = get_available_chart_types()
-        assert set(types) == set(CONFIG_REGISTRY.keys())
+        assert set(types) == set(CONFIG_REGISTRY.keys()) - _EDITOR_EXCLUDED_TYPES
 
     def test_returns_sorted(self):
         types = get_available_chart_types()

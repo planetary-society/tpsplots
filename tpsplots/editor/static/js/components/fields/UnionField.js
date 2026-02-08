@@ -4,7 +4,7 @@
  *
  * When value is null/undefined, shows a type selector dropdown.
  */
-import { useCallback, createElement } from "react";
+import { useCallback, useEffect, useRef, createElement } from "react";
 import htm from "htm";
 
 import { StringField } from "./StringField.js";
@@ -71,6 +71,56 @@ const TYPE_DEFAULTS = {
   array: [],
 };
 
+function convertValueForType(value, targetType) {
+  if (targetType === "") return undefined;
+
+  if (targetType === "array") {
+    if (Array.isArray(value)) return value;
+    if (value == null) return [];
+    if (typeof value === "string" && value.trim() !== "") return [value];
+    if (typeof value === "number" || typeof value === "boolean") return [value];
+    return TYPE_DEFAULTS.array;
+  }
+
+  if (targetType === "string") {
+    if (typeof value === "string") return value;
+    if (Array.isArray(value)) {
+      const first = value.find((item) => item != null && String(item).trim() !== "");
+      return first != null ? String(first) : "";
+    }
+    if (value == null) return "";
+    return String(value);
+  }
+
+  if (targetType === "number" || targetType === "integer") {
+    if (typeof value === "number") return targetType === "integer" ? Math.trunc(value) : value;
+    if (typeof value === "string" && value.trim() !== "") {
+      const parsed = Number(value);
+      if (!Number.isNaN(parsed)) {
+        return targetType === "integer" ? Math.trunc(parsed) : parsed;
+      }
+    }
+    return TYPE_DEFAULTS[targetType];
+  }
+
+  if (targetType === "boolean") {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "string") {
+      const lower = value.trim().toLowerCase();
+      if (lower === "true") return true;
+      if (lower === "false") return false;
+    }
+    return TYPE_DEFAULTS.boolean;
+  }
+
+  if (targetType === "object") {
+    if (value && typeof value === "object" && !Array.isArray(value)) return value;
+    return TYPE_DEFAULTS.object;
+  }
+
+  return TYPE_DEFAULTS[targetType] ?? "";
+}
+
 const FIELD_MAP = {
   string: StringField,
   integer: NumberField,
@@ -86,17 +136,26 @@ export function UnionField({ name, schema, value, onChange, uiSchema, rootSchema
   const help = uiSchema?.["ui:help"];
   const label = formatFieldLabel(name, schema);
   const labelTitle = yamlKeyTooltip(name);
+  const valueCacheRef = useRef({});
+
+  useEffect(() => {
+    if (currentType !== null) {
+      valueCacheRef.current[currentType] = value;
+    }
+  }, [currentType, value]);
 
   const handleTypeSwitch = useCallback(
     (e) => {
       const newType = e.target.value;
-      if (newType === "") {
-        onChange(undefined);
-      } else {
-        onChange(TYPE_DEFAULTS[newType] ?? "");
+      if (currentType !== null) {
+        valueCacheRef.current[currentType] = value;
       }
+
+      const cached = valueCacheRef.current[newType];
+      const converted = cached !== undefined ? cached : convertValueForType(value, newType);
+      onChange(converted);
     },
-    [onChange]
+    [onChange, value, currentType]
   );
 
   const handleClear = useCallback(() => onChange(undefined), [onChange]);
