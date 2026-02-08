@@ -5,6 +5,7 @@ A data visualization framework for The Planetary Society that creates consistent
 ## Features
 
 - **YAML-Driven Chart Generation** - Define charts declaratively without writing Python code
+- **Interactive Chart Editor** - Browser-based GUI for creating and editing charts with live preview
 - **Multiple Chart Types** - Line, scatter, bar, donut, lollipop, stacked bar, waffle, grouped bar, US map pie, and line subplots
 - **Automatic Responsive Output** - Generates both desktop (16:10) and mobile (8:9) versions
 - **Multi-Format Export** - SVG, PNG, PPTX, and CSV data export
@@ -38,6 +39,11 @@ chart:
 **CLI:**
 ```bash
 tpsplots generate my_chart.yaml
+```
+
+**Interactive Editor:**
+```bash
+tpsplots editor           # Opens a browser-based editor with live preview
 ```
 
 **Python:**
@@ -292,7 +298,7 @@ chart:
 | `waffle` | Waffle/grid charts | `values`, `labels`, `rows`, `columns` |
 | `grouped_bar` | Side-by-side grouped bars | `categories`, `groups`, `width`, `colors` |
 | `us_map_pie` | US map with pie overlays | `state_data`, `pie_values` |
-| `line_subplots` | Multiple subplot panels | `subplot_data`, `grid_shape` |
+| `line_subplots` | Multiple subplot panels (CLI only) | `subplot_data`, `grid_shape` |
 
 List all available types: `tpsplots --list-types`
 
@@ -448,6 +454,19 @@ tpsplots validate [OPTIONS] INPUTS...
 | `-q, --quiet` | Suppress progress output |
 | `--verbose` | Enable verbose/debug logging |
 
+#### `editor` - Interactive Chart Editor
+
+```bash
+tpsplots editor [OPTIONS] [YAML_DIR]
+```
+
+| Option | Description |
+|--------|-------------|
+| `YAML_DIR` | Directory containing YAML chart configs (default: `yaml/`) |
+| `--host TEXT` | Host interface (default: `127.0.0.1`) |
+| `--port INT` | Port for the editor server (default: auto-select) |
+| `--open-browser/--no-open-browser` | Auto-open in browser (default: on) |
+
 #### `s3-sync` - Upload to S3
 
 ```bash
@@ -481,6 +500,9 @@ tpsplots --schema > tpsplots-schema.json
 
 # Generate a new chart template
 tpsplots --new line > yaml/my_new_chart.yaml
+
+# Launch the interactive chart editor
+tpsplots editor yaml/
 
 # Upload charts to S3 (dry-run first)
 tpsplots s3-sync -d charts -b mybucket -p assets/charts/ --dry-run
@@ -544,6 +566,14 @@ tpsplots/
 ├── assets/                  # Bundled resources
 │   ├── fonts/Poppins/       # TPS brand fonts
 │   └── images/              # TPS logo
+├── commands/                # CLI subcommands (editor, etc.)
+├── editor/                  # Interactive chart editor
+│   ├── app.py               # Starlette ASGI app
+│   ├── session.py           # EditorSession: YAML ↔ form state
+│   ├── ui_schema.py         # JSON Schema / uiSchema generation
+│   ├── routes/              # API endpoints (schema, preview, files, data)
+│   ├── static/              # Frontend (React 19, htm, CSS)
+│   └── templates/           # HTML shell
 ├── controllers/             # Chart generation logic
 │   ├── nasa_budget_chart.py
 │   ├── fy2025_charts.py
@@ -568,6 +598,7 @@ tpsplots/
 │   └── yaml_config.py
 ├── processors/              # YAML processing pipeline
 │   ├── yaml_chart_processor.py
+│   ├── render_pipeline.py   # Shared render context (CLI + editor)
 │   └── resolvers/           # Data, parameter, metadata resolution
 ├── templates/               # Chart type templates for --new
 ├── utils/                   # Shared utilities
