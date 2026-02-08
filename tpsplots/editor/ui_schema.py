@@ -37,10 +37,10 @@ _IDENTITY_FIELDS = {"type", "output", "title", "subtitle", "source"}
 
 # System config fields excluded from the schema entirely.
 # These are TPS brand constants (figsize, dpi) or pipeline internals
-# (export_data, matplotlib_config) that are not user-configurable in the
+# (export_data, matplotlib_config, line.data DataFrame reference) that are not user-configurable in the
 # editor. Stripping them from the JSON schema (not just hiding) prevents
 # RJSF from creating form elements or injecting empty defaults.
-_EXCLUDED_FIELDS = {"figsize", "dpi", "export_data", "matplotlib_config"}
+_EXCLUDED_FIELDS = {"figsize", "dpi", "export_data", "matplotlib_config", "data"}
 
 
 def _get_excluded_fields(config_cls: type) -> set[str]:
@@ -61,20 +61,209 @@ for _group_name, _mixin_cls in _MIXIN_GROUPS:
 for _field_name in _IDENTITY_FIELDS:
     FIELD_TO_GROUP[_field_name] = "Identity"
 
+# ---------------------------------------------------------------------------
+# Per-chart-type field → group mapping for non-mixin fields.
+# Data binding fields (x, y, categories, values, etc.) are filtered to
+# Step 2 and excluded here — they never appear in Step 3 groups.
+# ---------------------------------------------------------------------------
 
-def _get_field_group(field_name: str, config_cls: type) -> str:
+_CHART_FIELD_GROUPS: dict[str, dict[str, str]] = {
+    "bar": {
+        "categories": "Data Bindings",
+        "values": "Data Bindings",
+        "colors": "Colors",
+        "positive_color": "Colors",
+        "negative_color": "Colors",
+    },
+    "donut": {
+        "values": "Data Bindings",
+        "labels": "Data Bindings",
+        "colors": "Colors",
+        "hole_size": "Donut Shape",
+        "center_text": "Donut Shape",
+        "center_color": "Donut Shape",
+        "wedgeprops": "Donut Shape",
+        "show_percentages": "Labels",
+        "label_wrap_length": "Labels",
+        "label_distance": "Labels",
+    },
+    "grouped_bar": {
+        "categories": "Data Bindings",
+        "groups": "Data Bindings",
+        "colors": "Colors",
+        "labels": "Labels",
+        "width": "Bar Styling",
+        "alpha": "Bar Styling",
+        "edgecolor": "Bar Styling",
+        "linewidth": "Bar Styling",
+        "value_prefix": "Value Labels",
+        "show_yticks": "Axis",
+    },
+    "line": {
+        "x": "Data Bindings",
+        "y": "Data Bindings",
+        "color": "Line Styling",
+        "linestyle": "Line Styling",
+        "linewidth": "Line Styling",
+        "marker": "Line Styling",
+        "markersize": "Line Styling",
+        "alpha": "Line Styling",
+        "labels": "Labels",
+        "series_types": "Labels",
+        "direct_line_labels": "Labels",
+        "hlines": "Reference Lines",
+        "hline_colors": "Reference Lines",
+        "hline_styles": "Reference Lines",
+        "hline_widths": "Reference Lines",
+        "hline_labels": "Reference Lines",
+        "hline_alpha": "Reference Lines",
+        "hline_label_position": "Reference Lines",
+        "hline_label_offset": "Reference Lines",
+        "hline_label_fontsize": "Reference Lines",
+        "hline_label_bbox": "Reference Lines",
+        "xticks": "Custom Ticks",
+        "xticklabels": "Custom Ticks",
+        "data": "Advanced",
+        "series_overrides": "Advanced",
+    },
+    "scatter": {
+        "x": "Data Bindings",
+        "y": "Data Bindings",
+        "color": "Point Styling",
+        "linestyle": "Point Styling",
+        "linewidth": "Point Styling",
+        "marker": "Point Styling",
+        "markersize": "Point Styling",
+        "alpha": "Point Styling",
+        "labels": "Labels",
+        "series_types": "Labels",
+        "direct_line_labels": "Labels",
+        "hlines": "Reference Lines",
+        "hline_colors": "Reference Lines",
+        "hline_styles": "Reference Lines",
+        "hline_widths": "Reference Lines",
+        "hline_labels": "Reference Lines",
+        "hline_alpha": "Reference Lines",
+        "hline_label_position": "Reference Lines",
+        "hline_label_offset": "Reference Lines",
+        "hline_label_fontsize": "Reference Lines",
+        "hline_label_bbox": "Reference Lines",
+        "xticks": "Custom Ticks",
+        "xticklabels": "Custom Ticks",
+        "data": "Advanced",
+        "series_overrides": "Advanced",
+    },
+    "lollipop": {
+        "categories": "Data Bindings",
+        "start_values": "Data Bindings",
+        "end_values": "Data Bindings",
+        "colors": "Colors",
+        "marker_size": "Stem Styling",
+        "line_width": "Stem Styling",
+        "marker_style": "Stem Styling",
+        "linestyle": "Stem Styling",
+        "alpha": "Stem Styling",
+        "start_marker_style": "Endpoint Markers",
+        "end_marker_style": "Endpoint Markers",
+        "start_marker_size": "Endpoint Markers",
+        "end_marker_size": "Endpoint Markers",
+        "start_marker_color": "Endpoint Markers",
+        "end_marker_color": "Endpoint Markers",
+        "start_marker_edgecolor": "Endpoint Markers",
+        "end_marker_edgecolor": "Endpoint Markers",
+        "start_marker_edgewidth": "Endpoint Markers",
+        "end_marker_edgewidth": "Endpoint Markers",
+        "value_labels": "Value Labels",
+        "range_labels": "Value Labels",
+        "start_value_labels": "Value Labels",
+        "end_value_labels": "Value Labels",
+        "value_format": "Value Labels",
+        "value_suffix": "Value Labels",
+        "range_format": "Value Labels",
+        "range_suffix": "Value Labels",
+        "category_wrap_length": "Category Display",
+        "y_axis_position": "Category Display",
+        "y_tick_marker": "Category Display",
+        "y_tick_color": "Category Display",
+        "hide_y_spine": "Category Display",
+    },
+    "stacked_bar": {
+        "categories": "Data Bindings",
+        "values": "Data Bindings",
+        "colors": "Colors",
+        "labels": "Labels",
+        "stack_labels": "Stack Totals",
+        "stack_label_format": "Stack Totals",
+        "stack_label_suffix": "Stack Totals",
+        "value_threshold": "Value Labels",
+        "bottom_values": "Advanced",
+    },
+    "us_map_pie": {
+        "state_data": "Data Bindings",
+        "pie_values": "Data Bindings",
+        "pie_data": "Data Bindings",
+        "pie_size_column": "Pie Sizing",
+        "base_pie_size": "Pie Sizing",
+        "max_pie_size": "Pie Sizing",
+        "min_pie_size": "Pie Sizing",
+        "show_pie_labels": "Pie Display",
+        "show_percentages": "Pie Display",
+        "legend_location": "Pie Display",
+        "pie_edge_color": "Pie Display",
+        "pie_edge_width": "Pie Display",
+        "custom_locations": "Map Settings",
+        "show_state_boundaries": "Map Settings",
+        "auto_expand_bounds": "Map Settings",
+        "padding_factor": "Map Settings",
+        "offset_line_color": "Offset Lines",
+        "offset_line_style": "Offset Lines",
+        "offset_line_width": "Offset Lines",
+    },
+    "line_subplots": {
+        "subplot_data": "Data Bindings",
+        "grid_shape": "Subplot Layout",
+        "shared_x": "Subplot Layout",
+        "shared_y": "Subplot Layout",
+        "shared_legend": "Subplot Layout",
+        "legend_position": "Subplot Layout",
+        "subplot_title_size": "Subplot Layout",
+        "xticks": "Custom Ticks",
+        "xticklabels": "Custom Ticks",
+    },
+    "waffle": {
+        "values": "Data Bindings",
+        "colors": "Colors",
+        "labels": "Labels",
+        "rows": "Waffle Grid",
+        "columns": "Waffle Grid",
+        "vertical": "Waffle Grid",
+        "starting_location": "Waffle Grid",
+        "interval_ratio_x": "Waffle Grid",
+        "interval_ratio_y": "Waffle Grid",
+        "pywaffle_config": "Advanced",
+    },
+}
+
+
+def _get_field_group(field_name: str, config_cls: type, chart_type: str = "") -> str:
     """Return the UI group for a field, checking mixin inheritance.
 
     A field is assigned to a mixin group only when *config_cls* actually
     inherits from that mixin.  Identity fields are always matched by name.
-    Everything else falls through to "Chart-Specific".
+    Chart-type-specific fields are resolved via ``_CHART_FIELD_GROUPS``.
+    Everything else falls through to "Advanced".
     """
     if field_name in _IDENTITY_FIELDS:
         return "Identity"
     for group_name, mixin_cls in _MIXIN_GROUPS:
         if issubclass(config_cls, mixin_cls) and field_name in mixin_cls.model_fields:
             return group_name
-    return "Chart-Specific"
+    # Per-chart-type semantic groups
+    if chart_type and chart_type in _CHART_FIELD_GROUPS:
+        group = _CHART_FIELD_GROUPS[chart_type].get(field_name)
+        if group:
+            return group
+    return "Advanced"
 
 
 # Ordered group names for the UI
@@ -82,14 +271,31 @@ GROUP_ORDER = [
     "Identity",
     "Data Bindings",
     "Bar Styling",
+    "Colors",
+    "Line Styling",
+    "Point Styling",
+    "Stem Styling",
+    "Endpoint Markers",
+    "Donut Shape",
+    "Waffle Grid",
+    "Pie Sizing",
+    "Pie Display",
+    "Map Settings",
+    "Offset Lines",
+    "Subplot Layout",
     "Value Labels",
+    "Stack Totals",
+    "Labels",
+    "Category Display",
+    "Reference Lines",
     "Sort",
     "Scale",
     "Tick Format",
+    "Custom Ticks",
     "Legend",
     "Grid",
     "Axis",
-    "Chart-Specific",
+    "Advanced",
 ]
 
 # Fields hidden in Phase 1 (data bindings handled separately)
@@ -103,6 +309,15 @@ _COLOR_FIELDS = {
     "negative_color",
     "edgecolor",
     "value_color",
+    "center_color",
+    "start_marker_color",
+    "end_marker_color",
+    "start_marker_edgecolor",
+    "end_marker_edgecolor",
+    "hline_colors",
+    "pie_edge_color",
+    "offset_line_color",
+    "y_tick_color",
 }
 
 # Fields that should display inline as a row (pairs)
@@ -178,7 +393,7 @@ def get_ui_schema(chart_type: str) -> dict[str, Any]:
     # "Bar Styling" on line/scatter/lollipop charts.
     groups: dict[str, list[str]] = {}
     for field_name in fields:
-        group = _get_field_group(field_name, config_cls)
+        group = _get_field_group(field_name, config_cls, chart_type)
         groups.setdefault(group, []).append(field_name)
 
     # Per-field uiSchema entries
@@ -223,16 +438,6 @@ def get_ui_schema(chart_type: str) -> dict[str, Any]:
                     "defaultOpen": group_name == "Identity",
                 }
             )
-    # Chart-specific fields not in any known group
-    remaining = [f for f in fields if f not in ordered_fields[: len(ordered_fields)]]
-    if remaining:
-        ui_groups.append(
-            {
-                "name": "Chart-Specific",
-                "fields": remaining,
-                "defaultOpen": False,
-            }
-        )
     ui["ui:groups"] = ui_groups
 
     # Inline row hints
@@ -269,7 +474,9 @@ def get_editor_hints(chart_type: str) -> dict[str, Any]:
 
     visual = [f for f in fields if f not in set(primary) | set(annotation) | {"type"}]
     advanced = [
-        f for f in visual if _get_field_group(f, config_cls) in {"Chart-Specific", "Axis", "Grid"}
+        f
+        for f in visual
+        if _get_field_group(f, config_cls, chart_type) in {"Advanced", "Axis", "Grid"}
     ]
     suggested = [*primary, *[f for f in fields if f not in set(primary)]]
 

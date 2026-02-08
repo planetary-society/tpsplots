@@ -3,7 +3,6 @@
 import pytest
 
 from tpsplots.editor.ui_schema import (
-    FIELD_TO_GROUP,
     get_available_chart_types,
     get_chart_type_schema,
     get_ui_schema,
@@ -146,16 +145,35 @@ class TestGetAvailableChartTypes:
 
 
 class TestFieldToGroupMapping:
-    """Every config field should have a group mapping."""
+    """Every config field should resolve to a named group."""
 
     @pytest.mark.parametrize("chart_type", list(CONFIG_REGISTRY.keys()))
-    def test_all_fields_have_group_or_are_chart_specific(self, chart_type):
+    def test_all_fields_resolve_to_named_group(self, chart_type):
+        from tpsplots.editor.ui_schema import _get_field_group
+
         config_cls = CONFIG_REGISTRY[chart_type]
         for field_name in config_cls.model_fields:
-            # Either mapped to a known group or will end up in Chart-Specific
-            group = FIELD_TO_GROUP.get(field_name)
-            if group is None:
-                # Acceptable — will go to Chart-Specific group
-                pass
-            else:
-                assert isinstance(group, str)
+            group = _get_field_group(field_name, config_cls, chart_type)
+            assert isinstance(group, str)
+            assert group != "", f"{chart_type}.{field_name} resolved to empty group"
+
+    @pytest.mark.parametrize("chart_type", list(CONFIG_REGISTRY.keys()))
+    def test_no_chart_specific_group_in_ui_schema(self, chart_type):
+        """No chart type should produce a 'Chart-Specific' group after the semantic refactor."""
+        ui = get_ui_schema(chart_type)
+        group_names = [g["name"] for g in ui.get("ui:groups", [])]
+        assert "Chart-Specific" not in group_names, (
+            f"{chart_type} still has a 'Chart-Specific' group: "
+            f"{[g for g in ui['ui:groups'] if g['name'] == 'Chart-Specific']}"
+        )
+
+    @pytest.mark.parametrize("chart_type", list(CONFIG_REGISTRY.keys()))
+    def test_advanced_group_has_few_fields(self, chart_type):
+        """The 'Advanced' fallback group should have at most 3 fields per chart type."""
+        ui = get_ui_schema(chart_type)
+        for group in ui.get("ui:groups", []):
+            if group["name"] == "Advanced":
+                assert len(group["fields"]) <= 3, (
+                    f"{chart_type} 'Advanced' group has {len(group['fields'])} fields "
+                    f"(max 3): {group['fields']}"
+                )
