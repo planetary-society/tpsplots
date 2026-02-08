@@ -28,7 +28,7 @@ chart:
     - "o"
     - "o"
   markersize: 6
-  label:
+  labels:
     - "Apollo"
     - "Artemis"
   scale: billions

@@ -100,7 +100,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
 
     def _resolve_line_data(self, kwargs):
         """Extract and normalize x/y data from kwargs."""
-        data = kwargs.pop("data", kwargs.pop("df", None))
+        data = kwargs.pop("data", None)
         x = kwargs.pop("x", None)
         y = kwargs.pop("y", None)
 
@@ -126,13 +126,13 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
 
     def _resolve_line_style_options(self, kwargs, style, num_series):
         """Extract line style options with series-type defaults."""
-        color = kwargs.pop("color", kwargs.pop("c", None))
-        linestyle = kwargs.pop("linestyle", kwargs.pop("ls", None))
-        linewidth = kwargs.pop("linewidth", kwargs.pop("lw", None))
-        markersize = kwargs.pop("markersize", kwargs.pop("ms", style["marker_size"]))
+        color = kwargs.pop("color", None)
+        linestyle = kwargs.pop("linestyle", None)
+        linewidth = kwargs.pop("linewidth", None)
+        markersize = kwargs.pop("markersize", style["marker_size"])
         marker = kwargs.pop("marker", None)
         alpha = kwargs.pop("alpha", None)
-        label = kwargs.pop("label", kwargs.pop("labels", None))
+        labels = kwargs.pop("labels", None)
         series_types = kwargs.pop("series_types", None)
 
         type_styles = self._get_series_type_styles(series_types, num_series)
@@ -156,7 +156,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             "markersize": markersize,
             "marker": marker,
             "alpha": alpha,
-            "label": label,
+            "labels": labels,
         }
 
     def _plot_line_series(self, ax, x_data, y_data, style_options, kwargs):
@@ -194,14 +194,14 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             if linewidths[i] is not None:
                 plot_kwargs["linewidth"] = linewidths[i]
 
-            label = style_options["label"]
-            if isinstance(label, (list, tuple)) and i < len(label):
-                series_label = label[i]
+            labels = style_options["labels"]
+            if isinstance(labels, (list, tuple)) and i < len(labels):
+                series_label = labels[i]
                 plot_kwargs["label"] = series_label
-            elif isinstance(label, str) and i == 0:
-                series_label = label
+            elif isinstance(labels, str) and i == 0:
+                series_label = labels
                 plot_kwargs["label"] = series_label
-            elif label is None:
+            elif labels is None:
                 series_label = f"Series {i + 1}"
                 plot_kwargs["label"] = series_label
             else:
@@ -254,22 +254,18 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
 
             data : pd.DataFrame (optional)
                 DataFrame containing the data columns
-                Also accepts 'df' as parameter name
 
             Styling Parameters:
             -------------------
             color : str, list of str
                 Line colors. Can be single color or list for multiple lines
                 Accepts standard matplotlib colors or ChartView.COLORS keys
-                Also accepts 'c' as parameter name
 
             linestyle : str, list of str
                 Line styles ('-', '--', ':', '-.', etc.)
-                Also accepts 'ls' as parameter name
 
             linewidth : float
                 Width of lines (default from style)
-                Also accepts 'lw' as parameter name
 
             marker : str, list of str
                 Marker styles ('o', 's', '^', None, etc.)
@@ -277,15 +273,13 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
 
             markersize : float
                 Size of markers (default from style)
-                Also accepts 'ms' as parameter name
 
             alpha : float, list of float
                 Transparency (0=transparent, 1=opaque)
                 Can be single value or list for multiple lines
 
-            label : str, list of str
+            labels : str, list of str
                 Legend labels for lines
-                Also accepts 'labels' as parameter name
 
             Axis Configuration:
             -------------------
@@ -318,11 +312,9 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
 
             x_tick_format : str
                 Python format spec for x-axis ticks (e.g., ".1f", ",.0f")
-                Also accepts 'x_axis_format' as an alias.
 
             y_tick_format : str
                 Python format spec for y-axis ticks (e.g., ",.0f")
-                Also accepts 'y_axis_format' as an alias.
 
             Grid and Formatting:
             --------------------
@@ -375,7 +367,6 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
                 - Single value
                 - List of values
                 - Dict mapping y-values to line kwargs
-                Also accepts 'horizontal_lines' as parameter name
 
             hline_colors : str or list
                 Colors for horizontal lines
@@ -434,7 +425,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         ...     stem="sales_chart",
         ...     x=["Jan", "Feb", "Mar"],
         ...     y=[[100, 150, 130], [80, 110, 140]],
-        ...     label=["Product A", "Product B"],
+        ...     labels=["Product A", "Product B"],
         ...     color=["blue", "red"],
         ... )
 
@@ -468,7 +459,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         ...     stem="budget",
         ...     x=years,
         ...     y=[proposed, actual],
-        ...     label=["Proposed", "Actual"],
+        ...     labels=["Proposed", "Actual"],
         ...     legend=False,
         ...     direct_line_labels={
         ...         "position": "right",
@@ -484,7 +475,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         ...     stem="multi",
         ...     x=dates,
         ...     y=[series_a, series_b],
-        ...     label=["Series A", "Series B"],
+        ...     labels=["Series A", "Series B"],
         ...     legend=False,
         ...     direct_line_labels={
         ...         "position": "right",
@@ -786,7 +777,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
                 - hline_label_fontsize: int - Font size for line labels
                 - hline_label_bbox: bool - Whether to add background box to labels
         """
-        hlines = kwargs.pop("hlines", kwargs.pop("horizontal_lines", None))
+        hlines = kwargs.pop("hlines", None)
 
         if hlines is None:
             return

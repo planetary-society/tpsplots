@@ -318,7 +318,7 @@ class ChinaComparisonCharts(ChartController):
             "source": "CNSA Technical Papers and Releases; NASA Mission Database",
             "x": ["2000s", "2010s", "2020s"],
             "y": [china_mass_values, us_mass_values],
-            "label": ["China", "United States"],
+            "labels": ["China", "United States"],
             "marker": "o",
             "markersize": 8,
             "color": [TPS_COLORS["Medium Neptune"], COLORS["blue"]],

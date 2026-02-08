@@ -49,7 +49,7 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
             - end_marker_edgecolor: str/list - Edge color(s) for end markers
             - start_marker_edgewidth: float - Edge width for start markers
             - end_marker_edgewidth: float - Edge width for end markers
-            - line_style: str - Line style for stems (default: '-')
+            - linestyle: str - Line style for stems (default: '-')
             - alpha: float - Transparency (default: 1.0)
             - sort_by: str - Sort categories by 'start', 'end', 'range', or None (default: None)
             - sort_ascending: bool - Sort direction if sort_by is specified (default: False)
@@ -114,7 +114,7 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
 
         # Extract colors and line styles early so they can be sorted along with the data
         colors = kwargs.pop("colors", None)
-        linestyle = kwargs.pop("linestyle", kwargs.pop("line_style", "-"))
+        linestyle = kwargs.pop("linestyle", "-")
 
         # Handle sorting if requested
         sort_by = kwargs.pop("sort_by", None)

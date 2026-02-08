@@ -39,7 +39,7 @@ class ParametersConfig(BaseModel):
         None, description="Line width specification"
     )
     marker: str | list[str] | None = Field(None, description="Marker specification")
-    label: str | list[str] | None = Field(None, description="Label specification")
+    labels: str | list[str] | None = Field(None, description="Label specification")
 
     # Axis configuration
     xlim: list[float] | str | None = Field(

@@ -76,9 +76,6 @@ class GroupedBarChartConfig(
             "total group width = width x num_groups"
         ),
     )
-    bar_width: float | None = Field(
-        None, description="Width of each bar (legacy alias for width). Default: 0.35"
-    )
     alpha: float | None = Field(None, description="Bar transparency (0.0-1.0)")
     edgecolor: str | None = Field(None, description="Bar edge color")
     linewidth: float | None = Field(None, description="Bar edge line width")
@@ -98,12 +95,4 @@ class GroupedBarChartConfig(
             "Text prepended before each formatted value label. Default: '' (empty). "
             "Examples: '$', '~'. Combined with value_suffix for full formatting"
         ),
-    )
-
-    # --- Legacy tick format aliases ---
-    x_axis_format: str | None = Field(
-        None, description="X-axis tick format (legacy alias for x_tick_format)"
-    )
-    y_axis_format: str | None = Field(
-        None, description="Y-axis tick format (legacy alias for y_tick_format)"
     )

@@ -96,11 +96,3 @@ class StackedBarChartConfig(
     bottom_values: list | None = Field(
         None, description="Custom bottom values for stacking (advanced use)"
     )
-
-    # --- Legacy tick format aliases ---
-    x_axis_format: str | None = Field(
-        None, description="X-axis tick format (legacy alias for x_tick_format)"
-    )
-    y_axis_format: str | None = Field(
-        None, description="Y-axis tick format (legacy alias for y_tick_format)"
-    )

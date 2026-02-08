@@ -30,7 +30,7 @@ chart:
   x: "{{Year}}"
   y: ["{{Value1}}", "{{Value2}}"]
   color: [NeptuneBlue, RocketFlame]
-  label: ["Series A", "Series B"]
+  labels: ["Series A", "Series B"]
 ```
 
 ### 2. Generate the Chart
@@ -112,7 +112,7 @@ chart:
   color: [NeptuneBlue, RocketFlame]
   linestyle: ["-", "-"]
   marker: ["", "o"]
-  label: ["", "Proposed"]
+  labels: ["", "Proposed"]
   xlim: "{{xlim}}"
   ylim: "{{ylim}}"
   scale: billions
@@ -265,7 +265,7 @@ chart:
   linestyle: "{{linestyles}}"
   linewidth: "{{linewidths}}"
   marker: "{{markers}}"
-  label: "{{labels}}"
+  labels: "{{labels}}"
   ylim: [0, 6000]
   ylabel: "Cumulative New Contracts Awarded"
   label_size: 13
@@ -283,8 +283,8 @@ chart:
 
 | Type | Description | Key Parameters |
 |------|-------------|----------------|
-| `line` | Multi-series line charts | `x`, `y`, `color`, `linestyle`, `marker`, `label` |
-| `scatter` | Scatter plots (line chart variant) | `x`, `y`, `color`, `marker`, `label` |
+| `line` | Multi-series line charts | `x`, `y`, `color`, `linestyle`, `marker`, `labels` |
+| `scatter` | Scatter plots (line chart variant) | `x`, `y`, `color`, `marker`, `labels` |
 | `bar` | Vertical or horizontal bars | `categories`, `values`, `orientation`, `colors` |
 | `donut` | Donut/pie charts | `values`, `labels`, `hole_size`, `center_text` |
 | `lollipop` | Timeline/range visualization | `categories`, `start_values`, `end_values`, `colors` |

@@ -22,8 +22,8 @@ class ScatterChartView(LineChartView):
         scatter_kwargs = kwargs.copy()
         scatter_kwargs.setdefault("marker", "o")
 
-        # Respect either alias if user explicitly passes a line style.
-        if "linestyle" not in scatter_kwargs and "ls" not in scatter_kwargs:
+        # Respect explicit line style if provided.
+        if "linestyle" not in scatter_kwargs:
             scatter_kwargs["linestyle"] = "None"
 
         return self.generate_chart(metadata, stem, **scatter_kwargs)

@@ -15,7 +15,7 @@ chart:
   color: ["#037CC2", "#FF5D47"]
   linestyle: ["-", "-"]
   marker: ["", "o"]
-  label: ["", "2026 White House proposal"]
+  labels: ["", "2026 White House proposal"]
   xlim: "{{xlim}}"
   ylim: "{{ylim}}"
   legend: {"loc": "lower right"}
