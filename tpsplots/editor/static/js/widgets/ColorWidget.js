@@ -2,7 +2,7 @@
  * TPS color widget.
  * Supports both single color and list-of-colors fields based on schema types.
  */
-import { useState, useMemo, useEffect, useCallback, createElement } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, createElement } from "react";
 import htm from "htm";
 
 const html = htm.bind(createElement);
@@ -49,6 +49,10 @@ export function ColorWidget(props) {
   const [singleInput, setSingleInput] = useState(typeof value === "string" ? value : "");
   const [multiInput, setMultiInput] = useState("");
   const [multiList, setMultiList] = useState(Array.isArray(value) ? dedupeColors(value) : []);
+  const modeCacheRef = useRef({
+    single: typeof value === "string" ? normalizeColorToken(value) : "",
+    multi: Array.isArray(value) ? dedupeColors(value) : [],
+  });
 
   useEffect(() => {
     if (!supportsSingle && supportsArray && mode !== "multi") {
@@ -57,25 +61,42 @@ export function ColorWidget(props) {
   }, [supportsSingle, supportsArray, mode]);
 
   useEffect(() => {
+    modeCacheRef.current.single = singleInput;
+  }, [singleInput]);
+
+  useEffect(() => {
+    modeCacheRef.current.multi = multiList;
+  }, [multiList]);
+
+  useEffect(() => {
     if (Array.isArray(value)) {
       const nextList = dedupeColors(value);
       setMultiList(nextList);
+      modeCacheRef.current.multi = nextList;
       if (supportsArray) setMode("multi");
       setSingleInput(nextList[0] || "");
+      modeCacheRef.current.single = nextList[0] || "";
       return;
     }
 
     if (typeof value === "string") {
       const nextSingle = normalizeColorToken(value);
       setSingleInput(nextSingle);
+      modeCacheRef.current.single = nextSingle;
       if (supportsArray && !supportsSingle) {
-        setMultiList(nextSingle ? [nextSingle] : []);
+        const nextList = nextSingle ? [nextSingle] : [];
+        setMultiList(nextList);
+        modeCacheRef.current.multi = nextList;
       }
       return;
     }
 
     setSingleInput("");
-    setMultiList([]);
+    modeCacheRef.current.single = "";
+    if (!supportsSingle && supportsArray) {
+      setMultiList([]);
+      modeCacheRef.current.multi = [];
+    }
   }, [value, supportsArray, supportsSingle]);
 
   const commitSingle = useCallback((nextValue) => {
@@ -109,13 +130,16 @@ export function ColorWidget(props) {
     setMode(nextMode);
 
     if (nextMode === "multi") {
+      const cachedMulti = modeCacheRef.current.multi;
       const seed = normalizeColorToken(singleInput);
-      const nextList = dedupeColors(seed ? [seed, ...multiList] : multiList);
+      const baseline = cachedMulti.length > 0 ? cachedMulti : multiList;
+      const nextList = dedupeColors(seed ? [seed, ...baseline] : baseline);
       commitMulti(nextList);
       return;
     }
 
-    const fallback = normalizeColorToken(singleInput) || multiList[0] || "";
+    const cachedSingle = modeCacheRef.current.single;
+    const fallback = normalizeColorToken(cachedSingle) || normalizeColorToken(singleInput) || multiList[0] || "";
     commitSingle(fallback);
   }, [mode, singleInput, multiList, commitSingle, commitMulti]);
 

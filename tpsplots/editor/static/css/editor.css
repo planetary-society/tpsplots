@@ -751,6 +751,14 @@ select {
   width: 100%;
 }
 
+input.field-input-mono,
+select.field-input-mono,
+textarea.field-input-mono,
+.template-chip-input-wrap .template-chip-input.field-input-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+}
+
 .template-chip-input-wrap {
   position: relative;
   width: 100%;

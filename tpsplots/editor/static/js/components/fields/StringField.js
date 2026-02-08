@@ -8,7 +8,7 @@ import { formatFieldLabel, yamlKeyTooltip } from "./fieldLabelUtils.js";
 
 const html = htm.bind(createElement);
 
-export function StringField({ name, schema, value, onChange, uiSchema }) {
+export function StringField({ name, schema, value, onChange, uiSchema, rawTextMode = false }) {
   const handleChange = useCallback(
     (e) => onChange(e.target.value || undefined),
     [onChange]
@@ -18,12 +18,13 @@ export function StringField({ name, schema, value, onChange, uiSchema }) {
   const help = uiSchema?.["ui:help"];
   const label = formatFieldLabel(name, schema);
   const labelTitle = yamlKeyTooltip(name);
+  const inputClass = rawTextMode ? "field-input field-input-mono" : "field-input";
 
   if (enums) {
     return html`
       <div class="field-row">
         <label class="field-label" for=${name} title=${labelTitle}>${label}</label>
-        <select id=${name} class="field-input" value=${value ?? ""} onChange=${handleChange}>
+        <select id=${name} class=${inputClass} value=${value ?? ""} onChange=${handleChange}>
           <option value="">— none —</option>
           ${enums.map(v => html`<option key=${v} value=${v}>${v}</option>`)}
         </select>
@@ -37,7 +38,7 @@ export function StringField({ name, schema, value, onChange, uiSchema }) {
       <label class="field-label" for=${name} title=${labelTitle}>${label}</label>
       <${TemplateChipInput}
         id=${name}
-        class="field-input"
+        class=${inputClass}
         value=${value ?? ""}
         onInput=${handleChange}
         placeholder=${schema?.default ?? ""}

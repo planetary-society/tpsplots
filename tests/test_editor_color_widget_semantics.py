@@ -18,3 +18,12 @@ def test_color_widget_supports_schema_driven_multi_mode():
 def test_schema_form_passes_effective_schema_to_custom_widgets():
     src = _read("tpsplots/editor/static/js/components/SchemaForm.js")
     assert "schema=${effectiveSchema}" in src
+
+
+def test_color_widget_caches_values_per_mode_for_toggle_roundtrips():
+    src = _read("tpsplots/editor/static/js/widgets/ColorWidget.js")
+    assert "const modeCacheRef = useRef({" in src
+    assert "modeCacheRef.current.single = singleInput;" in src
+    assert "modeCacheRef.current.multi = multiList;" in src
+    assert "const cachedMulti = modeCacheRef.current.multi;" in src
+    assert "const cachedSingle = modeCacheRef.current.single;" in src
