@@ -6,6 +6,7 @@ import { html } from "../lib/html.js";
 
 import { SchemaForm } from "./SchemaForm.js";
 import { ColorWidget } from "../widgets/ColorWidget.js";
+import { LegendBuilderWidget } from "../widgets/LegendBuilderWidget.js";
 
 const DEFAULT_HIDDEN_FIELDS = new Set(["title", "subtitle", "source", "output", "type"]);
 
@@ -77,6 +78,7 @@ export function ChartForm({
             ...fieldUi["ui:options"],
             tpsColors: colors?.tps_colors || {},
             semanticColors: colors?.colors || {},
+            colorSemantics: colors?.color_semantics || {},
           },
         };
       }
@@ -85,7 +87,10 @@ export function ChartForm({
     return enhanced;
   }, [uiSchema, colors]);
 
-  const widgets = useMemo(() => ({ tpsColor: ColorWidget }), []);
+  const widgets = useMemo(
+    () => ({ tpsColor: ColorWidget, legendBuilder: LegendBuilderWidget }),
+    []
+  );
 
   const filtered = useMemo(
     () => filterSchemaAndUi(schema, enhancedUiSchema, includeFields, excludeFields),

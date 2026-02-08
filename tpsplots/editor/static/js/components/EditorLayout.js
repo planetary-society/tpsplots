@@ -6,6 +6,7 @@ import { html } from "../lib/html.js";
 
 import { Header } from "./Header.js";
 import { ChartForm } from "./ChartForm.js";
+import { TieredVisualDesign } from "./TieredVisualDesign.js";
 import { MetadataSection } from "./MetadataSection.js";
 import { PreviewPanel } from "./PreviewPanel.js";
 import { ValidationSummary } from "./ValidationSummary.js";
@@ -70,6 +71,24 @@ export function EditorLayout(props) {
     [editorHints]
   );
 
+  // Detect multi-series mode: when trigger field (y) is an array with 2+ items,
+  // the series editor in Step 2 handles correlated fields — exclude them from Step 3.
+  const seriesCorrelated = editorHints?.series_correlated_fields;
+  const isMultiSeries = useMemo(() => {
+    if (!seriesCorrelated) return false;
+    const trigger = formData?.[seriesCorrelated.trigger_field];
+    return Array.isArray(trigger) && trigger.length >= 2;
+  }, [seriesCorrelated, formData]);
+
+  const seriesExcludedFields = useMemo(() => {
+    if (!isMultiSeries || !seriesCorrelated?.correlated) return null;
+    return seriesCorrelated.correlated;
+  }, [isMultiSeries, seriesCorrelated]);
+
+  const fieldTiers = editorHints?.field_tiers;
+  const compositeWidgets = editorHints?.composite_widgets;
+  const hasTiers = fieldTiers && (fieldTiers.essential?.length > 0 || fieldTiers.common?.length > 0);
+
   const dataReady = stepStatus?.data_source_and_preparation === "complete";
   const toggleStep = useCallback(
     (stepId, isOpen) => {
@@ -94,7 +113,22 @@ export function EditorLayout(props) {
     }
 
     if (stepId === 2) {
+      const guidance = editorHints?.guidance;
       return html`
+        ${guidance &&
+        html`
+          <details class="guidance-panel">
+            <summary class="guidance-summary">Quick Start: ${chartType} chart</summary>
+            <p class="guidance-desc">${guidance.description}</p>
+            <ol class="guidance-steps">
+              ${guidance.workflow?.map(
+                (step, i) => html`<li key=${i}>${step}</li>`
+              )}
+            </ol>
+            ${guidance.tip &&
+            html`<p class="guidance-tip">${guidance.tip}</p>`}
+          </details>
+        `}
         <${BindingStep}
           schema=${schema}
           uiSchema=${uiSchema}
@@ -114,14 +148,29 @@ export function EditorLayout(props) {
             <h3>Visual Design</h3>
             <p>Tune styling, scales, legends, and axis behavior.</p>
           </div>
-          <${ChartForm}
-            schema=${schema}
-            uiSchema=${uiSchema}
-            formData=${formData}
-            colors=${colors}
-            onFormDataChange=${onFormDataChange}
-            includeFields=${visualDesignFields}
-          />
+          ${hasTiers
+            ? html`
+                <${TieredVisualDesign}
+                  schema=${schema}
+                  uiSchema=${uiSchema}
+                  formData=${formData}
+                  colors=${colors}
+                  onFormDataChange=${onFormDataChange}
+                  fieldTiers=${fieldTiers}
+                  compositeWidgets=${compositeWidgets}
+                  seriesExcluded=${seriesExcludedFields}
+                />
+              `
+            : html`
+                <${ChartForm}
+                  schema=${schema}
+                  uiSchema=${uiSchema}
+                  formData=${formData}
+                  colors=${colors}
+                  onFormDataChange=${onFormDataChange}
+                  includeFields=${visualDesignFields}
+                />
+              `}
         </section>
       `;
     }

@@ -82,7 +82,7 @@ function stringifyForText(value) {
       return value
         .map((item) => (item == null ? "" : String(item)))
         .filter((item) => item.trim() !== "")
-        .join(",");
+        .join(", ");
     }
     try {
       return JSON.stringify(value);
@@ -111,6 +111,14 @@ function parseStringAsArray(value) {
     } catch {
       // Fall through to comma parsing.
     }
+  }
+
+  // If the value looks like comma-separated template refs (e.g. "{{col1}},{{col2}}"),
+  // split on ref boundaries to preserve column names that may contain commas.
+  const MULTI_REF_RE = /^\s*\{\{[^{}]+\}\}\s*(,\s*\{\{[^{}]+\}\}\s*)*$/;
+  if (MULTI_REF_RE.test(trimmed)) {
+    const refs = trimmed.match(/\{\{[^{}]+\}\}/g);
+    return refs || [trimmed];
   }
 
   const parts = trimmed.split(",").map((item) => item.trim()).filter(Boolean);

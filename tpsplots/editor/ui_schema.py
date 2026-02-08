@@ -341,6 +341,237 @@ PRIMARY_BINDING_FIELDS: dict[str, list[str]] = {
     "line_subplots": ["subplot_data"],
 }
 
+# ---------------------------------------------------------------------------
+# Field tiers: frequency-based prioritisation for progressive disclosure.
+# "essential" = 60%+ real-world usage → always visible in Step 3.
+# "common"    = 20-60% usage → one-click expand.
+# Everything else falls through to "advanced" (collapsed).
+# ---------------------------------------------------------------------------
+
+FIELD_TIERS: dict[str, dict[str, list[str]]] = {
+    "line": {
+        "essential": ["color", "labels", "scale", "legend", "xlim", "ylim"],
+        "common": [
+            "linestyle",
+            "marker",
+            "linewidth",
+            "tick_size",
+            "max_xticks",
+            "markersize",
+            "direct_line_labels",
+        ],
+    },
+    "scatter": {
+        "essential": ["color", "labels", "scale", "legend", "xlim", "ylim"],
+        "common": ["marker", "markersize", "linewidth", "tick_size"],
+    },
+    "grouped_bar": {
+        "essential": ["colors", "labels", "show_values", "value_format", "scale", "legend"],
+        "common": ["width", "value_fontsize", "tick_size", "ylim"],
+    },
+    "bar": {
+        "essential": ["colors", "show_values", "value_format", "scale", "legend"],
+        "common": ["orientation", "negative_color", "sort_by", "tick_size", "ylim", "xlabel"],
+    },
+    "stacked_bar": {
+        "essential": ["colors", "labels", "show_values", "value_format", "scale", "legend"],
+        "common": ["stack_labels", "tick_size", "ylim"],
+    },
+    "lollipop": {
+        "essential": [
+            "colors",
+            "sort_by",
+            "sort_ascending",
+            "end_marker_style",
+            "end_marker_color",
+        ],
+        "common": [
+            "marker_size",
+            "y_axis_position",
+            "hide_y_spine",
+            "grid_axis",
+            "start_value_labels",
+            "end_value_labels",
+            "range_labels",
+            "category_wrap_length",
+        ],
+    },
+    "donut": {
+        "essential": ["colors", "show_percentages", "hole_size"],
+        "common": ["center_text", "center_color", "label_distance"],
+    },
+    "waffle": {
+        "essential": ["colors", "labels"],
+        "common": ["vertical", "starting_location", "interval_ratio_x", "interval_ratio_y"],
+    },
+    "us_map_pie": {
+        "essential": ["show_pie_labels", "show_percentages", "base_pie_size"],
+        "common": ["show_state_boundaries", "legend"],
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Per-chart-type quick-start guidance for the editor.
+# ---------------------------------------------------------------------------
+
+CHART_TYPE_GUIDANCE: dict[str, dict[str, Any]] = {
+    "line": {
+        "description": "Time-series and trend lines. Most common chart type for budget data.",
+        "workflow": [
+            "Bind x (usually fiscal year) and y (one or more value columns)",
+            "Set colors and labels for each series",
+            "Configure linestyle and marker if comparing series types",
+            "Set scale (usually \u2018billions\u2019) and xlim for axis range",
+            "Toggle legend on/off or use direct_line_labels",
+        ],
+        "tip": "For presidential comparisons, use dotted lines for requests and solid for appropriations.",
+    },
+    "scatter": {
+        "description": "Scatter plots for comparing two variables.",
+        "workflow": [
+            "Bind x and y to numeric columns",
+            "Set marker style and size",
+            "Add colors and labels for series differentiation",
+        ],
+    },
+    "grouped_bar": {
+        "description": "Side-by-side bars for comparing categories across groups.",
+        "workflow": [
+            "Bind categories (x-axis labels) and groups (data series)",
+            "Set colors for each group",
+            "Enable show_values and set value_format for bar labels",
+            "Configure legend position",
+        ],
+        "tip": "Use value_format: monetary with scale: billions for budget charts.",
+    },
+    "bar": {
+        "description": "Simple bar charts for single-series comparisons.",
+        "workflow": [
+            "Bind categories and values",
+            "Set colors (use negative_color for deficit highlighting)",
+            "Enable show_values with appropriate value_format",
+        ],
+    },
+    "stacked_bar": {
+        "description": "Stacked bars for showing composition within categories.",
+        "workflow": [
+            "Bind categories and values (multiple series stack automatically)",
+            "Set colors and labels for each stack segment",
+            "Enable show_values and configure stack_labels for totals",
+        ],
+    },
+    "lollipop": {
+        "description": "Range charts showing start-to-end values per category.",
+        "workflow": [
+            "Bind categories, start_values, and end_values",
+            "Configure sort_by and sort_ascending for ordering",
+            "Set end_marker_style (e.g., \u2018X\u2019 for cancellations)",
+            "Enable value labels for start/end annotations",
+        ],
+        "tip": "Use y_axis_position: right with hide_y_spine for clean label placement.",
+    },
+    "donut": {
+        "description": "Proportional donut charts for showing composition.",
+        "workflow": [
+            "Bind labels and values",
+            "Set colors and toggle show_percentages",
+            "Configure hole_size, center_text, and center_color",
+        ],
+    },
+    "waffle": {
+        "description": "Waffle charts for part-of-whole visualisation.",
+        "workflow": [
+            "Bind values",
+            "Set colors and labels",
+            "Configure grid layout (vertical, starting_location)",
+        ],
+    },
+    "us_map_pie": {
+        "description": "Geographic pie charts overlaid on a U.S. state map.",
+        "workflow": [
+            "Bind state_data and pie_values from controller",
+            "Configure base_pie_size and display options",
+            "Toggle show_state_boundaries and show_pie_labels",
+        ],
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Series-correlated fields: when the trigger field is an array, these fields
+# should be edited together per-series in a unified table editor.
+# ---------------------------------------------------------------------------
+
+_SERIES_CORRELATED: dict[str, dict[str, Any]] = {
+    "line": {
+        "trigger_field": "y",
+        "correlated": [
+            "color",
+            "labels",
+            "linestyle",
+            "linewidth",
+            "marker",
+            "markersize",
+            "alpha",
+        ],
+    },
+    "scatter": {
+        "trigger_field": "y",
+        "correlated": [
+            "color",
+            "labels",
+            "linestyle",
+            "linewidth",
+            "marker",
+            "markersize",
+            "alpha",
+        ],
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Composite widgets: groups of related array fields that should be edited as
+# a single unified control instead of individual array fields.
+# ---------------------------------------------------------------------------
+
+_COMPOSITE_WIDGETS: dict[str, dict[str, dict[str, Any]]] = {
+    "line": {
+        "reference_lines": {
+            "fields": [
+                "hlines",
+                "hline_labels",
+                "hline_colors",
+                "hline_styles",
+                "hline_widths",
+                "hline_alpha",
+            ],
+            "global_fields": [
+                "hline_label_position",
+                "hline_label_offset",
+                "hline_label_fontsize",
+                "hline_label_bbox",
+            ],
+        },
+    },
+    "scatter": {
+        "reference_lines": {
+            "fields": [
+                "hlines",
+                "hline_labels",
+                "hline_colors",
+                "hline_styles",
+                "hline_widths",
+                "hline_alpha",
+            ],
+            "global_fields": [
+                "hline_label_position",
+                "hline_label_offset",
+                "hline_label_fontsize",
+                "hline_label_bbox",
+            ],
+        },
+    },
+}
+
 
 def get_chart_type_schema(chart_type: str) -> dict[str, Any]:
     """Return a cleaned JSON Schema for a single chart type.
@@ -405,6 +636,9 @@ def get_ui_schema(chart_type: str) -> dict[str, Any]:
 
         if field_name in _COLOR_FIELDS:
             field_ui["ui:widget"] = "tpsColor"
+
+        if field_name == "legend":
+            field_ui["ui:widget"] = "legendBuilder"
 
         # Help text from field description
         info = field_infos.get(field_name)
@@ -480,7 +714,14 @@ def get_editor_hints(chart_type: str) -> dict[str, Any]:
     ]
     suggested = [*primary, *[f for f in fields if f not in set(primary)]]
 
-    return {
+    # 3-tier field prioritisation
+    tiers = FIELD_TIERS.get(chart_type, {})
+    essential = [f for f in tiers.get("essential", []) if f in visual]
+    common = [f for f in tiers.get("common", []) if f in visual]
+    tier_promoted = set(essential) | set(common)
+    advanced_from_tiers = [f for f in visual if f not in tier_promoted]
+
+    hints: dict[str, Any] = {
         "primary_binding_fields": primary,
         "step_field_map": {
             "data_source_and_preparation": [
@@ -494,7 +735,26 @@ def get_editor_hints(chart_type: str) -> dict[str, Any]:
         },
         "advanced_fields": advanced,
         "suggested_field_order": suggested,
+        "field_tiers": {
+            "essential": essential,
+            "common": common,
+            "advanced": advanced_from_tiers,
+        },
     }
+
+    # Series-correlated fields for multi-series editing
+    if chart_type in _SERIES_CORRELATED:
+        hints["series_correlated_fields"] = _SERIES_CORRELATED[chart_type]
+
+    # Composite widgets (e.g. reference line builder)
+    if chart_type in _COMPOSITE_WIDGETS:
+        hints["composite_widgets"] = _COMPOSITE_WIDGETS[chart_type]
+
+    # Quick-start guidance
+    if chart_type in CHART_TYPE_GUIDANCE:
+        hints["guidance"] = CHART_TYPE_GUIDANCE[chart_type]
+
+    return hints
 
 
 def get_data_source_schema() -> dict[str, Any]:

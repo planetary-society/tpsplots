@@ -33,6 +33,78 @@ function collectAllowedTypes(schema) {
   return types;
 }
 
+const GROUP_LABELS = { brand: "Brand", neutral: "Neutral", accent: "Accent" };
+const GROUP_ORDER = ["brand", "neutral", "accent"];
+
+function ColorSwatchGroups({ tpsColors, colorSemantics, selected, onSwatchClick }) {
+  const grouped = useMemo(() => {
+    const groups = { brand: [], neutral: [], accent: [] };
+    for (const [name, hex] of Object.entries(tpsColors || {})) {
+      const meta = colorSemantics?.[name];
+      const group = meta?.group || "accent";
+      if (groups[group]) {
+        groups[group].push({ name, hex, usage: meta?.usage || "" });
+      }
+    }
+    return groups;
+  }, [tpsColors, colorSemantics]);
+
+  // If no semantics data, fall back to flat swatch row
+  if (!colorSemantics || Object.keys(colorSemantics).length === 0) {
+    return html`
+      <div class="swatch-row">
+        ${Object.entries(tpsColors || {}).map(([name, hex]) => html`
+          <button
+            key=${name}
+            type="button"
+            class="swatch ${selected.has(name) ? "selected" : ""}"
+            aria-pressed=${selected.has(name)}
+            style=${{ backgroundColor: hex }}
+            title=${name}
+            onClick=${() => onSwatchClick(name)}
+          >
+            ${selected.has(name) ? html`<span class="swatch-check">\u2713</span>` : null}
+          </button>
+        `)}
+      </div>
+    `;
+  }
+
+  return html`
+    <div class="swatch-groups">
+      ${GROUP_ORDER.map(
+        (groupKey) =>
+          grouped[groupKey]?.length > 0 &&
+          html`
+            <div key=${groupKey} class="swatch-group swatch-group-${groupKey}">
+              <div class="swatch-group-label">${GROUP_LABELS[groupKey]}</div>
+              <div class="swatch-row">
+                ${grouped[groupKey].map(
+                  ({ name, hex, usage }) => html`
+                    <div key=${name} class="swatch-item">
+                      <button
+                        type="button"
+                        class="swatch ${groupKey === "brand" ? "swatch-brand" : ""} ${selected.has(name) ? "selected" : ""}"
+                        aria-pressed=${selected.has(name)}
+                        style=${{ backgroundColor: hex }}
+                        title=${usage ? `${name}: ${usage}` : name}
+                        onClick=${() => onSwatchClick(name)}
+                      >
+                        ${selected.has(name) ? html`<span class="swatch-check">\u2713</span>` : null}
+                      </button>
+                      ${groupKey === "brand" &&
+                      html`<span class="swatch-name">${name.split(" ")[0]}</span>`}
+                    </div>
+                  `
+                )}
+              </div>
+            </div>
+          `
+      )}
+    </div>
+  `;
+}
+
 export function ColorWidget(props) {
   const { value, onChange, options, schema } = props;
   const tpsColors = options?.tpsColors || {};
@@ -184,21 +256,12 @@ export function ColorWidget(props) {
         </div>
       `}
 
-      <div class="swatch-row">
-        ${Object.entries(tpsColors).map(([name, hex]) => html`
-          <button
-            key=${name}
-            type="button"
-            class="swatch ${selected.has(name) ? "selected" : ""}"
-            aria-pressed=${selected.has(name)}
-            style=${{ backgroundColor: hex }}
-            title=${name}
-            onClick=${() => handleSwatchClick(name)}
-          >
-            ${selected.has(name) ? html`<span class="swatch-check">\u2713</span>` : null}
-          </button>
-        `)}
-      </div>
+      <${ColorSwatchGroups}
+        tpsColors=${tpsColors}
+        colorSemantics=${options?.colorSemantics}
+        selected=${selected}
+        onSwatchClick=${handleSwatchClick}
+      />
 
       <div class="hex-input-row">
         <span
