@@ -116,7 +116,9 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             x_data = x
             y_data = y
 
-        if y_data is None and isinstance(x_data, (list, tuple, np.ndarray, pd.Series, ExtensionArray)):
+        if y_data is None and isinstance(
+            x_data, (list, tuple, np.ndarray, pd.Series, ExtensionArray)
+        ):
             y_data = [x_data]
             x_data = np.arange(len(x_data))
         else:
@@ -498,7 +500,9 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
 
         x_data, y_data = self._resolve_line_data(kwargs)
 
-        style_options = self._resolve_line_style_options(kwargs, style, len(y_data) if y_data else 0)
+        style_options = self._resolve_line_style_options(
+            kwargs, style, len(y_data) if y_data else 0
+        )
 
         line_colors = []
         line_labels = []
@@ -664,7 +668,9 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
         plt.setp(ax.get_yticklabels(), fontsize=tick_size)
 
-        is_categorical = x_data is not None and len(x_data) > 0 and isinstance(next(iter(x_data)), str)
+        is_categorical = (
+            x_data is not None and len(x_data) > 0 and isinstance(next(iter(x_data)), str)
+        )
         if max_xticks and not is_categorical:
             ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
         elif is_categorical and max_xticks and len(x_data) > max_xticks:
@@ -705,9 +711,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             ax.set_xticks(opts["xticks"])
             if opts["xticklabels"] is not None:
                 ax.set_xticklabels(opts["xticklabels"])
-            elif all(
-                isinstance(x, (int, float)) and float(x).is_integer() for x in opts["xticks"]
-            ):
+            elif all(isinstance(x, (int, float)) and float(x).is_integer() for x in opts["xticks"]):
                 ax.set_xticklabels([f"{int(x)}" for x in opts["xticks"]])
 
         self._apply_tick_format_specs(
@@ -719,15 +723,17 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
 
     def _apply_line_label_strategy(self, ax, style, fig, opts, kwargs):
         """Apply direct line labels or legend based on options."""
-        if opts["direct_line_labels"] and opts["y_data"] is not None and opts["line_colors"] and opts[
-            "line_labels"
-        ]:
+        if (
+            opts["direct_line_labels"]
+            and opts["y_data"] is not None
+            and opts["line_colors"]
+            and opts["line_labels"]
+        ):
             if fig:
                 try:
-                    fig.tight_layout(rect=[0, 0.0, 1, 1.0])
-                    fig.canvas.draw()
+                    fig.canvas.get_renderer()
                 except Exception as e:
-                    logger.warning(f"Failed to draw canvas before label placement: {e}")
+                    logger.warning(f"Failed to get renderer before label placement: {e}")
 
             self._add_direct_line_endpoint_labels(
                 ax,

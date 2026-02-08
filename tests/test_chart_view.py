@@ -162,6 +162,7 @@ def test_add_logo_uses_non_smoothed_raster_settings(tmp_path, monkeypatch):
 
     monkeypatch.setattr(chart_view_module, "IMAGES_DIR", image_dir)
     monkeypatch.setattr(chart_view_module, "OffsetImage", capture_offset_image)
+    monkeypatch.setattr(ChartView, "_cached_logo", None)
 
     view._add_logo(fig, {"logo_zoom": 0.08, "logo_x": 0.01, "logo_y": 0.005})
 
