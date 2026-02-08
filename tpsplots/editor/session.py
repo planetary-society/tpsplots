@@ -7,6 +7,7 @@ import io
 import logging
 from collections.abc import Mapping, MutableMapping
 from copy import deepcopy
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -317,6 +318,11 @@ def _clean_form_data(config: dict[str, Any]) -> dict[str, Any]:
     RJSF sets empty strings, empty arrays, and empty objects for
     fields that have no user-supplied value. The chart pipeline expects
     these to be absent (Pydantic defaults them to None).
+
+    Also recovers ``datetime.date`` objects from ISO date strings.
+    YAML auto-parses ``1958-01-01`` as ``datetime.date``, but the
+    JSON round-trip through the frontend converts them to strings.
+    Matplotlib needs real date objects for axis limits.
     """
     cleaned = {}
     for key, value in config.items():
@@ -328,9 +334,31 @@ def _clean_form_data(config: dict[str, Any]) -> dict[str, Any]:
             continue  # drop empty arrays (e.g. figsize: [])
         elif isinstance(value, str) and value == "":
             continue  # drop empty strings
+        elif isinstance(value, list):
+            cleaned[key] = [_coerce_date(v) if isinstance(v, str) else v for v in value]
         else:
             cleaned[key] = value
     return cleaned
+
+
+# Matches exactly YYYY-MM-DD (ISO 8601 date, no time component).
+_ISO_DATE_RE = __import__("re").compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _coerce_date(value: str) -> str | date:
+    """Convert an ISO date string to ``datetime.date`` if it matches.
+
+    YAML auto-parses unquoted ``2024-01-15`` as a date object. After a
+    JSON round-trip through the editor frontend, these become strings.
+    This function recovers the original date type so matplotlib axis
+    limits and other date-sensitive code works correctly.
+    """
+    if _ISO_DATE_RE.match(value):
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            pass
+    return value
 
 
 def _extract_pydantic_errors(exc: Exception) -> list[dict[str, Any]]:

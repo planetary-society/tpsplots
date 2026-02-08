@@ -220,3 +220,26 @@ class TestCleanFormData:
             {"data": {"source": "test.csv", "extra": ""}, "chart": {"type": "bar"}}
         )
         assert result == {"data": {"source": "test.csv"}, "chart": {"type": "bar"}}
+
+    def test_coerces_iso_date_strings_in_lists(self):
+        """Date strings in lists (e.g. xlim) are converted to datetime.date."""
+        from datetime import date
+
+        from tpsplots.editor.session import _clean_form_data
+
+        result = _clean_form_data({"xlim": ["1958-01-01", "2030-01-01"]})
+        assert result == {"xlim": [date(1958, 1, 1), date(2030, 1, 1)]}
+
+    def test_leaves_non_date_strings_in_lists(self):
+        """Regular strings in lists are not converted."""
+        from tpsplots.editor.session import _clean_form_data
+
+        result = _clean_form_data({"labels": ["Series A", "Series B"]})
+        assert result == {"labels": ["Series A", "Series B"]}
+
+    def test_leaves_partial_date_strings_as_strings(self):
+        """Strings that look date-like but aren't exact YYYY-MM-DD stay as strings."""
+        from tpsplots.editor.session import _clean_form_data
+
+        result = _clean_form_data({"colors": ["2024-01-01T00:00", "not-a-date"]})
+        assert result == {"colors": ["2024-01-01T00:00", "not-a-date"]}
