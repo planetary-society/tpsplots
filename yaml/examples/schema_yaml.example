@@ -24,7 +24,7 @@ chart:
   linestyle: "{{linestyles}}"
   linewidth: "{{linewidths}}"
   marker: "{{markers}}"
-  label: "{{labels}}"
+  labels: "{{labels}}"
 
   # Axis configuration
   ylim: [0, 2500]

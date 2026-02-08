@@ -31,7 +31,7 @@ chart:
   # y: ["{{series1}}", "{{series2}}"]
   # color: [NeptuneBlue, RocketFlame]
   # linestyle: [solid, dashed]
-  # label: ["Series 1", "Series 2"]
+  # labels: ["Series 1", "Series 2"]
 
   # === Colors ===
   # color: NeptuneBlue               # Single color or list for multi-series
@@ -92,7 +92,7 @@ chart:
 
   # === Multi-Series ===
   # y: ["{{series1}}", "{{series2}}"]
-  # label: ["Series 1", "Series 2"]
+  # labels: ["Series 1", "Series 2"]
   # color: [NeptuneBlue, RocketFlame]
 
   # === Scatter Styling ===

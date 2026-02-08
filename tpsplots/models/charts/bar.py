@@ -62,11 +62,3 @@ class BarChartConfig(
     negative_color: str | None = Field(
         None, description="Color for negative values (overrides colors)"
     )
-
-    # --- Legacy tick format aliases ---
-    x_axis_format: str | None = Field(
-        None, description="X-axis tick format (legacy alias for x_tick_format)"
-    )
-    y_axis_format: str | None = Field(
-        None, description="Y-axis tick format (legacy alias for y_tick_format)"
-    )

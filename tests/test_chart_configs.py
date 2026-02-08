@@ -80,7 +80,7 @@ class TestModelAcceptance:
             color=["red", "blue"],
             linestyle=["-", "--"],
             linewidth=[2, 3],
-            label=["A", "B"],
+            labels=["A", "B"],
             grid=True,
             legend={"loc": "upper right"},
             scale="billions",
@@ -241,6 +241,39 @@ class TestRejection:
     def test_discriminator_rejects_invalid_type(self):
         with pytest.raises(ValidationError):
             _adapter.validate_python({"type": "invalid_type", "output": "t", "title": "t"})
+
+    @pytest.mark.parametrize(
+        ("config_cls", "alias_field", "alias_value"),
+        [
+            (LineChartConfig, "df", "{{frame}}"),
+            (LineChartConfig, "c", "red"),
+            (LineChartConfig, "ls", "--"),
+            (LineChartConfig, "lw", 2.5),
+            (LineChartConfig, "ms", 8),
+            (LineChartConfig, "label", ["A", "B"]),
+            (LineChartConfig, "horizontal_lines", [100, 200]),
+            (LineChartConfig, "x_axis_format", ",.0f"),
+            (LineChartConfig, "y_axis_format", ",.0f"),
+            (ScatterChartConfig, "label", ["A", "B"]),
+            (ScatterChartConfig, "ls", "--"),
+            (GroupedBarChartConfig, "bar_width", 0.4),
+            (GroupedBarChartConfig, "x_axis_format", ",.0f"),
+            (GroupedBarChartConfig, "y_axis_format", ",.0f"),
+            (LollipopChartConfig, "line_style", ":"),
+            (LollipopChartConfig, "x_axis_format", ",.0f"),
+            (LollipopChartConfig, "y_axis_format", ",.0f"),
+            (BarChartConfig, "x_axis_format", ",.0f"),
+            (BarChartConfig, "y_axis_format", ",.0f"),
+            (StackedBarChartConfig, "x_axis_format", ",.0f"),
+            (StackedBarChartConfig, "y_axis_format", ",.0f"),
+            (LineSubplotsChartConfig, "x_axis_format", ",.0f"),
+            (LineSubplotsChartConfig, "y_axis_format", ",.0f"),
+        ],
+        ids=lambda case: f"{case.__name__}:{case}" if hasattr(case, "__name__") else str(case),
+    )
+    def test_rejects_removed_alias_fields(self, config_cls, alias_field, alias_value):
+        with pytest.raises(ValidationError):
+            config_cls(type=config_cls.model_fields["type"].default, output="t", title="t", **{alias_field: alias_value})
 
 
 # ---------------------------------------------------------------------------

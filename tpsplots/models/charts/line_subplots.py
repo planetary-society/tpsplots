@@ -97,14 +97,6 @@ class LineSubplotsChartConfig(
         ),
     )
 
-    # --- Legacy tick format aliases ---
-    x_axis_format: str | None = Field(
-        None, description="X-axis tick format (legacy alias for x_tick_format)"
-    )
-    y_axis_format: str | None = Field(
-        None, description="Y-axis tick format (legacy alias for y_tick_format)"
-    )
-
     # --- Custom ticks (passed through to subplots) ---
     xticks: list | None = Field(None, description="Custom x-axis tick positions")
     xticklabels: list[str] | None = Field(None, description="Custom x-axis tick labels")

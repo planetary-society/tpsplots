@@ -90,18 +90,13 @@ class LineChartConfig(
     x: Any = Field(None, description="X-axis data or column reference")
     y: Any = Field(None, description="Y-axis data or column reference(s)")
     data: Any = Field(None, description="DataFrame reference")
-    df: Any = Field(None, description="DataFrame reference (alias for data)")
 
     # --- Line styling ---
     color: str | list[str] | None = Field(None, description="Line color(s)")
-    c: str | list[str] | None = Field(None, description="Line color(s) (alias for color)")
     linestyle: str | list[str] | None = Field(None, description="Line style(s)")
-    ls: str | list[str] | None = Field(None, description="Line style(s) (alias for linestyle)")
     linewidth: float | list[float] | None = Field(None, description="Line width(s)")
-    lw: float | list[float] | None = Field(None, description="Line width(s) (alias for linewidth)")
     marker: str | list[str | None] | None = Field(None, description="Marker style(s)")
     markersize: float | None = Field(None, description="Marker size")
-    ms: float | None = Field(None, description="Marker size (alias for markersize)")
     alpha: float | list[float] | None = Field(
         None,
         description=(
@@ -109,8 +104,7 @@ class LineChartConfig(
             "Single value applies to all lines; list sets per-series transparency"
         ),
     )
-    label: str | list[str] | None = Field(None, description="Legend label(s)")
-    labels: str | list[str] | None = Field(None, description="Legend label(s) (alias for label)")
+    labels: str | list[str] | None = Field(None, description="Legend label(s)")
 
     # --- Series types (semantic styling) ---
     series_types: list[str] | None = Field(
@@ -139,9 +133,6 @@ class LineChartConfig(
     # --- Horizontal lines ---
     hlines: float | list | dict | None = Field(
         None, description="Y-values for horizontal reference lines"
-    )
-    horizontal_lines: float | list | dict | None = Field(
-        None, description="Y-values for horizontal reference lines (alias for hlines)"
     )
     hline_colors: str | list[str] | None = Field(None, description="Colors for horizontal lines")
     hline_styles: str | list[str] | None = Field(
@@ -186,14 +177,6 @@ class LineChartConfig(
     # --- Custom ticks ---
     xticks: list | None = Field(None, description="Custom x-axis tick positions")
     xticklabels: list[str] | None = Field(None, description="Custom x-axis tick labels")
-
-    # --- Legacy tick format aliases (accepted by AxisTickFormatMixin) ---
-    x_axis_format: str | None = Field(
-        None, description="X-axis tick format (legacy alias for x_tick_format)"
-    )
-    y_axis_format: str | None = Field(
-        None, description="Y-axis tick format (legacy alias for y_tick_format)"
-    )
 
     # --- Per-series overrides (collected from series_0, series_1, ...) ---
     series_overrides: dict[int, dict | SeriesConfig] | None = Field(

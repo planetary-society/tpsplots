@@ -110,16 +110,14 @@ class TickFormatMixin(BaseModel):
         None,
         description=(
             "Python format spec for x-axis tick labels (e.g., '.0f', ',.0f'). "
-            "Applied via FuncFormatter. Ignored if scale formatting is active. "
-            "Legacy alias: x_axis_format"
+            "Applied via FuncFormatter. Ignored if scale formatting is active"
         ),
     )
     y_tick_format: str | None = Field(
         None,
         description=(
             "Python format spec for y-axis tick labels (e.g., '.0f', ',.0f'). "
-            "Applied via FuncFormatter. Ignored if scale formatting is active. "
-            "Legacy alias: y_axis_format"
+            "Applied via FuncFormatter. Ignored if scale formatting is active"
         ),
     )
     fiscal_year_ticks: bool | None = Field(

@@ -15,7 +15,7 @@ chart:
   color: ["light_blue", "Neptune Blue"]
   linestyle: [":", "-"]
   linewidth: [2.5, 4]
-  label: ["{{metadata.max_pbr_fiscal_year}}\nProposed", "{{metadata.max_appropriation_fiscal_year}} Final"]
+  labels: ["{{metadata.max_pbr_fiscal_year}}\nProposed", "{{metadata.max_appropriation_fiscal_year}} Final"]
   direct_line_labels:
     position: "right"
     fontsize: 11

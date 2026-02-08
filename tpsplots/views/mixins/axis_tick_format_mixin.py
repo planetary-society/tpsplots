@@ -11,15 +11,9 @@ class AxisTickFormatMixin:
 
     @staticmethod
     def _pop_axis_tick_format_kwargs(kwargs: dict[str, Any]) -> tuple[str | None, str | None]:
-        """
-        Pop x/y tick format options from kwargs, including legacy aliases.
-
-        Supported aliases:
-        - x_tick_format or x_axis_format
-        - y_tick_format or y_axis_format
-        """
-        x_tick_format = kwargs.pop("x_tick_format", kwargs.pop("x_axis_format", None))
-        y_tick_format = kwargs.pop("y_tick_format", kwargs.pop("y_axis_format", None))
+        """Pop x/y tick format options from kwargs."""
+        x_tick_format = kwargs.pop("x_tick_format", None)
+        y_tick_format = kwargs.pop("y_tick_format", None)
         return x_tick_format, y_tick_format
 
     @staticmethod

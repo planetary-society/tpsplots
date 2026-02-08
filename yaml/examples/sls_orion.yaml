@@ -33,7 +33,7 @@ chart:
     - "-"
     - "-"
   linewidth: 4
-  label:
+  labels:
     - "SLS"
     - "Orion"
     - "Ground\nSystems"

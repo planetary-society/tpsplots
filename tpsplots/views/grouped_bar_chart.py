@@ -101,8 +101,7 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
         self._extract_metadata_from_kwargs(metadata, kwargs)
 
         # Extract optional parameters - standardized with BarChartView
-        # Support both 'width' (standard) and 'bar_width' (legacy) for backwards compatibility
-        width = kwargs.pop("width", kwargs.pop("bar_width", 0.35))
+        width = kwargs.pop("width", 0.35)
         show_values = kwargs.pop("show_values", True)
         value_format = kwargs.pop("value_format", "integer")
         value_prefix = kwargs.pop("value_prefix", "")

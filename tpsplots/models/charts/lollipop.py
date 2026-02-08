@@ -58,9 +58,6 @@ class LollipopChartConfig(
         ),
     )
     linestyle: str | list[str] | None = Field(None, description="Line style for stems")
-    line_style: str | list[str] | None = Field(
-        None, description="Line style for stems (alias for linestyle)"
-    )
     alpha: float | None = Field(None, description="Transparency (0.0-1.0)")
 
     # --- Per-endpoint marker customization ---
@@ -144,12 +141,4 @@ class LollipopChartConfig(
             "Default: False (spine shown at 30% opacity). "
             "Set to True for a cleaner floating-label look"
         ),
-    )
-
-    # --- Legacy tick format aliases ---
-    x_axis_format: str | None = Field(
-        None, description="X-axis tick format (legacy alias for x_tick_format)"
-    )
-    y_axis_format: str | None = Field(
-        None, description="Y-axis tick format (legacy alias for y_tick_format)"
     )
