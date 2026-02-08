@@ -14,6 +14,45 @@ const html = htm.bind(createElement);
 // Re-export html for use by all components
 export { html, React };
 
+const FIELD_REMAPS = [
+  ["x", "categories"],
+  ["categories", "x"],
+  ["y", "values"],
+  ["values", "y"],
+  ["color", "colors"],
+  ["colors", "color"],
+  ["label", "labels"],
+  ["labels", "label"],
+];
+
+function remapAndPruneFormData(formData, nextType, nextSchema) {
+  if (!nextSchema?.properties || !formData) {
+    return { ...formData, type: nextType };
+  }
+
+  const allowed = new Set(Object.keys(nextSchema.properties));
+  const next = {};
+
+  for (const [key, value] of Object.entries(formData)) {
+    if (allowed.has(key)) {
+      next[key] = value;
+    }
+  }
+
+  for (const [from, to] of FIELD_REMAPS) {
+    if (!allowed.has(to) || next[to] !== undefined) {
+      continue;
+    }
+    const value = formData[from];
+    if (value !== undefined && value !== null && value !== "") {
+      next[to] = value;
+    }
+  }
+
+  next.type = nextType;
+  return next;
+}
+
 function App() {
   // ── State ──────────────────────────────────────────────────
   const [chartType, setChartType] = useState("bar");
@@ -44,6 +83,7 @@ function App() {
       .then(data => {
         setSchema(data.json_schema);
         setUiSchema(data.ui_schema);
+        setFormData(prev => remapAndPruneFormData(prev, chartType, data.json_schema));
       })
       .catch(err => console.error("Failed to load schema:", err));
   }, [chartType]);

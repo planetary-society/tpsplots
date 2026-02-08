@@ -31,9 +31,31 @@ _MIXIN_GROUPS: list[tuple[str, type]] = [
     ("Axis", AxisMixin),
 ]
 
-# Identity and Figure groups use fields from ChartConfigBase
+# Identity group uses fields from ChartConfigBase
 _IDENTITY_FIELDS = {"type", "output", "title", "subtitle", "source"}
-_FIGURE_FIELDS = {"figsize", "dpi", "export_data", "matplotlib_config"}
+
+# System config fields excluded from the schema entirely.
+# These are TPS brand constants (figsize, dpi) or pipeline internals
+# (export_data, matplotlib_config) that are not user-configurable in the
+# editor. Stripping them from the JSON schema (not just hiding) prevents
+# RJSF from creating form elements or injecting empty defaults.
+_EXCLUDED_FIELDS = {"figsize", "dpi", "export_data", "matplotlib_config"}
+
+
+def _get_excluded_fields(config_cls: type) -> set[str]:
+    """Return fields to exclude from the editor for a given config class.
+
+    Combines the static ``_EXCLUDED_FIELDS`` set with per-chart-type alias
+    detection.  Alias fields have ``"alias for"`` in their description
+    (e.g. ``lw`` is "Line width(s) (alias for linewidth)").  These are
+    excluded because the canonical field already appears in the form.
+    """
+    excluded = set(_EXCLUDED_FIELDS)
+    for name, info in config_cls.model_fields.items():
+        if info.description and "alias for" in info.description.lower():
+            excluded.add(name)
+    return excluded
+
 
 # Build flat lookup: field_name → group_name
 FIELD_TO_GROUP: dict[str, str] = {}
@@ -43,9 +65,6 @@ for _group_name, _mixin_cls in _MIXIN_GROUPS:
 
 for _field_name in _IDENTITY_FIELDS:
     FIELD_TO_GROUP[_field_name] = "Identity"
-
-for _field_name in _FIGURE_FIELDS:
-    FIELD_TO_GROUP[_field_name] = "Figure"
 
 # Ordered group names for the UI
 GROUP_ORDER = [
@@ -59,8 +78,6 @@ GROUP_ORDER = [
     "Legend",
     "Grid",
     "Axis",
-    "Figure",
-    "Escape Hatches",
     "Chart-Specific",
 ]
 
@@ -100,7 +117,18 @@ def get_chart_type_schema(chart_type: str) -> dict[str, Any]:
         raise ValueError(f"Unknown chart type: {chart_type}. Available: {list(CONFIG_REGISTRY)}")
 
     schema = config_cls.model_json_schema()
-    return _simplify_any_of(schema)
+    schema = _simplify_any_of(schema)
+
+    # Strip excluded fields (system config + aliases) from the schema
+    excluded = _get_excluded_fields(config_cls)
+    props = schema.get("properties", {})
+    for field in excluded:
+        props.pop(field, None)
+    req = schema.get("required", [])
+    if req:
+        schema["required"] = [r for r in req if r not in excluded]
+
+    return schema
 
 
 def get_ui_schema(chart_type: str) -> dict[str, Any]:
@@ -113,7 +141,8 @@ def get_ui_schema(chart_type: str) -> dict[str, Any]:
     if config_cls is None:
         raise ValueError(f"Unknown chart type: {chart_type}")
 
-    fields = list(config_cls.model_fields.keys())
+    excluded = _get_excluded_fields(config_cls)
+    fields = [f for f in config_cls.model_fields if f not in excluded]
     field_infos = config_cls.model_fields
 
     ui: dict[str, Any] = {}

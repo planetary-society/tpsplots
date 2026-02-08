@@ -2,12 +2,10 @@
 
 import pytest
 import yaml
+from fastapi.testclient import TestClient
 
-httpx = pytest.importorskip("httpx", reason="httpx required for FastAPI TestClient")
-from fastapi.testclient import TestClient  # noqa: E402
-
-from tpsplots.editor.app import create_editor_app  # noqa: E402
-from tpsplots.editor.session import EditorSession  # noqa: E402
+from tpsplots.editor.app import create_editor_app
+from tpsplots.editor.session import EditorSession
 
 
 @pytest.fixture
@@ -17,6 +15,10 @@ def yaml_dir(tmp_path):
         "chart": {"type": "bar", "output": "test_chart", "title": "Test"},
     }
     (tmp_path / "sample.yaml").write_text(
+        yaml.dump(sample, default_flow_style=False), encoding="utf-8"
+    )
+    (tmp_path / "nested").mkdir()
+    (tmp_path / "nested" / "nested.yaml").write_text(
         yaml.dump(sample, default_flow_style=False), encoding="utf-8"
     )
     return tmp_path
@@ -65,6 +67,7 @@ class TestFilesEndpoint:
         assert resp.status_code == 200
         files = resp.json()["files"]
         assert "sample.yaml" in files
+        assert "nested/nested.yaml" in files
 
     def test_load_file(self, client):
         resp = client.get("/api/load?path=sample.yaml")
@@ -85,13 +88,21 @@ class TestFilesEndpoint:
         assert resp.status_code == 200
         assert (yaml_dir / "new.yaml").exists()
 
+    def test_save_invalid_config_returns_400(self, client):
+        config = {
+            "data": {"source": "data/new.csv"},
+            "chart": {"type": "bar"},
+        }
+        resp = client.post("/api/save", json={"path": "invalid.yaml", "config": config})
+        assert resp.status_code == 400
+
     def test_save_path_traversal_blocked(self, client):
         config = {
             "data": {"source": "test"},
             "chart": {"type": "bar", "output": "x", "title": "x"},
         }
         resp = client.post("/api/save", json={"path": "../../evil.yaml", "config": config})
-        assert resp.status_code in {400, 500}
+        assert resp.status_code == 400
 
 
 class TestValidateEndpoint:
@@ -113,6 +124,9 @@ class TestValidateEndpoint:
         data = resp.json()
         assert data["valid"] is False
         assert len(data["errors"]) > 0
+        paths = {err["path"] for err in data["errors"]}
+        assert "/chart/output" in paths
+        assert "/chart/title" in paths
 
 
 class TestColorsEndpoint:

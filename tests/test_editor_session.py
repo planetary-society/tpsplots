@@ -72,6 +72,13 @@ class TestValidation:
         errors = session.validate_config(config)
         assert len(errors) > 0
 
+    def test_errors_use_json_pointer_paths(self, session):
+        config = {"data": {"source": "test.csv"}, "chart": {"type": "bar"}}
+        errors = session.validate_config(config)
+        paths = {err["path"] for err in errors}
+        assert "/chart/output" in paths
+        assert "/chart/title" in paths
+
 
 class TestFileIO:
     def test_load_yaml(self, session):
@@ -109,11 +116,66 @@ class TestFileIO:
         loaded = yaml.safe_load((yaml_dir / "sample.yaml").read_text(encoding="utf-8"))
         assert loaded["chart"]["title"] == "Updated"
 
+    def test_save_yaml_rejects_invalid_config(self, session, yaml_dir):
+        config = {"data": {"source": "data/updated.csv"}, "chart": {"type": "bar"}}
+        with pytest.raises(ValueError):
+            session.save_yaml("invalid.yaml", config)
+        assert not (yaml_dir / "invalid.yaml").exists()
+
+    def test_save_yaml_strips_empty_rjsf_values(self, session, yaml_dir):
+        config = {
+            "data": {"source": "data/updated.csv"},
+            "chart": {
+                "type": "bar",
+                "output": "updated",
+                "title": "Updated",
+                "subtitle": "",
+                "figsize": [],
+            },
+        }
+        session.save_yaml("cleaned.yaml", config)
+        loaded = yaml.safe_load((yaml_dir / "cleaned.yaml").read_text(encoding="utf-8"))
+        assert "subtitle" not in loaded["chart"]
+        assert "figsize" not in loaded["chart"]
+
+    def test_save_yaml_roundtrip_removes_deleted_fields(self, session, yaml_dir):
+        (yaml_dir / "with_subtitle.yaml").write_text(
+            yaml.dump(
+                {
+                    "data": {"source": "data/test.csv"},
+                    "chart": {
+                        "type": "bar",
+                        "output": "keep_output",
+                        "title": "Keep Title",
+                        "subtitle": "remove me",
+                    },
+                },
+                default_flow_style=False,
+            ),
+            encoding="utf-8",
+        )
+        session.save_yaml(
+            "with_subtitle.yaml",
+            {
+                "data": {"source": "data/test.csv"},
+                "chart": {"type": "bar", "output": "keep_output", "title": "Keep Title"},
+            },
+        )
+        loaded = yaml.safe_load((yaml_dir / "with_subtitle.yaml").read_text(encoding="utf-8"))
+        assert "subtitle" not in loaded["chart"]
+
     def test_list_yaml_files(self, session):
         files = session.list_yaml_files()
         assert "sample.yaml" in files
         assert "another.yml" in files
         assert len(files) == 2
+
+    def test_list_yaml_files_includes_nested_paths(self, session, yaml_dir):
+        nested = yaml_dir / "nested"
+        nested.mkdir()
+        (nested / "child.yaml").write_text("chart: {}\n", encoding="utf-8")
+        files = session.list_yaml_files()
+        assert "nested/child.yaml" in files
 
 
 class TestDataCache:
