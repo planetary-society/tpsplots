@@ -545,6 +545,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         x_data = kwargs.pop("x_data", None)
 
         grid = kwargs.pop("grid", None)
+        grid_axis = kwargs.pop("grid_axis", None)
         tick_rotation = kwargs.pop("tick_rotation", style["tick_rotation"])
         tick_size = kwargs.pop("tick_size", style["tick_size"])
         label_size = kwargs.pop("label_size", style["label_size"])
@@ -571,6 +572,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             "y_tick_format": y_tick_format,
             "x_data": x_data,
             "grid": grid,
+            "grid_axis": grid_axis,
             "tick_rotation": tick_rotation,
             "tick_size": tick_size,
             "label_size": label_size,
@@ -610,13 +612,13 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
 
         if grid is None:
             effective_grid = style.get("grid")
-            effective_grid_axis = style.get("grid_axis")
+            effective_grid_axis = opts["grid_axis"] or style.get("grid_axis")
         elif grid:
             effective_grid = True
-            effective_grid_axis = "both"
+            effective_grid_axis = opts["grid_axis"] or "both"
         else:
             effective_grid = False
-            effective_grid_axis = style.get("grid_axis")
+            effective_grid_axis = opts["grid_axis"] or style.get("grid_axis")
 
         self._apply_common_axis_styling(
             ax,
