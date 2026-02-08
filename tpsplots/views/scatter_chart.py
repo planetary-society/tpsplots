@@ -10,6 +10,14 @@ class ScatterChartView(LineChartView):
 
     CONFIG_CLASS = ScatterChartConfig
 
+    def _create_chart(self, metadata, style, **kwargs):
+        """Ensure scatter defaults apply to both preview and file-generation paths."""
+        scatter_kwargs = kwargs.copy()
+        scatter_kwargs.setdefault("marker", "o")
+        if "linestyle" not in scatter_kwargs:
+            scatter_kwargs["linestyle"] = "None"
+        return super()._create_chart(metadata, style, **scatter_kwargs)
+
     def scatter_plot(self, metadata, stem, **kwargs):
         """
         Generate scatter charts for desktop and mobile versions.
@@ -21,11 +29,8 @@ class ScatterChartView(LineChartView):
         """
         scatter_kwargs = kwargs.copy()
         scatter_kwargs.setdefault("marker", "o")
-
-        # Respect explicit line style if provided.
         if "linestyle" not in scatter_kwargs:
             scatter_kwargs["linestyle"] = "None"
-
         return self.generate_chart(metadata, stem, **scatter_kwargs)
 
     # Alias for backward compatibility with older naming conventions
