@@ -21,8 +21,6 @@ const FIELD_REMAPS = [
   ["values", "y"],
   ["color", "colors"],
   ["colors", "color"],
-  ["label", "labels"],
-  ["labels", "label"],
 ];
 
 function remapAndPruneFormData(formData, nextType, nextSchema) {
