@@ -45,16 +45,10 @@ _EXCLUDED_FIELDS = {"figsize", "dpi", "export_data", "matplotlib_config"}
 def _get_excluded_fields(config_cls: type) -> set[str]:
     """Return fields to exclude from the editor for a given config class.
 
-    Combines the static ``_EXCLUDED_FIELDS`` set with per-chart-type alias
-    detection.  Alias fields have ``"alias for"`` in their description
-    (e.g. ``lw`` is "Line width(s) (alias for linewidth)").  These are
-    excluded because the canonical field already appears in the form.
+    Keeps only static system-level exclusions.
     """
-    excluded = set(_EXCLUDED_FIELDS)
-    for name, info in config_cls.model_fields.items():
-        if info.description and "alias for" in info.description.lower():
-            excluded.add(name)
-    return excluded
+    _ = config_cls
+    return set(_EXCLUDED_FIELDS)
 
 
 # Build flat lookup: field_name → group_name
@@ -65,6 +59,22 @@ for _group_name, _mixin_cls in _MIXIN_GROUPS:
 
 for _field_name in _IDENTITY_FIELDS:
     FIELD_TO_GROUP[_field_name] = "Identity"
+
+
+def _get_field_group(field_name: str, config_cls: type) -> str:
+    """Return the UI group for a field, checking mixin inheritance.
+
+    A field is assigned to a mixin group only when *config_cls* actually
+    inherits from that mixin.  Identity fields are always matched by name.
+    Everything else falls through to "Chart-Specific".
+    """
+    if field_name in _IDENTITY_FIELDS:
+        return "Identity"
+    for group_name, mixin_cls in _MIXIN_GROUPS:
+        if issubclass(config_cls, mixin_cls) and field_name in mixin_cls.model_fields:
+            return group_name
+    return "Chart-Specific"
+
 
 # Ordered group names for the UI
 GROUP_ORDER = [
@@ -119,7 +129,7 @@ def get_chart_type_schema(chart_type: str) -> dict[str, Any]:
     schema = config_cls.model_json_schema()
     schema = _simplify_any_of(schema)
 
-    # Strip excluded fields (system config + aliases) from the schema
+    # Strip excluded system fields from the schema
     excluded = _get_excluded_fields(config_cls)
     props = schema.get("properties", {})
     for field in excluded:
@@ -147,10 +157,14 @@ def get_ui_schema(chart_type: str) -> dict[str, Any]:
 
     ui: dict[str, Any] = {}
 
-    # Build ordered field list and group assignments
+    # Build ordered field list and group assignments.
+    # Use inheritance-aware grouping: a field only belongs to a mixin group
+    # if the config class actually inherits from that mixin.  This prevents
+    # generic names like ``alpha`` or ``linewidth`` from being labelled
+    # "Bar Styling" on line/scatter/lollipop charts.
     groups: dict[str, list[str]] = {}
     for field_name in fields:
-        group = FIELD_TO_GROUP.get(field_name, "Chart-Specific")
+        group = _get_field_group(field_name, config_cls)
         groups.setdefault(group, []).append(field_name)
 
     # Per-field uiSchema entries
