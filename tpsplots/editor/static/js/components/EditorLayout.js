@@ -159,6 +159,7 @@ export function EditorLayout(props) {
                   fieldTiers=${fieldTiers}
                   compositeWidgets=${compositeWidgets}
                   seriesExcluded=${seriesExcludedFields}
+                  visualFields=${visualDesignFields}
                 />
               `
             : html`

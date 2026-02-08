@@ -41,15 +41,32 @@ _IDENTITY_FIELDS = {"type", "output", "title", "subtitle", "source"}
 # editor. Stripping them from the JSON schema (not just hiding) prevents
 # RJSF from creating form elements or injecting empty defaults.
 _EXCLUDED_FIELDS = {"figsize", "dpi", "export_data", "matplotlib_config", "data"}
+_CHART_EXCLUDED_FIELDS: dict[str, set[str]] = {
+    # Scatter inherits line options, but these line-connector controls should not
+    # appear in scatter editor schema/UX.
+    "scatter": {"direct_line_labels", "linestyle", "linewidth"},
+}
 
 
-def _get_excluded_fields(config_cls: type) -> set[str]:
+def _infer_chart_type(config_cls: type) -> str | None:
+    """Infer chart type string from config model defaults when available."""
+    type_field = config_cls.model_fields.get("type")
+    if type_field is None:
+        return None
+    default = type_field.default
+    return default if isinstance(default, str) else None
+
+
+def _get_excluded_fields(config_cls: type, chart_type: str | None = None) -> set[str]:
     """Return fields to exclude from the editor for a given config class.
 
     Keeps only static system-level exclusions.
     """
-    _ = config_cls
-    return set(_EXCLUDED_FIELDS)
+    resolved_type = chart_type or _infer_chart_type(config_cls)
+    excluded = set(_EXCLUDED_FIELDS)
+    if resolved_type:
+        excluded.update(_CHART_EXCLUDED_FIELDS.get(resolved_type, set()))
+    return excluded
 
 
 # Build flat lookup: field_name → group_name
@@ -199,8 +216,6 @@ _CHART_FIELD_GROUPS: dict[str, dict[str, str]] = {
         "bottom_values": "Advanced",
     },
     "us_map_pie": {
-        "state_data": "Data Bindings",
-        "pie_values": "Data Bindings",
         "pie_data": "Data Bindings",
         "pie_size_column": "Pie Sizing",
         "base_pie_size": "Pie Sizing",
@@ -337,7 +352,7 @@ PRIMARY_BINDING_FIELDS: dict[str, list[str]] = {
     "lollipop": ["categories", "start_values", "end_values"],
     "donut": ["labels", "values"],
     "waffle": ["values"],
-    "us_map_pie": ["state_data", "pie_values"],
+    "us_map_pie": ["pie_data"],
     "line_subplots": ["subplot_data"],
 }
 
@@ -489,7 +504,7 @@ CHART_TYPE_GUIDANCE: dict[str, dict[str, Any]] = {
     "us_map_pie": {
         "description": "Geographic pie charts overlaid on a U.S. state map.",
         "workflow": [
-            "Bind state_data and pie_values from controller",
+            "Bind pie_data from controller output",
             "Configure base_pie_size and display options",
             "Toggle show_state_boundaries and show_pie_labels",
         ],
@@ -590,7 +605,7 @@ def get_chart_type_schema(chart_type: str) -> dict[str, Any]:
     schema = _strip_null_from_any_of(schema)
 
     # Strip excluded system fields from the schema
-    excluded = _get_excluded_fields(config_cls)
+    excluded = _get_excluded_fields(config_cls, chart_type)
     props = schema.get("properties", {})
     for field in excluded:
         props.pop(field, None)
@@ -611,7 +626,7 @@ def get_ui_schema(chart_type: str) -> dict[str, Any]:
     if config_cls is None:
         raise ValueError(f"Unknown chart type: {chart_type}")
 
-    excluded = _get_excluded_fields(config_cls)
+    excluded = _get_excluded_fields(config_cls, chart_type)
     fields = [f for f in config_cls.model_fields if f not in excluded]
     field_infos = config_cls.model_fields
 
@@ -639,6 +654,9 @@ def get_ui_schema(chart_type: str) -> dict[str, Any]:
 
         if field_name == "legend":
             field_ui["ui:widget"] = "legendBuilder"
+
+        if field_name == "direct_line_labels":
+            field_ui["ui:widget"] = "directLineLabels"
 
         # Help text from field description
         info = field_infos.get(field_name)
@@ -701,7 +719,7 @@ def get_editor_hints(chart_type: str) -> dict[str, Any]:
     if config_cls is None:
         raise ValueError(f"Unknown chart type: {chart_type}")
 
-    excluded = _get_excluded_fields(config_cls)
+    excluded = _get_excluded_fields(config_cls, chart_type)
     fields = [f for f in config_cls.model_fields if f not in excluded]
     primary = [f for f in get_primary_binding_fields(chart_type) if f in fields]
     annotation = [f for f in ("title", "subtitle", "source", "output") if f in fields]
@@ -774,6 +792,17 @@ def get_data_ui_schema() -> dict[str, Any]:
             field_ui["ui:help"] = info.description
         if field_ui:
             ui[field_name] = field_ui
+
+    # Purpose-built editors for the two complex nested objects.
+    if "params" in model_fields:
+        ui.setdefault("params", {})
+        ui["params"]["ui:widget"] = "dataParams"
+        ui["params"]["ui:options"] = {"availableColumns": []}
+
+    if "calculate_inflation" in model_fields:
+        ui.setdefault("calculate_inflation", {})
+        ui["calculate_inflation"]["ui:widget"] = "inflationConfig"
+        ui["calculate_inflation"]["ui:options"] = {"availableColumns": []}
 
     order = ["source", "params", "calculate_inflation"]
     ui["ui:order"] = [f for f in order if f in model_fields]

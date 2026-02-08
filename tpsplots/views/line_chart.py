@@ -172,6 +172,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         markers = self._normalize_series_param(style_options["marker"], num_series)
         alphas = self._normalize_series_param(style_options["alpha"], num_series)
         linewidths = self._normalize_series_param(style_options["linewidth"], num_series)
+        markersizes = self._normalize_series_param(style_options["markersize"], num_series)
 
         for i, y_series in enumerate(y_data):
             plot_kwargs = {}
@@ -195,6 +196,8 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
                 plot_kwargs["alpha"] = alphas[i]
             if linewidths[i] is not None:
                 plot_kwargs["linewidth"] = linewidths[i]
+            if markersizes[i] is not None:
+                plot_kwargs["markersize"] = markersizes[i]
 
             labels = style_options["labels"]
             if isinstance(labels, (list, tuple)) and i < len(labels):
@@ -211,8 +214,6 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
 
             line_colors.append(series_color)
             line_labels.append(series_label)
-
-            plot_kwargs["markersize"] = style_options["markersize"]
 
             series_key = f"series_{i}"
             if series_key in kwargs:
@@ -273,8 +274,9 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
                 Marker styles ('o', 's', '^', None, etc.)
                 Can be single marker or list for multiple lines
 
-            markersize : float
-                Size of markers (default from style)
+            markersize : float, list of float
+                Size of markers (default from style). Can be single value
+                or per-series list.
 
             alpha : float, list of float
                 Transparency (0=transparent, 1=opaque)

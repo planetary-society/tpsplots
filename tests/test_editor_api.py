@@ -137,6 +137,24 @@ class TestValidateEndpoint:
         assert "/chart/output" in paths
         assert "/chart/title" in paths
 
+    def test_valid_line_config_accepts_markersize_list(self, client):
+        config = {
+            "data": {"source": "data/test.csv"},
+            "chart": {
+                "type": "line",
+                "output": "line_markersize_list",
+                "title": "Line Markersize List",
+                "x": "{{Year}}",
+                "y": ["{{SeriesA}}", "{{SeriesB}}"],
+                "markersize": [4, 8],
+            },
+        }
+        resp = client.post("/api/validate", json=config)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["valid"] is True
+        assert data["errors"] == []
+
 
 class TestColorsEndpoint:
     def test_returns_colors(self, client):
@@ -157,6 +175,8 @@ class TestDataEndpoints:
         assert "ui_schema" in payload
         assert payload["json_schema"]["type"] == "object"
         assert "source" in payload["json_schema"]["properties"]
+        assert payload["ui_schema"]["params"]["ui:widget"] == "dataParams"
+        assert payload["ui_schema"]["calculate_inflation"]["ui:widget"] == "inflationConfig"
 
     def test_data_profile_valid_csv_source(self, client, yaml_dir):
         csv_path = yaml_dir / "profile.csv"
@@ -173,6 +193,8 @@ class TestDataEndpoints:
         assert any(col["name"] == "Year" for col in payload["columns"])
         assert isinstance(payload["sample_rows"], list)
         assert "warnings" in payload
+        assert "context_keys" in payload
+        assert isinstance(payload["context_keys"], list)
 
     def test_data_profile_invalid_source_returns_400(self, client):
         resp = client.post(
@@ -194,6 +216,17 @@ class TestDataEndpoints:
         assert "/chart/x" in missing
         assert "/chart/y" in missing
         assert "step_status" in payload
+
+    def test_preflight_reports_missing_us_map_pie_binding(self, client):
+        config = {
+            "data": {"source": "data/test.csv"},
+            "chart": {"type": "us_map_pie", "output": "map", "title": "Map"},
+        }
+        resp = client.post("/api/preflight", json={"config": config})
+        assert resp.status_code == 200
+        payload = resp.json()
+        missing = set(payload["missing_paths"])
+        assert "/chart/pie_data" in missing
 
 
 class TestSecurityHeaders:

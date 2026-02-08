@@ -188,6 +188,8 @@ export function SeriesEditor({
   const hasLinestyle = correlated.includes("linestyle");
   const hasLinewidth = correlated.includes("linewidth");
   const hasMarker = correlated.includes("marker");
+  const hasMarkersize = correlated.includes("markersize");
+  const hasAlpha = correlated.includes("alpha");
 
   return html`
     <div class="series-editor">
@@ -304,6 +306,53 @@ export function SeriesEditor({
                         `
                       )}
                     </select>
+                  </div>
+                `}
+
+                ${hasMarkersize &&
+                html`
+                  <div class="series-ctrl series-ctrl-narrow">
+                    <span class="series-ctrl-label">Marker Size</span>
+                    <input
+                      type="number"
+                      class="series-input series-input-narrow"
+                      value=${Array.isArray(formData.markersize)
+                        ? formData.markersize[i] ?? ""
+                        : formData.markersize ?? ""}
+                      placeholder="px"
+                      min="1"
+                      max="24"
+                      step="1"
+                      onInput=${(e) =>
+                        handleFieldChange(
+                          i,
+                          "markersize",
+                          e.target.value ? Number(e.target.value) : undefined
+                        )}
+                    />
+                  </div>
+                `}
+
+                ${hasAlpha &&
+                html`
+                  <div class="series-ctrl series-ctrl-narrow">
+                    <span class="series-ctrl-label">Opacity</span>
+                    <input
+                      type="number"
+                      class="series-input series-input-narrow"
+                      value=${Array.isArray(formData.alpha)
+                        ? formData.alpha[i] ?? ""
+                        : formData.alpha ?? ""}
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      onInput=${(e) =>
+                        handleFieldChange(
+                          i,
+                          "alpha",
+                          e.target.value ? Number(e.target.value) : undefined
+                        )}
+                    />
                   </div>
                 `}
               </div>

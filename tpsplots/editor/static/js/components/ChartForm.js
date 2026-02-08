@@ -7,6 +7,7 @@ import { html } from "../lib/html.js";
 import { SchemaForm } from "./SchemaForm.js";
 import { ColorWidget } from "../widgets/ColorWidget.js";
 import { LegendBuilderWidget } from "../widgets/LegendBuilderWidget.js";
+import { DirectLineLabelsWidget } from "../widgets/DirectLineLabelsWidget.js";
 
 const DEFAULT_HIDDEN_FIELDS = new Set(["title", "subtitle", "source", "output", "type"]);
 
@@ -88,7 +89,11 @@ export function ChartForm({
   }, [uiSchema, colors]);
 
   const widgets = useMemo(
-    () => ({ tpsColor: ColorWidget, legendBuilder: LegendBuilderWidget }),
+    () => ({
+      tpsColor: ColorWidget,
+      legendBuilder: LegendBuilderWidget,
+      directLineLabels: DirectLineLabelsWidget,
+    }),
     []
   );
 

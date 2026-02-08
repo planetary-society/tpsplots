@@ -120,6 +120,30 @@ def test_line_chart_direct_labels_do_not_duplicate_markersize_kwarg(tmp_path):
     assert "Series A" in texts
 
 
+def test_line_chart_supports_per_series_markersize_and_direct_labels(tmp_path):
+    """Line charts should accept per-series markersize arrays end-to-end."""
+    view = LineChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Per-Series Marker Size"},
+        style=view.DESKTOP,
+        x=[1, 2, 3],
+        y=[[2, 3, 4], [3, 4, 5]],
+        labels=["Series A", "Series B"],
+        markersize=[4, 10],
+        direct_line_labels={"position": "right", "bbox": True},
+        legend=False,
+        fiscal_year_ticks=False,
+    )
+
+    lines = fig.axes[0].get_lines()
+    assert len(lines) >= 2
+    assert lines[0].get_markersize() == 4
+    assert lines[1].get_markersize() == 10
+    texts = [t.get_text() for t in fig.axes[0].texts]
+    assert "Series A" in texts
+    assert "Series B" in texts
+
+
 def test_line_subplots_shared_legend_and_shared_axes(tmp_path):
     """Shared legend mode should produce one figure-level legend and shared axes."""
     view = LineSubplotsView(outdir=tmp_path, style_file=None)

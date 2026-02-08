@@ -10,21 +10,46 @@ import { formatFieldLabel, yamlKeyTooltip } from "./fieldLabelUtils.js";
 function inferItemType(arr) {
   if (!arr || arr.length === 0) return "string";
   const first = arr[0];
+  if (typeof first === "boolean") return "boolean";
+  if (Number.isInteger(first)) return "integer";
   if (typeof first === "number") return "number";
   return "string";
 }
 
+function schemaItemType(schema) {
+  const itemType = schema?.items?.type;
+  if (typeof itemType === "string") return itemType;
+  if (Array.isArray(itemType) && itemType.length > 0 && typeof itemType[0] === "string") {
+    return itemType[0];
+  }
+  return null;
+}
+
+function resolveItemType(schema, arr) {
+  const fromSchema = schemaItemType(schema);
+  return fromSchema || inferItemType(arr);
+}
+
 function parseItem(text, type) {
-  if (type === "number") {
+  if (type === "number" || type === "integer") {
     const n = parseFloat(text);
-    return isNaN(n) ? text : n;
+    if (isNaN(n)) return text;
+    if (type === "integer") return Math.trunc(n);
+    return n;
+  }
+  if (type === "boolean") {
+    if (text === true || text === false) return text;
+    const normalized = String(text).trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+    return text;
   }
   return text;
 }
 
 export function ArrayField({ name, schema, value, onChange, uiSchema }) {
   const arr = Array.isArray(value) ? value : [];
-  const itemType = inferItemType(arr);
+  const itemType = resolveItemType(schema, arr);
   const help = uiSchema?.["ui:help"];
   const label = formatFieldLabel(name, schema);
   const labelTitle = yamlKeyTooltip(name);
@@ -47,7 +72,15 @@ export function ArrayField({ name, schema, value, onChange, uiSchema }) {
   );
 
   const handleAdd = useCallback(() => {
-    onChange([...arr, itemType === "number" ? 0 : ""]);
+    if (itemType === "boolean") {
+      onChange([...arr, false]);
+      return;
+    }
+    if (itemType === "number" || itemType === "integer") {
+      onChange([...arr, 0]);
+      return;
+    }
+    onChange([...arr, ""]);
   }, [arr, itemType, onChange]);
 
   return html`
@@ -59,12 +92,25 @@ export function ArrayField({ name, schema, value, onChange, uiSchema }) {
           (item, idx) => html`
             <div key=${idx} class="array-item">
               <div class="array-item-main">
-                <${TemplateChipInput}
-                  inputMode=${itemType === "number" ? "numeric" : "text"}
-                  class="array-item-input"
-                  value=${item != null ? String(item) : ""}
-                  onInput=${(e) => handleItemChange(idx, e.target.value)}
-                />
+                ${itemType === "boolean"
+                  ? html`
+                      <label class="array-item-boolean">
+                        <input
+                          type="checkbox"
+                          checked=${item === true}
+                          onChange=${(e) => handleItemChange(idx, e.target.checked)}
+                        />
+                        <span>${item === true ? "true" : "false"}</span>
+                      </label>
+                    `
+                  : html`
+                      <${TemplateChipInput}
+                        inputMode=${itemType === "number" || itemType === "integer" ? "numeric" : "text"}
+                        class="array-item-input"
+                        value=${item != null ? String(item) : ""}
+                        onInput=${(e) => handleItemChange(idx, e.target.value)}
+                      />
+                    `}
               </div>
               <button
                 type="button"

@@ -96,7 +96,9 @@ class LineChartConfig(
     linestyle: str | list[str] | None = Field(None, description="Line style(s)")
     linewidth: float | list[float] | None = Field(None, description="Line width(s)")
     marker: str | list[str | None] | None = Field(None, description="Marker style(s)")
-    markersize: float | None = Field(None, description="Marker size")
+    markersize: float | list[float] | None = Field(
+        None, description="Marker size(s): single value or per-series list"
+    )
     alpha: float | list[float] | None = Field(
         None,
         description=(

@@ -5,6 +5,8 @@ import { useMemo } from "react";
 import { html } from "../lib/html.js";
 
 import { SchemaForm } from "./SchemaForm.js";
+import { DataParamsWidget } from "../widgets/DataParamsWidget.js";
+import { InflationConfigWidget } from "../widgets/InflationConfigWidget.js";
 
 const EMPTY_HIDDEN = new Set();
 
@@ -19,6 +21,36 @@ export function DataSourceStep({
 }) {
   const canTestSource = !!dataConfig?.source;
   const sampleRows = useMemo(() => profile?.sample_rows || [], [profile]);
+  const availableColumns = useMemo(
+    () => (profile?.columns || []).map((col) => String(col.name)),
+    [profile]
+  );
+
+  const widgets = useMemo(
+    () => ({ dataParams: DataParamsWidget, inflationConfig: InflationConfigWidget }),
+    []
+  );
+
+  const enhancedUiSchema = useMemo(() => {
+    if (!dataUiSchema) return {};
+    return {
+      ...dataUiSchema,
+      params: {
+        ...(dataUiSchema.params || {}),
+        "ui:options": {
+          ...(dataUiSchema.params?.["ui:options"] || {}),
+          availableColumns,
+        },
+      },
+      calculate_inflation: {
+        ...(dataUiSchema.calculate_inflation || {}),
+        "ui:options": {
+          ...(dataUiSchema.calculate_inflation?.["ui:options"] || {}),
+          availableColumns,
+        },
+      },
+    };
+  }, [dataUiSchema, availableColumns]);
 
   return html`
     <section class="guided-step">
@@ -42,9 +74,10 @@ export function DataSourceStep({
       html`
         <${SchemaForm}
           schema=${dataSchema}
-          uiSchema=${dataUiSchema || {}}
+          uiSchema=${enhancedUiSchema}
           formData=${dataConfig || {}}
           onChange=${onDataConfigChange}
+          widgets=${widgets}
           hiddenFields=${EMPTY_HIDDEN}
         />
       `}
@@ -86,4 +119,3 @@ export function DataSourceStep({
     </section>
   `;
 }
-

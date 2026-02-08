@@ -135,12 +135,15 @@ class EditorSession:
             warnings.append("Resolved source did not return a 'data' DataFrame")
             row_count = 0
 
+        context_keys = sorted(str(key) for key in resolved if key != "data")
+
         profile = {
             "source_kind": source_kind,
             "row_count": row_count,
             "columns": columns,
             "sample_rows": sample_rows,
             "warnings": warnings,
+            "context_keys": context_keys,
         }
         self._profile_cache[cache_key] = profile
         return profile

@@ -25,6 +25,7 @@ export function TieredVisualDesign({
   fieldTiers,
   compositeWidgets,
   seriesExcluded,
+  visualFields,
 }) {
   const essentialSet = useMemo(
     () => new Set(fieldTiers?.essential || []),
@@ -55,7 +56,7 @@ export function TieredVisualDesign({
   // Compute the advanced set: everything not essential, common,
   // composite-consumed, or series-excluded
   const advancedSet = useMemo(() => {
-    const all = new Set(Object.keys(schema?.properties || {}));
+    const all = new Set(visualFields || Object.keys(schema?.properties || {}));
     const result = new Set();
     for (const f of all) {
       if (
@@ -68,7 +69,7 @@ export function TieredVisualDesign({
       }
     }
     return result;
-  }, [schema, essentialSet, commonSet, compositeFields, excludedSet]);
+  }, [schema, visualFields, essentialSet, commonSet, compositeFields, excludedSet]);
 
   // Filter out excluded/composite fields from essential and common sets
   const filteredEssential = useMemo(() => {

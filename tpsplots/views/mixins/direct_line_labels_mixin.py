@@ -167,7 +167,28 @@ class DirectLineLabelsMixin:
         add_bbox = config.get("bbox", True)
         fontsize = config.get("fontsize", style.get("legend_size", 12))
         end_point_config = config.get("end_point", False)
-        markersize_points = kwargs.get("markersize", style.get("marker_size", 6))
+        default_markersize_points = float(style.get("marker_size", 6))
+        markersize_config = kwargs.get("markersize", default_markersize_points)
+
+        def _coerce_markersize(value):
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return default_markersize_points
+
+        def _normalize_markersizes(value, count):
+            if count <= 0:
+                return []
+            if isinstance(value, (list, tuple)):
+                if len(value) == 0:
+                    return [default_markersize_points] * count
+                normalized = list(value[:count])
+                if len(normalized) < count:
+                    normalized.extend([normalized[-1]] * (count - len(normalized)))
+                return [_coerce_markersize(item) for item in normalized]
+            return [_coerce_markersize(value)] * count
+
+        series_markersize_points = _normalize_markersizes(markersize_config, len(y_data))
 
         # Parse end_point config - can be:
         # - False: no endpoints
@@ -241,6 +262,12 @@ class DirectLineLabelsMixin:
         ):
             if label_text is None:
                 continue
+
+            markersize_points = (
+                series_markersize_points[_i]
+                if _i < len(series_markersize_points)
+                else default_markersize_points
+            )
 
             # Find the last non-None/finite point in the series
             last_x_idx = -1

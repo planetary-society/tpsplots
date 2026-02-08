@@ -5,6 +5,8 @@ import pytest
 from tpsplots.editor.ui_schema import (
     get_available_chart_types,
     get_chart_type_schema,
+    get_data_ui_schema,
+    get_editor_hints,
     get_ui_schema,
 )
 from tpsplots.models.charts import CONFIG_REGISTRY
@@ -142,6 +144,39 @@ class TestGetAvailableChartTypes:
     def test_returns_sorted(self):
         types = get_available_chart_types()
         assert types == sorted(types)
+
+
+class TestEditorHints:
+    def test_us_map_pie_primary_binding_is_pie_data(self):
+        hints = get_editor_hints("us_map_pie")
+        assert hints["primary_binding_fields"] == ["pie_data"]
+
+    def test_scatter_schema_and_visual_design_exclude_line_only_fields(self):
+        scatter_schema = get_chart_type_schema("scatter")
+        line_schema = get_chart_type_schema("line")
+
+        assert "direct_line_labels" not in scatter_schema["properties"]
+        assert "direct_line_labels" in line_schema["properties"]
+        assert "linestyle" not in scatter_schema["properties"]
+        assert "linestyle" in line_schema["properties"]
+        assert "linewidth" not in scatter_schema["properties"]
+        assert "linewidth" in line_schema["properties"]
+
+        scatter_hints = get_editor_hints("scatter")
+        line_hints = get_editor_hints("line")
+        assert "direct_line_labels" not in scatter_hints["step_field_map"]["visual_design"]
+        assert "direct_line_labels" in line_hints["step_field_map"]["visual_design"]
+        assert "linestyle" not in scatter_hints["step_field_map"]["visual_design"]
+        assert "linestyle" in line_hints["step_field_map"]["visual_design"]
+        assert "linewidth" not in scatter_hints["step_field_map"]["visual_design"]
+        assert "linewidth" in line_hints["step_field_map"]["visual_design"]
+
+
+class TestDataUiSchema:
+    def test_data_widgets_registered_for_complex_fields(self):
+        ui = get_data_ui_schema()
+        assert ui["params"]["ui:widget"] == "dataParams"
+        assert ui["calculate_inflation"]["ui:widget"] == "inflationConfig"
 
 
 class TestFieldToGroupMapping:
