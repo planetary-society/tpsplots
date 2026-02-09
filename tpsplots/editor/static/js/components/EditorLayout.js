@@ -12,6 +12,7 @@ import { PreviewPanel } from "./PreviewPanel.js";
 import { ValidationSummary } from "./ValidationSummary.js";
 import { DataSourceStep } from "./DataSourceStep.js";
 import { BindingStep } from "./BindingStep.js";
+import { SeriesEditor } from "./SeriesEditor.js";
 import { Toast } from "./Toast.js";
 
 const STEPS = [
@@ -72,7 +73,7 @@ export function EditorLayout(props) {
   );
 
   // Detect multi-series mode: when trigger field (y) is an array with 2+ items,
-  // the series editor in Step 2 handles correlated fields — exclude them from Step 3.
+  // the SeriesEditor in Step 3 handles correlated fields — exclude them from tiered fields.
   const seriesCorrelated = editorHints?.series_correlated_fields;
   const isMultiSeries = useMemo(() => {
     if (!seriesCorrelated) return false;
@@ -148,6 +149,15 @@ export function EditorLayout(props) {
             <h3>Visual Design</h3>
             <p>Tune styling, scales, legends, and axis behavior.</p>
           </div>
+          ${seriesCorrelated &&
+          html`
+            <${SeriesEditor}
+              formData=${formData}
+              onFormDataChange=${onFormDataChange}
+              correlatedFields=${seriesCorrelated}
+              colors=${colors}
+            />
+          `}
           ${hasTiers
             ? html`
                 <${TieredVisualDesign}

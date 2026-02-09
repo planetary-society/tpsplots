@@ -5,7 +5,6 @@ import { useMemo, useCallback } from "react";
 import { html } from "../lib/html.js";
 
 import { ChartForm } from "./ChartForm.js";
-import { SeriesEditor } from "./SeriesEditor.js";
 import { SeriesBindingEditor } from "./SeriesBindingEditor.js";
 import { parseTemplateReferences } from "./fields/templateRefUtils.js";
 import { formatFieldLabel } from "./fields/fieldLabelUtils.js";
@@ -81,7 +80,6 @@ export function BindingStep({
   dataProfile,
 }) {
   const primary = editorHints?.primary_binding_fields || [];
-  const seriesCorrelated = editorHints?.series_correlated_fields || null;
   const columns = dataProfile?.columns || [];
   const contextKeys = (dataProfile?.context_keys || []).map((key) => String(key));
   const columnNames = columns.map((col) => String(col.name));
@@ -105,7 +103,7 @@ export function BindingStep({
     <section class="guided-step">
       <div class="guided-step-header">
         <h3>Data Bindings</h3>
-        <p>Map required chart fields to your resolved source columns and controller data.</p>
+        <p>Assign your processed data columns to chart inputs. Changes to column names or types in Data Setup are reflected here.</p>
       </div>
 
       ${isSeriesBindingMode &&
@@ -169,15 +167,6 @@ export function BindingStep({
         includeFields=${primarySet}
       />
 
-      ${seriesCorrelated &&
-      html`
-        <${SeriesEditor}
-          formData=${formData}
-          onFormDataChange=${onFormDataChange}
-          correlatedFields=${seriesCorrelated}
-          colors=${colors}
-        />
-      `}
     </section>
   `;
 }

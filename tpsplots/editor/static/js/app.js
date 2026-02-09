@@ -2,7 +2,7 @@
  * Chart editor entry point.
  * Loads React 19 + htm from CDN via import map, renders the editor UI.
  */
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createRoot } from "react-dom/client";
 
 import {
@@ -18,7 +18,7 @@ import { useHotkeys } from "./hooks/useHotkeys.js";
 import { html } from "./lib/html.js";
 
 // Re-export html for use by all components
-export { html, React };
+export { html };
 
 const FIELD_REMAPS = [
   ["x", "categories"],

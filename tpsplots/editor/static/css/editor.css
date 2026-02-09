@@ -2909,3 +2909,212 @@ details.refline-builder[open] > .refline-summary .tier-arrow {
   font-style: italic;
   margin: 0;
 }
+
+/* --------------------------------------------------------------------------
+   Column Configuration Grid (DataParamsWidget)
+   -------------------------------------------------------------------------- */
+
+.column-config-grid {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  font-size: 12px;
+}
+
+.column-config-header {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 4px 0;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+}
+
+.column-config-hdr-cell {
+  padding: 2px 8px;
+}
+
+.column-config-hdr-include {
+  width: 28px;
+  flex: 0 0 28px;
+}
+
+.column-config-hdr-name {
+  flex: 1 1 auto;
+  min-width: 80px;
+}
+
+.column-config-hdr-dtype {
+  flex: 0 0 70px;
+  width: 70px;
+}
+
+.column-config-hdr-cast {
+  flex: 0 0 90px;
+  width: 90px;
+}
+
+.column-config-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: opacity 0.15s;
+}
+
+.column-config-row:last-child {
+  border-bottom: none;
+}
+
+.column-config-row--excluded {
+  opacity: 0.45;
+}
+
+.column-config-cell {
+  padding: 2px 8px;
+}
+
+.column-config-include {
+  width: 28px;
+  flex: 0 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.column-config-name {
+  flex: 1 1 auto;
+  min-width: 80px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.column-config-dtype {
+  flex: 0 0 70px;
+  width: 70px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.column-config-cast {
+  flex: 0 0 90px;
+  width: 90px;
+}
+
+.column-config-select {
+  width: 100%;
+  padding: 2px 4px;
+  font-size: 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  background: #fff;
+}
+
+.column-config-empty {
+  padding: 12px 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.data-params-arrow {
+  color: var(--text-muted);
+  font-size: 14px;
+  flex: 0 0 auto;
+  padding: 0 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Data Table Dialog (View Data modal)
+   -------------------------------------------------------------------------- */
+
+.data-table-dialog {
+  max-width: 90vw;
+  max-height: 80vh;
+  width: 800px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 8px);
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+
+.data-table-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.data-table-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-app);
+}
+
+.data-table-dialog-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.data-table-dialog-meta {
+  flex: 1;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.data-table-scroll {
+  overflow: auto;
+  max-height: calc(80vh - 56px);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.data-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-panel);
+  border-bottom: 2px solid var(--border-subtle);
+  padding: 6px 10px;
+  text-align: left;
+  font-weight: 600;
+  z-index: 1;
+}
+
+.data-table-col-name {
+  display: block;
+  font-size: 12px;
+}
+
+.data-table-col-dtype {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.data-table td {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.data-table tbody tr:hover {
+  background: var(--bg-hover);
+}

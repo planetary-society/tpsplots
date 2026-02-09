@@ -69,6 +69,11 @@ def test_data_source_step_wires_custom_params_and_inflation_widgets():
     assert "ui[\"calculate_inflation\"][\"ui:widget\"] = \"inflationConfig\"" in ui_schema
 
 
+def test_data_params_widget_does_not_use_string_style_props():
+    src = _read("tpsplots/editor/static/js/widgets/DataParamsWidget.js")
+    assert 'style="' not in src
+
+
 def test_tiered_visual_design_scopes_advanced_to_visual_fields():
     tiered = _read("tpsplots/editor/static/js/components/TieredVisualDesign.js")
     layout = _read("tpsplots/editor/static/js/components/EditorLayout.js")

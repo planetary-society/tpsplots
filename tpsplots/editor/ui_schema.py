@@ -808,7 +808,7 @@ def get_data_ui_schema() -> dict[str, Any]:
     ui["ui:order"] = [f for f in order if f in model_fields]
     ui["ui:groups"] = [
         {"name": "Data Source", "fields": ["source"], "defaultOpen": True},
-        {"name": "Parameters", "fields": ["params"], "defaultOpen": True},
+        {"name": "Parameters", "fields": ["params"], "defaultOpen": False},
         {"name": "Inflation", "fields": ["calculate_inflation"], "defaultOpen": False},
     ]
     ui["ui:layout"] = {"rows": []}

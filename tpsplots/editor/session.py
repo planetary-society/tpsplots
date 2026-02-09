@@ -130,7 +130,7 @@ class EditorSession:
                 }
                 for col in data_frame.columns
             ]
-            sample_rows = data_frame.head(5).to_dict(orient="records")
+            sample_rows = data_frame.head(25).to_dict(orient="records")
         else:
             warnings.append("Resolved source did not return a 'data' DataFrame")
             row_count = 0
