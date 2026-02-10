@@ -1,20 +1,17 @@
 /**
  * Composite reference line builder.
  *
- * Replaces 5+ individual hline_* array fields with a unified table
- * where each row represents one reference line with all its properties.
+ * Replaces 5+ individual hline_* array fields with a card-based UI
+ * where each reference line shows properties in a 2-row layout.
+ * Reuses MiniColorPicker and LINESTYLE_OPTIONS from the series editor
+ * for consistent UX.
  */
 import { useMemo, useCallback } from "react";
 import { html } from "../lib/html.js";
 
 import { ChartForm } from "./ChartForm.js";
-
-const STYLE_OPTIONS = [
-  { value: "--", label: "dashed \u2013\u2013" },
-  { value: "-", label: "solid \u2014" },
-  { value: "-.", label: "dash-dot \u2013\u00B7" },
-  { value: ":", label: "dotted \u00B7\u00B7\u00B7" },
-];
+import { MiniColorPicker } from "../widgets/MiniColorPicker.js";
+import { LINESTYLE_OPTIONS } from "../widgets/lineStyleOptions.js";
 
 const DEFAULT_LINE = {
   value: 0,
@@ -39,10 +36,8 @@ export function ReferenceLineBuilder({
   schema,
   uiSchema,
 }) {
-  const fields = config?.fields || [];
   const globalFields = config?.global_fields || [];
   const tpsColors = useMemo(() => colors?.tps_colors || {}, [colors]);
-  const colorEntries = useMemo(() => Object.entries(tpsColors), [tpsColors]);
 
   const hlines = getArray(formData, "hlines");
   const count = hlines.length;
@@ -96,126 +91,113 @@ export function ReferenceLineBuilder({
     [formData, onFormDataChange]
   );
 
-  // Global fields rendered as a filtered ChartForm
+  // Global fields: strip ui:groups to render flat (avoids duplicate
+  // "Reference Lines" collapsible wrapper inside this builder)
   const globalSet = useMemo(() => new Set(globalFields), [globalFields]);
+  const globalUiSchema = useMemo(() => {
+    if (!uiSchema) return {};
+    // eslint-disable-next-line no-unused-vars
+    const { "ui:groups": _groups, ...rest } = uiSchema;
+    return rest;
+  }, [uiSchema]);
 
   return html`
     <details class="refline-builder" open=${count > 0 || undefined}>
       <summary class="refline-summary">
         <span class="tier-arrow">\u25B8</span>
         Reference Lines
-        ${count > 0 &&
-        html`<span class="tier-badge">${count}</span>`}
+        ${count > 0 && html`<span class="tier-badge">${count}</span>`}
       </summary>
 
       <div class="refline-content">
-        ${count > 0 &&
-        html`
-          <div class="refline-table">
-            <div class="refline-header">
-              <span class="refline-col refline-col-value">Y Value</span>
-              <span class="refline-col refline-col-label">Label</span>
-              <span class="refline-col refline-col-color">Color</span>
-              <span class="refline-col refline-col-style">Style</span>
-              <span class="refline-col refline-col-width">Width</span>
-              <span class="refline-col refline-col-remove" />
-            </div>
-
-            ${hlines.map(
-              (hval, i) => html`
-                <div key=${i} class="refline-row">
-                  <span class="refline-col refline-col-value">
-                    <input
-                      type="number"
-                      class="refline-input"
-                      value=${hval ?? ""}
-                      step="any"
-                      onInput=${(e) =>
-                        updateField(
-                          i,
-                          "hlines",
-                          e.target.value ? Number(e.target.value) : undefined
-                        )}
-                    />
-                  </span>
-                  <span class="refline-col refline-col-label">
-                    <input
-                      type="text"
-                      class="refline-input"
-                      value=${getArray(formData, "hline_labels")[i] || ""}
-                      placeholder="Label"
-                      onInput=${(e) =>
-                        updateField(i, "hline_labels", e.target.value)}
-                    />
-                  </span>
-                  <span class="refline-col refline-col-color">
-                    <select
-                      class="refline-select"
-                      value=${getArray(formData, "hline_colors")[i] || ""}
-                      onChange=${(e) =>
-                        updateField(i, "hline_colors", e.target.value)}
-                    >
-                      <option value="">default</option>
-                      ${colorEntries.map(
-                        ([name]) => html`
-                          <option key=${name} value=${name}>${name}</option>
-                        `
+        ${hlines.map(
+          (hval, i) => html`
+            <div key=${i} class="refline-card">
+              <div class="refline-row1">
+                <div class="refline-field">
+                  <label class="refline-field-label">Y Value</label>
+                  <input
+                    type="number"
+                    class="refline-input"
+                    value=${hval ?? ""}
+                    step="any"
+                    onInput=${(e) =>
+                      updateField(
+                        i,
+                        "hlines",
+                        e.target.value ? Number(e.target.value) : undefined
                       )}
-                    </select>
-                  </span>
-                  <span class="refline-col refline-col-style">
-                    <select
-                      class="refline-select"
-                      value=${getArray(formData, "hline_styles")[i] || "--"}
-                      onChange=${(e) =>
-                        updateField(i, "hline_styles", e.target.value)}
-                    >
-                      ${STYLE_OPTIONS.map(
-                        (opt) => html`
-                          <option key=${opt.value} value=${opt.value}>
-                            ${opt.label}
-                          </option>
-                        `
-                      )}
-                    </select>
-                  </span>
-                  <span class="refline-col refline-col-width">
-                    <input
-                      type="number"
-                      class="refline-input refline-input-narrow"
-                      value=${getArray(formData, "hline_widths")[i] ?? 1}
-                      min="0.5"
-                      max="5"
-                      step="0.5"
-                      onInput=${(e) =>
-                        updateField(
-                          i,
-                          "hline_widths",
-                          e.target.value ? Number(e.target.value) : undefined
-                        )}
-                    />
-                  </span>
-                  <span class="refline-col refline-col-remove">
-                    <button
-                      type="button"
-                      class="refline-remove-btn"
-                      title="Remove line"
-                      onClick=${() => removeLine(i)}
-                    >
-                      \u00D7
-                    </button>
-                  </span>
+                  />
                 </div>
-              `
-            )}
-          </div>
-        `}
+                <div class="refline-field refline-field-grow">
+                  <label class="refline-field-label">Label</label>
+                  <input
+                    type="text"
+                    class="refline-input"
+                    value=${getArray(formData, "hline_labels")[i] || ""}
+                    placeholder="Label text"
+                    onInput=${(e) =>
+                      updateField(i, "hline_labels", e.target.value)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  class="refline-remove-btn"
+                  title="Remove line"
+                  onClick=${() => removeLine(i)}
+                >
+                  \u00D7
+                </button>
+              </div>
+              <div class="refline-row2">
+                <div class="refline-field">
+                  <label class="refline-field-label">Color</label>
+                  <${MiniColorPicker}
+                    value=${getArray(formData, "hline_colors")[i] || ""}
+                    onChange=${(v) => updateField(i, "hline_colors", v)}
+                    tpsColors=${tpsColors}
+                  />
+                </div>
+                <div class="refline-field">
+                  <label class="refline-field-label">Style</label>
+                  <select
+                    class="refline-select"
+                    value=${getArray(formData, "hline_styles")[i] || "--"}
+                    onChange=${(e) =>
+                      updateField(i, "hline_styles", e.target.value)}
+                  >
+                    ${LINESTYLE_OPTIONS.map(
+                      (opt) => html`
+                        <option key=${opt.value} value=${opt.value}>
+                          ${opt.label}
+                        </option>
+                      `
+                    )}
+                  </select>
+                </div>
+                <div class="refline-field">
+                  <label class="refline-field-label">Width</label>
+                  <input
+                    type="number"
+                    class="refline-input refline-input-width"
+                    value=${getArray(formData, "hline_widths")[i] ?? 1}
+                    min="0.5"
+                    max="5"
+                    step="0.5"
+                    onInput=${(e) =>
+                      updateField(
+                        i,
+                        "hline_widths",
+                        e.target.value ? Number(e.target.value) : undefined
+                      )}
+                  />
+                </div>
+              </div>
+            </div>
+          `
+        )}
 
-        <button
-          type="button"
-          class="refline-add-btn"
-          onClick=${addLine}
-        >
+        <button type="button" class="refline-add-btn" onClick=${addLine}>
           + Add Reference Line
         </button>
 
@@ -225,7 +207,7 @@ export function ReferenceLineBuilder({
           <div class="refline-global">
             <${ChartForm}
               schema=${schema}
-              uiSchema=${uiSchema}
+              uiSchema=${globalUiSchema}
               formData=${formData}
               colors=${colors}
               onFormDataChange=${onFormDataChange}

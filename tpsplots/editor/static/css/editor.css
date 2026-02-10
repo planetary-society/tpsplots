@@ -2699,46 +2699,54 @@ details.refline-builder[open] > .refline-summary .tier-arrow {
   padding: 0 10px 10px;
 }
 
-.refline-table {
+/* Card layout (one per reference line) */
+
+.refline-card {
   border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  overflow: hidden;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: #fff;
+}
+
+.refline-row1 {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
   margin-bottom: 8px;
 }
 
-.refline-header {
-  display: grid;
-  grid-template-columns: 1.2fr 1.5fr 1.5fr 1.2fr 0.8fr 28px;
-  gap: 4px;
-  padding: 5px 8px;
+.refline-row2 {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.refline-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.refline-field-grow {
+  flex: 1;
+}
+
+.refline-field-label {
   font-size: 10px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  background: var(--bg-hover);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.refline-row {
-  display: grid;
-  grid-template-columns: 1.2fr 1.5fr 1.5fr 1.2fr 0.8fr 28px;
-  gap: 4px;
-  align-items: center;
-  padding: 4px 8px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-}
-
-.refline-row:last-child {
-  border-bottom: none;
 }
 
 .refline-input {
   width: 100%;
-  padding: 3px 6px;
+  padding: 5px 8px;
   font-size: 12px;
   border: 1px solid var(--border-subtle);
-  border-radius: 3px;
+  border-radius: 4px;
   font-family: inherit;
   box-sizing: border-box;
 }
@@ -2748,24 +2756,13 @@ details.refline-builder[open] > .refline-summary .tier-arrow {
   outline: none;
 }
 
-.refline-input-narrow {
-  max-width: 60px;
-}
-
-.refline-select {
-  width: 100%;
-  padding: 3px 4px;
-  font-size: 11px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 3px;
-  font-family: inherit;
-  background: #fff;
-  box-sizing: border-box;
+.refline-input-width {
+  width: 64px;
 }
 
 .refline-remove-btn {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border: none;
   background: transparent;
   color: var(--text-muted);
@@ -2775,6 +2772,9 @@ details.refline-builder[open] > .refline-summary .tier-arrow {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  align-self: flex-end;
+  margin-bottom: 2px;
   transition: all 100ms ease;
 }
 
@@ -2800,6 +2800,21 @@ details.refline-builder[open] > .refline-summary .tier-arrow {
 .refline-add-btn:hover {
   background: rgba(3, 124, 194, 0.1);
   border-color: var(--neptune-blue);
+}
+
+.refline-select {
+  padding: 5px 6px;
+  font-size: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-family: inherit;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.refline-select:focus {
+  border-color: var(--border-focus);
+  outline: none;
 }
 
 .refline-global {

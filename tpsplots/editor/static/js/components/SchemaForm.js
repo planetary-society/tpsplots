@@ -161,6 +161,13 @@ export function SchemaForm({
     [properties, renderField, hiddenFields]
   );
 
+  // Fields not assigned to any group, respecting ui:order
+  const ungroupedOrder = useMemo(() => {
+    return order.filter(
+      (f) => !groupedFields.has(f) && !hiddenFields.has(f) && properties[f]
+    );
+  }, [order, groupedFields, hiddenFields, properties]);
+
   return html`
     <div class="schema-form">
       ${groups.map((group) => {
@@ -191,6 +198,12 @@ export function SchemaForm({
           </details>
         `;
       })}
+      ${ungroupedOrder
+        .filter((f) => !rowFields.has(f))
+        .map((f) => html`<div key=${f} class="form-group">${renderField(f)}</div>`)}
+      ${layoutRows
+        .filter((row) => row.some((f) => ungroupedOrder.includes(f)))
+        .map((row) => renderRow(row))}
     </div>
   `;
 }
