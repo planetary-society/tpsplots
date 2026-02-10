@@ -64,7 +64,7 @@ export function MiniColorPicker({ value, onChange, tpsColors }) {
       <button
         ref=${triggerRef}
         type="button"
-        class="mini-color-trigger ${value ? "has-color" : ""}"
+        class="mini-color-trigger"
         onClick=${handleToggle}
         title=${value || "Choose color"}
       >
@@ -72,7 +72,6 @@ export function MiniColorPicker({ value, onChange, tpsColors }) {
           class="mini-color-swatch"
           style=${{ backgroundColor: resolvedHex }}
         />
-        ${!value && html`<span class="mini-color-label">\u2014</span>`}
       </button>
       ${open &&
       html`

@@ -2342,6 +2342,7 @@ details.refline-builder[open] > .refline-summary .tier-arrow {
 
 .series-input {
   width: 100%;
+  height: 28px;
   padding: 4px 6px;
   font-size: 12px;
   border: 1px solid var(--border-subtle);
@@ -2363,6 +2364,7 @@ details.refline-builder[open] > .refline-summary .tier-arrow {
 
 .series-select {
   width: 100%;
+  height: 28px;
   padding: 4px 6px;
   font-size: 12px;
   border: 1px solid var(--border-subtle);
@@ -2375,6 +2377,7 @@ details.refline-builder[open] > .refline-summary .tier-arrow {
 .series-select:focus {
   border-color: var(--border-focus);
   outline: none;
+  box-shadow: 0 0 0 2px rgba(3, 124, 194, 0.1);
 }
 
 /* Mini color picker (inline in series rows) */
@@ -2386,13 +2389,15 @@ details.refline-builder[open] > .refline-summary .tier-arrow {
 .mini-color-trigger {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  padding: 3px 6px;
+  height: 28px;
+  padding: 4px 6px;
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
   background: #fff;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   font-family: inherit;
   width: 100%;
   box-sizing: border-box;
@@ -2402,31 +2407,21 @@ details.refline-builder[open] > .refline-summary .tier-arrow {
   border-color: var(--border-focus);
 }
 
-.mini-color-trigger.has-color {
-  justify-content: center;
-  padding: 3px;
+.mini-color-trigger:focus-visible {
+  border-color: var(--border-focus);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(3, 124, 194, 0.1);
 }
 
 .mini-color-swatch {
   display: inline-block;
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   border: 1px solid rgba(0, 0, 0, 0.15);
   flex-shrink: 0;
 }
 
-.mini-color-trigger.has-color .mini-color-swatch {
-  width: 18px;
-  height: 18px;
-}
-
-.mini-color-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-primary);
-}
 
 .mini-color-dropdown {
   /* position/top/left/width set inline via JS (fixed, viewport-aware) */
