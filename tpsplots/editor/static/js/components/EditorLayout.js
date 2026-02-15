@@ -78,7 +78,11 @@ export function EditorLayout(props) {
   const isMultiSeries = useMemo(() => {
     if (!seriesCorrelated) return false;
     const trigger = formData?.[seriesCorrelated.trigger_field];
-    return Array.isArray(trigger) && trigger.length >= 2;
+    const leftCount = Array.isArray(trigger) ? trigger.length : trigger ? 1 : 0;
+    const secondaryField = seriesCorrelated.secondary_trigger_field;
+    const secondary = secondaryField ? formData?.[secondaryField] : null;
+    const rightCount = Array.isArray(secondary) ? secondary.length : secondary ? 1 : 0;
+    return leftCount + rightCount >= 2;
   }, [seriesCorrelated, formData]);
 
   const seriesExcludedFields = useMemo(() => {

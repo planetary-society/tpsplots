@@ -150,7 +150,7 @@ class EditorSession:
 
     def preflight(self, config: dict[str, Any]) -> dict[str, Any]:
         """Run lightweight guided preflight checks for editor UX."""
-        from tpsplots.editor.ui_schema import get_primary_binding_fields
+        from tpsplots.editor.ui_schema import OPTIONAL_BINDING_FIELDS, get_primary_binding_fields
 
         cleaned = _clean_form_data(config)
         validation_errors = self.validate_config(cleaned)
@@ -178,6 +178,8 @@ class EditorSession:
                 blocking_errors.append({"path": "/data/source", "message": str(exc)})
 
         for field in primary_bindings:
+            if field in OPTIONAL_BINDING_FIELDS:
+                continue
             value = chart_cfg.get(field)
             if value in (None, "", [], {}):
                 missing_paths.append(f"/chart/{field}")
@@ -200,7 +202,11 @@ class EditorSession:
             "data_bindings": (
                 "complete"
                 if primary_bindings
-                and all(f"/chart/{f}" not in missing_paths for f in primary_bindings)
+                and all(
+                    f"/chart/{f}" not in missing_paths
+                    for f in primary_bindings
+                    if f not in OPTIONAL_BINDING_FIELDS
+                )
                 else ("error" if primary_bindings else "not_started")
             ),
             "visual_design": "in_progress" if source else "not_started",

@@ -17,7 +17,12 @@ def test_direct_line_label_simple_position_uses_expected_alignment(tmp_path):
     fig.canvas.draw()
 
     text_bbox = view._get_text_bbox_display(
-        "Series A", fontsize=12, color="blue", add_bbox=True, renderer=fig.canvas.get_renderer(), ax=ax
+        "Series A",
+        fontsize=12,
+        color="blue",
+        add_bbox=True,
+        renderer=fig.canvas.get_renderer(),
+        ax=ax,
     )
     pos = view._get_simple_label_position(
         x_data=2,
@@ -176,7 +181,7 @@ def test_line_chart_resolve_line_data_supports_extension_array(tmp_path):
     view = LineChartView(outdir=tmp_path, style_file=None)
     kwargs = {"x": pd.array([1, 2, 3], dtype="Int64")}
 
-    x_data, y_data = view._resolve_line_data(kwargs)
+    x_data, y_data, _data_ref = view._resolve_line_data(kwargs)
 
     assert list(x_data) == [0, 1, 2]
     assert y_data is not None

@@ -32,9 +32,16 @@ export function SeriesEditor({
   colors,
 }) {
   const triggerField = correlatedFields?.trigger_field || "y";
+  const secondaryTriggerField = correlatedFields?.secondary_trigger_field;
   const correlated = correlatedFields?.correlated || [];
   const yValue = formData?.[triggerField];
-  const series = Array.isArray(yValue) ? yValue : [];
+  const leftSeries = Array.isArray(yValue) ? yValue : yValue ? [yValue] : [];
+
+  const yRightValue = secondaryTriggerField ? formData?.[secondaryTriggerField] : null;
+  const rightSeries = Array.isArray(yRightValue) ? yRightValue : yRightValue ? [yRightValue] : [];
+
+  const series = [...leftSeries, ...rightSeries];
+  const numLeft = leftSeries.length;
 
   const tpsColors = useMemo(() => colors?.tps_colors || {}, [colors]);
 
@@ -77,7 +84,7 @@ export function SeriesEditor({
     [formData, onFormDataChange, series.length]
   );
 
-  // Don't render for single series or no series
+  // Don't render for single series or no series (combined count across both axes)
   if (series.length < 2) return null;
 
   // Determine which correlated fields are actually in the schema
@@ -99,7 +106,9 @@ export function SeriesEditor({
       <div class="series-editor-list">
         ${series.map(
           (s, i) => html`
-            <div key=${i} class="series-card">
+            ${i === numLeft && numLeft > 0 && rightSeries.length > 0 &&
+            html`<div class="series-axis-divider"><span>Right Axis</span></div>`}
+            <div key=${i} class="series-card ${i >= numLeft ? "series-card--right-axis" : ""}">
               <div class="series-card-name" title=${stripBraces(s)}>
                 ${stripBraces(s)}
               </div>

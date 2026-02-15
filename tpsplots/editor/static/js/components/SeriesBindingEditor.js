@@ -44,10 +44,12 @@ function commitBindings(fieldName, nextBindings, formData, onFormDataChange) {
 
 export function SeriesBindingEditor({
   fieldName = "y",
+  label,
   formData,
   onFormDataChange,
   columns,
 }) {
+  const headerLabel = label || (fieldName === "y_right" ? "Right Y-Axis Series" : "Y Series");
   const bindings = useMemo(() => normalizeBindings(formData?.[fieldName]), [formData, fieldName]);
   const numericColumns = useMemo(
     () =>
@@ -116,7 +118,7 @@ export function SeriesBindingEditor({
   return html`
     <div class="series-binding-editor">
       <div class="series-binding-header">
-        <h4>Y Series</h4>
+        <h4>${headerLabel}</h4>
         <button type="button" class="series-binding-add" onClick=${addEmpty}>+ Add series</button>
       </div>
 

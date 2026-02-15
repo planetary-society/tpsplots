@@ -212,3 +212,57 @@ class TestFieldToGroupMapping:
                     f"{chart_type} 'Advanced' group has {len(group['fields'])} fields "
                     f"(max 3): {group['fields']}"
                 )
+
+
+class TestDualYAxisEditorSupport:
+    """Tests for dual y-axis field registration in the editor."""
+
+    def test_line_right_axis_group_exists(self):
+        ui = get_ui_schema("line")
+        group_names = [g["name"] for g in ui.get("ui:groups", [])]
+        assert "Right Y-Axis" in group_names
+
+    def test_right_axis_fields_in_correct_group(self):
+        ui = get_ui_schema("line")
+        right_axis_group = next(g for g in ui["ui:groups"] if g["name"] == "Right Y-Axis")
+        assert "ylim_right" in right_axis_group["fields"]
+        assert "ylabel_right" in right_axis_group["fields"]
+        assert "y_tick_format_right" in right_axis_group["fields"]
+        assert "scale_right" in right_axis_group["fields"]
+
+    def test_y_right_in_primary_binding_fields(self):
+        hints = get_editor_hints("line")
+        assert "y_right" in hints["primary_binding_fields"]
+
+    def test_scatter_y_right_in_primary_binding_fields(self):
+        hints = get_editor_hints("scatter")
+        assert "y_right" in hints["primary_binding_fields"]
+
+    def test_secondary_trigger_in_editor_hints(self):
+        hints = get_editor_hints("line")
+        correlated = hints["series_correlated_fields"]
+        assert correlated["secondary_trigger_field"] == "y_right"
+
+    def test_scatter_secondary_trigger_in_editor_hints(self):
+        hints = get_editor_hints("scatter")
+        correlated = hints["series_correlated_fields"]
+        assert correlated["secondary_trigger_field"] == "y_right"
+
+    def test_scatter_correlated_excludes_linestyle_linewidth(self):
+        """Scatter correlated fields should not include linestyle/linewidth."""
+        hints = get_editor_hints("scatter")
+        correlated = hints["series_correlated_fields"]["correlated"]
+        assert "linestyle" not in correlated
+        assert "linewidth" not in correlated
+
+    def test_right_axis_fields_in_common_tier(self):
+        hints = get_editor_hints("line")
+        common = hints["field_tiers"]["common"]
+        for field in ["ylim_right", "ylabel_right", "scale_right", "y_tick_format_right"]:
+            assert field in common, f"{field} not in common tier"
+
+    def test_y_right_is_optional_binding(self):
+        """y_right must be in OPTIONAL_BINDING_FIELDS so preflight doesn't require it."""
+        from tpsplots.editor.ui_schema import OPTIONAL_BINDING_FIELDS
+
+        assert "y_right" in OPTIONAL_BINDING_FIELDS

@@ -23,6 +23,11 @@ const FIELD_LABEL_OVERRIDES = {
   hline_styles: "Reference Line Styles",
   hline_widths: "Reference Line Widths",
   hline_labels: "Reference Line Labels",
+  y_right: "Right Y-axis Data",
+  ylim_right: "Right Y-axis Range",
+  ylabel_right: "Right Y-axis Label",
+  y_tick_format_right: "Right Y-axis Tick Format",
+  scale_right: "Right Y-axis Scale",
 };
 
 const TOKEN_LABELS = {

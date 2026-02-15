@@ -124,7 +124,79 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         else:
             y_data = self._coerce_series_list(y_data)
 
-        return x_data, y_data
+        return x_data, y_data, data
+
+    def _resolve_y_right_data(self, kwargs, data_ref):
+        """Extract and normalize right y-axis data from kwargs."""
+        y_right = kwargs.pop("y_right", None)
+        if y_right is None:
+            return None
+
+        if data_ref is not None:
+            if isinstance(y_right, str):
+                y_right = [data_ref[y_right]]
+            elif isinstance(y_right, (list, tuple)) and all(
+                isinstance(item, str) for item in y_right
+            ):
+                y_right = [data_ref[col] for col in y_right]
+            else:
+                y_right = self._coerce_series_list(y_right)
+        else:
+            y_right = self._coerce_series_list(y_right)
+
+        return y_right if y_right else None
+
+    def _normalize_and_slice_style_options(self, style_options, num_left, num_right):
+        """Normalize style arrays to full length, then slice into left/right portions.
+
+        Critical: raw style_options may contain scalars, short lists, or None.
+        We must normalize to num_total-length lists BEFORE slicing — never slice
+        raw values directly (e.g., slicing a scalar string gives characters).
+
+        Labels are handled specially: None and scalar strings are passed through
+        unchanged to preserve the fallback labeling logic in _plot_line_series
+        (None → "Series N" auto-labels, scalar → label only the first series).
+        Only explicit list labels are normalized and sliced.
+        """
+        num_total = num_left + num_right
+        if num_total == 0:
+            return style_options, style_options
+
+        style_fields = [
+            "color",
+            "linestyle",
+            "linewidth",
+            "markersize",
+            "marker",
+            "alpha",
+        ]
+
+        left_style = {}
+        right_style = {}
+        for field in style_fields:
+            value = style_options.get(field)
+            normalized = self._normalize_series_param(value, num_total)
+            left_style[field] = normalized[:num_left]
+            right_style[field] = normalized[num_left:]
+
+        # Labels: preserve None and scalar semantics for _plot_line_series.
+        # Only slice when user provided an explicit list.
+        labels = style_options.get("labels")
+        if isinstance(labels, (list, tuple)):
+            normalized = self._normalize_series_param(labels, num_total)
+            left_style["labels"] = normalized[:num_left]
+            right_style["labels"] = normalized[num_left:]
+        elif isinstance(labels, str):
+            # Scalar label applies to the first left-axis series only;
+            # right axis gets None → auto "Series N" labels.
+            left_style["labels"] = labels
+            right_style["labels"] = None
+        else:
+            # None → auto "Series N" labels on both axes
+            left_style["labels"] = None
+            right_style["labels"] = None
+
+        return left_style, right_style
 
     def _resolve_line_style_options(self, kwargs, style, num_series):
         """Extract line style options with series-type defaults."""
@@ -161,53 +233,78 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             "labels": labels,
         }
 
-    def _plot_line_series(self, ax, x_data, y_data, style_options, kwargs):
-        """Plot each line series and collect color/label metadata."""
-        num_series = len(y_data) if y_data else 0
+    def _plot_line_series(self, ax, x_data, y_data, style_options, kwargs, series_offset=0):
+        """Plot each line series and collect color/label metadata.
 
+        Args:
+            series_offset: Index offset for series_N override key lookup.
+                When plotting right-axis series, this equals the number of
+                left-axis series so series_2 maps to the first right-axis series.
+        """
         line_colors = []
         line_labels = []
 
-        linestyles = self._normalize_series_param(style_options["linestyle"], num_series)
-        markers = self._normalize_series_param(style_options["marker"], num_series)
-        alphas = self._normalize_series_param(style_options["alpha"], num_series)
-        linewidths = self._normalize_series_param(style_options["linewidth"], num_series)
-        markersizes = self._normalize_series_param(style_options["markersize"], num_series)
+        # Style arrays are pre-normalized and sliced per-axis by
+        # _normalize_and_slice_style_options, so indexing with `i` is correct.
+        colors = style_options["color"]
+        linestyles = style_options["linestyle"]
+        markers = style_options["marker"]
+        alphas = style_options["alpha"]
+        linewidths = style_options["linewidth"]
+        markersizes = style_options["markersize"]
+        labels = style_options["labels"]
 
         for i, y_series in enumerate(y_data):
             plot_kwargs = {}
 
-            color = style_options["color"]
-            if isinstance(color, (list, tuple)) and i < len(color):
-                series_color = color[i]
-                plot_kwargs["color"] = series_color
-            elif isinstance(color, str):
-                series_color = color
+            # Colors: use pre-sliced list
+            if isinstance(colors, (list, tuple)) and i < len(colors):
+                series_color = colors[i]
+                if series_color is not None:
+                    plot_kwargs["color"] = series_color
+                else:
+                    series_color = ax._get_lines.get_next_color()
+                    plot_kwargs["color"] = series_color
+            elif isinstance(colors, str):
+                series_color = colors
                 plot_kwargs["color"] = series_color
             else:
                 series_color = ax._get_lines.get_next_color()
                 plot_kwargs["color"] = series_color
 
-            if linestyles[i] is not None:
+            if (
+                isinstance(linestyles, (list, tuple))
+                and i < len(linestyles)
+                and linestyles[i] is not None
+            ):
                 plot_kwargs["linestyle"] = linestyles[i]
-            if markers[i] is not None:
+            if isinstance(markers, (list, tuple)) and i < len(markers) and markers[i] is not None:
                 plot_kwargs["marker"] = markers[i]
-            if alphas[i] is not None:
+            if isinstance(alphas, (list, tuple)) and i < len(alphas) and alphas[i] is not None:
                 plot_kwargs["alpha"] = alphas[i]
-            if linewidths[i] is not None:
+            if (
+                isinstance(linewidths, (list, tuple))
+                and i < len(linewidths)
+                and linewidths[i] is not None
+            ):
                 plot_kwargs["linewidth"] = linewidths[i]
-            if markersizes[i] is not None:
+            if (
+                isinstance(markersizes, (list, tuple))
+                and i < len(markersizes)
+                and markersizes[i] is not None
+            ):
                 plot_kwargs["markersize"] = markersizes[i]
 
-            labels = style_options["labels"]
+            # Labels: use pre-sliced list
             if isinstance(labels, (list, tuple)) and i < len(labels):
                 series_label = labels[i]
-                plot_kwargs["label"] = series_label
+                if series_label is not None:
+                    plot_kwargs["label"] = series_label
             elif isinstance(labels, str) and i == 0:
                 series_label = labels
                 plot_kwargs["label"] = series_label
             elif labels is None:
-                series_label = f"Series {i + 1}"
+                series_label = f"Series {i + series_offset + 1}"
                 plot_kwargs["label"] = series_label
             else:
                 series_label = None
@@ -215,7 +312,8 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             line_colors.append(series_color)
             line_labels.append(series_label)
 
-            series_key = f"series_{i}"
+            # series_N overrides use the global index (series_offset + i)
+            series_key = f"series_{i + series_offset}"
             if series_key in kwargs:
                 plot_kwargs.update(kwargs.pop(series_key))
 
@@ -319,6 +417,27 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
 
             y_tick_format : str
                 Python format spec for y-axis ticks (e.g., ",.0f")
+
+            Dual Y-Axis Parameters:
+            -----------------------
+            y_right : array-like, list of arrays, or str/list of str
+                Right y-axis data. Same format as y, plotted on a secondary
+                right y-axis via ax.twinx(). Per-series styling arrays
+                (color, labels, etc.) span both axes in [left..., right...] order.
+
+            ylim_right : tuple or dict
+                Right y-axis limits (min, max) or dict with kwargs for set_ylim
+
+            ylabel_right : str
+                Label for right y-axis
+
+            scale_right : str
+                Scale formatting for right y-axis ('billions', 'millions',
+                'thousands', 'percentage')
+
+            y_tick_format_right : str
+                Python format spec for right y-axis ticks (e.g., ".1%")
+                Ignored if scale_right formatting is active.
 
             Grid and Formatting:
             --------------------
@@ -500,10 +619,18 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         fig, ax = self._setup_figure(style, kwargs)
         self._extract_metadata_from_kwargs(metadata, kwargs)
 
-        x_data, y_data = self._resolve_line_data(kwargs)
+        x_data, y_data, data_ref = self._resolve_line_data(kwargs)
+        y_right_data = self._resolve_y_right_data(kwargs, data_ref)
 
-        style_options = self._resolve_line_style_options(
-            kwargs, style, len(y_data) if y_data else 0
+        num_left = len(y_data) if y_data else 0
+        num_right = len(y_right_data) if y_right_data else 0
+        num_total = num_left + num_right
+
+        style_options = self._resolve_line_style_options(kwargs, style, num_total)
+
+        # Normalize to full-length lists, then slice for each axis
+        left_style, right_style = self._normalize_and_slice_style_options(
+            style_options, num_left, num_right
         )
 
         line_colors = []
@@ -513,9 +640,25 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
                 ax,
                 x_data,
                 y_data,
-                style_options,
+                left_style,
                 kwargs,
             )
+
+        ax2 = None
+        right_colors, right_labels = [], []
+        if y_right_data and x_data is not None:
+            ax2 = ax.twinx()
+            ax2.patch.set_visible(False)  # Prevent right-axis background hiding left content
+            right_colors, right_labels = self._plot_line_series(
+                ax2,
+                x_data,
+                y_right_data,
+                right_style,
+                kwargs,
+                series_offset=num_left,
+            )
+            line_colors.extend(right_colors)
+            line_labels.extend(right_labels)
 
         # Apply standard styling to the axes
         self._apply_axes_styling(
@@ -528,8 +671,15 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             line_labels=line_labels,
             markersize=style_options["markersize"],
             fig=fig,
+            ax2=ax2,
+            y_right_data=y_right_data,
+            right_colors=right_colors,
+            right_labels=right_labels,
             **kwargs,
         )
+
+        if ax2 is not None:
+            self._apply_right_axis_styling(ax2, style, kwargs)
 
         self._adjust_layout_for_header_footer(fig, metadata, style)
 
@@ -537,6 +687,9 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         # (done after layout adjustment to avoid affecting tight_layout calculations)
         for line in ax.get_lines():
             line.set_clip_on(False)
+        if ax2 is not None:
+            for line in ax2.get_lines():
+                line.set_clip_on(False)
 
         return fig
 
@@ -568,6 +721,12 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         line_labels = kwargs.pop("line_labels", [])
         markersize = kwargs.pop("markersize", style.get("marker_size", 6))
 
+        # Dual y-axis internal state
+        ax2 = kwargs.pop("ax2", None)
+        y_right_data = kwargs.pop("y_right_data", None)
+        right_colors = kwargs.pop("right_colors", [])
+        right_labels = kwargs.pop("right_labels", [])
+
         return {
             "xlim": xlim,
             "ylim": ylim,
@@ -593,6 +752,10 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             "line_colors": line_colors,
             "line_labels": line_labels,
             "markersize": markersize,
+            "ax2": ax2,
+            "y_right_data": y_right_data,
+            "right_colors": right_colors,
+            "right_labels": right_labels,
         }
 
     def _apply_line_label_grid_tick_styling(self, ax, style, opts):
@@ -725,6 +888,9 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
 
     def _apply_line_label_strategy(self, ax, style, fig, opts, kwargs):
         """Apply direct line labels or legend based on options."""
+        ax2 = opts.get("ax2")
+        y_right_data = opts.get("y_right_data")
+
         if (
             opts["direct_line_labels"]
             and opts["y_data"] is not None
@@ -737,27 +903,57 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
                 except Exception as e:
                     logger.warning(f"Failed to get renderer before label placement: {e}")
 
+            # For dual axis: split colors/labels back into left/right portions
+            num_left = len(opts["y_data"]) if opts["y_data"] else 0
+            left_colors = opts["line_colors"][:num_left]
+            left_labels = opts["line_labels"][:num_left]
+
             self._add_direct_line_endpoint_labels(
                 ax,
                 opts["x_data"],
                 opts["y_data"],
-                opts["line_labels"],
-                opts["line_colors"],
+                left_labels,
+                left_colors,
                 style,
                 fig=fig,
                 direct_line_labels=opts["direct_line_labels"],
                 markersize=opts["markersize"],
                 **kwargs,
             )
+
+            # Direct labels on right axis (separate call for correct y-scale)
+            if ax2 is not None and y_right_data:
+                right_colors = opts.get("right_colors", [])
+                right_labels = opts.get("right_labels", [])
+                if right_colors and right_labels:
+                    self._add_direct_line_endpoint_labels(
+                        ax2,
+                        opts["x_data"],
+                        y_right_data,
+                        right_labels,
+                        right_colors,
+                        style,
+                        fig=fig,
+                        direct_line_labels=opts["direct_line_labels"],
+                        markersize=opts["markersize"],
+                        **kwargs,
+                    )
             return
 
         if opts["legend"]:
             legend_kwargs = {"fontsize": style["legend_size"]}
             if isinstance(opts["legend"], dict):
                 legend_kwargs.update(opts["legend"])
-            handles, _labels = ax.get_legend_handles_labels()
+
+            # Combine handles from both axes for a unified legend
+            handles, labels = ax.get_legend_handles_labels()
+            if ax2 is not None:
+                handles2, labels2 = ax2.get_legend_handles_labels()
+                handles.extend(handles2)
+                labels.extend(labels2)
+
             if handles:
-                ax.legend(**legend_kwargs)
+                ax.legend(handles, labels, **legend_kwargs)
 
     def _apply_axes_styling(self, ax, metadata, style, fig=None, **kwargs):
         """Apply consistent styling to line chart axes."""
@@ -768,6 +964,44 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         self._apply_line_scale_and_custom_ticks(ax, opts)
         self._apply_horizontal_lines(ax, **kwargs)
         self._apply_line_label_strategy(ax, style, fig, opts, kwargs)
+
+    def _apply_right_axis_styling(self, ax2, style, kwargs):
+        """Apply styling to the right (secondary) y-axis."""
+        ylim_right = kwargs.pop("ylim_right", None)
+        ylabel_right = kwargs.pop("ylabel_right", None)
+        scale_right = kwargs.pop("scale_right", None)
+        y_tick_format_right = kwargs.pop("y_tick_format_right", None)
+
+        # Apply limits
+        if ylim_right is not None:
+            self._apply_axis_limits(ax2, ylim=ylim_right)
+
+        # Apply label with mobile scaling
+        label_size = style.get("label_size")
+        tick_size = style.get("tick_size")
+        style_type = style.get("type", "desktop")
+        if style_type == "mobile" and label_size:
+            label_size = label_size * 0.6
+        if style_type == "mobile" and tick_size:
+            tick_size = tick_size * 0.8
+
+        if ylabel_right:
+            ax2.set_ylabel(ylabel_right, fontsize=label_size, style="normal", labelpad=4)
+
+        # Apply tick sizing
+        ax2.tick_params(axis="y", labelsize=tick_size)
+
+        # Apply scale formatter or tick format
+        scaled = False
+        if scale_right:
+            self._apply_scale_formatter(ax2, scale_right, "y", tick_format=y_tick_format_right)
+            scaled = True
+
+        if y_tick_format_right and not scaled:
+            ax2.yaxis.set_major_formatter(self._build_fstring_tick_formatter(y_tick_format_right))
+
+        # Disable grid on right axis to prevent double gridlines
+        ax2.grid(False)
 
     def _apply_horizontal_lines(self, ax, **kwargs):
         """

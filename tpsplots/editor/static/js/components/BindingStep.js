@@ -38,7 +38,7 @@ function suggestionsForField(fieldName, columns, contextKeys) {
     return dateFirst.slice(0, 6).map((col) => ({ name: col.name, source: "column" }));
   }
 
-  if (lower.includes("value") || lower === "y" || lower === "start_values" || lower === "end_values") {
+  if (lower.includes("value") || lower === "y" || lower === "y_right" || lower === "start_values" || lower === "end_values") {
     const numericFirst = [...decorated].sort((a, b) => Number(b.isNumeric) - Number(a.isNumeric));
     return numericFirst.slice(0, 6).map((col) => ({ name: col.name, source: "column" }));
   }
@@ -89,7 +89,8 @@ export function BindingStep({
   );
 
   const isSeriesBindingMode = (formData?.type === "line" || formData?.type === "scatter") && primary.includes("y");
-  const cardFields = isSeriesBindingMode ? primary.filter((field) => field !== "y") : primary;
+  const hasYRight = isSeriesBindingMode && primary.includes("y_right");
+  const cardFields = isSeriesBindingMode ? primary.filter((field) => field !== "y" && field !== "y_right") : primary;
   const primarySet = useMemo(() => new Set(cardFields), [cardFields]);
 
   const assignSingleField = useCallback(
@@ -110,6 +111,18 @@ export function BindingStep({
       html`
         <${SeriesBindingEditor}
           fieldName="y"
+          label="Y Series (Left Axis)"
+          formData=${formData}
+          onFormDataChange=${onFormDataChange}
+          columns=${columns}
+        />
+      `}
+
+      ${hasYRight &&
+      html`
+        <${SeriesBindingEditor}
+          fieldName="y_right"
+          label="Right Y-Axis Series"
           formData=${formData}
           onFormDataChange=${onFormDataChange}
           columns=${columns}

@@ -91,6 +91,28 @@ class LineChartConfig(
     y: Any = Field(None, description="Y-axis data or column reference(s)")
     data: Any = Field(None, description="DataFrame reference")
 
+    # --- Right y-axis (dual axis) ---
+    y_right: Any = Field(
+        None,
+        description=(
+            "Right y-axis data binding: column reference(s) for secondary axis. "
+            "Per-series styling arrays (color, labels, etc.) span both axes in "
+            "[left..., right...] order"
+        ),
+    )
+    ylim_right: list | dict | str | None = Field(None, description="Right y-axis limits")
+    ylabel_right: str | None = Field(None, description="Right y-axis label text")
+    y_tick_format_right: str | None = Field(
+        None,
+        description=(
+            "Python format spec for right y-axis tick labels. "
+            "Ignored if scale_right formatting is active"
+        ),
+    )
+    scale_right: Literal["billions", "millions", "thousands", "percentage"] | str | None = Field(
+        None, description="Scale formatting for right y-axis values"
+    )
+
     # --- Line styling ---
     color: str | list[str] | None = Field(None, description="Line color(s)")
     linestyle: str | list[str] | None = Field(None, description="Line style(s)")

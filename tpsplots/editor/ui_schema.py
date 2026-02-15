@@ -119,6 +119,7 @@ _CHART_FIELD_GROUPS: dict[str, dict[str, str]] = {
     "line": {
         "x": "Data Bindings",
         "y": "Data Bindings",
+        "y_right": "Data Bindings",
         "color": "Line Styling",
         "linestyle": "Line Styling",
         "linewidth": "Line Styling",
@@ -128,6 +129,10 @@ _CHART_FIELD_GROUPS: dict[str, dict[str, str]] = {
         "labels": "Labels",
         "series_types": "Labels",
         "direct_line_labels": "Labels",
+        "ylim_right": "Right Y-Axis",
+        "ylabel_right": "Right Y-Axis",
+        "y_tick_format_right": "Right Y-Axis",
+        "scale_right": "Right Y-Axis",
         "hlines": "Reference Lines",
         "hline_colors": "Reference Lines",
         "hline_styles": "Reference Lines",
@@ -146,6 +151,7 @@ _CHART_FIELD_GROUPS: dict[str, dict[str, str]] = {
     "scatter": {
         "x": "Data Bindings",
         "y": "Data Bindings",
+        "y_right": "Data Bindings",
         "color": "Point Styling",
         "linestyle": "Point Styling",
         "linewidth": "Point Styling",
@@ -155,6 +161,10 @@ _CHART_FIELD_GROUPS: dict[str, dict[str, str]] = {
         "labels": "Labels",
         "series_types": "Labels",
         "direct_line_labels": "Labels",
+        "ylim_right": "Right Y-Axis",
+        "ylabel_right": "Right Y-Axis",
+        "y_tick_format_right": "Right Y-Axis",
+        "scale_right": "Right Y-Axis",
         "hlines": "Reference Lines",
         "hline_colors": "Reference Lines",
         "hline_styles": "Reference Lines",
@@ -305,6 +315,7 @@ GROUP_ORDER = [
     "Reference Lines",
     "Sort",
     "Scale",
+    "Right Y-Axis",
     "Tick Format",
     "Custom Ticks",
     "Legend",
@@ -340,12 +351,14 @@ _INLINE_ROWS = [
     ("xlim", "ylim"),
     ("xlabel", "ylabel"),
     ("x_tick_format", "y_tick_format"),
+    ("ylabel_right", "ylim_right"),
+    ("scale_right", "y_tick_format_right"),
 ]
 
 # Primary binding fields shown first in guided editor flows.
 PRIMARY_BINDING_FIELDS: dict[str, list[str]] = {
-    "line": ["x", "y"],
-    "scatter": ["x", "y"],
+    "line": ["x", "y", "y_right"],
+    "scatter": ["x", "y", "y_right"],
     "bar": ["categories", "values"],
     "grouped_bar": ["categories", "groups"],
     "stacked_bar": ["categories", "values"],
@@ -355,6 +368,9 @@ PRIMARY_BINDING_FIELDS: dict[str, list[str]] = {
     "us_map_pie": ["pie_data"],
     "line_subplots": ["subplot_data"],
 }
+
+# Optional binding fields: shown in the binding UI but NOT required for preview.
+OPTIONAL_BINDING_FIELDS: set[str] = {"y_right"}
 
 # ---------------------------------------------------------------------------
 # Field tiers: frequency-based prioritisation for progressive disclosure.
@@ -374,11 +390,24 @@ FIELD_TIERS: dict[str, dict[str, list[str]]] = {
             "max_xticks",
             "markersize",
             "direct_line_labels",
+            "ylim_right",
+            "ylabel_right",
+            "scale_right",
+            "y_tick_format_right",
         ],
     },
     "scatter": {
         "essential": ["color", "labels", "scale", "legend", "xlim", "ylim"],
-        "common": ["marker", "markersize", "linewidth", "tick_size"],
+        "common": [
+            "marker",
+            "markersize",
+            "linewidth",
+            "tick_size",
+            "ylim_right",
+            "ylabel_right",
+            "scale_right",
+            "y_tick_format_right",
+        ],
     },
     "grouped_bar": {
         "essential": ["colors", "labels", "show_values", "value_format", "scale", "legend"],
@@ -519,6 +548,7 @@ CHART_TYPE_GUIDANCE: dict[str, dict[str, Any]] = {
 _SERIES_CORRELATED: dict[str, dict[str, Any]] = {
     "line": {
         "trigger_field": "y",
+        "secondary_trigger_field": "y_right",
         "correlated": [
             "color",
             "labels",
@@ -531,11 +561,12 @@ _SERIES_CORRELATED: dict[str, dict[str, Any]] = {
     },
     "scatter": {
         "trigger_field": "y",
+        "secondary_trigger_field": "y_right",
+        # No linestyle/linewidth: scatter forces linestyle='None' and these
+        # are already in _CHART_EXCLUDED_FIELDS["scatter"]
         "correlated": [
             "color",
             "labels",
-            "linestyle",
-            "linewidth",
             "marker",
             "markersize",
             "alpha",

@@ -2298,6 +2298,30 @@ details.refline-builder[open] > .refline-summary .tier-arrow {
   border-bottom: none;
 }
 
+.series-card--right-axis {
+  border-left: 3px solid var(--accent-muted, #7c8bb5);
+}
+
+.series-axis-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.series-axis-divider::before,
+.series-axis-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-subtle);
+}
+
 .series-card-name {
   font-weight: 600;
   font-size: 12px;

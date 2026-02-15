@@ -72,6 +72,11 @@ INTERNAL_KEYS = {
     "y_data",
     "line_colors",
     "line_labels",
+    # Dual y-axis: computed state for right-axis rendering
+    "y_right_data",
+    "ax2",
+    "right_colors",
+    "right_labels",
 }
 
 
