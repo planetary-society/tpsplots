@@ -83,11 +83,13 @@ class MissionSpendingController(ChartController):
         Returns:
             dict: Processed data with fiscal year values and metadata
         """
-        if reporting_type == "outlays":
+        reporting_type_normalized = reporting_type.strip().casefold()
+
+        if reporting_type_normalized == "outlays":
             fy_field = "fiscal_year"
             value_field = "cumulative_outlay"
             fy_period_field = "fiscal_period"
-        elif reporting_type == "obligations":
+        elif reporting_type_normalized == "obligations":
             fy_field = "reporting_fiscal_year"
             value_field = "cumulative_obligations"
             fy_period_field = "reporting_fiscal_month"
@@ -154,9 +156,11 @@ class MissionSpendingController(ChartController):
         from tpsplots.views import LineChartView
 
         line_view = LineChartView(outdir)
-        if reporting_type == "outlays":
+        reporting_type_normalized = reporting_type.strip().casefold()
+
+        if reporting_type_normalized == "outlays":
             subtitle = f"Cumulative value of outlays, by month, for the mission's key contracts in fiscal years {data['current_fy']} and {data['prior_fy']}."
-        elif reporting_type == "obligations":
+        elif reporting_type_normalized == "obligations":
             subtitle = f"Cumulative value of obligations, by month, for the mission's key contracts in fiscal years {data['current_fy']} and {data['prior_fy']}."
 
         source = "USASpending.gov"

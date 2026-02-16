@@ -133,8 +133,10 @@ class NASAFY2026Controller(NASAFYChartsController):
         # Filter by only NASA-led missions
         df = df[df["NASA Led?"].isin([True])]
 
-        # Filter to active missions led by NASA
-        df = df[df["Status"].isin(["Prime Mission", "Extended Mission"])]
+        # Filter to active missions led by NASA (case-insensitive)
+        allowed_statuses = {"prime mission", "extended mission"}
+        normalized_status = df["Status"].astype(str).str.strip().str.casefold()
+        df = df[normalized_status.isin(allowed_statuses)]
 
         total_development_time = round(df["Development Time (years)"].sum())
         total_value = self.round_to_millions(df["LCC"].sum())
