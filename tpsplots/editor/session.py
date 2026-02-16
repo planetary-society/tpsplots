@@ -77,7 +77,8 @@ class EditorSession:
         """
         errors: list[dict[str, Any]] = []
         try:
-            YAMLChartConfig(**config)
+            resolved = self._resolve_chart_templates(config)
+            YAMLChartConfig(**resolved)
         except Exception as exc:
             for err in _extract_pydantic_errors(exc):
                 errors.append(err)
@@ -103,6 +104,32 @@ class EditorSession:
         resolved = DataResolver.resolve(data_source)
         self._data_cache[cache_key] = resolved
         return resolved
+
+    def _resolve_chart_templates(self, config: dict[str, Any]) -> dict[str, Any]:
+        """Resolve {{...}} refs in the chart section before validation.
+
+        Uses the editor's cached data resolution.  Returns original config
+        unchanged if no ``{{...}}`` refs are found or if data loading fails
+        (letting downstream validation surface the error in the UI).
+        """
+        from tpsplots.processors.resolvers.reference_resolver import ReferenceResolver
+
+        data_section = config.get("data")
+        chart_section = config.get("chart")
+
+        if not data_section or not chart_section:
+            return config
+
+        if not ReferenceResolver.contains_references(chart_section):
+            return config
+
+        try:
+            data = self._resolve_data(data_section)
+        except Exception:
+            return config
+
+        resolved_chart = ReferenceResolver.resolve(dict(chart_section), data)
+        return {**config, "chart": resolved_chart}
 
     def profile_data(self, data_config: dict[str, Any]) -> dict[str, Any]:
         """Return data profile details for a source configuration."""
@@ -186,7 +213,8 @@ class EditorSession:
 
         if data_ready and not blocking_errors and not missing_paths:
             try:
-                validated = YAMLChartConfig(**cleaned)
+                resolved = self._resolve_chart_templates(cleaned)
+                validated = YAMLChartConfig(**resolved)
                 data = self._resolve_data(cleaned["data"])
                 build_render_context(validated, data, log_conflicts=False)
             except Exception as exc:
@@ -245,7 +273,8 @@ class EditorSession:
         # Clean empty values injected by RJSF (empty strings, empty arrays, etc.)
         config = _clean_form_data(config)
 
-        # Validate
+        # Resolve {{...}} template refs, then validate
+        config = self._resolve_chart_templates(config)
         validated = YAMLChartConfig(**config)
 
         # Resolve data

@@ -6,10 +6,12 @@ from typing import Any, ClassVar
 
 import yaml
 
-from tpsplots.exceptions import ConfigurationError
+from tpsplots.exceptions import ConfigurationError, DataSourceError
 from tpsplots.models import YAMLChartConfig
+from tpsplots.models.data_sources import DataSourceConfig
 from tpsplots.processors.render_pipeline import build_render_context
 from tpsplots.processors.resolvers import DataResolver
+from tpsplots.processors.resolvers.reference_resolver import ReferenceResolver
 from tpsplots.views import VIEW_REGISTRY
 
 logger = logging.getLogger(__name__)
@@ -34,11 +36,12 @@ class YAMLChartProcessor:
         self.outdir = outdir or Path("charts")
         self.strict = strict
 
-        # Load and validate YAML configuration
+        # Load YAML, resolve any {{...}} template references, then validate
         raw_config = self._load_yaml()
+        self.data: dict[str, Any] | None = None
+        raw_config = self._resolve_templates(raw_config)
         self.config = self._validate_config(raw_config)
 
-        self.data: dict[str, Any] | None = None
         self.view = None
 
     def _load_yaml(self) -> dict[str, Any]:
@@ -52,6 +55,48 @@ class YAMLChartProcessor:
             raise ConfigurationError(f"YAML file not found: {self.yaml_path}") from e
         except yaml.YAMLError as e:
             raise ConfigurationError(f"Invalid YAML syntax in {self.yaml_path}: {e}") from e
+
+    def _resolve_templates(self, raw_config: dict[str, Any]) -> dict[str, Any]:
+        """Resolve {{...}} template references before Pydantic validation.
+
+        Loads the data source and substitutes all ``{{...}}`` references in
+        the chart section so that Pydantic can validate fully-resolved values
+        (e.g., ``bool``, ``float``, ``list`` fields that would reject a raw
+        template string).
+
+        Returns the config unchanged when no template references are found,
+        preserving the fast-path for literal-only configs.
+        """
+        chart_section = raw_config.get("chart")
+        data_section = raw_config.get("data")
+
+        if not chart_section or not data_section:
+            return raw_config
+
+        if not ReferenceResolver.contains_references(chart_section):
+            return raw_config
+
+        # Validate just the data section (it never contains {{...}} refs)
+        try:
+            data_source = DataSourceConfig(**data_section)
+        except Exception as e:
+            raise ConfigurationError(
+                f"YAML configuration validation failed (data section): {e}"
+            ) from e
+
+        # Load data
+        try:
+            self.data = DataResolver.resolve(data_source)
+        except DataSourceError:
+            raise
+        except Exception as e:
+            raise ConfigurationError(
+                f"Cannot resolve template references: data source failed: {e}"
+            ) from e
+
+        # Resolve {{...}} references in the chart section
+        resolved_chart = ReferenceResolver.resolve(dict(chart_section), self.data)
+        return {**raw_config, "chart": resolved_chart}
 
     def _validate_config(self, raw_config: dict[str, Any]) -> YAMLChartConfig:
         """Validate the YAML configuration using Pydantic."""
@@ -78,9 +123,10 @@ class YAMLChartProcessor:
 
     def generate_chart(self) -> dict[str, Any]:
         """Generate the chart based on the YAML configuration."""
-        # Step 1: Resolve data source
-        logger.info("Resolving data source...")
-        self.data = DataResolver.resolve(self.config.data)
+        # Step 1: Resolve data source (skip if already loaded during template resolution)
+        if self.data is None:
+            logger.info("Resolving data source...")
+            self.data = DataResolver.resolve(self.config.data)
 
         # Step 2: Build render context (shared with editor preview)
         ctx = build_render_context(self.config, self.data, log_conflicts=True)

@@ -34,6 +34,17 @@ class ReferenceResolver:
         return bool(REFERENCE_PATTERN.match(value.strip()))
 
     @staticmethod
+    def contains_references(value: Any) -> bool:
+        """Check recursively whether a value tree contains any {{...}} references."""
+        if isinstance(value, str):
+            return bool(TEMPLATE_PATTERN.search(value))
+        if isinstance(value, dict):
+            return any(ReferenceResolver.contains_references(v) for v in value.values())
+        if isinstance(value, list):
+            return any(ReferenceResolver.contains_references(item) for item in value)
+        return False
+
+    @staticmethod
     def resolve(value: Any, data: dict[str, Any]) -> Any:
         """
         Resolve a value, substituting any {{...}} references.
