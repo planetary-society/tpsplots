@@ -67,19 +67,3 @@ ChartConfig = Annotated[
     | Annotated[LineSubplotsChartConfig, Tag("line_subplots")],
     Discriminator("type"),
 ]
-
-
-# ---------------------------------------------------------------------------
-# Legacy models — kept for backwards compatibility
-# ---------------------------------------------------------------------------
-from pydantic import BaseModel, Field  # noqa: E402
-
-
-class MetadataConfig(BaseModel):
-    """Legacy metadata configuration (v1.0 compatibility)."""
-
-    title: str = Field(..., description="Chart title")
-    subtitle: str | None = Field(None, description="Chart subtitle")
-    source: str | None = Field(None, description="Data source attribution")
-    header: bool | None = Field(None, description="Show header section")
-    footer: bool | None = Field(None, description="Show footer section")

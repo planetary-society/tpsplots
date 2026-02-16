@@ -4,7 +4,6 @@ from tpsplots.models.chart_config import (
     CHART_TYPES,
     ChartConfig,
     ChartType,
-    MetadataConfig,
 )
 from tpsplots.models.charts import (
     CONFIG_REGISTRY,
@@ -22,8 +21,7 @@ from tpsplots.models.charts import (
     USMapPieChartConfig,
     WaffleChartConfig,
 )
-from tpsplots.models.data_sources import DataSource, DataSourceConfig
-from tpsplots.models.parameters import ParametersConfig
+from tpsplots.models.data_sources import DataSourceConfig
 from tpsplots.models.yaml_config import YAMLChartConfig
 
 __all__ = [
@@ -35,7 +33,6 @@ __all__ = [
     "ChartConfig",
     "ChartType",
     # Data sources
-    "DataSource",
     "DataSourceConfig",
     # Sub-models
     "DirectLineLabelsConfig",
@@ -45,9 +42,6 @@ __all__ = [
     "LineChartConfig",
     "LineSubplotsChartConfig",
     "LollipopChartConfig",
-    "MetadataConfig",
-    # Parameters (deprecated — use per-chart config models instead)
-    "ParametersConfig",
     "ScatterChartConfig",
     "SeriesConfig",
     "StackedBarChartConfig",

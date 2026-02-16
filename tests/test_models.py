@@ -108,17 +108,6 @@ class TestModels:
         assert params["legend"] is False
         assert params["color"] == "NeptuneBlue"
 
-    def test_metadata_config(self):
-        """Test legacy MetadataConfig model."""
-        from tpsplots.models import MetadataConfig
-
-        metadata = MetadataConfig(
-            title="Test Title",
-            subtitle="Test Subtitle",
-            source="Test Source",
-        )
-        assert metadata.title == "Test Title"
-
     def test_data_source_config(self):
         """Test DataSourceConfig model (v2.0)."""
         from tpsplots.models import DataSourceConfig

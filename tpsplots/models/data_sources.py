@@ -95,7 +95,3 @@ class DataSourceConfig(BaseModel):
     calculate_inflation: InflationConfig | None = Field(
         default=None, description="Inflation adjustment configuration"
     )
-
-
-# Alias for backward compatibility with internal imports
-DataSource = DataSourceConfig
