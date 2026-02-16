@@ -106,6 +106,38 @@ class TestModelAcceptance:
         assert config.type == "scatter"
         assert isinstance(config, LineChartConfig)
 
+    def test_line_accepts_dual_y_axis_fields(self):
+        config = LineChartConfig(
+            type="line",
+            output="test",
+            title="T",
+            x="{{Year}}",
+            y=["{{Budget}}", "{{Spending}}"],
+            y_right="{{GDP_Pct}}",
+            ylim_right=[0, 10],
+            ylabel_right="% of GDP",
+            y_tick_format_right=".1f",
+            scale_right="percentage",
+        )
+        assert config.y_right == "{{GDP_Pct}}"
+        assert config.ylabel_right == "% of GDP"
+        assert config.scale_right == "percentage"
+        assert config.y_tick_format_right == ".1f"
+        assert config.ylim_right == [0, 10]
+
+    def test_scatter_inherits_dual_y_axis(self):
+        config = ScatterChartConfig(
+            type="scatter",
+            output="test",
+            title="T",
+            x="{{x}}",
+            y="{{y}}",
+            y_right="{{z}}",
+            ylabel_right="Z axis",
+        )
+        assert config.y_right == "{{z}}"
+        assert config.ylabel_right == "Z axis"
+
     def test_bar_accepts_all_fields(self):
         config = BarChartConfig(
             type="bar",
@@ -273,7 +305,12 @@ class TestRejection:
     )
     def test_rejects_removed_alias_fields(self, config_cls, alias_field, alias_value):
         with pytest.raises(ValidationError):
-            config_cls(type=config_cls.model_fields["type"].default, output="t", title="t", **{alias_field: alias_value})
+            config_cls(
+                type=config_cls.model_fields["type"].default,
+                output="t",
+                title="t",
+                **{alias_field: alias_value},
+            )
 
 
 # ---------------------------------------------------------------------------

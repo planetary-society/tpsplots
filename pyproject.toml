@@ -44,6 +44,7 @@ dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "ruff>=0.1.0",
+    "httpx",
 ]
 
 [project.scripts]
@@ -68,6 +69,8 @@ tpsplots = [
     "assets/fonts/**/*.txt",
     "assets/images/**/*.png",
     "views/style/**/*.mplstyle",
+    "editor/templates/**/*",
+    "editor/static/**/*",
 ]
 
 # Ruff configuration

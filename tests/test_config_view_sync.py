@@ -64,16 +64,19 @@ from tpsplots.views import VIEW_REGISTRY
 # internal methods within _create_chart(). Keep this set small; if it grows,
 # the config models likely need updating instead.
 INTERNAL_KEYS = {
-    # Injected by ChartView.generate_chart() before calling _create_chart()
+    # Injected by ChartView.generate_chart() / create_figure() before calling _create_chart()
     "style",
-    # Control flag popped by generate_chart(), not a chart rendering param
-    "preview",
     # Computed by LineChartView._create_chart() and passed to _apply_axes_styling()
     # as internal state — not settable by YAML users
     "x_data",
     "y_data",
     "line_colors",
     "line_labels",
+    # Dual y-axis: computed state for right-axis rendering
+    "y_right_data",
+    "ax2",
+    "right_colors",
+    "right_labels",
 }
 
 

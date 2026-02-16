@@ -17,7 +17,12 @@ def test_direct_line_label_simple_position_uses_expected_alignment(tmp_path):
     fig.canvas.draw()
 
     text_bbox = view._get_text_bbox_display(
-        "Series A", fontsize=12, color="blue", add_bbox=True, renderer=fig.canvas.get_renderer(), ax=ax
+        "Series A",
+        fontsize=12,
+        color="blue",
+        add_bbox=True,
+        renderer=fig.canvas.get_renderer(),
+        ax=ax,
     )
     pos = view._get_simple_label_position(
         x_data=2,
@@ -82,6 +87,26 @@ def test_line_chart_grid_dict_still_applies_custom_axis(tmp_path):
     assert not any(line.get_visible() for line in ax.get_ygridlines())
 
 
+def test_line_chart_grid_axis_kwarg_controls_visible_axis(tmp_path):
+    """Line chart should honor explicit grid_axis when grid is enabled."""
+    view = LineChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Grid Axis"},
+        style=view.DESKTOP,
+        x=[1, 2, 3, 4],
+        y=[[10, 20, 30, 40]],
+        legend=False,
+        fiscal_year_ticks=False,
+        grid=True,
+        grid_axis="x",
+    )
+    ax = fig.axes[0]
+    fig.canvas.draw()
+
+    assert any(line.get_visible() for line in ax.get_xgridlines())
+    assert not any(line.get_visible() for line in ax.get_ygridlines())
+
+
 def test_line_chart_direct_labels_do_not_duplicate_markersize_kwarg(tmp_path):
     """Direct labels should render without passing markersize twice."""
     view = LineChartView(outdir=tmp_path, style_file=None)
@@ -98,6 +123,30 @@ def test_line_chart_direct_labels_do_not_duplicate_markersize_kwarg(tmp_path):
 
     texts = [t.get_text() for t in fig.axes[0].texts]
     assert "Series A" in texts
+
+
+def test_line_chart_supports_per_series_markersize_and_direct_labels(tmp_path):
+    """Line charts should accept per-series markersize arrays end-to-end."""
+    view = LineChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Per-Series Marker Size"},
+        style=view.DESKTOP,
+        x=[1, 2, 3],
+        y=[[2, 3, 4], [3, 4, 5]],
+        labels=["Series A", "Series B"],
+        markersize=[4, 10],
+        direct_line_labels={"position": "right", "bbox": True},
+        legend=False,
+        fiscal_year_ticks=False,
+    )
+
+    lines = fig.axes[0].get_lines()
+    assert len(lines) >= 2
+    assert lines[0].get_markersize() == 4
+    assert lines[1].get_markersize() == 10
+    texts = [t.get_text() for t in fig.axes[0].texts]
+    assert "Series A" in texts
+    assert "Series B" in texts
 
 
 def test_line_subplots_shared_legend_and_shared_axes(tmp_path):
@@ -132,7 +181,7 @@ def test_line_chart_resolve_line_data_supports_extension_array(tmp_path):
     view = LineChartView(outdir=tmp_path, style_file=None)
     kwargs = {"x": pd.array([1, 2, 3], dtype="Int64")}
 
-    x_data, y_data = view._resolve_line_data(kwargs)
+    x_data, y_data, _data_ref = view._resolve_line_data(kwargs)
 
     assert list(x_data) == [0, 1, 2]
     assert y_data is not None

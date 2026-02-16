@@ -34,6 +34,8 @@ class ChartView(AxisTickFormatMixin):
     # Color palettes imported from tpsplots.colors for backward compatibility
     COLORS: ClassVar[dict[str, str]] = COLORS
     TPS_COLORS: ClassVar[dict[str, str]] = TPS_COLORS
+    # Cached color-masked logo array (loaded once, reused across all renders)
+    _cached_logo: ClassVar[np.ndarray | None] = None
     # Device-specific visual settings
     DESKTOP: ClassVar[dict[str, object]] = {
         "type": "desktop",
@@ -107,6 +109,27 @@ class ChartView(AxisTickFormatMixin):
         if style_file:
             plt.style.use(style_file)
 
+    def create_figure(self, metadata, device="desktop", **kwargs):
+        """Create a single chart figure for the given device.
+
+        Unlike ``generate_chart``, this does not save files or create
+        both device variants — it returns one matplotlib Figure for
+        in-memory use (e.g. editor previews).
+
+        Args:
+            metadata: Chart metadata dictionary
+            device: ``"desktop"`` or ``"mobile"``
+            **kwargs: Additional parameters for chart creation
+
+        Returns:
+            matplotlib.figure.Figure: The created figure
+        """
+        kwargs.pop("export_data", None)
+        style = self.DESKTOP if device == "desktop" else self.MOBILE
+        chart_kwargs = self._clone_chart_kwargs(kwargs)
+        chart_kwargs["style"] = style
+        return self._create_chart(metadata, **chart_kwargs)
+
     def generate_chart(self, metadata, stem, **kwargs):
         """
         Generate desktop and mobile versions of a chart.
@@ -114,7 +137,6 @@ class ChartView(AxisTickFormatMixin):
         Args:
             metadata: Chart metadata dictionary
             stem: Base filename for the chart
-            export: dataframe to export to CSV
             **kwargs: Additional parameters for chart creation
 
         Returns:
@@ -122,7 +144,6 @@ class ChartView(AxisTickFormatMixin):
         """
 
         export_data = kwargs.pop("export_data", None)
-        preview = kwargs.pop("preview", False)
         generated_files: list[str] = []
 
         try:
@@ -130,22 +151,20 @@ class ChartView(AxisTickFormatMixin):
             desktop_kwargs = self._clone_chart_kwargs(kwargs)
             desktop_kwargs["style"] = self.DESKTOP
             desktop_fig = self._create_chart(metadata, **desktop_kwargs)
-            if not preview:
-                generated_files.extend(
-                    self._save_chart(desktop_fig, f"{stem}_desktop", metadata, create_pptx=True)
-                )
+            generated_files.extend(
+                self._save_chart(desktop_fig, f"{stem}_desktop", metadata, create_pptx=True)
+            )
 
             # Create mobile version
             mobile_kwargs = self._clone_chart_kwargs(kwargs)
             mobile_kwargs["style"] = self.MOBILE
             mobile_fig = self._create_chart(metadata, **mobile_kwargs)
-            if not preview:
-                generated_files.extend(
-                    self._save_chart(mobile_fig, f"{stem}_mobile", metadata, create_pptx=False)
-                )
+            generated_files.extend(
+                self._save_chart(mobile_fig, f"{stem}_mobile", metadata, create_pptx=False)
+            )
 
             # Export CSV if export_data is present
-            if export_data is not None and not preview:
+            if export_data is not None:
                 csv_path = self._export_csv(export_data, metadata, stem)
                 generated_files.append(str(csv_path))
 
@@ -601,8 +620,6 @@ class ChartView(AxisTickFormatMixin):
         # Create temporary invisible text element to measure
         temp_text = fig.text(0, 0, text, fontsize=fontsize, visible=False)
 
-        # Force a draw to ensure renderer is available
-        fig.canvas.draw_idle()
         renderer = fig.canvas.get_renderer()
 
         # Get bounding box in display (pixel) coordinates
@@ -617,26 +634,23 @@ class ChartView(AxisTickFormatMixin):
 
         return height
 
-    def _calculate_header_height(self, fig, metadata, style) -> float:
+    def _calculate_header_height(self, fig, metadata, style) -> tuple[float, float]:
         """
         Calculate header height based on actual content dimensions.
 
         Measures the title and wrapped subtitle to determine the exact
         header space needed, avoiding both wasted space and text overlap.
 
-        Args:
-            fig: The matplotlib Figure object
-            metadata: Chart metadata dictionary containing title/subtitle
-            style: Style dictionary (DESKTOP or MOBILE)
-
         Returns:
-            float: Required header height in figure-fraction coordinates
+            (header_height, title_height) — both in figure-fraction coordinates.
+            ``title_height`` is passed to ``_add_header`` so it can position
+            the subtitle without re-measuring.
         """
         title = metadata.get("title")
         subtitle = metadata.get("subtitle")
 
         if not title and not subtitle:
-            return 0.0
+            return 0.0, 0.0
 
         # Measure title height
         title_height = self._measure_text_height(fig, title, style["title_size"])
@@ -662,9 +676,9 @@ class ChartView(AxisTickFormatMixin):
 
         # Calculate total height and constrain to bounds
         total_height = title_height + subtitle_height + padding
-        return max(min_height, min(max_height, total_height))
+        return max(min_height, min(max_height, total_height)), title_height
 
-    def _add_header(self, fig, metadata, style, top_margin=0.2):
+    def _add_header(self, fig, metadata, style, top_margin=0.2, title_height=None):
         """
         Add header elements to the figure: title and subtitle with left alignment.
 
@@ -675,13 +689,9 @@ class ChartView(AxisTickFormatMixin):
             fig: The matplotlib Figure object
             metadata: Chart metadata dictionary
             style: Style dictionary (DESKTOP or MOBILE)
-            top_margin: Top margin to reserve for the header (used for subtitle positioning)
+            top_margin: Top margin to reserve for the header
+            title_height: Unused, kept for API compatibility.
         """
-        # NOTE: Caller (_adjust_layout_for_header_footer) already checks whether
-        # header should be displayed based on style and metadata settings.
-        # Layout spacing is handled by tight_layout(rect=...) in _adjust_layout_for_header_footer,
-        # so we do NOT call fig.subplots_adjust here to avoid conflicting layout calls.
-
         title = metadata.get("title")
         subtitle = metadata.get("subtitle")
 
@@ -700,18 +710,11 @@ class ChartView(AxisTickFormatMixin):
                 va="top",
             )
 
-            # Measure title to position subtitle correctly
-            fig.canvas.draw_idle()
+            # Measure the actual bold title for accurate subtitle positioning.
             renderer = fig.canvas.get_renderer()
             title_bbox = title_text.get_window_extent(renderer)
             fig_height_px = fig.get_figheight() * fig.dpi
-
-            # Calculate where title bottom is in figure coordinates
-            # title_bbox.y0 is the bottom of the text in display coordinates
-            title_bottom_y = title_bbox.y0 / fig_height_px
-
-            # Add small gap between title and subtitle
-            title_bottom_y -= 0.005
+            title_bottom_y = title_bbox.y0 / fig_height_px - 0.005
 
         # Add subtitle if provided, positioned relative to title
         if subtitle:
@@ -770,16 +773,15 @@ class ChartView(AxisTickFormatMixin):
             metadata: Chart metadata dictionary
             style: Style dictionary (DESKTOP or MOBILE, etc)
         """
-        # Determine if header should be displayed
+        # Determine if header/footer should be displayed
         show_header = style.get("header") or metadata.get("header")
-
-        # Determine if footer should be displayed
         show_footer = style.get("footer") or metadata.get("footer")
 
         # Calculate dynamic header height based on actual content
+        title_height = None
         if show_header:
             # Use dynamic calculation, falling back to style default
-            header_height = self._calculate_header_height(fig, metadata, style)
+            header_height, title_height = self._calculate_header_height(fig, metadata, style)
             # Ensure we don't go below the style minimum
             style_min = style.get("header_height", 0.1)
             header_height = max(header_height, style_min)
@@ -791,7 +793,7 @@ class ChartView(AxisTickFormatMixin):
 
         # Add header if enabled (after calculating height so it knows space available)
         if show_header:
-            self._add_header(fig, metadata, style, header_height)
+            self._add_header(fig, metadata, style, header_height, title_height=title_height)
 
         # Add footer if enabled
         if show_footer:
@@ -835,6 +837,29 @@ class ChartView(AxisTickFormatMixin):
             )
         )
 
+    @classmethod
+    def _get_cached_logo(cls) -> np.ndarray | None:
+        """Return the color-masked logo array, loading from disk on first call."""
+        if cls._cached_logo is not None:
+            return cls._cached_logo
+
+        logo_path = IMAGES_DIR / "TPS_Logo_1Line-Black-Cutout.png"
+        if not logo_path.exists():
+            return None
+
+        logo = mpimg.imread(str(logo_path))
+
+        if logo.shape[2] == 4:  # RGBA — apply #545454 color mask
+            alpha = logo[:, :, 3]
+            grey = 0x54 / 255.0
+            new_logo = np.zeros((logo.shape[0], logo.shape[1], 4))
+            new_logo[:, :, :3] = grey
+            new_logo[:, :, 3] = alpha
+            logo = new_logo
+
+        cls._cached_logo = logo
+        return logo
+
     def _add_logo(self, fig, style):
         """
         Add The Planetary Society logo to the figure.
@@ -844,35 +869,9 @@ class ChartView(AxisTickFormatMixin):
             style: Style dictionary (DESKTOP or MOBILE)
         """
         try:
-            logo_path = IMAGES_DIR / "TPS_Logo_1Line-Black-Cutout.png"
-            if not logo_path.exists():
+            logo = self._get_cached_logo()
+            if logo is None:
                 return
-
-            logo = mpimg.imread(str(logo_path))
-
-            # Apply color mask if the logo has an alpha channel (RGBA)
-            if logo.shape[2] == 4:  # RGBA format
-                # Extract alpha channel
-                alpha = logo[:, :, 3]
-
-                # Create a color mask for the logo to better
-                # match the chart colors
-                hex_color = "#545454"
-                rgb_color = np.array(
-                    [
-                        int(hex_color[1:3], 16) / 255.0,
-                        int(hex_color[3:5], 16) / 255.0,
-                        int(hex_color[5:7], 16) / 255.0,
-                    ]
-                )
-
-                # Create a new image where all non-transparent pixels are the specified color
-                new_logo = np.zeros((logo.shape[0], logo.shape[1], 4))
-                for i in range(3):  # RGB channels
-                    new_logo[:, :, i] = rgb_color[i]
-                new_logo[:, :, 3] = alpha  # Preserve original alpha
-
-                logo = new_logo
 
             imagebox = OffsetImage(
                 logo,
@@ -883,7 +882,10 @@ class ChartView(AxisTickFormatMixin):
 
             ab = AnnotationBbox(
                 imagebox,
-                xy=(style.get("logo_x", 0.01), style.get("logo_y", 0.005)),  # Position at left, bottom corner
+                xy=(
+                    style.get("logo_x", 0.01),
+                    style.get("logo_y", 0.005),
+                ),  # Position at left, bottom corner
                 xycoords="figure fraction",
                 box_alignment=(0, 0),  # Align the left edge of the logo with the xy point
                 frameon=False,

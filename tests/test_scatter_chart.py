@@ -68,6 +68,25 @@ def test_scatter_create_chart_handles_nullable_int64_arrays(tmp_path):
     assert len(ax.get_lines()[0].get_ydata()) == 3
 
 
+def test_scatter_create_figure_applies_scatter_defaults(tmp_path):
+    """create_figure path should default to marker-only scatter styling."""
+    view = ScatterChartView(outdir=tmp_path, style_file=None)
+    fig = view.create_figure(
+        metadata={"title": "Test"},
+        device="desktop",
+        x=[1, 2, 3],
+        y=[4, 5, 6],
+        legend=False,
+        fiscal_year_ticks=False,
+    )
+
+    ax = fig.axes[0]
+    assert len(ax.get_lines()) == 1
+    line = ax.get_lines()[0]
+    assert line.get_linestyle() == "None"
+    assert line.get_marker() == "o"
+
+
 def test_scatter_create_chart_applies_y_tick_format(tmp_path):
     """Scatter chart should apply f-string style y-axis tick formatting."""
     view = ScatterChartView(outdir=tmp_path, style_file=None)

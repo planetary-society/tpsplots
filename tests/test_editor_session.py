@@ -1,0 +1,325 @@
+"""Tests for EditorSession: validation, path security, file I/O."""
+
+import pytest
+import yaml
+
+from tpsplots.editor.session import EditorSession
+
+
+@pytest.fixture
+def yaml_dir(tmp_path):
+    """Create a temp directory with sample YAML files."""
+    sample = {
+        "data": {"source": "data/test.csv"},
+        "chart": {"type": "bar", "output": "test_chart", "title": "Test Chart"},
+    }
+    (tmp_path / "sample.yaml").write_text(
+        yaml.dump(sample, default_flow_style=False), encoding="utf-8"
+    )
+    (tmp_path / "another.yml").write_text(
+        yaml.dump(sample, default_flow_style=False), encoding="utf-8"
+    )
+    return tmp_path
+
+
+@pytest.fixture
+def session(yaml_dir):
+    return EditorSession(yaml_dir=yaml_dir)
+
+
+class TestPathSecurity:
+    """Path traversal protection tests."""
+
+    def test_reject_absolute_path(self, session):
+        with pytest.raises(ValueError, match="Absolute paths"):
+            session._resolve_path("/etc/passwd")
+
+    def test_reject_traversal(self, session):
+        with pytest.raises(ValueError):
+            session._resolve_path("../../../etc/passwd")
+
+    def test_reject_dot_dot(self, session):
+        with pytest.raises(ValueError):
+            session._resolve_path("subdir/../../secrets.yaml")
+
+    def test_allow_valid_relative_path(self, session, yaml_dir):
+        path = session._resolve_path("sample.yaml")
+        assert path == yaml_dir / "sample.yaml"
+
+    def test_resolve_uses_real_path(self, session, yaml_dir):
+        """Ensure symlinks are resolved (no symlink escape)."""
+        path = session._resolve_path("sample.yaml")
+        assert path.is_absolute()
+        assert path.resolve() == path
+
+
+class TestValidation:
+    def test_valid_config_returns_no_errors(self, session):
+        config = {
+            "data": {"source": "data/test.csv"},
+            "chart": {"type": "bar", "output": "test", "title": "Test"},
+        }
+        errors = session.validate_config(config)
+        assert errors == []
+
+    def test_invalid_config_returns_errors(self, session):
+        config = {"data": {"source": "test.csv"}, "chart": {"type": "bar"}}
+        errors = session.validate_config(config)
+        assert len(errors) > 0
+
+    def test_missing_data_key_returns_errors(self, session):
+        config = {"chart": {"type": "bar", "output": "test", "title": "Test"}}
+        errors = session.validate_config(config)
+        assert len(errors) > 0
+
+    def test_errors_use_json_pointer_paths(self, session):
+        config = {"data": {"source": "test.csv"}, "chart": {"type": "bar"}}
+        errors = session.validate_config(config)
+        paths = {err["path"] for err in errors}
+        assert "/chart/output" in paths
+        assert "/chart/title" in paths
+
+
+class TestFileIO:
+    def test_load_yaml(self, session):
+        config = session.load_yaml("sample.yaml")
+        assert config["chart"]["type"] == "bar"
+        assert config["chart"]["title"] == "Test Chart"
+
+    def test_load_nonexistent_raises(self, session):
+        with pytest.raises(FileNotFoundError):
+            session.load_yaml("nonexistent.yaml")
+
+    def test_load_non_yaml_raises(self, session, yaml_dir):
+        (yaml_dir / "readme.txt").write_text("hello", encoding="utf-8")
+        with pytest.raises(ValueError, match="Not a YAML file"):
+            session.load_yaml("readme.txt")
+
+    def test_save_yaml_new_file(self, session, yaml_dir):
+        config = {
+            "data": {"source": "data/new.csv"},
+            "chart": {"type": "donut", "output": "new_chart", "title": "New"},
+        }
+        session.save_yaml("new.yaml", config)
+        assert (yaml_dir / "new.yaml").exists()
+
+        loaded = yaml.safe_load((yaml_dir / "new.yaml").read_text(encoding="utf-8"))
+        assert loaded["chart"]["type"] == "donut"
+
+    def test_save_yaml_updates_existing(self, session, yaml_dir):
+        config = {
+            "data": {"source": "data/updated.csv"},
+            "chart": {"type": "bar", "output": "updated", "title": "Updated"},
+        }
+        session.save_yaml("sample.yaml", config)
+
+        loaded = yaml.safe_load((yaml_dir / "sample.yaml").read_text(encoding="utf-8"))
+        assert loaded["chart"]["title"] == "Updated"
+
+    def test_save_yaml_rejects_invalid_config(self, session, yaml_dir):
+        config = {"data": {"source": "data/updated.csv"}, "chart": {"type": "bar"}}
+        with pytest.raises(ValueError):
+            session.save_yaml("invalid.yaml", config)
+        assert not (yaml_dir / "invalid.yaml").exists()
+
+    def test_save_yaml_strips_empty_rjsf_values(self, session, yaml_dir):
+        config = {
+            "data": {"source": "data/updated.csv"},
+            "chart": {
+                "type": "bar",
+                "output": "updated",
+                "title": "Updated",
+                "subtitle": "",
+                "figsize": [],
+            },
+        }
+        session.save_yaml("cleaned.yaml", config)
+        loaded = yaml.safe_load((yaml_dir / "cleaned.yaml").read_text(encoding="utf-8"))
+        assert "subtitle" not in loaded["chart"]
+        assert "figsize" not in loaded["chart"]
+
+    def test_save_yaml_roundtrip_removes_deleted_fields(self, session, yaml_dir):
+        (yaml_dir / "with_subtitle.yaml").write_text(
+            yaml.dump(
+                {
+                    "data": {"source": "data/test.csv"},
+                    "chart": {
+                        "type": "bar",
+                        "output": "keep_output",
+                        "title": "Keep Title",
+                        "subtitle": "remove me",
+                    },
+                },
+                default_flow_style=False,
+            ),
+            encoding="utf-8",
+        )
+        session.save_yaml(
+            "with_subtitle.yaml",
+            {
+                "data": {"source": "data/test.csv"},
+                "chart": {"type": "bar", "output": "keep_output", "title": "Keep Title"},
+            },
+        )
+        loaded = yaml.safe_load((yaml_dir / "with_subtitle.yaml").read_text(encoding="utf-8"))
+        assert "subtitle" not in loaded["chart"]
+
+    def test_list_yaml_files(self, session):
+        files = session.list_yaml_files()
+        assert "sample.yaml" in files
+        assert "another.yml" in files
+        assert len(files) == 2
+
+    def test_list_yaml_files_includes_nested_paths(self, session, yaml_dir):
+        nested = yaml_dir / "nested"
+        nested.mkdir()
+        (nested / "child.yaml").write_text("chart: {}\n", encoding="utf-8")
+        files = session.list_yaml_files()
+        assert "nested/child.yaml" in files
+
+
+class TestDataCache:
+    def test_invalidate_cache(self, session):
+        session._data_cache["test_key"] = {"some": "data"}
+        assert len(session._data_cache) == 1
+        session.invalidate_data_cache()
+        assert len(session._data_cache) == 0
+
+
+class TestCleanFormData:
+    """Verify RJSF empty-value cleanup."""
+
+    def test_strips_empty_strings(self):
+        from tpsplots.editor.session import _clean_form_data
+
+        result = _clean_form_data({"title": "Keep", "subtitle": "", "source": ""})
+        assert result == {"title": "Keep"}
+
+    def test_strips_empty_arrays(self):
+        from tpsplots.editor.session import _clean_form_data
+
+        result = _clean_form_data({"figsize": [], "y": ["col1"], "title": "X"})
+        assert result == {"y": ["col1"], "title": "X"}
+
+    def test_preserves_false_booleans(self):
+        from tpsplots.editor.session import _clean_form_data
+
+        result = _clean_form_data({"grid": False, "legend": True})
+        assert result == {"grid": False, "legend": True}
+
+    def test_preserves_zero_values(self):
+        from tpsplots.editor.session import _clean_form_data
+
+        result = _clean_form_data({"tick_rotation": 0, "linewidth": 0.0})
+        assert result == {"tick_rotation": 0, "linewidth": 0.0}
+
+    def test_recurses_into_nested_dicts(self):
+        from tpsplots.editor.session import _clean_form_data
+
+        result = _clean_form_data(
+            {"data": {"source": "test.csv", "extra": ""}, "chart": {"type": "bar"}}
+        )
+        assert result == {"data": {"source": "test.csv"}, "chart": {"type": "bar"}}
+
+    def test_coerces_iso_date_strings_in_lists(self):
+        """Date strings in lists (e.g. xlim) are converted to datetime.date."""
+        from datetime import date
+
+        from tpsplots.editor.session import _clean_form_data
+
+        result = _clean_form_data({"xlim": ["1958-01-01", "2030-01-01"]})
+        assert result == {"xlim": [date(1958, 1, 1), date(2030, 1, 1)]}
+
+    def test_leaves_non_date_strings_in_lists(self):
+        """Regular strings in lists are not converted."""
+        from tpsplots.editor.session import _clean_form_data
+
+        result = _clean_form_data({"labels": ["Series A", "Series B"]})
+        assert result == {"labels": ["Series A", "Series B"]}
+
+    def test_leaves_partial_date_strings_as_strings(self):
+        """Strings that look date-like but aren't exact YYYY-MM-DD stay as strings."""
+        from tpsplots.editor.session import _clean_form_data
+
+        result = _clean_form_data({"colors": ["2024-01-01T00:00", "not-a-date"]})
+        assert result == {"colors": ["2024-01-01T00:00", "not-a-date"]}
+
+    def test_preserves_legend_dict(self):
+        """Legend dict values survive clean_form_data unchanged (original bug scenario)."""
+        from tpsplots.editor.session import _clean_form_data
+
+        result = _clean_form_data({"legend": {"loc": "upper right", "fontsize": "medium"}})
+        assert result == {"legend": {"loc": "upper right", "fontsize": "medium"}}
+
+    def test_preserves_legend_false(self):
+        """Legend=False (disable legend) survives clean_form_data."""
+        from tpsplots.editor.session import _clean_form_data
+
+        result = _clean_form_data({"legend": False})
+        assert result == {"legend": False}
+
+
+class TestLegendDictIntegration:
+    """Integration test: legend dict survives clean → validate → build_render_context."""
+
+    def test_legend_dict_reaches_render_context(self, tmp_path):
+        """Legend dict form data flows through the full editor pipeline."""
+        csv = tmp_path / "data.csv"
+        csv.write_text("Year,A,B\n2024,10,30\n2025,20,40\n")
+
+        config = {
+            "data": {"source": f"csv:{csv}"},
+            "chart": {
+                "type": "line",
+                "output": "legend_integration",
+                "title": "Legend Test",
+                "x": "{{Year}}",
+                "y": ["{{A}}", "{{B}}"],
+                "legend": {"loc": "upper right", "fontsize": "medium", "ncol": 3},
+            },
+        }
+
+        from tpsplots.editor.session import _clean_form_data
+        from tpsplots.models.yaml_config import YAMLChartConfig
+        from tpsplots.processors.render_pipeline import build_render_context
+        from tpsplots.processors.resolvers import DataResolver
+
+        cleaned = _clean_form_data(config)
+        validated = YAMLChartConfig(**cleaned)
+        data = DataResolver.resolve(validated.data)
+        ctx = build_render_context(validated, data, log_conflicts=False)
+
+        # Legend dict should survive the full pipeline
+        assert isinstance(ctx.resolved_params["legend"], dict)
+        assert ctx.resolved_params["legend"]["loc"] == "upper right"
+        assert ctx.resolved_params["legend"]["fontsize"] == "medium"
+        assert ctx.resolved_params["legend"]["ncol"] == 3
+
+    def test_grid_false_reaches_render_context(self, tmp_path):
+        """grid=False survives the full editor pipeline."""
+        csv = tmp_path / "data.csv"
+        csv.write_text("Category,Amount\nA,100\n")
+
+        config = {
+            "data": {"source": f"csv:{csv}"},
+            "chart": {
+                "type": "bar",
+                "output": "grid_test",
+                "title": "Grid Test",
+                "categories": "{{Category}}",
+                "values": "{{Amount}}",
+                "grid": False,
+            },
+        }
+
+        from tpsplots.editor.session import _clean_form_data
+        from tpsplots.models.yaml_config import YAMLChartConfig
+        from tpsplots.processors.render_pipeline import build_render_context
+        from tpsplots.processors.resolvers import DataResolver
+
+        cleaned = _clean_form_data(config)
+        validated = YAMLChartConfig(**cleaned)
+        data = DataResolver.resolve(validated.data)
+        ctx = build_render_context(validated, data, log_conflicts=False)
+
+        assert ctx.resolved_params["grid"] is False

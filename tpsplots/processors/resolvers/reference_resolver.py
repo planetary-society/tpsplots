@@ -18,6 +18,10 @@ REFERENCE_PATTERN = re.compile(r"^\{\{(.+?)\}\}$")
 # Pattern to find all {{...}} references in a string (for template substitution)
 TEMPLATE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 
+# Pattern to match comma-separated {{...}} references (defensive guard for
+# accidentally stringified arrays, e.g. "{{col1}},{{col2}}")
+MULTI_REFERENCE_PATTERN = re.compile(r"^\s*\{\{[^{}]+\}\}\s*(,\s*\{\{[^{}]+\}\}\s*)+$")
+
 
 class ReferenceResolver:
     """Resolves {{...}} data references against a data context."""
@@ -66,6 +70,15 @@ class ReferenceResolver:
         Otherwise, return the literal string.
         """
         value = value.strip()
+
+        # Check for comma-separated complete references: "{{col1}},{{col2}}"
+        # Must come before the single-ref check because REFERENCE_PATTERN's
+        # ^\{\{(.+?)\}\}$ also matches multi-ref strings (anchored to outer braces).
+        if MULTI_REFERENCE_PATTERN.match(value):
+            individual_refs = re.findall(r"\{\{([^{}]+)\}\}", value)
+            return [
+                ReferenceResolver._resolve_reference(ref.strip(), data) for ref in individual_refs
+            ]
 
         # Check for single complete reference: "{{column}}"
         match = REFERENCE_PATTERN.match(value)

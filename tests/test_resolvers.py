@@ -65,6 +65,30 @@ class TestReferenceResolver:
         assert not ReferenceResolver.is_reference("column")
         assert not ReferenceResolver.is_reference("{{column}} extra")
 
+    def test_comma_separated_refs_resolved_as_list(self):
+        """Comma-separated {{...}} refs are split and resolved as a list."""
+        data = {"col1": [1, 2], "col2": [3, 4]}
+        result = ReferenceResolver.resolve("{{col1}},{{col2}}", data)
+        assert result == [[1, 2], [3, 4]]
+
+    def test_comma_separated_refs_with_spaces(self):
+        """Comma-separated refs with whitespace are handled identically."""
+        data = {"col1": [1], "col2": [2]}
+        result = ReferenceResolver.resolve("{{col1}}, {{col2}}", data)
+        assert result == [[1], [2]]
+
+    def test_single_ref_not_treated_as_multi(self):
+        """A single {{...}} ref still resolves normally (no regression)."""
+        data = {"col": [1, 2, 3]}
+        result = ReferenceResolver.resolve("{{col}}", data)
+        assert result == [1, 2, 3]
+
+    def test_template_string_not_treated_as_multi_ref(self):
+        """Embedded refs like 'Total: {{val}}' stay as template substitution."""
+        data = {"val": 42}
+        result = ReferenceResolver.resolve("Total: {{val}}", data)
+        assert result == "Total: 42"
+
 
 class TestParameterResolver:
     """Tests for parameter resolution."""

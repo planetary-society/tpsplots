@@ -21,6 +21,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!tpsplots/editor/static/js/lib/
 lib64/
 parts/
 sdist/
