@@ -101,6 +101,7 @@ class DataFrameToYAMLProcessor:
     Final processor in the pipeline chain - takes DataFrame, returns dict.
 
     The output dict contains:
+    - data → the full DataFrame (for editor data profiling)
     - Each column as a snake_case key → Series
     - export_df → the DataFrame (for export_data in YAML)
     - Metadata from DataFrame.attrs (fiscal_year, inflation_target_year, etc.)
@@ -131,7 +132,7 @@ class DataFrameToYAMLProcessor:
                 - export_df → the full DataFrame
                 - Metadata from DataFrame.attrs
         """
-        result = {}
+        result: dict = {"data": df}
 
         # Determine which columns to export
         columns = self.config.columns_to_export or list(df.columns)

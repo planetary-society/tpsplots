@@ -98,6 +98,7 @@ class NASAFY2026Controller(NASAFYChartsController):
         export_df = pd.DataFrame(export_data)
 
         return {
+            "data": export_df,
             "pie_data": pie_data,
             "export_df": export_df,
         }
@@ -149,6 +150,7 @@ class NASAFY2026Controller(NASAFYChartsController):
         export_df = df.copy().drop(columns=["NASA Led?"])
 
         return {
+            "data": df,
             "categories": df["Mission"],
             "start_values": df["Launch Year"],
             "end_values": df["End Year"],

@@ -234,6 +234,7 @@ class ChinaComparisonCharts(ChartController):
         )
 
         return {
+            "data": export_df,
             "title": "China's space science efforts are accelerating",
             "subtitle": "While the U.S. maintains a lead in total missions, China's growth rate in the 2020s shows rapid advancement.",
             "source": "CNSA Technical Papers and Releases; NASA Mission Database",
@@ -313,6 +314,7 @@ class ChinaComparisonCharts(ChartController):
         )
 
         return {
+            "data": export_df,
             "title": "China's science spacecraft are catching up in mass",
             "subtitle": "Average launch mass comparison shows U.S. missions remain larger, but China's are rapidly increasing in complexity.",
             "source": "CNSA Technical Papers and Releases; NASA Mission Database",

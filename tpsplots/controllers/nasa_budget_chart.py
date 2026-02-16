@@ -71,6 +71,7 @@ class NASABudgetChart(ChartController):
         metadata = self._add_inflation_adjusted_year_metadata(metadata, df)
 
         return {
+            "data": df,
             "fiscal_year": df["Fiscal Year"],
             "appropriation_adjusted": df["Appropriation_adjusted_nnsi"],
             "us_spending_percent": df[spending_col],
@@ -151,6 +152,7 @@ class NASABudgetChart(ChartController):
         max_fy = metadata["max_fiscal_year"]
 
         return {
+            "data": df,
             # Core data columns
             "fiscal_year": df["Fiscal Year"],
             "presidential_administration": df["Presidential Administration"],
@@ -248,6 +250,7 @@ class NASABudgetChart(ChartController):
         metadata = self._add_inflation_adjusted_year_metadata(metadata, df)
 
         return {
+            "data": df,
             # Core data columns (individual series for YAML binding)
             "fiscal_year": df["Fiscal Year"],
             "deep_space_exploration_systems": df["Deep Space Exploration Systems_adjusted_nnsi"],
