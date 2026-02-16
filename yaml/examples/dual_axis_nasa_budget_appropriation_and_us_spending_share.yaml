@@ -1,0 +1,34 @@
+data:
+  source: nasa_budget_chart.nasa_spending_share_by_year
+
+chart:
+  type: line
+  output: nasa_budget_appropriation_and_us_spending_share
+  title: "NASA's shrinking share of the U.S. budget"
+  subtitle: "NASA's budget has not kept pace with overall U.S. spending."
+  source: "Congressional Budget Justifications, {{metadata.min_fiscal_year}}-{{metadata.max_fiscal_year}}"
+
+  x: "{{fiscal_year}}"
+  y: "{{appropriation_adjusted}}"
+  y_right: "{{us_spending_share}}"
+
+  color: ["Neptune Blue", "Lunar Soil"]
+  linestyle: ["-", ":"]
+  linewidth: [4, 3]
+  labels: ["Enacted\n({{metadata.inflation_adjusted_year}} $)", "% of U.S.\nSpending"]
+  direct_line_labels:
+    position: right
+    fontsize: 11
+    end_point:
+      marker: "o"
+      size: 10
+
+  y_tick_format_right: ".0%"
+  ylim_right: [0, 0.05]
+  xlim: [1958-01-01, 2030-01-01]
+  ylim: [0, 80000000000]
+  scale: billions
+  grid: true
+  legend: false
+
+  export_data: "{{export_df}}"
