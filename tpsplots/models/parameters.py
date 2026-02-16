@@ -63,7 +63,9 @@ class ParametersConfig(BaseModel):
     )
 
     # Export
-    export_data: str | None = Field(None, description="Export data reference")
+    export_data: Any = Field(
+        None, description="Export data reference (template string or resolved DataFrame)"
+    )
 
     model_config = {"extra": "allow"}
 

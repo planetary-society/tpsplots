@@ -61,8 +61,12 @@ class ChartConfigBase(BaseModel):
     )
 
     # Export
-    export_data: str | None = Field(
-        None, description="Data reference for CSV export (usually '{{export_df}}')"
+    export_data: Any = Field(
+        None,
+        description=(
+            "Data for CSV export — either a '{{export_df}}' template reference "
+            "or a resolved DataFrame after template resolution"
+        ),
     )
 
     # Matplotlib escape hatch — raw kwargs passed through to matplotlib

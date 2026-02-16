@@ -94,6 +94,21 @@ class TestModelAcceptance:
         assert d["grid"] is True
         assert d["scale"] == "billions"
 
+    def test_export_data_accepts_dataframe(self):
+        """export_data should accept a resolved DataFrame (post-template-resolution)."""
+        import pandas as pd
+
+        df = pd.DataFrame({"Year": [2020, 2021], "Value": [100, 200]})
+        config = LineChartConfig(
+            type="line",
+            output="test",
+            title="T",
+            x="{{x}}",
+            y="{{y}}",
+            export_data=df,
+        )
+        assert config.export_data is df
+
     def test_scatter_inherits_line(self):
         config = ScatterChartConfig(
             type="scatter",

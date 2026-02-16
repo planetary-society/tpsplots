@@ -163,6 +163,74 @@ class TestResolveBeforeValidation:
         assert result["kwargs"]["show_values"] is True
 
 
+class TestExportDataResolution:
+    """export_data: '{{export_df}}' should resolve to a DataFrame before validation."""
+
+    class DummyView:
+        def __init__(self, outdir):
+            self.outdir = outdir
+
+        def line_plot(self, metadata, stem, **kwargs):
+            return {"metadata": metadata, "stem": stem, "kwargs": kwargs}
+
+    def _write_controller(self, tmp_path):
+        """Write a controller that returns an export_df DataFrame."""
+        ctrl_dir = tmp_path / "tpsplots" / "controllers"
+        ctrl_dir.mkdir(parents=True, exist_ok=True)
+        (ctrl_dir.parent / "__init__.py").write_text("")
+        (ctrl_dir / "__init__.py").write_text("")
+
+        ctrl_path = ctrl_dir / "export_ctrl.py"
+        ctrl_path.write_text(
+            textwrap.dedent("""\
+            import pandas as pd
+            from tpsplots.controllers.chart_controller import ChartController
+
+            class ExportController(ChartController):
+                def with_export(self):
+                    return {
+                        "x": [2020, 2021, 2022],
+                        "y": [100, 200, 300],
+                        "export_df": pd.DataFrame({
+                            "Year": [2020, 2021, 2022],
+                            "Value": [100, 200, 300],
+                        }),
+                    }
+            """)
+        )
+        return ctrl_path
+
+    def test_export_data_accepts_resolved_dataframe(self, tmp_path, monkeypatch):
+        """export_data should accept a DataFrame after template resolution."""
+        import pandas as pd
+
+        ctrl_path = self._write_controller(tmp_path)
+
+        yaml_path = tmp_path / "chart.yaml"
+        yaml_path.write_text(
+            textwrap.dedent(f"""\
+            data:
+              source: "controller:{ctrl_path}:with_export"
+
+            chart:
+              type: line
+              output: test_export
+              title: "Test Export"
+              x: "{{{{x}}}}"
+              y: "{{{{y}}}}"
+              export_data: "{{{{export_df}}}}"
+            """)
+        )
+
+        monkeypatch.setattr(YAMLChartProcessor, "VIEW_REGISTRY", {"line_plot": self.DummyView})
+
+        # This previously failed with: Input should be a valid string
+        processor = YAMLChartProcessor(yaml_path, outdir=tmp_path / "charts")
+
+        assert isinstance(processor.config.chart.export_data, pd.DataFrame)
+        assert len(processor.config.chart.export_data) == 3
+
+
 class TestNoRefsFastPath:
     """Configs without {{...}} should not trigger data loading."""
 
