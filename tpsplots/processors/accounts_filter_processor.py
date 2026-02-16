@@ -18,6 +18,7 @@ Example usage:
     df = AccountsFilterProcessor(config).process(df)
 """
 
+import re
 from dataclasses import dataclass, field
 
 import pandas as pd
@@ -31,12 +32,16 @@ class AccountsFilterConfig:
         accounts: Either a dict mapping full name → short name, or a list of account names.
             When a dict, keys are matched against the account column; values are used for renaming.
             When a list, accounts are filtered but not renamed.
+        aliases: Optional mapping of canonical account name → alias name(s).
+            Alias values can be a single string or a list of strings. Aliases are
+            matched using the same normalization as canonical names.
         account_column: Name of the column containing account names (default: "Account").
         use_short_names: If True and accounts is a dict, replace full names with short names.
             Ignored if accounts is a list.
     """
 
     accounts: dict[str, str] | list[str] = field(default_factory=dict)
+    aliases: dict[str, str | list[str]] = field(default_factory=dict)
     account_column: str = "Account"
     use_short_names: bool = True
 
@@ -73,6 +78,15 @@ class AccountsFilterProcessor:
         """
         self.config = config
 
+    @staticmethod
+    def _normalize_account_name(value: object) -> str:
+        """Normalize account labels for robust matching."""
+        text = str(value).strip().casefold()
+        # Normalize common text variants like '&' vs 'and', punctuation, and spacing.
+        text = text.replace("&", " and ")
+        text = re.sub(r"[^0-9a-z]+", " ", text)
+        return re.sub(r"\s+", " ", text).strip()
+
     def process(self, df: pd.DataFrame) -> pd.DataFrame:
         """Filter DataFrame to specified accounts with optional renaming.
 
@@ -93,19 +107,41 @@ class AccountsFilterProcessor:
 
         df = df.copy()
 
-        # Determine account names to filter
+        # Determine canonical account names and output labels
         if isinstance(self.config.accounts, dict):
-            account_names = list(self.config.accounts.keys())
+            canonical_account_names = list(self.config.accounts.keys())
         else:
-            account_names = list(self.config.accounts)
+            canonical_account_names = list(self.config.accounts)
+
+        normalized_to_canonical = {
+            self._normalize_account_name(name): name for name in canonical_account_names
+        }
+
+        # Add configured aliases to matching lookup
+        for canonical_name, alias_values in self.config.aliases.items():
+            normalized_canonical = self._normalize_account_name(canonical_name)
+            resolved_canonical = normalized_to_canonical.get(normalized_canonical)
+            if resolved_canonical is None:
+                raise ValueError(
+                    f"Alias target '{canonical_name}' is not present in configured accounts."
+                )
+
+            if isinstance(alias_values, str):
+                aliases = [alias_values]
+            else:
+                aliases = alias_values
+
+            for alias in aliases:
+                normalized_to_canonical[self._normalize_account_name(alias)] = resolved_canonical
+
+        normalized_accounts = df[self.config.account_column].map(self._normalize_account_name)
+        matched_canonical = normalized_accounts.map(normalized_to_canonical)
 
         # Filter rows to matching accounts
-        df = df[df[self.config.account_column].isin(account_names)]
+        df = df.loc[matched_canonical.notna()].copy()
 
         # Optionally rename accounts to short names
         if isinstance(self.config.accounts, dict) and self.config.use_short_names:
-            df[self.config.account_column] = df[self.config.account_column].map(
-                self.config.accounts
-            )
+            df[self.config.account_column] = matched_canonical.loc[df.index].map(self.config.accounts)
 
         return df.reset_index(drop=True)

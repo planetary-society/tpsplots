@@ -63,3 +63,43 @@ class TestAccountsFilterProcessor:
         result = AccountsFilterProcessor(config).process(sample_df)
 
         assert result.index.tolist() == [0]
+
+    def test_case_insensitive_and_trimmed_matching_with_dict(self):
+        """Should match accounts regardless of case and surrounding whitespace."""
+        df = pd.DataFrame(
+            {
+                "Account": ["  SCIENCE  ", "LEO & SPACE OPS", "Aeronautics"],
+                "FY 2026 Request": [7, 5, 2],
+            }
+        )
+        config = AccountsFilterConfig(
+            accounts={"Science": "Sci", "LEO & Space Ops": "Space Ops"},
+            use_short_names=True,
+        )
+
+        result = AccountsFilterProcessor(config).process(df)
+
+        assert result["Account"].tolist() == ["Sci", "Space Ops"]
+        assert result["FY 2026 Request"].tolist() == [7, 5]
+
+    def test_alias_matching_for_account_variants(self):
+        """Configured aliases should map variant labels to canonical accounts."""
+        df = pd.DataFrame(
+            {
+                "Account": ["SAFETY, SECURITY, AND MISSION SERVICES"],
+                "FY 2026 Request": [3],
+            }
+        )
+        config = AccountsFilterConfig(
+            accounts={"Safety, Security, & Mission Services": "SSMS"},
+            aliases={
+                "Safety, Security, & Mission Services": [
+                    "Safety, Security, and Mission Services"
+                ]
+            },
+            use_short_names=True,
+        )
+
+        result = AccountsFilterProcessor(config).process(df)
+
+        assert result["Account"].tolist() == ["SSMS"]

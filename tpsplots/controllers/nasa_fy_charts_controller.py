@@ -72,17 +72,25 @@ class NASAFYChartsController(ChartController):
 
     def major_accounts_context(self) -> pd.DataFrame:
         """Returns NASA major accounts from 2006 to given fiscal year, as well as current fiscal year projection."""
+        from tpsplots.processors.accounts_filter_processor import (
+            AccountsFilterConfig,
+            AccountsFilterProcessor,
+        )
+
         data = self.budget_detail.copy()
+        account_col = data.columns[0]
+
         # Filter rows for matching major accounts names in first column
         if hasattr(self, "ACCOUNTS"):
-            # Handle both dict (keys are account names) and list ACCOUNTS
-            if isinstance(self.ACCOUNTS, dict):
-                account_names = list(self.ACCOUNTS.keys())
-            else:
-                account_names = self.ACCOUNTS
-            data = data[data.iloc[:, 0].isin(account_names)]
+            filter_config = AccountsFilterConfig(
+                accounts=self.ACCOUNTS,
+                aliases=getattr(self, "ACCOUNT_ALIASES", {}),
+                account_column=account_col,
+                use_short_names=False,
+            )
+            data = AccountsFilterProcessor(filter_config).process(data)
         # Rename first column header to "Account"
-        data = data.rename(columns={data.columns[0]: "Account"})
+        data = data.rename(columns={account_col: "Account"})
 
         return data
 
@@ -105,11 +113,34 @@ class NASAFYChartsController(ChartController):
 
         # Step 1: Filter to accounts (using AccountsFilterProcessor)
         if hasattr(self, "ACCOUNTS"):
+            if isinstance(self.ACCOUNTS, dict):
+                configured_accounts = list(self.ACCOUNTS.keys())
+            else:
+                configured_accounts = list(self.ACCOUNTS)
+
+            account_aliases = getattr(self, "ACCOUNT_ALIASES", {})
             filter_config = AccountsFilterConfig(
                 accounts=self.ACCOUNTS,
+                aliases=account_aliases,
                 use_short_names=isinstance(self.ACCOUNTS, dict),
             )
             df = AccountsFilterProcessor(filter_config).process(df)
+
+            if df.empty:
+                source_account_col = self.budget_detail.columns[0]
+                available_accounts = (
+                    self.budget_detail[source_account_col]
+                    .dropna()
+                    .astype(str)
+                    .drop_duplicates()
+                    .tolist()
+                )
+                sample_accounts = ", ".join(available_accounts[:10]) if available_accounts else "none"
+                raise ValueError(
+                    "No directorate rows matched configured accounts after normalization. "
+                    f"Configured accounts: {configured_accounts}. "
+                    f"Available source labels (sample): {sample_accounts}"
+                )
 
         # Step 2: Sort by request descending
         request_col = f"FY {self.FISCAL_YEAR} Request"

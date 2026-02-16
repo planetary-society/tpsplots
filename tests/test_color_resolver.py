@@ -4,7 +4,7 @@ from tpsplots.processors.resolvers import ColorResolver
 
 
 class TestColorResolver:
-    """Test color name resolution with exact matching."""
+    """Test color name resolution."""
 
     def test_colors_dict_names(self):
         """COLORS keys resolve correctly."""
@@ -43,12 +43,15 @@ class TestColorResolver:
         assert ColorResolver.resolve("magenta") == "magenta"
         assert ColorResolver.resolve("red") == "red"
 
-    def test_exact_match_required(self):
-        """Only exact matches work - no normalization."""
-        # These should NOT resolve (wrong case/format)
-        assert ColorResolver.resolve("Blue") == "Blue"  # Wrong case
-        assert ColorResolver.resolve("NeptuneBlue") == "NeptuneBlue"  # No space
-        assert ColorResolver.resolve("neptune blue") == "neptune blue"  # Wrong case
+    def test_case_insensitive_matching(self):
+        """Color matching should be case-insensitive."""
+        assert ColorResolver.resolve("Blue") == "#037CC2"
+        assert ColorResolver.resolve("NEPTUNE BLUE") == "#037CC2"
+        assert ColorResolver.resolve("rocket flame") == "#FF5D47"
+
+    def test_format_still_matters(self):
+        """Case-insensitive matching should not guess missing separators."""
+        assert ColorResolver.resolve("NeptuneBlue") == "NeptuneBlue"
 
 
 class TestColorResolverDeep:
