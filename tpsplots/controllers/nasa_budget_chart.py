@@ -14,6 +14,73 @@ logger = logging.getLogger(__name__)
 class NASABudgetChart(ChartController):
     """Controller for top-line NASA budget charts."""
 
+    @staticmethod
+    def _add_inflation_adjusted_year_metadata(
+        metadata: dict[str, int | str],
+        df: pd.DataFrame,
+    ) -> dict[str, int | str]:
+        """Populate metadata with inflation-adjusted target fiscal year."""
+        if "inflation_target_year" in df.attrs:
+            metadata["inflation_adjusted_year"] = int(df.attrs["inflation_target_year"])
+        return metadata
+
+    def nasa_spending_share_by_year(self) -> dict:
+        """Return cleaned spending-share series for dual-axis budget charts.
+
+        Produces inflation-adjusted appropriation values and spending-share
+        percentages cleaned by the data source layer.
+        """
+        from tpsplots.processors import (
+            InflationAdjustmentConfig,
+            InflationAdjustmentProcessor,
+        )
+
+        df = Historical().data()
+
+        inflation_config = InflationAdjustmentConfig(nnsi_columns=["Appropriation"])
+        df = InflationAdjustmentProcessor(inflation_config).process(df)
+
+        spending_col = "% of U.S. Spending"
+        discretionary_col = "% of U.S. Discretionary Spending"
+        if discretionary_col not in df.columns:
+            df = df.copy()
+            df[discretionary_col] = pd.Series(pd.NA, index=df.index)
+
+        # Drop rows where primary right-axis series is invalid.
+        df = df[df[spending_col].notna()].copy()
+
+        # Keep export data in chart-ready units (no integer rounding for percentages).
+        export_cols = [
+            "Fiscal Year",
+            "Appropriation_adjusted_nnsi",
+            spending_col,
+            discretionary_col,
+        ]
+        export_df = df[export_cols].copy().reset_index(drop=True)
+        export_df["Fiscal Year"] = pd.to_datetime(export_df["Fiscal Year"]).dt.strftime("%Y")
+
+        metadata = self._build_metadata(
+            df,
+            fiscal_year_col="Fiscal Year",
+            value_columns={
+                "appropriation_adjusted": "Appropriation_adjusted_nnsi",
+                "us_spending_percent": spending_col,
+                "us_discretionary_spending_percent": discretionary_col,
+            },
+        )
+        metadata = self._add_inflation_adjusted_year_metadata(metadata, df)
+
+        return {
+            "fiscal_year": df["Fiscal Year"],
+            "appropriation_adjusted": df["Appropriation_adjusted_nnsi"],
+            "us_spending_percent": df[spending_col],
+            "us_spending_share": df[spending_col] / 100.0,
+            "us_discretionary_spending_percent": df[discretionary_col],
+            "us_discretionary_spending_share": df[discretionary_col] / 100.0,
+            "export_df": export_df,
+            "metadata": metadata,
+        }
+
     def nasa_budget_by_year(self) -> dict:
         """Return comprehensive NASA budget data for YAML-driven chart generation.
 
@@ -78,10 +145,7 @@ class NASABudgetChart(ChartController):
                 "projection": "White House Budget Projection",
             },
         )
-
-        # Add inflation adjustment target year from processor attrs
-        if "inflation_target_year" in df.attrs:
-            metadata["inflation_adjusted_year"] = df.attrs["inflation_target_year"]
+        metadata = self._add_inflation_adjusted_year_metadata(metadata, df)
 
         # Keep max_fiscal_year at top level for backwards compatibility
         max_fy = metadata["max_fiscal_year"]
@@ -119,7 +183,8 @@ class NASABudgetChart(ChartController):
                 - space_operations: Series of adjusted budget values
                 - overhead: Series of adjusted budget values (Facilities, IT, & Salaries)
                 - export_df: DataFrame for CSV export
-                - metadata: dict with max_fiscal_year, min_fiscal_year, source
+                - metadata: dict with max_fiscal_year, min_fiscal_year, source,
+                  inflation_adjusted_year
         """
         from tpsplots.processors import (
             InflationAdjustmentConfig,
@@ -180,6 +245,7 @@ class NASABudgetChart(ChartController):
             "min_fiscal_year": 2008,
             "source": f"NASA Budget Justifications, FYs 2007-{max_fy}",
         }
+        metadata = self._add_inflation_adjusted_year_metadata(metadata, df)
 
         return {
             # Core data columns (individual series for YAML binding)

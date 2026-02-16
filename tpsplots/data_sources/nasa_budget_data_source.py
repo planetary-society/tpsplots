@@ -90,6 +90,8 @@ class NASABudget(FiscalYearMixin):
     - RENAMES (Dict[str, str], optional): A dictionary for renaming columns.
     - MONETARY_COLUMNS (List[str], optional): A list of columns containing
       monetary values that should have adjusted versions created.
+    - PERCENTAGE_COLUMNS (List[str], optional): A list of percent-like columns
+      containing values such as "0.7%" that should be normalized to floats.
     """
 
     # ── core API ────────────────────────────────────────────────────
@@ -282,6 +284,31 @@ class NASABudget(FiscalYearMixin):
         """
         return clean_currency_column(series, multiplier=1_000_000)
 
+    def _clean_percentage_column(self, series: pd.Series) -> pd.Series:
+        """Clean percentage-like column values into numeric percent points.
+
+        Handles values such as "0.72%", "0.72", 0.72, and "1,200%".
+        Invalid placeholders (e.g., "", "n/a", "--") are coerced to NaN.
+        """
+        cleaned = (
+            series.astype("string")
+            .str.strip()
+            .replace(
+                {
+                    "": pd.NA,
+                    "nan": pd.NA,
+                    "None": pd.NA,
+                    "N/A": pd.NA,
+                    "n/a": pd.NA,
+                    "--": pd.NA,
+                },
+                regex=False,
+            )
+            .str.replace("%", "", regex=False)
+            .str.replace(",", "", regex=False)
+        )
+        return pd.to_numeric(cleaned, errors="coerce")
+
     def _clean(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Applies general cleaning rules to the DataFrame.
@@ -300,6 +327,7 @@ class NASABudget(FiscalYearMixin):
 
         # Get MONETARY_COLUMNS directly from the class to avoid triggering __getattr__
         monetary_columns = getattr(self.__class__, "MONETARY_COLUMNS", [])
+        percentage_columns = getattr(self.__class__, "PERCENTAGE_COLUMNS", [])
 
         # Clean currency-like columns: properly handle M/B suffixes with correct multipliers
         for col in df.select_dtypes("object"):
@@ -310,6 +338,11 @@ class NASABudget(FiscalYearMixin):
                 or col in monetary_columns  # Use the class attribute directly
             ):
                 df[col] = self._clean_currency_column(df[col])
+
+        # Clean known percentage columns.
+        for col in percentage_columns:
+            if col in df.columns:
+                df[col] = self._clean_percentage_column(df[col])
 
         # Clean date-style columns: convert to datetime objects.
         # Identifies columns ending with 'date', 'signed', or 'updated' (case-insensitive).
@@ -429,6 +462,10 @@ class Historical(NASABudget):
     RENAMES: ClassVar[dict[str, str]] = {"White House Budget Submission": "PBR"}
     # Define which columns contain monetary values that need inflation adjustment
     MONETARY_COLUMNS: ClassVar[list[str]] = ["PBR", "Appropriation", "Outlays"]
+    PERCENTAGE_COLUMNS: ClassVar[list[str]] = [
+        "% of U.S. Spending",
+        "% of U.S. Discretionary Spending",
+    ]
 
     def __init__(self) -> None:
         """Initializes the Historical budget data instance."""

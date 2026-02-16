@@ -160,3 +160,61 @@ class TestCleanCurrencyColumn:
         assert result[0] == pytest.approx(50_000_000)
         assert pd.isna(result[1])
         assert result[2] == pytest.approx(100_000_000)
+
+
+class TestCleanPercentageColumn:
+    """Tests for percentage cleaning in NASABudget data source."""
+
+    @pytest.fixture(autouse=True)
+    def setup_nasa_budget(self):
+        """Get NASABudget class with mocked dependencies."""
+        self.NASABudget = get_nasa_budget_class()
+
+    def _make_test_budget(self):
+        """Create a minimal NASABudget subclass for percentage cleaning tests."""
+
+        class TestBudget(self.NASABudget):
+            PERCENTAGE_COLUMNS: ClassVar[list[str]] = [
+                "% of U.S. Spending",
+                "% of U.S. Discretionary Spending",
+            ]
+
+            def __init__(self):
+                pass  # Skip CSV loading for tests
+
+        return TestBudget()
+
+    def test_clean_percentage_column_parses_percent_strings(self):
+        """Percentage strings should be converted to numeric percent values."""
+        budget = self._make_test_budget()
+        series = pd.Series(["0.55%", "0.40", 0.30, "", "n/a", None, "--", "1,200%"])
+        result = budget._clean_percentage_column(series)
+
+        assert result.iloc[0] == pytest.approx(0.55)
+        assert result.iloc[1] == pytest.approx(0.40)
+        assert result.iloc[2] == pytest.approx(0.30)
+        assert pd.isna(result.iloc[3])
+        assert pd.isna(result.iloc[4])
+        assert pd.isna(result.iloc[5])
+        assert pd.isna(result.iloc[6])
+        assert result.iloc[7] == pytest.approx(1200.0)
+
+    def test_clean_applies_percentage_cleaning_for_configured_columns(self):
+        """_clean should normalize known percentage columns by default."""
+        budget = self._make_test_budget()
+        df = pd.DataFrame(
+            {
+                "Fiscal Year": [2022, 2023, 2024],
+                "% of U.S. Spending": ["0.70%", "0.65", "bad"],
+                "% of U.S. Discretionary Spending": ["1.90%", None, "2.00%"],
+            }
+        )
+
+        cleaned = budget._clean(df)
+
+        assert cleaned["% of U.S. Spending"].iloc[0] == pytest.approx(0.70)
+        assert cleaned["% of U.S. Spending"].iloc[1] == pytest.approx(0.65)
+        assert pd.isna(cleaned["% of U.S. Spending"].iloc[2])
+        assert cleaned["% of U.S. Discretionary Spending"].iloc[0] == pytest.approx(1.90)
+        assert pd.isna(cleaned["% of U.S. Discretionary Spending"].iloc[1])
+        assert cleaned["% of U.S. Discretionary Spending"].iloc[2] == pytest.approx(2.00)
