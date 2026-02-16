@@ -108,6 +108,39 @@ class TestModels:
         assert params["legend"] is False
         assert params["color"] == "NeptuneBlue"
 
+    def test_line_chart_labels_with_none_in_list(self):
+        """Labels list should accept None elements (for unlabeled prior-year lines)."""
+        from tpsplots.models import LineChartConfig
+
+        config = LineChartConfig(
+            type="line",
+            output="test",
+            title="Test",
+            labels=[None, None, "2024-25\nAverage", "FY 2026"],
+        )
+        assert config.labels == [None, None, "2024-25\nAverage", "FY 2026"]
+
+    def test_line_chart_labels_all_strings(self):
+        """Labels list of all strings should still validate."""
+        from tpsplots.models import LineChartConfig
+
+        config = LineChartConfig(type="line", output="test", title="Test", labels=["A", "B"])
+        assert config.labels == ["A", "B"]
+
+    def test_line_chart_labels_single_string(self):
+        """Single string label should still validate."""
+        from tpsplots.models import LineChartConfig
+
+        config = LineChartConfig(type="line", output="test", title="Test", labels="My Label")
+        assert config.labels == "My Label"
+
+    def test_line_chart_labels_none(self):
+        """None labels should still validate (no labels specified)."""
+        from tpsplots.models import LineChartConfig
+
+        config = LineChartConfig(type="line", output="test", title="Test", labels=None)
+        assert config.labels is None
+
     def test_data_source_config(self):
         """Test DataSourceConfig model (v2.0)."""
         from tpsplots.models import DataSourceConfig

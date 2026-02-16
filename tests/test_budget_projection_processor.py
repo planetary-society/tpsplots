@@ -284,6 +284,96 @@ class TestBudgetProjectionProcessor:
             processor.process(sample_historical_df, bad_budget_detail)
 
 
+class TestBudgetDetailRowLookup:
+    """Tests for case-insensitive and alias row matching in _find_detail_row."""
+
+    @pytest.fixture
+    def historical_df(self):
+        """Minimal historical data for row lookup tests."""
+        return pd.DataFrame(
+            {
+                "Fiscal Year": [datetime(2025, 1, 1)],
+                "PBR": [25_000_000_000],
+                "Appropriation": [24_875_000_000],
+            }
+        )
+
+    def _make_budget_detail(self, row_label):
+        """Helper to create budget detail with a single row."""
+        return pd.DataFrame(
+            {
+                "Account": [row_label],
+                "FY 2026 Request": [25_000_000_000],
+                "FY 2027": [25_500_000_000],
+            }
+        )
+
+    def test_exact_match(self, historical_df):
+        """Exact case match should work as before."""
+        config = BudgetProjectionConfig(fiscal_year=2026)
+        processor = BudgetProjectionProcessor(config)
+        result = processor.process(historical_df, self._make_budget_detail("Total"))
+        assert result.attrs["current_pbr_request"] == 25_000_000_000
+
+    def test_case_insensitive_lowercase(self, historical_df):
+        """Lowercase 'total' should match config's 'Total'."""
+        config = BudgetProjectionConfig(fiscal_year=2026)
+        processor = BudgetProjectionProcessor(config)
+        result = processor.process(historical_df, self._make_budget_detail("total"))
+        assert result.attrs["current_pbr_request"] == 25_000_000_000
+
+    def test_case_insensitive_uppercase(self, historical_df):
+        """Uppercase 'TOTAL' should match config's 'Total'."""
+        config = BudgetProjectionConfig(fiscal_year=2026)
+        processor = BudgetProjectionProcessor(config)
+        result = processor.process(historical_df, self._make_budget_detail("TOTAL"))
+        assert result.attrs["current_pbr_request"] == 25_000_000_000
+
+    def test_alias_nasa_total(self, historical_df):
+        """'NASA Total' should match config's 'Total' via alias."""
+        config = BudgetProjectionConfig(fiscal_year=2026)
+        processor = BudgetProjectionProcessor(config)
+        result = processor.process(historical_df, self._make_budget_detail("NASA Total"))
+        assert result.attrs["current_pbr_request"] == 25_000_000_000
+
+    def test_alias_case_insensitive(self, historical_df):
+        """'nasa total' (all lowercase) should match via alias + case folding."""
+        config = BudgetProjectionConfig(fiscal_year=2026)
+        processor = BudgetProjectionProcessor(config)
+        result = processor.process(historical_df, self._make_budget_detail("nasa total"))
+        assert result.attrs["current_pbr_request"] == 25_000_000_000
+
+    def test_whitespace_stripping(self, historical_df):
+        """Leading/trailing whitespace should be stripped before comparison."""
+        config = BudgetProjectionConfig(fiscal_year=2026)
+        processor = BudgetProjectionProcessor(config)
+        result = processor.process(historical_df, self._make_budget_detail("  Total  "))
+        assert result.attrs["current_pbr_request"] == 25_000_000_000
+
+    def test_no_match_raises_with_available_rows(self, historical_df):
+        """Should raise ValueError listing available rows when no match."""
+        budget_detail = pd.DataFrame(
+            {
+                "Account": ["Exploration", "Science"],
+                "FY 2026 Request": [8_500_000_000, 7_300_000_000],
+            }
+        )
+        config = BudgetProjectionConfig(fiscal_year=2026, budget_detail_row_name="Total")
+        processor = BudgetProjectionProcessor(config)
+        with pytest.raises(ValueError, match="Available rows"):
+            processor.process(historical_df, budget_detail)
+
+    def test_science_case_insensitive(self, historical_df):
+        """'SCIENCE' should match config's 'Science'."""
+        config = BudgetProjectionConfig(
+            fiscal_year=2026,
+            budget_detail_row_name="Science",
+        )
+        processor = BudgetProjectionProcessor(config)
+        result = processor.process(historical_df, self._make_budget_detail("SCIENCE"))
+        assert result.attrs["current_pbr_request"] == 25_000_000_000
+
+
 class TestDirectorateLevelConfig:
     """Tests for directorate-level (e.g., Science) configuration."""
 
@@ -299,6 +389,49 @@ class TestDirectorateLevelConfig:
         assert config.budget_detail_row_name == "Science"
         assert config.appropriation_column == "Science"
         assert config.pbr_request_column == "FY 2026 Request"
+
+
+class TestPriorEnactedColumnDetection:
+    """Tests for tolerant prior-year enacted column name matching.
+
+    Verifies the candidate-list pattern used in
+    nasa_fy_charts_controller.directorates_comparison_grouped.
+    """
+
+    def _find_prior_enacted(self, columns, fiscal_year=2026):
+        """Simulate the candidate search logic from the controller."""
+        prior_fy = fiscal_year - 1
+        candidates = [
+            f"FY {prior_fy} Enacted",
+            f"FY {prior_fy}",
+            f"FY{prior_fy} Enacted",
+            f"FY{prior_fy}",
+        ]
+        return next((c for c in candidates if c in columns), None)
+
+    def test_fy_space_enacted(self):
+        """'FY 2025 Enacted' (standard format) should match."""
+        assert self._find_prior_enacted(["FY 2025 Enacted", "FY 2026 Request"]) == "FY 2025 Enacted"
+
+    def test_fy_space_only(self):
+        """'FY 2025' (without Enacted) should match as fallback."""
+        assert self._find_prior_enacted(["FY 2025", "FY 2026 Request"]) == "FY 2025"
+
+    def test_fy_nospace_enacted(self):
+        """'FY2025 Enacted' (no space) should match."""
+        assert self._find_prior_enacted(["FY2025 Enacted", "FY 2026 Request"]) == "FY2025 Enacted"
+
+    def test_fy_nospace_only(self):
+        """'FY2025' (no space, no Enacted) should match."""
+        assert self._find_prior_enacted(["FY2025", "FY 2026 Request"]) == "FY2025"
+
+    def test_no_match_returns_none(self):
+        """When no candidate matches, result should be None."""
+        assert self._find_prior_enacted(["FY 2024 Enacted", "FY 2026 Request"]) is None
+
+    def test_priority_prefers_enacted(self):
+        """When both 'FY 2025 Enacted' and 'FY 2025' exist, prefer Enacted."""
+        assert self._find_prior_enacted(["FY 2025", "FY 2025 Enacted"]) == "FY 2025 Enacted"
 
 
 class TestDivisionLevelConfig:

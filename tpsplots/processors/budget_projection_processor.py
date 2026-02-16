@@ -6,6 +6,12 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
+# Aliases for budget detail row names (all keys/values must be lowercase).
+# "total" also matches "nasa total" to handle alternate sheet formats.
+ROW_ALIASES: dict[str, list[str]] = {
+    "total": ["nasa total"],
+}
+
 
 @dataclass
 class BudgetProjectionConfig:
@@ -137,10 +143,7 @@ class BudgetProjectionProcessor:
             ValueError: If required row or column not found
         """
         row_name = self.config.budget_detail_row_name
-        detail_row = budget_detail_df[budget_detail_df.iloc[:, 0] == row_name]
-
-        if detail_row.empty:
-            raise ValueError(f"No '{row_name}' row found in budget detail data")
+        detail_row = self._find_detail_row(budget_detail_df, row_name)
 
         # Get PBR request value
         pbr_col = self.config.pbr_request_column
@@ -156,6 +159,36 @@ class BudgetProjectionProcessor:
                 runout_dict[runout_fy] = detail_row[runout_col].values[0]
 
         return pbr_value, runout_dict
+
+    @staticmethod
+    def _find_detail_row(budget_detail_df: pd.DataFrame, row_name: str) -> pd.DataFrame:
+        """Find a row in budget detail by name, case-insensitive with alias support.
+
+        Args:
+            budget_detail_df: DataFrame with account names in first column.
+            row_name: Target row name (e.g. "Total", "Science").
+
+        Returns:
+            DataFrame containing the matched row(s).
+
+        Raises:
+            ValueError: If no matching row found, listing available row names.
+        """
+        normalized_target = row_name.strip().casefold()
+        candidates = {normalized_target}
+        candidates.update(ROW_ALIASES.get(normalized_target, []))
+
+        first_col = budget_detail_df.iloc[:, 0]
+        normalized_col = first_col.astype(str).str.strip().str.casefold()
+        detail_row = budget_detail_df[normalized_col.isin(candidates)]
+
+        if detail_row.empty:
+            available = first_col.dropna().unique().tolist()
+            raise ValueError(
+                f"No '{row_name}' row found in budget detail data. Available rows: {available}"
+            )
+
+        return detail_row
 
     def _graft_pbr_value(
         self, df: pd.DataFrame, pbr_value: float, fy_datetime: datetime

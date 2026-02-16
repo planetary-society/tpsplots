@@ -128,7 +128,7 @@ class LineChartConfig(
             "Single value applies to all lines; list sets per-series transparency"
         ),
     )
-    labels: str | list[str] | None = Field(None, description="Legend label(s)")
+    labels: str | list[str | None] | None = Field(None, description="Legend label(s)")
 
     # --- Series types (semantic styling) ---
     series_types: list[str] | None = Field(

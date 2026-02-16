@@ -148,7 +148,17 @@ class NASAFYChartsController(ChartController):
         df = self._directorates_comparison()
 
         # Define the columns for comparison
-        prior_enacted = f"FY {self.FISCAL_YEAR - 1} Enacted"
+        prior_fy = self.FISCAL_YEAR - 1
+        prior_enacted_candidates = [
+            f"FY {prior_fy} Enacted",
+            f"FY {prior_fy}",
+            f"FY{prior_fy} Enacted",
+            f"FY{prior_fy}",
+        ]
+        prior_enacted = next(
+            (col for col in prior_enacted_candidates if col in df.columns),
+            None,
+        )
         current_request = f"FY {self.FISCAL_YEAR} Request"
         appropriated = "Appropriated"
 
@@ -156,9 +166,9 @@ class NASAFYChartsController(ChartController):
         value_columns = []
         group_labels = []
 
-        if prior_enacted in df.columns:
+        if prior_enacted is not None:
             value_columns.append(prior_enacted)
-            group_labels.append(f"FY {self.FISCAL_YEAR - 1} Enacted")
+            group_labels.append(f"FY {prior_fy} Enacted")
 
         if current_request in df.columns:
             value_columns.append(current_request)
