@@ -1,6 +1,7 @@
 """Tests for NASABudgetDetailSource using the FY2026 fixture."""
 
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import pandas as pd
 import pytest
@@ -23,9 +24,15 @@ def mock_fetch_csv(monkeypatch, fixture_csv_text):
     )
 
 
-def test_url_includes_gid(mock_fetch_csv):
-    source = NASABudgetDetailSource(2026)
-    assert source._url.endswith("&gid=1311027224")
+def test_url_has_csv_format_and_gid_for_requested_fy(mock_fetch_csv):
+    fy = 2026
+    source = NASABudgetDetailSource(fy)
+    parsed = urlparse(source._url)
+    query = parse_qs(parsed.query)
+
+    assert source._url.startswith(NASABudgetDetailSource.URL)
+    assert query["format"] == ["csv"]
+    assert query["gid"] == [NASABudgetDetailSource.NASA_FY_GOOGLE_SHEET_GID_LOOKUP[fy]]
 
 
 def test_account_column_normalized(mock_fetch_csv):
