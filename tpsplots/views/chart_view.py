@@ -801,7 +801,66 @@ class ChartView(AxisTickFormatMixin):
         # rect = [left, bottom, right, top] in figure-fraction coordinates
         fig.tight_layout(rect=[0, footer_height, 1, 1 - header_height])
 
+        self._center_axes_vertically(fig, header_height, footer_height)
+
         return fig
+
+    def _center_axes_vertically(self, fig, header_height, footer_height):
+        """Shift axes to equalize spacing between header content and footer content."""
+        visible_axes = [ax for ax in fig.get_axes() if ax.get_visible()]
+        if not visible_axes:
+            return
+
+        renderer = fig.canvas.get_renderer()
+
+        # Measure visual extent using get_tightbbox (includes tick labels, axis labels)
+        y_mins, y_maxes = [], []
+        for ax in visible_axes:
+            bbox = ax.get_tightbbox(renderer)
+            if bbox is not None:
+                fig_bbox = bbox.transformed(fig.transFigure.inverted())
+                y_mins.append(fig_bbox.y0)
+                y_maxes.append(fig_bbox.y1)
+
+        if not y_mins:
+            return
+
+        visual_top = max(y_maxes)
+        visual_bottom = min(y_mins)
+
+        # Reference boundaries for visual centering:
+        # - Top: header zone bottom (subtitle bottom edge)
+        # - Bottom: footer spacer line position (visual top of footer content)
+        ref_top = 1.0 - header_height
+        ref_bottom = footer_height / 2.0 if footer_height > 0 else 0.0
+
+        top_gap = ref_top - visual_top
+        bottom_gap = visual_bottom - ref_bottom
+
+        # Positive shift = move chart down (subtract from y-coords)
+        shift = (bottom_gap - top_gap) / 2.0
+
+        if abs(shift) < 0.005:
+            return
+
+        # Safety: don't push visual extent outside the tight_layout zone
+        zone_top = 1.0 - header_height
+        zone_bottom = footer_height
+        new_visual_top = visual_top - shift
+        new_visual_bottom = visual_bottom - shift
+
+        if new_visual_top > zone_top or new_visual_bottom < zone_bottom:
+            if shift > 0:  # moving down
+                shift = min(shift, visual_bottom - zone_bottom)
+            else:  # moving up
+                shift = max(shift, -(zone_top - visual_top))
+            if abs(shift) < 0.005:
+                return
+            logger.debug("Chart centering shift clamped to %.4f", shift)
+
+        for ax in visible_axes:
+            pos = ax.get_position()
+            ax.set_position([pos.x0, pos.y0 - shift, pos.width, pos.height])
 
     def _add_horizontal_spacer(
         self, fig, y_position=None, color=None, linewidth=0.5, extent=(0.02, 0.98)

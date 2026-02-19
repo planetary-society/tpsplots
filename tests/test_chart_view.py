@@ -138,6 +138,132 @@ def test_save_chart_uses_figure_dpi_for_svg_and_png(tmp_path, monkeypatch):
     assert save_calls[1][2] == "figure"
 
 
+# ── _center_axes_vertically tests ──────────────────────────────────
+
+
+def _measure_gaps(fig, header_height, footer_height):
+    """Return (top_gap, bottom_gap) between axes visual extent and reference lines."""
+    renderer = fig.canvas.get_renderer()
+    y_mins, y_maxes = [], []
+    for ax in fig.get_axes():
+        if not ax.get_visible():
+            continue
+        bbox = ax.get_tightbbox(renderer)
+        if bbox is not None:
+            fig_bbox = bbox.transformed(fig.transFigure.inverted())
+            y_mins.append(fig_bbox.y0)
+            y_maxes.append(fig_bbox.y1)
+    ref_top = 1.0 - header_height
+    ref_bottom = footer_height / 2.0 if footer_height > 0 else 0.0
+    return ref_top - max(y_maxes), min(y_mins) - ref_bottom
+
+
+def test_center_axes_equalizes_gaps(tmp_path):
+    """After centering, top and bottom gaps should be roughly equal."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    header_height, footer_height = 0.12, 0.08
+
+    fig, ax = plt.subplots(figsize=(8, 9), dpi=150)
+    # Large tick labels on bottom create asymmetry
+    ax.set_yticks([0, 50, 100])
+    ax.set_yticklabels(["$0B", "$50B", "$100B"], fontsize=14)
+    ax.set_xlabel("Fiscal Year", fontsize=12)
+    fig.tight_layout(rect=[0, footer_height, 1, 1 - header_height])
+
+    top_before, bottom_before = _measure_gaps(fig, header_height, footer_height)
+    # There should be meaningful asymmetry before centering
+    gap_diff_before = abs(bottom_before - top_before)
+
+    view._center_axes_vertically(fig, header_height, footer_height)
+
+    top_after, bottom_after = _measure_gaps(fig, header_height, footer_height)
+    gap_diff_after = abs(bottom_after - top_after)
+
+    # Centering should reduce the gap difference
+    assert gap_diff_after <= gap_diff_before + 0.001
+    # Gaps should be close to equal (within 1% of figure height)
+    assert gap_diff_after < 0.01
+    plt.close(fig)
+
+
+def test_center_axes_noop_when_already_centered(tmp_path):
+    """Centering should be a no-op when gaps are within threshold."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    # With no header/footer, ref_top=1.0 and ref_bottom=0.0, so tight_layout
+    # already centers the axes symmetrically → shift should be below threshold.
+    header_height, footer_height = 0, 0
+
+    fig, ax = plt.subplots(figsize=(8, 9), dpi=150)
+    ax.axis("off")
+    fig.tight_layout(rect=[0, footer_height, 1, 1 - header_height])
+
+    pos_before = ax.get_position()
+    view._center_axes_vertically(fig, header_height, footer_height)
+    pos_after = ax.get_position()
+
+    # Position should not change (shift < threshold)
+    assert abs(pos_after.y0 - pos_before.y0) < 0.005
+    plt.close(fig)
+
+
+def test_center_axes_skips_hidden_axes(tmp_path):
+    """Hidden axes should not influence centering calculations."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    header_height, footer_height = 0.12, 0.08
+
+    fig = plt.figure(figsize=(8, 9), dpi=150)
+    ax1 = fig.add_subplot(111)
+    ax1.set_yticks([0, 100])
+
+    # Add a hidden axes placed far off
+    ax_hidden = fig.add_axes([0.1, 0.95, 0.8, 0.04], visible=False)
+    ax_hidden.set_yticks([0, 1])
+
+    fig.tight_layout(rect=[0, footer_height, 1, 1 - header_height])
+
+    pos_hidden_before = ax_hidden.get_position()
+
+    view._center_axes_vertically(fig, header_height, footer_height)
+
+    # Hidden axes should not move
+    pos_hidden_after = ax_hidden.get_position()
+    assert abs(pos_hidden_after.y0 - pos_hidden_before.y0) < 1e-9
+    plt.close(fig)
+
+
+def test_center_axes_empty_figure(tmp_path):
+    """Centering an empty figure should not raise."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    fig = plt.figure(figsize=(8, 9))
+
+    # No axes at all — should be a silent no-op
+    view._center_axes_vertically(fig, 0.12, 0.08)
+    plt.close(fig)
+
+
+def test_center_axes_respects_zone_bounds(tmp_path):
+    """Axes visual extent should stay within the tight_layout zone after centering."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    header_height, footer_height = 0.15, 0.10
+
+    fig, ax = plt.subplots(figsize=(8, 9), dpi=150)
+    ax.set_yticks(range(0, 1001, 100))
+    ax.set_yticklabels([f"${v}B" for v in range(0, 1001, 100)], fontsize=12)
+    ax.set_xlabel("Year", fontsize=14, labelpad=20)
+    fig.tight_layout(rect=[0, footer_height, 1, 1 - header_height])
+
+    view._center_axes_vertically(fig, header_height, footer_height)
+
+    # Verify axes data-area position stays within zone
+    zone_top = 1.0 - header_height
+    zone_bottom = footer_height
+    for a in fig.get_axes():
+        pos = a.get_position()
+        assert pos.y0 >= zone_bottom - 0.01, f"Axes bottom {pos.y0} below zone {zone_bottom}"
+        assert pos.y1 <= zone_top + 0.01, f"Axes top {pos.y1} above zone {zone_top}"
+    plt.close(fig)
+
+
 def test_add_logo_adds_vector_path_patch(tmp_path, monkeypatch):
     """_add_logo should add a vector PathPatch to the figure."""
     from matplotlib.patches import PathPatch
