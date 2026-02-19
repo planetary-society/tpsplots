@@ -683,14 +683,6 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
 
         self._adjust_layout_for_header_footer(fig, metadata, style)
 
-        # Disable clipping on line artists so markers at axis edges render fully
-        # (done after layout adjustment to avoid affecting tight_layout calculations)
-        for line in ax.get_lines():
-            line.set_clip_on(False)
-        if ax2 is not None:
-            for line in ax2.get_lines():
-                line.set_clip_on(False)
-
         return fig
 
     def _extract_axes_styling_options(self, style, kwargs):

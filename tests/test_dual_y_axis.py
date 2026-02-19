@@ -7,7 +7,7 @@ Covers:
 - Grid on left axis only
 - Backward compatibility (no y_right = single axis, unchanged behavior)
 - Series offset for override key lookup
-- Clip-on disabled on both axes
+- Line artists remain clipped to axis bounds
 - Scatter dual axis inheritance
 """
 
@@ -287,8 +287,8 @@ class TestScaleFormatting:
 
 
 class TestClipping:
-    def test_clip_on_false_both_axes(self, line_view, sample_df, desktop_style):
-        """Clip-on is disabled for lines on both axes so edge markers render fully."""
+    def test_clip_on_true_both_axes(self, line_view, sample_df, desktop_style):
+        """Line artists stay clipped so out-of-range segments do not render outside bounds."""
         fig = line_view._create_chart(
             metadata={"title": "Test"},
             style=desktop_style,
@@ -297,13 +297,14 @@ class TestClipping:
             y="Budget",
             y_right="GDP_Pct",
             marker="o",
+            xlim=[2020, 2022],
         )
         ax = fig.get_axes()[0]
         ax2 = fig.get_axes()[1]
         for line in ax.get_lines():
-            assert line.get_clip_on() is False
+            assert line.get_clip_on() is True
         for line in ax2.get_lines():
-            assert line.get_clip_on() is False
+            assert line.get_clip_on() is True
         plt.close(fig)
 
 
