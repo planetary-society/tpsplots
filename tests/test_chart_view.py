@@ -3,9 +3,7 @@
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import numpy as np
 
-import tpsplots.views.chart_view as chart_view_module
 from tpsplots.views.chart_view import ChartView
 
 
@@ -140,31 +138,28 @@ def test_save_chart_uses_figure_dpi_for_svg_and_png(tmp_path, monkeypatch):
     assert save_calls[1][2] == "figure"
 
 
-def test_add_logo_uses_non_smoothed_raster_settings(tmp_path, monkeypatch):
-    """_add_logo should avoid smoothing that blurs thin logo details."""
+def test_add_logo_adds_vector_path_patch(tmp_path, monkeypatch):
+    """_add_logo should add a vector PathPatch to the figure."""
+    from matplotlib.patches import PathPatch
+    from matplotlib.path import Path as MplPath
+
+    from tpsplots.views import logo
+
     view = ChartView(outdir=tmp_path, style_file=None)
-    fig = plt.figure()
-    image_dir = tmp_path / "images"
-    image_dir.mkdir()
-    logo_path = image_dir / "TPS_Logo_1Line-Black-Cutout.png"
+    fig = plt.figure(figsize=(16, 10), dpi=300)
 
-    # Tiny synthetic RGBA logo file for deterministic testing.
-    logo = np.zeros((12, 120, 4), dtype=np.float32)
-    logo[:, :, 3] = 1.0
-    plt.imsave(logo_path, logo)
+    # Monkeypatch the cached path with a minimal triangle.
+    triangle = MplPath(
+        [(0.0, 0.0), (100.0, 0.0), (50.0, 100.0), (0.0, 0.0)],
+        [MplPath.MOVETO, MplPath.LINETO, MplPath.LINETO, MplPath.CLOSEPOLY],
+    )
+    monkeypatch.setattr(logo, "_cached_path", triangle)
 
-    captured_kwargs: dict = {}
-    real_offset_image = chart_view_module.OffsetImage
+    view._add_logo(fig, ChartView.DESKTOP)
 
-    def capture_offset_image(arr, **kwargs):
-        captured_kwargs.update(kwargs)
-        return real_offset_image(arr, **kwargs)
-
-    monkeypatch.setattr(chart_view_module, "IMAGES_DIR", image_dir)
-    monkeypatch.setattr(chart_view_module, "OffsetImage", capture_offset_image)
-    monkeypatch.setattr(ChartView, "_cached_logo", None)
-
-    view._add_logo(fig, {"logo_zoom": 0.08, "logo_x": 0.01, "logo_y": 0.005})
-
-    assert captured_kwargs["resample"] is False
-    assert captured_kwargs["interpolation"] == "none"
+    patches = [c for c in fig.get_children() if isinstance(c, PathPatch)]
+    assert len(patches) == 1
+    # Facecolor should match the logo grey (#545454 ≈ 0.329)
+    fc = patches[0].get_facecolor()
+    assert abs(fc[0] - 0.329) < 0.01
+    plt.close(fig)

@@ -10,14 +10,12 @@ from pathlib import Path
 from typing import ClassVar
 
 import matplotlib.dates as mdates
-import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.ticker import FuncFormatter
 
-from tpsplots import IMAGES_DIR, TPS_STYLE_FILE
+from tpsplots import TPS_STYLE_FILE
 from tpsplots.colors import COLORS, TPS_COLORS
 from tpsplots.exceptions import RenderingError
 from tpsplots.views.mixins import AxisTickFormatMixin
@@ -34,8 +32,6 @@ class ChartView(AxisTickFormatMixin):
     # Color palettes imported from tpsplots.colors for backward compatibility
     COLORS: ClassVar[dict[str, str]] = COLORS
     TPS_COLORS: ClassVar[dict[str, str]] = TPS_COLORS
-    # Cached color-masked logo array (loaded once, reused across all renders)
-    _cached_logo: ClassVar[np.ndarray | None] = None
     # Device-specific visual settings
     DESKTOP: ClassVar[dict[str, object]] = {
         "type": "desktop",
@@ -60,10 +56,11 @@ class ChartView(AxisTickFormatMixin):
         "header_max_height": 0.18,  # Never larger than 18%
         "subtitle_wrap_length": 120,
         "label_wrap_length": 30,
-        "logo_zoom": 0.12,
-        "logo_x": 0.01,
-        "logo_y": 0.004,
-        "source_size": 13,
+        "logo_zoom": 0.03,
+        "logo_x": 0.009,
+        "logo_y": 0.005,
+        "source_size": 12,
+        "source_y": 0.01,
     }
 
     MOBILE: ClassVar[dict[str, object]] = {
@@ -88,10 +85,11 @@ class ChartView(AxisTickFormatMixin):
         "header_max_height": 0.22,  # Never larger than 22%
         "subtitle_wrap_length": 64,
         "label_wrap_length": 15,
-        "logo_zoom": 0.10,
+        "logo_zoom": 0.025,
         "logo_x": 0.008,
-        "logo_y": 0.0044,
-        "source_size": 10,
+        "logo_y": 0.0065,
+        "source_size": 9,
+        "source_y": 0.0105,
     }
 
     def __init__(self, outdir: Path = Path("charts"), style_file=TPS_STYLE_FILE):
@@ -837,62 +835,17 @@ class ChartView(AxisTickFormatMixin):
             )
         )
 
-    @classmethod
-    def _get_cached_logo(cls) -> np.ndarray | None:
-        """Return the color-masked logo array, loading from disk on first call."""
-        if cls._cached_logo is not None:
-            return cls._cached_logo
-
-        logo_path = IMAGES_DIR / "TPS_Logo_1Line-Black-Cutout.png"
-        if not logo_path.exists():
-            return None
-
-        logo = mpimg.imread(str(logo_path))
-
-        if logo.shape[2] == 4:  # RGBA — apply #545454 color mask
-            alpha = logo[:, :, 3]
-            grey = 0x54 / 255.0
-            new_logo = np.zeros((logo.shape[0], logo.shape[1], 4))
-            new_logo[:, :, :3] = grey
-            new_logo[:, :, 3] = alpha
-            logo = new_logo
-
-        cls._cached_logo = logo
-        return logo
-
     def _add_logo(self, fig, style):
-        """
-        Add The Planetary Society logo to the figure.
+        """Add The Planetary Society vector logo to the figure footer."""
+        from tpsplots.views.logo import draw_logo
 
-        Args:
-            fig: The matplotlib Figure object
-            style: Style dictionary (DESKTOP or MOBILE)
-        """
         try:
-            logo = self._get_cached_logo()
-            if logo is None:
-                return
-
-            imagebox = OffsetImage(
-                logo,
-                zoom=style.get("logo_zoom", 0.08),
-                interpolation="none",
-                resample=False,
+            draw_logo(
+                fig,
+                zoom=style.get("logo_zoom", 0.03),
+                x=style.get("logo_x", 0.01),
+                y=style.get("logo_y", 0.01),
             )
-
-            ab = AnnotationBbox(
-                imagebox,
-                xy=(
-                    style.get("logo_x", 0.01),
-                    style.get("logo_y", 0.005),
-                ),  # Position at left, bottom corner
-                xycoords="figure fraction",
-                box_alignment=(0, 0),  # Align the left edge of the logo with the xy point
-                frameon=False,
-                pad=0,  # No padding
-            )
-            fig.add_artist(ab)
-            # Note: Layout is managed by _adjust_layout_for_header_footer, not here
         except Exception as e:
             logger.error(f"Warning: Could not add logo: {e}")
 
@@ -911,7 +864,7 @@ class ChartView(AxisTickFormatMixin):
         # Add text at the bottom right, matching footer line right edge
         fig.text(
             0.99,  # x position (right side, matches footer line)
-            0.01,  # y position (bottom)
+            style.get("source_y", 0.01),  # y position (bottom)
             f"Source: {source_text}".upper(),
             fontsize=style.get("source_size", 11),
             color="#545454",
