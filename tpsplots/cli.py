@@ -32,13 +32,95 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
     elif verbose:
         level = logging.DEBUG
     else:
-        level = logging.INFO
+        level = logging.WARNING
 
     format_str = "%(asctime)s - %(levelname)s - %(message)s" if verbose else "%(message)s"
-    logging.basicConfig(level=level, format=format_str, datefmt="%H:%M:%S")
+    logging.basicConfig(
+        level=level,
+        format=format_str,
+        datefmt="%H:%M:%S",
+        force=True,
+    )
 
     # Suppress repetitive matplotlib categorical units INFO messages
     logging.getLogger("matplotlib.category").setLevel(logging.WARNING)
+
+
+def emit_generate_start(total: int, *, verbose: bool, quiet: bool, logger: logging.Logger) -> None:
+    """Emit start message for chart generation."""
+    if quiet:
+        return
+    if verbose:
+        logger.info(f"Processing {total} YAML file(s)...")
+    else:
+        typer.secho(f"Processing {total} YAML file(s)", fg=typer.colors.CYAN, bold=True)
+
+
+def emit_generate_status(
+    index: int,
+    total: int,
+    yaml_name: str,
+    status: str,
+    *,
+    detail: str | None = None,
+    quiet: bool,
+) -> None:
+    """Emit per-file status in concise mode."""
+    if quiet:
+        return
+
+    prefix = f"[{index}/{total}] {yaml_name}"
+    if status == "ok":
+        typer.secho(f"{prefix}  OK", fg=typer.colors.GREEN)
+        return
+    if status == "warn":
+        suffix = f" WARN: {detail}" if detail else " WARN"
+        typer.secho(f"{prefix}{suffix}", fg=typer.colors.YELLOW)
+        return
+
+    suffix = f" FAIL: {detail}" if detail else " FAIL"
+    typer.secho(f"{prefix}{suffix}", fg=typer.colors.RED, err=True)
+
+
+def emit_generate_summary(
+    *,
+    success_count: int,
+    failure_count: int,
+    config_error_count: int,
+    failure_details: list[str],
+    verbose: bool,
+    quiet: bool,
+    logger: logging.Logger,
+) -> None:
+    """Emit completion summary for chart generation."""
+    if quiet:
+        return
+
+    if verbose:
+        logger.info(f"Complete: {success_count} succeeded, {failure_count} failed")
+        if config_error_count:
+            logger.info(f"Configuration errors: {config_error_count}")
+        return
+
+    if config_error_count:
+        summary = (
+            f"Summary: {success_count} succeeded, {failure_count} failed, "
+            f"{config_error_count} config errors"
+        )
+    else:
+        summary = f"Summary: {success_count} succeeded, {failure_count} failed"
+
+    summary_color = (
+        typer.colors.GREEN
+        if failure_count == 0 and config_error_count == 0
+        else typer.colors.RED
+    )
+    typer.secho(summary, fg=summary_color, bold=True)
+
+    if failure_details:
+        typer.secho("Failures:", fg=typer.colors.RED, bold=True, err=True)
+        for detail in failure_details:
+            typer.secho(f"  {detail}", fg=typer.colors.RED, err=True)
 
 
 def validate_yaml(yaml_path: Path) -> bool:
@@ -223,49 +305,107 @@ def generate(
         logger.error("No YAML files found to process")
         raise typer.Exit(code=2)
 
-    if not quiet:
-        logger.info(f"Processing {len(yaml_files)} YAML file(s)...")
-
     # Generate charts
     success_count = 0
     failure_count = 0
     config_error_count = 0
+    failure_details: list[str] = []
 
     # Create output directory if it doesn't exist
     outdir.mkdir(parents=True, exist_ok=True)
 
-    for yaml_file in yaml_files:
+    emit_generate_start(len(yaml_files), verbose=verbose, quiet=quiet, logger=logger)
+
+    for index, yaml_file in enumerate(yaml_files, start=1):
         try:
             processor = YAMLChartProcessor(yaml_file, outdir=outdir)
             result = processor.generate_chart()
 
             if result:
-                if not quiet:
+                if verbose and not quiet:
                     logger.info(f"Generated chart from {yaml_file.name}")
+                elif not verbose:
+                    emit_generate_status(
+                        index,
+                        len(yaml_files),
+                        yaml_file.name,
+                        "ok",
+                        quiet=quiet,
+                    )
                 success_count += 1
             else:
-                if not quiet:
+                if verbose and not quiet:
                     logger.warning(f"No output from {yaml_file.name}")
+                elif not verbose:
+                    emit_generate_status(
+                        index,
+                        len(yaml_files),
+                        yaml_file.name,
+                        "warn",
+                        detail="no output produced",
+                        quiet=quiet,
+                    )
                 failure_count += 1
+                failure_details.append(f"{yaml_file.name}: no output produced")
 
         except ConfigurationError as e:
-            logger.error(f"Config error: {yaml_file.name} - {e}")
+            if verbose:
+                logger.error(f"Config error: {yaml_file.name} - {e}")
+            else:
+                emit_generate_status(
+                    index,
+                    len(yaml_files),
+                    yaml_file.name,
+                    "fail",
+                    detail=str(e),
+                    quiet=quiet,
+                )
             config_error_count += 1
+            failure_details.append(f"{yaml_file.name}: config error - {e}")
             if verbose:
                 traceback.print_exc()
         except (DataSourceError, RenderingError) as e:
-            logger.error(f"Failed: {yaml_file.name} - {e}")
+            if verbose:
+                logger.error(f"Failed: {yaml_file.name} - {e}")
+            else:
+                emit_generate_status(
+                    index,
+                    len(yaml_files),
+                    yaml_file.name,
+                    "fail",
+                    detail=str(e),
+                    quiet=quiet,
+                )
             failure_count += 1
+            failure_details.append(f"{yaml_file.name}: {e}")
             if verbose:
                 traceback.print_exc()
         except Exception as e:
-            logger.error(f"Unexpected error: {yaml_file.name} - {e}")
+            if verbose:
+                logger.error(f"Unexpected error: {yaml_file.name} - {e}")
+            else:
+                emit_generate_status(
+                    index,
+                    len(yaml_files),
+                    yaml_file.name,
+                    "fail",
+                    detail=f"unexpected error: {e}",
+                    quiet=quiet,
+                )
             failure_count += 1
+            failure_details.append(f"{yaml_file.name}: unexpected error - {e}")
             if verbose:
                 traceback.print_exc()
 
-    if not quiet:
-        logger.info(f"Complete: {success_count} succeeded, {failure_count} failed")
+    emit_generate_summary(
+        success_count=success_count,
+        failure_count=failure_count,
+        config_error_count=config_error_count,
+        failure_details=failure_details,
+        verbose=verbose,
+        quiet=quiet,
+        logger=logger,
+    )
 
     if config_error_count > 0:
         raise typer.Exit(code=2)

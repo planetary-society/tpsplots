@@ -1,10 +1,13 @@
 """Tests for the CLI module."""
 
 import json
+import logging
+from pathlib import Path
 
 from typer.testing import CliRunner
 
 from tpsplots.cli import app
+from tpsplots.exceptions import DataSourceError
 
 runner = CliRunner()
 
@@ -102,3 +105,75 @@ class TestCLI:
         """Test that s3-sync requires bucket and prefix arguments."""
         result = runner.invoke(app, ["s3-sync", "--dry-run"])
         assert result.exit_code == 2  # Missing required options
+
+    def test_generate_standard_output_is_concise(self, tmp_path, monkeypatch):
+        """Default generate output should be easy to scan and summary-first."""
+        yaml_1 = tmp_path / "one.yaml"
+        yaml_2 = tmp_path / "two.yaml"
+        yaml_1.write_text("chart: {}\n", encoding="utf-8")
+        yaml_2.write_text("chart: {}\n", encoding="utf-8")
+
+        class DummyProcessor:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            def generate_chart(self):
+                return {"files": []}
+
+        monkeypatch.setattr("tpsplots.cli.YAMLChartProcessor", DummyProcessor)
+
+        result = runner.invoke(app, ["generate", str(yaml_1), str(yaml_2)])
+
+        assert result.exit_code == 0
+        assert "Processing 2 YAML file(s)" in result.output
+        assert "[1/2]" in result.output
+        assert "[2/2]" in result.output
+        assert "Summary: 2 succeeded, 0 failed" in result.output
+        assert "Loaded YAML config" not in result.output
+        assert "Successfully generated chart" not in result.output
+
+    def test_generate_verbose_shows_detailed_logs(self, tmp_path, monkeypatch):
+        """Verbose mode should preserve detailed processor logs."""
+        yaml_1 = tmp_path / "verbose.yaml"
+        yaml_1.write_text("chart: {}\n", encoding="utf-8")
+
+        class VerboseProcessor:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            def generate_chart(self):
+                logging.getLogger("tpsplots.tests.verbose").info("verbose marker from processor")
+                return {"files": []}
+
+        monkeypatch.setattr("tpsplots.cli.YAMLChartProcessor", VerboseProcessor)
+
+        result = runner.invoke(app, ["generate", "--verbose", str(yaml_1)])
+
+        assert result.exit_code == 0
+        assert "verbose marker from processor" in result.output
+
+    def test_generate_failure_summary_is_high_signal(self, tmp_path, monkeypatch):
+        """Failures should be clearly visible in default mode."""
+        good_yaml = tmp_path / "good.yaml"
+        bad_yaml = tmp_path / "bad.yaml"
+        good_yaml.write_text("chart: {}\n", encoding="utf-8")
+        bad_yaml.write_text("chart: {}\n", encoding="utf-8")
+
+        class MixedProcessor:
+            def __init__(self, yaml_path, *_args, **_kwargs):
+                self.yaml_path = Path(yaml_path)
+
+            def generate_chart(self):
+                if self.yaml_path.name == "bad.yaml":
+                    raise DataSourceError("network failure")
+                return {"files": []}
+
+        monkeypatch.setattr("tpsplots.cli.YAMLChartProcessor", MixedProcessor)
+
+        result = runner.invoke(app, ["generate", str(good_yaml), str(bad_yaml)])
+
+        assert result.exit_code == 1
+        assert "FAIL" in result.output
+        assert "bad.yaml" in result.output
+        assert "network failure" in result.output
+        assert "Summary: 1 succeeded, 1 failed" in result.output
