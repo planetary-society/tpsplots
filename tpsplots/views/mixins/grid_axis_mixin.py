@@ -1,5 +1,7 @@
 """Mixin providing shared grid and axis styling for chart views."""
 
+import math
+
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
@@ -91,6 +93,10 @@ class GridAxisMixin:
         """
         Apply axis limits handling both tuple and dict formats.
 
+        When ``ylim`` is not specified and all plotted data is non-negative,
+        the y-axis is automatically floored at zero to avoid misleading
+        negative padding from matplotlib's default autoscaling.
+
         Args:
             ax: Matplotlib axes object
             xlim: X-axis limits as tuple (min, max) or dict {'left': val, 'right': val}
@@ -107,6 +113,10 @@ class GridAxisMixin:
                 ax.set_ylim(**ylim)
             else:
                 ax.set_ylim(ylim)
+        else:
+            # Auto-floor: for non-negative data, start y-axis at 0
+            if math.isfinite(ax.dataLim.y0) and ax.dataLim.y0 >= 0:
+                ax.set_ylim(bottom=0)
 
     def _apply_axis_labels(
         self,

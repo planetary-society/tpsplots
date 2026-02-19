@@ -154,6 +154,62 @@ class TestApplyAxisLimits:
         assert ax.get_ylim() == original_ylim
 
 
+class TestAutoYAxisScaling:
+    """Tests for automatic y-axis floor at zero when data is non-negative."""
+
+    def test_positive_data_starts_at_zero(self, mixin_with_grid, ax):
+        """Line-style data with all-positive values starts y-axis at 0."""
+        ax.plot([1, 2, 3], [100, 500, 800])
+        mixin_with_grid._apply_axis_limits(ax, ylim=None)
+
+        ylim = ax.get_ylim()
+        assert ylim[0] == 0.0
+        assert ylim[1] > 800  # Upper bound auto-calculated by matplotlib
+
+    def test_data_from_zero_starts_at_zero(self, mixin_with_grid, ax):
+        """Data starting at zero keeps y-axis at 0."""
+        ax.plot([1, 2, 3], [0, 400, 800])
+        mixin_with_grid._apply_axis_limits(ax, ylim=None)
+
+        assert ax.get_ylim()[0] == 0.0
+
+    def test_negative_data_keeps_default(self, mixin_with_grid, ax):
+        """Data crossing zero preserves matplotlib's default autoscaling."""
+        ax.plot([1, 2, 3], [-50, 200, 800])
+        default_ylim = ax.get_ylim()
+
+        mixin_with_grid._apply_axis_limits(ax, ylim=None)
+
+        assert ax.get_ylim() == default_ylim
+        assert ax.get_ylim()[0] < 0  # Confirms negative start preserved
+
+    def test_explicit_ylim_overrides_auto(self, mixin_with_grid, ax):
+        """Explicit ylim is respected even with non-negative data."""
+        ax.plot([1, 2, 3], [100, 500, 800])
+        mixin_with_grid._apply_axis_limits(ax, ylim=[50, 900])
+
+        assert ax.get_ylim() == (50.0, 900.0)
+
+    def test_bar_chart_auto_floor_harmless(self, mixin_with_grid, ax):
+        """Bar charts already start at 0; auto-scaling is a harmless no-op."""
+        ax.bar(["A", "B", "C"], [100, 500, 800])
+        default_ylim = ax.get_ylim()
+
+        mixin_with_grid._apply_axis_limits(ax, ylim=None)
+
+        # Bar charts already start at 0 by default
+        assert ax.get_ylim()[0] == 0.0
+        assert ax.get_ylim() == default_ylim
+
+    def test_empty_axis_not_affected(self, mixin_with_grid, ax):
+        """An axis with no data plotted is not affected (dataLim is inf)."""
+        original_ylim = ax.get_ylim()
+
+        mixin_with_grid._apply_axis_limits(ax, ylim=None)
+
+        assert ax.get_ylim() == original_ylim
+
+
 class TestMixinIntegration:
     """Tests for mixin integration with chart views."""
 
