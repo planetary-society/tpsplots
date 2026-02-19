@@ -1,0 +1,24 @@
+data:
+  source: planetary_mission_budget.cassini
+
+chart:
+  type: line
+  output: cassini_lifetime_cost_inflation_adjusted
+  title: "Cassini: a 30-year investment in Saturn"
+  subtitle: Annual spending on the Cassini-Huygens mission, adjusted for inflation.
+    Development peaked in the mid-1990s before transitioning to operations after
+    its 1997 launch.
+  source: "{{metadata.source}}"
+
+  x: "{{Fiscal Year}}"
+  y: "{{Total Cost_adjusted_nnsi}}"
+
+  color: Neptune Blue
+  linestyle: "-"
+  marker: "o"
+  scale: millions
+  fiscal_year_ticks: true
+  grid: true
+  grid_axis: y
+
+  export_data: "{{data}}"
