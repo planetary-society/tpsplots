@@ -140,7 +140,9 @@ class NASAFYChartsController(ChartController):
                     .drop_duplicates()
                     .tolist()
                 )
-                sample_accounts = ", ".join(available_accounts[:10]) if available_accounts else "none"
+                sample_accounts = (
+                    ", ".join(available_accounts[:10]) if available_accounts else "none"
+                )
                 raise ValueError(
                     "No directorate rows matched configured accounts after normalization. "
                     f"Configured accounts: {configured_accounts}. "
