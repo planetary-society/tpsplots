@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -145,51 +144,6 @@ class ChartController:
             numeric_series = pd.to_numeric(export_df[col], errors="coerce")
             export_df[col] = numeric_series.round(0)
         return export_df
-
-    def _clean_projection_overlap(self, df: pd.DataFrame) -> pd.Series:
-        """Clean White House Budget Projection to create smooth chart transitions.
-
-        For overlapping fiscal years (where projection AND appropriation/PBR exist):
-        - Set all but the LAST overlapping projection to NA
-        - Replace the LAST overlapping projection with Appropriation (or PBR)
-
-        This creates a clean visual connection between actual data and projections.
-
-        Args:
-            df: DataFrame with columns: "White House Budget Projection", "Appropriation", "PBR"
-
-        Returns:
-            pd.Series: Cleaned projection series
-        """
-        projection = df["White House Budget Projection"].copy()
-        appropriation = df["Appropriation"]
-        pbr = df["PBR"]
-
-        # Find overlapping rows: projection exists AND (appropriation OR pbr exists)
-        has_projection = projection.notna()
-        has_actual = appropriation.notna() | pbr.notna()
-        overlap_mask = has_projection & has_actual
-
-        if not overlap_mask.any():
-            return projection  # No overlaps, return as-is
-
-        # Get indices of overlapping rows
-        overlap_indices = df.index[overlap_mask].tolist()
-
-        # Last overlapping index
-        last_overlap_idx = overlap_indices[-1]
-
-        # Set all overlapping projections to NA except the last one
-        for idx in overlap_indices[:-1]:
-            projection.loc[idx] = np.nan
-
-        # For the last overlap, use Appropriation if available, else PBR
-        if pd.notna(appropriation.loc[last_overlap_idx]):
-            projection.loc[last_overlap_idx] = appropriation.loc[last_overlap_idx]
-        elif pd.notna(pbr.loc[last_overlap_idx]):
-            projection.loc[last_overlap_idx] = pbr.loc[last_overlap_idx]
-
-        return projection
 
     def _build_metadata(
         self,

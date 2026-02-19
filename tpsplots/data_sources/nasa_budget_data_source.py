@@ -452,7 +452,6 @@ class Historical(NASABudget):
         "Presidential Administration",
         "White House Budget Release Date",
         "White House Budget Submission",
-        "White House Budget Projection",
         "Appropriation",
         "Outlays",
         "% of U.S. Spending",

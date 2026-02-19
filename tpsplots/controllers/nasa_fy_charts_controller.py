@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import ClassVar
 
 import pandas as pd
@@ -36,14 +37,18 @@ class NASAFYChartsController(ChartController):
     ]
 
     def __init__(self):
-        self.historical: pd.DataFrame = Historical().data()
-        self.new_awards: pd.DataFrame = NewNASAAwards().data()
         if not hasattr(self, "FISCAL_YEAR"):
             raise ValueError("FISCAL_YEAR must be defined in the subclass")
 
         self.budget_detail: pd.DataFrame = NASABudgetDetailSource(self.FISCAL_YEAR).data()
 
-        # NASABudgetDetailSource already normalizes and scales monetary columns
+    @cached_property
+    def historical(self) -> pd.DataFrame:
+        return Historical().data()
+
+    @cached_property
+    def new_awards(self) -> pd.DataFrame:
+        return NewNASAAwards().data()
 
     # Methods for award tracking
     def _get_award_data(self, award_type: str = "Grant") -> dict:

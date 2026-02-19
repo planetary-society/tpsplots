@@ -85,11 +85,9 @@ class NASABudgetChart(ChartController):
     def nasa_budget_by_year(self) -> dict:
         """Return comprehensive NASA budget data for YAML-driven chart generation.
 
-        This method provides raw data without filtering or styling metadata.
-        YAML files are responsible for:
-        - Filtering via xlim
-        - Styling (colors, linestyles, labels)
-        - Axis configuration (ylim, scale)
+        This method provides historical data without projections. For charts that
+        need White House Budget Projections, use the FY-specific controller's
+        pbr_historical_context() method instead.
 
         Returns:
             dict with keys:
@@ -97,7 +95,6 @@ class NASABudgetChart(ChartController):
                 - presidential_administration: Series of president names
                 - pbr: Nominal Presidential Budget Request values
                 - appropriation: Nominal Congressional Appropriation values
-                - white_house_projection: White House budget projections
                 - pbr_adjusted: Inflation-adjusted PBR (NNSI)
                 - appropriation_adjusted: Inflation-adjusted appropriation (NNSI)
                 - export_df: DataFrame for CSV export
@@ -130,7 +127,6 @@ class NASABudgetChart(ChartController):
                 "Presidential Administration",
                 "PBR",
                 "Appropriation",
-                "White House Budget Projection",
                 "PBR_adjusted_nnsi",
                 "Appropriation_adjusted_nnsi",
             ],
@@ -143,7 +139,6 @@ class NASABudgetChart(ChartController):
             value_columns={
                 "pbr": "PBR",
                 "appropriation": "Appropriation",
-                "projection": "White House Budget Projection",
             },
         )
         metadata = self._add_inflation_adjusted_year_metadata(metadata, df)
@@ -159,7 +154,6 @@ class NASABudgetChart(ChartController):
             # Nominal dollar values
             "pbr": df["PBR"],
             "appropriation": df["Appropriation"],
-            "white_house_projection": self._clean_projection_overlap(df),
             # Inflation-adjusted values
             "pbr_adjusted": df["PBR_adjusted_nnsi"],
             "appropriation_adjusted": df["Appropriation_adjusted_nnsi"],

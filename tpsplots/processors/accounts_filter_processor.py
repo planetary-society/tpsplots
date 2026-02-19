@@ -126,10 +126,7 @@ class AccountsFilterProcessor:
                     f"Alias target '{canonical_name}' is not present in configured accounts."
                 )
 
-            if isinstance(alias_values, str):
-                aliases = [alias_values]
-            else:
-                aliases = alias_values
+            aliases = [alias_values] if isinstance(alias_values, str) else alias_values
 
             for alias in aliases:
                 normalized_to_canonical[self._normalize_account_name(alias)] = resolved_canonical
@@ -142,6 +139,8 @@ class AccountsFilterProcessor:
 
         # Optionally rename accounts to short names
         if isinstance(self.config.accounts, dict) and self.config.use_short_names:
-            df[self.config.account_column] = matched_canonical.loc[df.index].map(self.config.accounts)
+            df[self.config.account_column] = matched_canonical.loc[df.index].map(
+                self.config.accounts
+            )
 
         return df.reset_index(drop=True)

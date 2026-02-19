@@ -96,33 +96,32 @@ chart:
 
 ### Example 1: Line Chart with Historical Data
 
-Track NASA budget over time with projections:
+Track NASA budget over time with inflation adjustment:
 
 ```yaml
-# nasa_budget_by_year_with_projection.yaml
+# nasa_budget_pbr_appropriation_by_year_inflation_adjusted.yaml
 data:
-  source: nasa_budget_chart.nasa_budget_by_year_with_projection_inflation_adjusted
+  source: nasa_budget_chart.nasa_budget_by_year
 
 chart:
   type: line
-  output: nasa_budget_by_year_with_projection_inflation_adjusted
-  title: How NASA's budget has changed over time
-  subtitle: After its peak during Apollo, NASA's inflation-adjusted budget has held
-    relatively steady, though that may change.
-  source: NASA Budget Requests
+  output: nasa_budget_pbr_appropriation_by_year_inflation_adjusted
+  title: "NASA's budget from 1959 to {{metadata.max_appropriation_fiscal_year}}"
+  subtitle: Adjusted for inflation, NASA's budget has remained relatively steady after the end of Apollo.
+  source: "NASA Budget Requests, 1961-{{metadata.max_pbr_fiscal_year}}. Adjusted to {{metadata.inflation_adjusted_year}} USD."
 
-  x: "{{fiscal_years}}"
+  x: "{{fiscal_year}}"
   y:
-    - "{{appropriation_adjusted_nnsi}}"
-    - "{{white_house_budget_projection}}"
-  color: [NeptuneBlue, RocketFlame]
-  linestyle: ["-", "-"]
-  marker: ["", "o"]
-  labels: ["", "Proposed"]
-  xlim: "{{xlim}}"
-  ylim: "{{ylim}}"
+    - "{{pbr_adjusted}}"
+    - "{{appropriation_adjusted}}"
+  color: ["light_blue", "Neptune Blue"]
+  linestyle: [":", "-"]
+  linewidth: [2.5, 4]
+  labels: ["Proposed", "Final"]
+  xlim: [1958-01-01, 2030-01-01]
+  ylim: [0, 80000000000]
   scale: billions
-  legend: "{{legend}}"
+  legend: false
   export_data: "{{export_df}}"
 ```
 
