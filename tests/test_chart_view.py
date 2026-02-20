@@ -138,6 +138,33 @@ def test_save_chart_uses_figure_dpi_for_svg_and_png(tmp_path, monkeypatch):
     assert save_calls[1][2] == "figure"
 
 
+def test_add_header_wraps_subtitle_within_figure_width(tmp_path):
+    """Subtitle wrapping should keep rendered text within left/right header margins."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    style = dict(view.DESKTOP)
+    fig = plt.figure(figsize=style["figsize"], dpi=style["dpi"])
+    metadata = {
+        "title": "NASA contract awards in FY 2026",
+        "subtitle": (
+            "An extended government shutdown and budgetary uncertainty led NASA to "
+            "award contracts at a slower pace than any time in the past 20 years."
+        ),
+    }
+
+    view._add_header(fig, metadata, style)
+    fig.canvas.draw()
+
+    # Title is added first, subtitle second.
+    subtitle_text = fig.texts[1]
+    subtitle_bbox = subtitle_text.get_window_extent(fig.canvas.get_renderer())
+    fig_width_px = fig.get_figwidth() * fig.dpi
+
+    # Header text uses x=0.01 left margin and should remain within x=0.99 right margin.
+    assert subtitle_bbox.x0 >= fig_width_px * 0.01 - 1
+    assert subtitle_bbox.x1 <= fig_width_px * 0.99 + 1
+    plt.close(fig)
+
+
 # ── _center_axes_vertically tests ──────────────────────────────────
 
 

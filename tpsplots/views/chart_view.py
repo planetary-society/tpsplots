@@ -632,6 +632,64 @@ class ChartView(AxisTickFormatMixin):
 
         return height
 
+    def _wrap_header_text(
+        self,
+        fig,
+        text: str | None,
+        fontsize: float,
+        *,
+        left_margin: float = 0.01,
+        right_margin: float = 0.99,
+        fallback_wrap_length: int = 65,
+    ) -> str:
+        """
+        Wrap header/subtitle text to fit rendered pixel width between figure margins.
+
+        This avoids character-count wrapping artifacts where proportional fonts
+        can overflow the right edge even when the wrapped line length looks safe.
+        """
+        if text is None:
+            return ""
+
+        escaped_text = self._escape_svg_text(text)
+        if not escaped_text:
+            return ""
+
+        max_width_px = (right_margin - left_margin) * fig.get_figwidth() * fig.dpi
+        if max_width_px <= 0:
+            return "\n".join(
+                textwrap.wrap(str(escaped_text), width=fallback_wrap_length) or [str(escaped_text)]
+            )
+
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        wrapped_lines: list[str] = []
+        probe = fig.text(0, 0, "", fontsize=fontsize, alpha=0.0)
+
+        try:
+            paragraphs = str(escaped_text).splitlines() or [""]
+            for paragraph in paragraphs:
+                words = paragraph.split()
+                if not words:
+                    wrapped_lines.append("")
+                    continue
+
+                current_line = words[0]
+                for word in words[1:]:
+                    candidate = f"{current_line} {word}"
+                    probe.set_text(candidate)
+                    if probe.get_window_extent(renderer).width <= max_width_px:
+                        current_line = candidate
+                    else:
+                        wrapped_lines.append(current_line)
+                        current_line = word
+
+                wrapped_lines.append(current_line)
+        finally:
+            probe.remove()
+
+        return "\n".join(wrapped_lines)
+
     def _calculate_header_height(self, fig, metadata, style) -> tuple[float, float]:
         """
         Calculate header height based on actual content dimensions.
@@ -655,11 +713,11 @@ class ChartView(AxisTickFormatMixin):
 
         # Measure subtitle height (with wrapping applied)
         if subtitle:
-            wrapped = "\n".join(
-                textwrap.wrap(
-                    self._escape_svg_text(subtitle),
-                    width=style.get("subtitle_wrap_length", 65),
-                )
+            wrapped = self._wrap_header_text(
+                fig,
+                subtitle,
+                style["title_size"] * 0.7,
+                fallback_wrap_length=style.get("subtitle_wrap_length", 65),
             )
             subtitle_height = self._measure_text_height(fig, wrapped, style["title_size"] * 0.7)
         else:
@@ -716,10 +774,11 @@ class ChartView(AxisTickFormatMixin):
 
         # Add subtitle if provided, positioned relative to title
         if subtitle:
-            wrapped_subtitle = "\n".join(
-                textwrap.wrap(
-                    self._escape_svg_text(subtitle), width=style.get("subtitle_wrap_length", 65)
-                )
+            wrapped_subtitle = self._wrap_header_text(
+                fig,
+                subtitle,
+                style["title_size"] * 0.7,
+                fallback_wrap_length=style.get("subtitle_wrap_length", 65),
             )
             fig.text(
                 0.01,  # x position (left side)
