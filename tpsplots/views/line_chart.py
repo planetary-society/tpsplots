@@ -972,11 +972,6 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         label_size = style.get("label_size")
         tick_size = style.get("tick_size")
         style_type = style.get("type", "desktop")
-        if style_type == "mobile" and label_size:
-            label_size = label_size * 0.6
-        if style_type == "mobile" and tick_size:
-            tick_size = tick_size * 0.8
-
         if ylabel_right:
             ax2.set_ylabel(ylabel_right, fontsize=label_size, style="normal", labelpad=4)
 

@@ -138,16 +138,13 @@ class GridAxisMixin:
             ax: Matplotlib axes object
             xlabel: X-axis label text
             ylabel: Y-axis label text
-            label_size: Font size for labels (scaled for mobile if style_type is 'mobile')
+            label_size: Font size for labels
             style_type: 'desktop' or 'mobile' for responsive sizing
             italic: Whether to use italic style (default: True)
             loc: Label location (default: 'center')
             xlabel_pad: Spacing in points between x-axis and label (default: 8)
             ylabel_pad: Spacing in points between y-axis and label (default: 4)
         """
-        # Scale label size for mobile
-        if style_type == "mobile" and label_size:
-            label_size = label_size * 0.6
 
         font_style = "italic" if italic else "normal"
 
@@ -162,20 +159,15 @@ class GridAxisMixin:
 
     def _scale_tick_size_for_mobile(self, tick_size: float | None, style_type: str) -> float | None:
         """
-        Scale tick size for mobile display.
+        Return tick size unchanged.
 
-        This is a composable helper for charts that need to apply tick styling
-        conditionally (e.g., bar charts with fiscal year detection).
+        Kept for backward compatibility with callers that pass tick_size through
+        this method.  Mobile scaling is now handled via the MOBILE style config.
 
         Args:
-            tick_size: Base font size for tick labels
-            style_type: 'desktop' or 'mobile'
-
-        Returns:
-            Scaled tick size (80% of original for mobile, unchanged for desktop)
+            tick_size: Font size for tick labels
+            style_type: 'desktop' or 'mobile' (unused, kept for API compat)
         """
-        if style_type == "mobile" and tick_size:
-            return tick_size * 0.8
         return tick_size
 
     def _apply_tick_styling(
