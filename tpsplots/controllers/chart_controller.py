@@ -7,6 +7,8 @@ from typing import Any
 
 import pandas as pd
 
+from tpsplots.data_sources.fiscal_year_mixin import FiscalYearMixin
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,6 +54,24 @@ class ChartController:
                     logger.debug(f"Could not convert '{col}' to years: {e}")
 
         return result
+
+    @staticmethod
+    def _resolve_fiscal_year_metadata_column(
+        df: pd.DataFrame,
+        fiscal_year_column: str | bool | None = None,
+    ) -> str | None:
+        """Resolve which fiscal-year column metadata extraction should use.
+
+        Mirrors the tabular source behavior:
+        - ``False`` disables FY metadata extraction.
+        - ``str`` uses the configured column directly.
+        - ``None`` auto-detects columns like ``Fiscal Year``, ``FY``, or ``Year``.
+        """
+        if fiscal_year_column is False:
+            return None
+        if isinstance(fiscal_year_column, str):
+            return fiscal_year_column
+        return FiscalYearMixin._detect_fy_column(df)
 
     def _get_rounded_axis_limit_y(
         self, max_value: float, multiple: float = 5000000000, always_extend: bool = True

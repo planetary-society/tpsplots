@@ -28,6 +28,32 @@ class TestCSVControllerMetadata:
         assert result["metadata"]["max_fiscal_year"] is not None
         assert result["metadata"]["min_fiscal_year"] is not None
 
+    def test_csv_with_custom_fiscal_year_column(self, tmp_path):
+        csv_file = tmp_path / "data.csv"
+        csv_file.write_text("Budget Year,Amount\n2020,100\n2021,200\n")
+
+        from tpsplots.controllers.csv_controller import CSVController
+
+        ctrl = CSVController(csv_path=str(csv_file), fiscal_year_column="Budget Year")
+        result = ctrl.load_data()
+
+        assert "metadata" in result
+        assert result["metadata"]["max_fiscal_year"] == 2021
+        assert result["metadata"]["min_fiscal_year"] == 2020
+
+    def test_csv_with_auto_detected_year_column(self, tmp_path):
+        csv_file = tmp_path / "data.csv"
+        csv_file.write_text("Year,Amount\n2020,100\n2021,200\n")
+
+        from tpsplots.controllers.csv_controller import CSVController
+
+        ctrl = CSVController(csv_path=str(csv_file))
+        result = ctrl.load_data()
+
+        assert "metadata" in result
+        assert result["metadata"]["max_fiscal_year"] == 2021
+        assert result["metadata"]["min_fiscal_year"] == 2020
+
     def test_csv_without_fiscal_year_column(self, tmp_path):
         csv_file = tmp_path / "data.csv"
         csv_file.write_text("Name,Value\nA,1\nB,2\n")
@@ -66,6 +92,38 @@ class TestGoogleSheetsControllerMetadata:
         from tpsplots.controllers.google_sheets_controller import GoogleSheetsController
 
         ctrl = GoogleSheetsController(url="https://example.com/sheet")
+        result = ctrl.load_data()
+
+        assert "metadata" in result
+        assert result["metadata"]["max_fiscal_year"] == 2021
+        assert result["metadata"]["min_fiscal_year"] == 2020
+
+    def test_metadata_uses_custom_fiscal_year_column(self, monkeypatch):
+        dummy_df = pd.DataFrame(
+            {
+                "Budget Year": pd.to_datetime(["2020-01-01", "2021-01-01"]),
+                "Budget": [100, 200],
+            }
+        )
+
+        class _StubSource:
+            def __init__(self, **kwargs):
+                pass
+
+            def data(self):
+                return dummy_df
+
+        monkeypatch.setattr(
+            "tpsplots.controllers.google_sheets_controller.GoogleSheetsSource",
+            _StubSource,
+        )
+
+        from tpsplots.controllers.google_sheets_controller import GoogleSheetsController
+
+        ctrl = GoogleSheetsController(
+            url="https://example.com/sheet",
+            fiscal_year_column="Budget Year",
+        )
         result = ctrl.load_data()
 
         assert "metadata" in result

@@ -96,7 +96,13 @@ class CSVController(ChartController):
 
             # Use base class method to build result dictionary
             result = self._build_result_dict(df)
-            result["metadata"] = self._build_metadata(df)
+            result["metadata"] = self._build_metadata(
+                df,
+                fiscal_year_col=self._resolve_fiscal_year_metadata_column(
+                    df,
+                    self.fiscal_year_column,
+                ),
+            )
             return result
 
         except DataSourceError:
