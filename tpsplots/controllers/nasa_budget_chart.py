@@ -14,16 +14,6 @@ logger = logging.getLogger(__name__)
 class NASABudgetChart(ChartController):
     """Controller for top-line NASA budget charts."""
 
-    @staticmethod
-    def _add_inflation_adjusted_year_metadata(
-        metadata: dict[str, int | str],
-        df: pd.DataFrame,
-    ) -> dict[str, int | str]:
-        """Populate metadata with inflation-adjusted target fiscal year."""
-        if "inflation_target_year" in df.attrs:
-            metadata["inflation_adjusted_year"] = int(df.attrs["inflation_target_year"])
-        return metadata
-
     def nasa_spending_share_by_year(self) -> dict:
         """Return cleaned spending-share series for dual-axis budget charts.
 
@@ -68,7 +58,6 @@ class NASABudgetChart(ChartController):
                 "us_discretionary_spending_percent": discretionary_col,
             },
         )
-        metadata = self._add_inflation_adjusted_year_metadata(metadata, df)
 
         return {
             "data": df,
@@ -141,7 +130,6 @@ class NASABudgetChart(ChartController):
                 "appropriation": "Appropriation",
             },
         )
-        metadata = self._add_inflation_adjusted_year_metadata(metadata, df)
 
         # Keep max_fiscal_year at top level for backwards compatibility
         max_fy = metadata["max_fiscal_year"]
@@ -236,12 +224,11 @@ class NASABudgetChart(ChartController):
         )
 
         # Metadata for YAML template interpolation
-        metadata = {
-            "max_fiscal_year": max_fy,
-            "min_fiscal_year": 2008,
-            "source": f"NASA Budget Justifications, FYs 2007-{max_fy}",
-        }
-        metadata = self._add_inflation_adjusted_year_metadata(metadata, df)
+        metadata = self._build_metadata(
+            df,
+            source=f"NASA Budget Justifications, FYs 2007-{max_fy}",
+            min_fiscal_year=2008,
+        )
 
         return {
             "data": df,

@@ -168,11 +168,15 @@ class MissionSpendingController(ChartController):
         if data.get("accessed_date"):
             source += f". Accessed {data['accessed_date']}."
 
-        metadata = {
-            "title": f"{reporting_type.capitalize()} for {mission_name}",
-            "subtitle": subtitle,
-            "source": source,
-        }
+        metadata = self._build_metadata(
+            data["dataframe"],
+            fiscal_year_col=None,
+            source=source,
+            max_fiscal_year=data["current_fy"],
+            min_fiscal_year=data["prior_fy"],
+        )
+        metadata["title"] = f"{reporting_type.capitalize()} for {mission_name}"
+        metadata["subtitle"] = subtitle
 
         # Calculate y_limit as the next highest multiple of 10,000,000 from the max of y1 or y2
 

@@ -101,12 +101,11 @@ class PlanetaryMissionBudgetController(ChartController):
 
         result = self._build_result_dict(df)
 
-        metadata: dict[str, Any] = {
-            "tab_name": source.tab_name,
-            "source": "The Planetary Society, Planetary Exploration Budget Dataset",
-        }
-        if "inflation_target_year" in df.attrs:
-            metadata["inflation_adjusted_year"] = int(df.attrs["inflation_target_year"])
+        metadata = self._build_metadata(
+            df,
+            source="The Planetary Society, Planetary Exploration Budget Dataset",
+        )
+        metadata["tab_name"] = source.tab_name
         result["metadata"] = metadata
         return result
 

@@ -148,21 +148,33 @@ class ChartController:
     def _build_metadata(
         self,
         df: pd.DataFrame,
-        fiscal_year_col: str = "Fiscal Year",
+        *,
+        fiscal_year_col: str | None = "Fiscal Year",
         value_columns: dict[str, str] | None = None,
+        source: str | None = None,
+        max_fiscal_year: int | None = None,
+        min_fiscal_year: int | None = None,
     ) -> dict:
         """Build a consistent metadata dict with helpful context for YAML templates.
 
         This method extracts common metadata from a DataFrame, including min/max
-        fiscal years for the overall dataset and for specific value columns.
+        fiscal years for the overall dataset, per-column fiscal year ranges, value
+        statistics, inflation metadata, and source attribution.
 
         Args:
             df: DataFrame containing the data
-            fiscal_year_col: Name of the fiscal year column (default "Fiscal Year")
+            fiscal_year_col: Name of the fiscal year column (default "Fiscal Year").
+                Set to None to skip FY extraction entirely.
             value_columns: Dict mapping output names to column names for per-column
-                          fiscal year calculations. E.g., {"appropriation": "Appropriation"}
-                          will generate max_appropriation_fiscal_year and
-                          min_appropriation_fiscal_year.
+                          fiscal year calculations and value statistics. E.g.,
+                          {"appropriation": "Appropriation"} will generate
+                          max_appropriation_fiscal_year, min_appropriation_fiscal_year,
+                          max_appropriation, and min_appropriation.
+            source: Source attribution string (e.g., "NASA Budget Justifications").
+            max_fiscal_year: Explicit override for max_fiscal_year (takes precedence
+                over DataFrame extraction).
+            min_fiscal_year: Explicit override for min_fiscal_year (takes precedence
+                over DataFrame extraction).
 
         Returns:
             dict with metadata keys:
@@ -170,32 +182,74 @@ class ChartController:
                 - min_fiscal_year: int - Minimum fiscal year in dataset
                 - max_{name}_fiscal_year: int - Max FY with non-null data for each value_column
                 - min_{name}_fiscal_year: int - Min FY with non-null data for each value_column
+                - max_{name}: float - Max value for each value_column
+                - min_{name}: float - Min value for each value_column
+                - inflation_adjusted_year: int - Target year for inflation adjustment
+                - source: str - Source attribution
 
         Example usage in YAML:
             title: "NASA Budget {{metadata.min_fiscal_year}}-{{metadata.max_appropriation_fiscal_year}}"
         """
-        metadata = {}
+        metadata: dict = {}
 
-        # Convert fiscal year to datetime if needed
-        fy_series = df[fiscal_year_col]
-        if not pd.api.types.is_datetime64_any_dtype(fy_series):
-            fy_series = pd.to_datetime(fy_series)
+        # 1. Extract FY ranges from DataFrame (if column exists)
+        fy_series = None
+        if fiscal_year_col is not None and fiscal_year_col in df.columns:
+            fy_series = df[fiscal_year_col]
+            if pd.api.types.is_integer_dtype(fy_series):
+                metadata["max_fiscal_year"] = int(fy_series.max())
+                metadata["min_fiscal_year"] = int(fy_series.min())
+            elif pd.api.types.is_datetime64_any_dtype(fy_series):
+                metadata["max_fiscal_year"] = int(fy_series.max().strftime("%Y"))
+                metadata["min_fiscal_year"] = int(fy_series.min().strftime("%Y"))
+            else:
+                fy_series = pd.to_datetime(fy_series)
+                metadata["max_fiscal_year"] = int(fy_series.max().strftime("%Y"))
+                metadata["min_fiscal_year"] = int(fy_series.min().strftime("%Y"))
 
-        # Overall min/max fiscal year
-        metadata["max_fiscal_year"] = int(fy_series.max().strftime("%Y"))
-        metadata["min_fiscal_year"] = int(fy_series.min().strftime("%Y"))
-
-        # Per-column fiscal year ranges (only for rows with non-null values)
-        if value_columns:
+        # 2. Per-column fiscal year ranges and value statistics
+        if value_columns and fy_series is not None:
             for name, col in value_columns.items():
                 if col in df.columns:
-                    # Get rows where this column has data
                     mask = df[col].notna()
                     if mask.any():
                         col_fy = fy_series[mask]
-                        metadata[f"max_{name}_fiscal_year"] = int(col_fy.max().strftime("%Y"))
-                        metadata[f"min_{name}_fiscal_year"] = int(col_fy.min().strftime("%Y"))
+                        if pd.api.types.is_integer_dtype(df[fiscal_year_col]):
+                            metadata[f"max_{name}_fiscal_year"] = int(col_fy.max())
+                            metadata[f"min_{name}_fiscal_year"] = int(col_fy.min())
+                        else:
+                            metadata[f"max_{name}_fiscal_year"] = int(col_fy.max().strftime("%Y"))
+                            metadata[f"min_{name}_fiscal_year"] = int(col_fy.min().strftime("%Y"))
+                        metadata[f"max_{name}"] = float(df[col][mask].max())
+                        metadata[f"min_{name}"] = float(df[col][mask].min())
 
+        # 3. Apply explicit FY overrides
+        if max_fiscal_year is not None:
+            metadata["max_fiscal_year"] = max_fiscal_year
+        if min_fiscal_year is not None:
+            metadata["min_fiscal_year"] = min_fiscal_year
+
+        # 4. Extract inflation metadata from DataFrame attrs
+        self._add_inflation_adjusted_year_metadata(metadata, df)
+
+        # 5. Set source
+        if source is not None:
+            metadata["source"] = source
+
+        return metadata
+
+    @staticmethod
+    def _add_inflation_adjusted_year_metadata(
+        metadata: dict[str, int | str],
+        df: pd.DataFrame,
+    ) -> dict[str, int | str]:
+        """Populate metadata with inflation-adjusted target fiscal year.
+
+        Kept as standalone for controllers that build metadata without
+        ``_build_metadata``.
+        """
+        if "inflation_target_year" in df.attrs:
+            metadata["inflation_adjusted_year"] = int(df.attrs["inflation_target_year"])
         return metadata
 
     @staticmethod
