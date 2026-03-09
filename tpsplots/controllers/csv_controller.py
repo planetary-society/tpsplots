@@ -83,8 +83,7 @@ class CSVController(ChartController):
                 source_kwargs["columns"] = self.columns
             if self.renames:
                 source_kwargs["renames"] = self.renames
-            if self.auto_clean_currency is not None:
-                source_kwargs["auto_clean_currency"] = self.auto_clean_currency
+            source_kwargs["auto_clean_currency"] = self.auto_clean_currency
             if self.fiscal_year_column is not None:
                 source_kwargs["fiscal_year_column"] = self.fiscal_year_column
 

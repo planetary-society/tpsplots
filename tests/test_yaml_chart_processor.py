@@ -8,6 +8,7 @@ Tests focus on:
 import textwrap
 from typing import ClassVar
 
+import pandas as pd
 import pytest
 
 from tpsplots.exceptions import ConfigurationError
@@ -165,7 +166,10 @@ class TestYAMLChartProcessorCore:
 
         assert result["stem"] == "test_chart"
         assert result["metadata"]["title"] == "Test Chart"
-        assert list(result["kwargs"]["x"]) == [2024, 2025]
+        assert list(result["kwargs"]["x"]) == [
+            pd.Timestamp("2024-01-01"),
+            pd.Timestamp("2025-01-01"),
+        ]
         assert list(result["kwargs"]["y"]) == [10, 20]
         assert result["kwargs"]["color"] == "#037CC2"
 
@@ -229,7 +233,10 @@ class TestYAMLChartProcessorCore:
         result = processor.generate_chart()
 
         assert result["stem"] == "scatter_chart"
-        assert list(result["kwargs"]["x"]) == [2024, 2025]
+        assert list(result["kwargs"]["x"]) == [
+            pd.Timestamp("2024-01-01"),
+            pd.Timestamp("2025-01-01"),
+        ]
         assert list(result["kwargs"]["y"]) == [10, 20]
 
     def test_series_overrides_expand_to_series_n_kwargs(self, tmp_path, monkeypatch):

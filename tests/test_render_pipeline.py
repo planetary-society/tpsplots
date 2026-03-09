@@ -6,6 +6,8 @@ verifying the canonical pipeline shared by CLI and editor preview paths.
 
 import textwrap
 
+import pandas as pd
+
 from tpsplots.models.yaml_config import YAMLChartConfig
 from tpsplots.processors.render_pipeline import (
     RenderContext,
@@ -65,7 +67,10 @@ class TestBuildRenderContext:
         assert ctx.chart_type_v1 == "line_plot"
         assert ctx.output_name == "test_output"
         assert ctx.resolved_metadata == {"title": "My Title", "subtitle": "My Subtitle"}
-        assert list(ctx.resolved_params["x"]) == [2024, 2025]
+        assert list(ctx.resolved_params["x"]) == [
+            pd.Timestamp("2024-01-01"),
+            pd.Timestamp("2025-01-01"),
+        ]
         assert list(ctx.resolved_params["y"]) == [10, 20]
 
     def test_resolves_semantic_colors(self, tmp_path):

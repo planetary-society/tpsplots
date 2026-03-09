@@ -154,6 +154,9 @@ class GoogleSheetsController(ChartController):
         """
         Convert a regular Google Sheets URL to CSV export format.
 
+        Preserves the ``gid`` parameter (tab selector) when present in the
+        original URL's fragment (``#gid=…``) or query string (``?gid=…``).
+
         Args:
             url: Google Sheets URL (regular or export format)
 

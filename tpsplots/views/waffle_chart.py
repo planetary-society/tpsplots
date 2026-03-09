@@ -1,6 +1,7 @@
 """Waffle chart visualization specialized view."""
 
 import math
+import warnings
 
 import matplotlib.pyplot as plt
 from pywaffle import Waffle
@@ -99,8 +100,14 @@ class WaffleChartView(ChartView):
                     legend["ncol"] = math.ceil(legend["ncol"] / 2) + 1
             kwargs["legend"] = legend
 
-        # Create the waffle chart
-        fig = plt.figure(FigureClass=Waffle, **kwargs)
+        # Create the waffle chart (suppress pywaffle's set_tight_layout deprecation)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="The set_tight_layout function",
+                category=PendingDeprecationWarning,
+            )
+            fig = plt.figure(FigureClass=Waffle, **kwargs)
 
         self._adjust_layout_for_header_footer(fig, metadata, style)
         return fig

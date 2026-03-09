@@ -256,10 +256,7 @@ class TabularDataSource(FiscalYearMixin, ABC):
                 elif normalized_dtype in ("int64", "float64") or dtype in ("int", "float"):
                     df[col] = pd.to_numeric(df[col], errors="coerce")
                     columns_to_dropna.append(col)
-                    # Convert to int if requested and no NaN values remain after dropna
-                    if dtype == "int" or normalized_dtype == "int64":
-                        # Mark for int conversion after dropna
-                        df[col] = df[col]  # Will convert after dropna
+                    # Int conversion deferred until after dropna (see loop below)
                 else:
                     df[col] = df[col].astype(normalized_dtype, errors="ignore")
                 logger.debug(f"Cast column '{col}' to {normalized_dtype}")
