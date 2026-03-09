@@ -80,7 +80,7 @@ class SpaceScienceMissions(GoogleSheetsSource):
             The processed pandas DataFrame
         """
         # Load the raw CSV data
-        df = self._read_csv()
+        df = self._read_raw_df()
 
         # Apply transformations
         df = self._transform_mass_column(df)
