@@ -25,6 +25,7 @@ class TestDataSourceParams:
         assert params.cast is None
         assert params.renames is None
         assert params.auto_clean_currency is None
+        assert params.fiscal_year_column is None
 
     def test_columns_accepts_list(self):
         """Test columns field accepts list of strings."""
@@ -282,9 +283,61 @@ class TestCSVControllerWithParams:
             columns=["col"],
             renames={"old": "new"},
             auto_clean_currency=True,
+            fiscal_year_column="Fiscal Year",
         )
         assert controller.csv_path == "test.csv"
         assert controller.cast == {"col": "int"}
         assert controller.columns == ["col"]
         assert controller.renames == {"old": "new"}
         assert controller.auto_clean_currency is True
+        assert controller.fiscal_year_column == "Fiscal Year"
+
+    def test_fiscal_year_column_default_none(self):
+        """Test that fiscal_year_column defaults to None."""
+        from tpsplots.controllers.csv_controller import CSVController
+
+        controller = CSVController(csv_path="test.csv")
+        assert controller.fiscal_year_column is None
+
+    def test_fiscal_year_column_false_disables(self):
+        """Test that fiscal_year_column=False disables FY conversion."""
+        from tpsplots.controllers.csv_controller import CSVController
+
+        controller = CSVController(csv_path="test.csv", fiscal_year_column=False)
+        assert controller.fiscal_year_column is False
+
+
+class TestParamsToKwargsWithFiscalYear:
+    """Tests for _params_to_kwargs with fiscal_year_column."""
+
+    def test_fiscal_year_column_included_when_set(self):
+        """fiscal_year_column is included in kwargs when not None."""
+        params = DataSourceParams(fiscal_year_column="Year")
+        result = DataResolver._params_to_kwargs(params)
+        assert result["fiscal_year_column"] == "Year"
+
+    def test_fiscal_year_column_false_included(self):
+        """fiscal_year_column=False is included (it's not None)."""
+        params = DataSourceParams(fiscal_year_column=False)
+        result = DataResolver._params_to_kwargs(params)
+        assert result["fiscal_year_column"] is False
+
+    def test_fiscal_year_column_omitted_when_none(self):
+        """fiscal_year_column is omitted from kwargs when None."""
+        params = DataSourceParams()
+        result = DataResolver._params_to_kwargs(params)
+        assert "fiscal_year_column" not in result
+
+    def test_params_to_kwargs_csv_controller_accepts_fiscal_year(self):
+        """_params_to_kwargs with fiscal_year_column set produces kwargs
+        that CSVController accepts without TypeError."""
+        from tpsplots.controllers.csv_controller import CSVController
+
+        params = DataSourceParams(
+            columns=["Year", "Amount"],
+            fiscal_year_column="Year",
+        )
+        kwargs = {"csv_path": "test.csv", **DataResolver._params_to_kwargs(params)}
+        # Should not raise TypeError for unexpected keyword argument
+        controller = CSVController(**kwargs)
+        assert controller.fiscal_year_column == "Year"
