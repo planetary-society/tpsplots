@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 class ChinaComparisonCharts(ChartController):
+    SOURCE = "CNSA Technical Papers and Releases; NASA Mission Database"
+
     def _process_us_mission_data(self):
         """
         Process U.S. mission data from SpaceScienceMissions data source.
@@ -233,11 +235,17 @@ class ChinaComparisonCharts(ChartController):
             ignore_index=True,
         )
 
+        metadata = self._build_metadata(
+            export_df,
+            fiscal_year_col=None,
+            source=self.SOURCE,
+        )
+
         return {
             "data": export_df,
             "title": "China's space science efforts are accelerating",
             "subtitle": "While the U.S. maintains a lead in total missions, China's growth rate in the 2020s shows rapid advancement.",
-            "source": "CNSA Technical Papers and Releases; NASA Mission Database",
+            "source": self.SOURCE,
             "categories": ["2000s", "2010s", "2020s"],
             "groups": [
                 {
@@ -260,6 +268,7 @@ class ChinaComparisonCharts(ChartController):
             "ylim": [0.01, 50],
             "legend": {"loc": "upper left"},
             "export_df": export_df,
+            "metadata": metadata,
         }
 
     def china_space_science_mission_mass_growth_line_chart(self):
@@ -313,11 +322,17 @@ class ChinaComparisonCharts(ChartController):
             ignore_index=True,
         )
 
+        metadata = self._build_metadata(
+            export_df,
+            fiscal_year_col=None,
+            source=self.SOURCE,
+        )
+
         return {
             "data": export_df,
             "title": "China's science spacecraft are catching up in mass",
             "subtitle": "Average launch mass comparison shows U.S. missions remain larger, but China's are rapidly increasing in complexity.",
-            "source": "CNSA Technical Papers and Releases; NASA Mission Database",
+            "source": self.SOURCE,
             "x": ["2000s", "2010s", "2020s"],
             "y": [china_mass_values, us_mass_values],
             "labels": ["China", "United States"],
@@ -331,4 +346,5 @@ class ChinaComparisonCharts(ChartController):
             "ylabel": "Avg Launch Mass (kg)",
             "ylim": [0.01, max_mass * 1.2],
             "export_df": export_df,
+            "metadata": metadata,
         }

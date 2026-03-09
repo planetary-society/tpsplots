@@ -97,10 +97,16 @@ class NASAFY2026Controller(NASAFYChartsController):
 
         export_df = pd.DataFrame(export_data)
 
+        metadata = self._build_metadata(
+            export_df,
+            fiscal_year_col=None,
+        )
+
         return {
             "data": export_df,
             "pie_data": pie_data,
             "export_df": export_df,
+            "metadata": metadata,
         }
 
     def cancelled_missions_lollipop_chart(self):
@@ -151,6 +157,8 @@ class NASAFY2026Controller(NASAFYChartsController):
         # Prepare export data
         export_df = df.copy().drop(columns=["NASA Led?"])
 
+        metadata = self._build_metadata(df, fiscal_year_col=None)
+
         return {
             "data": df,
             "categories": df["Mission"],
@@ -161,4 +169,5 @@ class NASAFY2026Controller(NASAFYChartsController):
             "total_projects": total_projects,
             "total_value": total_value,
             "total_development_time": total_development_time,
+            "metadata": metadata,
         }

@@ -325,6 +325,15 @@ class NASABudgetChart(ChartController):
         )
         result = DataFrameToYAMLProcessor(config).process(chart_df)
 
+        result["metadata"] = self._build_metadata(
+            chart_df,
+            fiscal_year_col=None,
+            source=f"FY {actual_fy} Congressional Appropriations",
+            max_fiscal_year=actual_fy,
+            min_fiscal_year=actual_fy,
+        )
+        result["metadata"]["total_budget"] = float(chart_df.attrs["total_budget"])
+
         # Convert Series to lists for donut chart view compatibility
         # (DonutChartView expects lists, not Series, for values/labels)
         result["Directorate"] = result["Directorate"].tolist()

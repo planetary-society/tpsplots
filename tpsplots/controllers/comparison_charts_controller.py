@@ -32,11 +32,6 @@ class ComparisonCharts(ChartController):
                 - block_value: int - Dollar value per block
                 - export_df: DataFrame for CSV export
         """
-        from tpsplots.processors.dataframe_to_yaml_processor import (
-            DataFrameToYAMLConfig,
-            DataFrameToYAMLProcessor,
-        )
-
         fiscal_year = 2024
 
         # Raw spending data (nominal dollars)
@@ -67,24 +62,23 @@ class ComparisonCharts(ChartController):
         ]
         export_df = pd.DataFrame(export_data)
 
-        # Store metadata in a DataFrame for consistency with other controllers
-        # (even though waffle chart uses dict values, we follow the attrs pattern)
-        metadata_df = pd.DataFrame({"_placeholder": [0]})
-        metadata_df.attrs["fiscal_year"] = fiscal_year
-        metadata_df.attrs["source"] = f"Congressional Budget Office, FY {fiscal_year}"
-        metadata_df.attrs["block_value"] = block_value
-
-        # Use processor to extract attrs as top-level keys
-        config = DataFrameToYAMLConfig(
-            fiscal_year_column="__none__",
-            export_df_key="export_df",
+        source = f"Congressional Budget Office, FY {fiscal_year}"
+        metadata = self._build_metadata(
+            export_df,
+            fiscal_year_col=None,
+            source=source,
+            max_fiscal_year=fiscal_year,
+            min_fiscal_year=fiscal_year,
         )
-        result = DataFrameToYAMLProcessor(config).process(metadata_df)
+        metadata["block_value"] = block_value
 
-        # Remove placeholder column, add actual data
-        result.pop("_placeholder", None)
-        result["values"] = sorted_values
-        result["labels"] = labels
-        result["export_df"] = export_df
-
-        return result
+        return {
+            "data": export_df,
+            "fiscal_year": fiscal_year,
+            "source": source,
+            "block_value": block_value,
+            "values": sorted_values,
+            "labels": labels,
+            "export_df": export_df,
+            "metadata": metadata,
+        }

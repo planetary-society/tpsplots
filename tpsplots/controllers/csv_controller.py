@@ -97,7 +97,9 @@ class CSVController(ChartController):
             )
 
             # Use base class method to build result dictionary
-            return self._build_result_dict(df)
+            result = self._build_result_dict(df)
+            result["metadata"] = self._build_metadata(df)
+            return result
 
         except DataSourceError:
             raise

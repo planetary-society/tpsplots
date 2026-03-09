@@ -65,7 +65,9 @@ class NASAFYChartsController(ChartController):
         )
         df = self.new_awards
         award_df = processor.process(df)
-        return DataFrameToYAMLProcessor().process(award_df)
+        result = DataFrameToYAMLProcessor().process(award_df)
+        result["metadata"] = self._build_metadata(award_df, fiscal_year_col=None)
+        return result
 
     def new_grants_awards_comparison_to_prior_year(self) -> dict:
         """Process grant award data for historical comparison."""
@@ -165,7 +167,9 @@ class NASAFYChartsController(ChartController):
             dict with columns as keys, including Account and all FY columns.
         """
         df = self._directorates_comparison()
-        return DataFrameToYAMLProcessor().process(df)
+        result = DataFrameToYAMLProcessor().process(df)
+        result["metadata"] = self._build_metadata(df, fiscal_year_col=None)
+        return result
 
     def directorates_comparison_grouped(self) -> dict:
         """Return directorate data formatted for grouped bar charts.
@@ -245,6 +249,8 @@ class NASAFYChartsController(ChartController):
         # groups_all is already set by the processor as 'groups'
         result["groups_all"] = groups
 
+        result["metadata"] = self._build_metadata(df, fiscal_year_col=None)
+
         return result
 
     def directorates_comparison(self) -> dict:
@@ -321,7 +327,9 @@ class NASAFYChartsController(ChartController):
             - {Division} White House Budget Projection - PBR + runouts
         """
         df = self._science_divisions_data()
-        return DataFrameToYAMLProcessor().process(df)
+        result = DataFrameToYAMLProcessor().process(df)
+        result["metadata"] = self._build_metadata(df)
+        return result
 
     def science_context(self) -> dict:
         """Return historical budget data for NASA Science Mission Directorate (SMD).
@@ -371,7 +379,12 @@ class NASAFYChartsController(ChartController):
         df = CalculatedColumnProcessor(calc_config).process(df)
 
         # Step 4: Convert to YAML-ready dict
-        return DataFrameToYAMLProcessor().process(df)
+        result = DataFrameToYAMLProcessor().process(df)
+        result["metadata"] = self._build_metadata(
+            df,
+            value_columns={"science": "NASA Science"},
+        )
+        return result
 
     def pbr_historical_context(self) -> dict:
         """Return historical budget data with current FY PBR and runout projections.
@@ -429,7 +442,15 @@ class NASAFYChartsController(ChartController):
         df = CalculatedColumnProcessor(calc_config).process(df)
 
         # Step 4: Convert to YAML-ready dict
-        return DataFrameToYAMLProcessor().process(df)
+        result = DataFrameToYAMLProcessor().process(df)
+        result["metadata"] = self._build_metadata(
+            df,
+            value_columns={
+                "pbr": "PBR",
+                "appropriation": "Appropriation",
+            },
+        )
+        return result
 
     def workforce_projections(self) -> dict:
         """Return historical workforce data with optional FY projection.
@@ -461,4 +482,6 @@ class NASAFYChartsController(ChartController):
         )
         df = WorkforceProjectionProcessor(config).process(df)
 
-        return DataFrameToYAMLProcessor().process(df)
+        result = DataFrameToYAMLProcessor().process(df)
+        result["metadata"] = self._build_metadata(df)
+        return result
