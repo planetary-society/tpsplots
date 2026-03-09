@@ -48,6 +48,7 @@ class ChartView(AxisTickFormatMixin):
         "tick_rotation": 0,
         "add_logo": True,
         "max_ticks": 25,
+        "decade_tick_threshold": 50,  # Year ranges above this show decade labels only
         "footer": True,
         "footer_height": 0.08,
         "header": True,
@@ -77,6 +78,7 @@ class ChartView(AxisTickFormatMixin):
         "grid_axis": "y",
         "tick_rotation": 90,
         "add_logo": True,
+        "decade_tick_threshold": 50,
         "footer": True,
         "footer_height": 0.08,
         "header": True,
@@ -107,6 +109,7 @@ class ChartView(AxisTickFormatMixin):
         "tick_rotation": 0,
         "add_logo": True,
         "max_ticks": 15,
+        "decade_tick_threshold": 50,
         "footer": True,
         "footer_height": 0.12,  # Larger than desktop/mobile to compensate for no header
         "header": False,
@@ -423,7 +426,8 @@ class ChartView(AxisTickFormatMixin):
         _start_year, _end_year, year_range = year_info
 
         # Adjust tick density based on year range
-        if year_range > 30:
+        decade_threshold = style.get("decade_tick_threshold", 50)
+        if year_range > decade_threshold:
             # Very long ranges: decade labels only
             def decade_label(year, pos):
                 year_int = int(mdates.num2date(year).year)
