@@ -364,20 +364,24 @@ class ChartView(AxisTickFormatMixin):
             tuple: (start_year, end_year, year_range) or None if not applicable
         """
         try:
-            # Default implementation for line charts
-            xlim = ax.get_xlim()
+            # Use dataLim (actual data extent) rather than get_xlim() which
+            # includes matplotlib's auto-padding.  The padded range can push
+            # the year_range into a sparser tick-density branch (e.g. 29 yr
+            # data appearing as 32 yr range), producing inconsistent labels.
+            dlim = ax.dataLim
+            x0, x1 = dlim.x0, dlim.x1
 
             try:
                 import matplotlib.dates as mdates
 
-                start_year = mdates.num2date(xlim[0]).year
-                end_year = mdates.num2date(xlim[1]).year
+                start_year = mdates.num2date(x0).year
+                end_year = mdates.num2date(x1).year
                 year_range = abs(end_year - start_year)
                 return (start_year, end_year, year_range)
             except Exception:
-                # Fallback: assume xlim values are years directly
-                start_year = int(xlim[0])
-                end_year = int(xlim[1])
+                # Fallback: assume values are years directly
+                start_year = int(x0)
+                end_year = int(x1)
                 year_range = abs(end_year - start_year)
                 return (start_year, end_year, year_range)
 
