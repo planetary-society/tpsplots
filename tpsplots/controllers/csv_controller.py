@@ -5,13 +5,8 @@ import logging
 import pandas as pd
 
 from tpsplots.controllers.chart_controller import ChartController
+from tpsplots.data_sources.csv_source import CSVSource
 from tpsplots.exceptions import DataSourceError
-from tpsplots.utils.currency_processing import clean_currency_column, looks_like_currency_column
-from tpsplots.utils.dataframe_transforms import (
-    apply_column_cast,
-    apply_column_renames,
-    filter_columns,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +15,9 @@ class CSVController(ChartController):
     """
     Controller for processing CSV file data sources.
 
-    This controller provides a standard interface for loading CSV files
-    within the YAML chart generation system, while maintaining consistency
-    with other controllers that inherit from ChartController.
+    This controller delegates all data loading and processing to
+    :class:`~tpsplots.data_sources.csv_source.CSVSource`, providing a
+    standard controller interface for the YAML chart generation system.
     """
 
     def __init__(
@@ -32,6 +27,7 @@ class CSVController(ChartController):
         columns: list[str] | None = None,
         renames: dict[str, str] | None = None,
         auto_clean_currency: bool | dict | None = None,
+        fiscal_year_column: str | bool | None = None,
     ):
         """
         Initialize the CSVController with a CSV file path and optional params.
@@ -45,16 +41,25 @@ class CSVController(ChartController):
                 Can be bool or dict with 'enabled' (bool) and 'multiplier' (float) keys.
                 When enabled, columns with 80%+ values matching $X,XXX pattern are
                 converted to float64 and originals are preserved as {column}_raw.
+            fiscal_year_column: Column to convert to datetime (default auto-detect).
+                - None: Auto-detect columns named "Fiscal Year", "FY", or "Year"
+                - str: Use this specific column name
+                - False: Disable fiscal year conversion
         """
         self.csv_path = csv_path
         self.cast = cast
         self.columns = columns
         self.renames = renames
         self.auto_clean_currency = auto_clean_currency if auto_clean_currency is not None else True
+        self.fiscal_year_column = fiscal_year_column
+        self._source = None
 
     def load_data(self):
         """
         Load data from CSV file and return as dict for YAML processing.
+
+        Delegates to :class:`CSVSource` for reading and processing,
+        then wraps the result using base-class helpers.
 
         Returns:
             dict: Dictionary containing:
@@ -64,33 +69,27 @@ class CSVController(ChartController):
 
         Raises:
             ValueError: If csv_path is not provided
-            RuntimeError: If CSV file cannot be read
+            DataSourceError: If CSV file cannot be read
         """
         if not self.csv_path:
             raise ValueError("csv_path must be provided to load CSV data")
 
         try:
-            df = pd.read_csv(self.csv_path)
+            # Build source kwargs from non-None params
+            source_kwargs = {}
+            if self.cast:
+                source_kwargs["cast"] = self.cast
+            if self.columns:
+                source_kwargs["columns"] = self.columns
+            if self.renames:
+                source_kwargs["renames"] = self.renames
+            if self.auto_clean_currency is not None:
+                source_kwargs["auto_clean_currency"] = self.auto_clean_currency
+            if self.fiscal_year_column is not None:
+                source_kwargs["fiscal_year_column"] = self.fiscal_year_column
 
-            # Apply renames first (before column filtering)
-            df = apply_column_renames(df, self.renames)
-
-            # Filter to specified columns
-            df = filter_columns(df, self.columns, source_name=f"CSV file {self.csv_path}")
-
-            # Apply type casting
-            df = apply_column_cast(df, self.cast)
-
-            # Auto-clean currency columns
-            auto_clean = self.auto_clean_currency
-            if hasattr(auto_clean, "enabled"):
-                # Pydantic model (CurrencyCleaningConfig)
-                auto_clean = auto_clean.enabled
-            elif isinstance(auto_clean, dict):
-                # Raw dict from YAML
-                auto_clean = auto_clean.get("enabled", True)
-            if auto_clean:
-                df = self._clean_currency_columns(df)
+            self._source = CSVSource(csv_path=self.csv_path, **source_kwargs)
+            df = self._source.data()
 
             logger.info(
                 f"Loaded CSV data from {self.csv_path} ({len(df)} rows, {len(df.columns)} columns)"
@@ -105,36 +104,6 @@ class CSVController(ChartController):
             raise
         except Exception as e:
             raise DataSourceError(f"Error reading CSV file {self.csv_path}: {e}") from e
-
-    def _clean_currency_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Auto-detect and clean currency columns in the DataFrame.
-
-        For columns that appear to contain currency values ($X,XXX format),
-        converts them to float64 and preserves the original as {column}_raw.
-
-        Args:
-            df: DataFrame to process
-
-        Returns:
-            DataFrame with currency columns cleaned
-        """
-        # Extract multiplier from config if present
-        multiplier = 1.0
-        if hasattr(self.auto_clean_currency, "multiplier"):
-            # Pydantic model (CurrencyCleaningConfig)
-            multiplier = self.auto_clean_currency.multiplier
-        elif isinstance(self.auto_clean_currency, dict):
-            # Raw dict
-            multiplier = self.auto_clean_currency.get("multiplier", 1.0)
-
-        for col in df.columns:
-            if looks_like_currency_column(col, df[col]):
-                # Preserve original as _raw
-                df[f"{col}_raw"] = df[col]
-                # Clean the column with optional multiplier
-                df[col] = clean_currency_column(df[col], multiplier=multiplier)
-                logger.debug(f"Cleaned currency column '{col}' with multiplier {multiplier}")
-        return df
 
     def get_data_summary(self):
         """
@@ -159,6 +128,7 @@ class CSVController(ChartController):
                     "columns": self.columns,
                     "renames": self.renames,
                     "auto_clean_currency": self.auto_clean_currency,
+                    "fiscal_year_column": self.fiscal_year_column,
                 },
             }
         except Exception as e:
