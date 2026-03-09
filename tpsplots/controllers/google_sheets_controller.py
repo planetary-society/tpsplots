@@ -50,7 +50,7 @@ class GoogleSheetsController(ChartController):
         self.cast = cast
         self.columns = columns
         self.renames = renames
-        self.auto_clean_currency = auto_clean_currency
+        self.auto_clean_currency = auto_clean_currency if auto_clean_currency is not None else True
         self.fiscal_year_column = fiscal_year_column
         self._source = None
 
@@ -80,8 +80,7 @@ class GoogleSheetsController(ChartController):
                 source_kwargs["columns"] = self.columns
             if self.renames:
                 source_kwargs["renames"] = self.renames
-            if self.auto_clean_currency is not None:
-                source_kwargs["auto_clean_currency"] = self.auto_clean_currency
+            source_kwargs["auto_clean_currency"] = self.auto_clean_currency
             if self.fiscal_year_column is not None:
                 source_kwargs["fiscal_year_column"] = self.fiscal_year_column
 
@@ -129,6 +128,8 @@ class GoogleSheetsController(ChartController):
                     "cast": self.cast,
                     "columns": self.columns,
                     "renames": self.renames,
+                    "auto_clean_currency": self.auto_clean_currency,
+                    "fiscal_year_column": self.fiscal_year_column,
                 },
             }
         except Exception as e:
@@ -168,6 +169,13 @@ class GoogleSheetsController(ChartController):
             sheet_id_match = re.search(r"/spreadsheets/d/([a-zA-Z0-9-_]+)", url)
             if sheet_id_match:
                 sheet_id = sheet_id_match.group(1)
-                return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+                export_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+
+                # Preserve gid from fragment (#gid=…) or query string (?gid=…&…)
+                gid_match = re.search(r"[#?&]gid=(\d+)", url)
+                if gid_match:
+                    export_url += f"&gid={gid_match.group(1)}"
+
+                return export_url
 
         return url
