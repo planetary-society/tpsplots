@@ -126,7 +126,7 @@ class ChartView(AxisTickFormatMixin):
         "dpi": 150,
         "title_size": 18,
         "label_size": 9,
-        "tick_size": 12,
+        "tick_size": 10,
         "legend_size": 11,
         "line_width": 3,
         "marker_size": 5,
