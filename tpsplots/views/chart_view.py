@@ -49,12 +49,25 @@ class ChartView(AxisTickFormatMixin):
         "add_logo": True,
         "max_ticks": 25,
         "decade_tick_threshold": 50,  # Year ranges above this show decade labels only
+        "minor_tick_length": 4,
+        "minor_tick_color": "gray",
+        "minor_tick_width": 1,
+        "major_tick_length": 8,
+        "major_tick_width": 1.2,
         "footer": True,
         "footer_height": 0.08,
+        "footer_color": "#545454",
+        "footer_line_width": 1,
+        "footer_extent": (0.01, 0.99),
         "header": True,
         "header_height": 0.1,
         "header_min_height": 0.06,  # Never smaller than 6%
         "header_max_height": 0.18,  # Never larger than 18%
+        "header_x": 0.01,
+        "header_y": 0.98,
+        "header_padding": 0.03,
+        "subtitle_size_ratio": 0.7,
+        "title_subtitle_gap": 0.005,
         "subtitle_wrap_length": 120,
         "label_wrap_length": 30,
         "logo_zoom": 0.03,
@@ -79,12 +92,25 @@ class ChartView(AxisTickFormatMixin):
         "tick_rotation": 90,
         "add_logo": True,
         "decade_tick_threshold": 50,
+        "minor_tick_length": 4,
+        "minor_tick_color": "gray",
+        "minor_tick_width": 1,
+        "major_tick_length": 8,
+        "major_tick_width": 1.2,
         "footer": True,
         "footer_height": 0.08,
+        "footer_color": "#545454",
+        "footer_line_width": 1,
+        "footer_extent": (0.01, 0.99),
         "header": True,
         "header_height": 0.14,
         "header_min_height": 0.08,  # Never smaller than 8% (mobile needs more)
         "header_max_height": 0.22,  # Never larger than 22%
+        "header_x": 0.01,
+        "header_y": 0.98,
+        "header_padding": 0.03,
+        "subtitle_size_ratio": 0.7,
+        "title_subtitle_gap": 0.005,
         "subtitle_wrap_length": 64,
         "label_wrap_length": 15,
         "logo_zoom": 0.025,
@@ -110,12 +136,25 @@ class ChartView(AxisTickFormatMixin):
         "add_logo": True,
         "max_ticks": 15,
         "decade_tick_threshold": 50,
+        "minor_tick_length": 4,
+        "minor_tick_color": "gray",
+        "minor_tick_width": 1,
+        "major_tick_length": 8,
+        "major_tick_width": 1.2,
         "footer": True,
         "footer_height": 0.12,  # Larger than desktop/mobile to compensate for no header
+        "footer_color": "#545454",
+        "footer_line_width": 1,
+        "footer_extent": (0.01, 0.99),
         "header": False,
         "header_height": 0,
         "header_min_height": 0,
         "header_max_height": 0,
+        "header_x": 0.01,
+        "header_y": 0.98,
+        "header_padding": 0.03,
+        "subtitle_size_ratio": 0.7,
+        "title_subtitle_gap": 0.005,
         "subtitle_wrap_length": 80,
         "label_wrap_length": 25,
         "logo_zoom": 0.05,
@@ -445,8 +484,17 @@ class ChartView(AxisTickFormatMixin):
             ax.xaxis.set_major_locator(mdates.YearLocator(1))
 
         # Make minor ticks visible but unlabeled
-        ax.tick_params(which="minor", length=4, color="gray", width=1)
-        ax.tick_params(which="major", length=8, width=1.2)
+        ax.tick_params(
+            which="minor",
+            length=style.get("minor_tick_length", 4),
+            color=style.get("minor_tick_color", "gray"),
+            width=style.get("minor_tick_width", 1),
+        )
+        ax.tick_params(
+            which="major",
+            length=style.get("major_tick_length", 8),
+            width=style.get("major_tick_width", 1.2),
+        )
 
         # Allow override on tick size
         if tick_size is None:
@@ -764,19 +812,24 @@ class ChartView(AxisTickFormatMixin):
         title_height = self._measure_text_height(fig, title, style["title_size"])
 
         # Measure subtitle height (with wrapping applied)
+        subtitle_ratio = style.get("subtitle_size_ratio", 0.7)
+        subtitle_size = style["title_size"] * subtitle_ratio
+        header_x = style.get("header_x", 0.01)
         if subtitle:
             wrapped = self._wrap_header_text(
                 fig,
                 subtitle,
-                style["title_size"] * 0.7,
+                subtitle_size,
+                left_margin=header_x,
+                right_margin=1 - header_x,
                 fallback_wrap_length=style.get("subtitle_wrap_length", 65),
             )
-            subtitle_height = self._measure_text_height(fig, wrapped, style["title_size"] * 0.7)
+            subtitle_height = self._measure_text_height(fig, wrapped, subtitle_size)
         else:
             subtitle_height = 0.0
 
         # Add padding: top margin + gap between title/subtitle + bottom margin
-        padding = 0.03
+        padding = style.get("header_padding", 0.03)
 
         # Get min/max constraints from style (with sensible defaults)
         min_height = style.get("header_min_height", 0.06)
@@ -803,14 +856,19 @@ class ChartView(AxisTickFormatMixin):
         title = metadata.get("title")
         subtitle = metadata.get("subtitle")
 
+        header_x = style.get("header_x", 0.01)
+        header_y = style.get("header_y", 0.98)
+        subtitle_ratio = style.get("subtitle_size_ratio", 0.7)
+        gap = style.get("title_subtitle_gap", 0.005)
+
         # Track vertical position (starts at top of figure)
-        title_bottom_y = 0.98  # Default if no title
+        title_bottom_y = header_y  # Default if no title
 
         # Add title if provided
         if title:
             title_text = fig.text(
-                0.01,  # x position (left side)
-                0.98,  # y position (top)
+                header_x,
+                header_y,
                 title,
                 fontsize=style["title_size"],
                 fontweight="bold",
@@ -822,21 +880,24 @@ class ChartView(AxisTickFormatMixin):
             renderer = fig.canvas.get_renderer()
             title_bbox = title_text.get_window_extent(renderer)
             fig_height_px = fig.get_figheight() * fig.dpi
-            title_bottom_y = title_bbox.y0 / fig_height_px - 0.005
+            title_bottom_y = title_bbox.y0 / fig_height_px - gap
 
         # Add subtitle if provided, positioned relative to title
         if subtitle:
+            subtitle_size = style["title_size"] * subtitle_ratio
             wrapped_subtitle = self._wrap_header_text(
                 fig,
                 subtitle,
-                style["title_size"] * 0.7,
+                subtitle_size,
+                left_margin=header_x,
+                right_margin=1 - header_x,
                 fallback_wrap_length=style.get("subtitle_wrap_length", 65),
             )
             fig.text(
-                0.01,  # x position (left side)
-                title_bottom_y,  # y position (dynamically below title)
+                header_x,
+                title_bottom_y,
                 wrapped_subtitle,
-                fontsize=style["title_size"] * 0.7,
+                fontsize=subtitle_size,
                 ha="left",
                 va="top",
             )
@@ -858,7 +919,14 @@ class ChartView(AxisTickFormatMixin):
 
         # Add horizontal spacer line, matching header text margins
         spacer_y = bottom_margin / 2  # Place line halfway in the margin
-        self._add_horizontal_spacer(fig, y_position=spacer_y, linewidth=1, extent=(0.01, 0.99))
+        footer_color = style.get("footer_color", "#545454")
+        self._add_horizontal_spacer(
+            fig,
+            y_position=spacer_y,
+            color=footer_color,
+            linewidth=style.get("footer_line_width", 1),
+            extent=style.get("footer_extent", (0.01, 0.99)),
+        )
 
         # Add source if provided
         source_text = metadata.get("source")
@@ -1032,12 +1100,13 @@ class ChartView(AxisTickFormatMixin):
             return
 
         # Add text at the bottom right, matching footer line right edge
+        footer_extent = style.get("footer_extent", (0.01, 0.99))
         fig.text(
-            0.99,  # x position (right side, matches footer line)
+            footer_extent[1],  # x position (right side, matches footer line)
             style.get("source_y", 0.01),  # y position (bottom)
             f"Source: {source_text}".upper(),
             fontsize=style.get("source_size", 11),
-            color="#545454",
+            color=style.get("footer_color", "#545454"),
             ha="right",
             va="bottom",
         )
