@@ -92,6 +92,36 @@ class ChartView(AxisTickFormatMixin):
         "source_y": 0.0105,
     }
 
+    SOCIAL: ClassVar[dict[str, object]] = {
+        "type": "social",
+        "figsize": (8, 4.2),  # 8*150=1200px, 4.2*150=630px
+        "dpi": 150,
+        "title_size": 18,
+        "label_size": 12,
+        "tick_size": 14,
+        "legend_size": 12,
+        "line_width": 3,
+        "marker_size": 5,
+        "grid": True,
+        "grid_axis": "both",
+        "tick_rotation": 0,
+        "add_logo": True,
+        "max_ticks": 15,
+        "footer": True,
+        "footer_height": 0.12,  # Larger than desktop/mobile to compensate for no header
+        "header": False,
+        "header_height": 0,
+        "header_min_height": 0,
+        "header_max_height": 0,
+        "subtitle_wrap_length": 80,
+        "label_wrap_length": 25,
+        "logo_zoom": 0.05,
+        "logo_x": 0.009,
+        "logo_y": 0.005,
+        "source_size": 9,
+        "source_y": 0.01,
+    }
+
     def __init__(self, outdir: Path = Path("charts"), style_file=TPS_STYLE_FILE):
         """
         Initialize the chart view with output directory and style.
@@ -111,26 +141,27 @@ class ChartView(AxisTickFormatMixin):
         """Create a single chart figure for the given device.
 
         Unlike ``generate_chart``, this does not save files or create
-        both device variants — it returns one matplotlib Figure for
+        all device variants — it returns one matplotlib Figure for
         in-memory use (e.g. editor previews).
 
         Args:
             metadata: Chart metadata dictionary
-            device: ``"desktop"`` or ``"mobile"``
+            device: ``"desktop"``, ``"mobile"``, or ``"social"``
             **kwargs: Additional parameters for chart creation
 
         Returns:
             matplotlib.figure.Figure: The created figure
         """
         kwargs.pop("export_data", None)
-        style = self.DESKTOP if device == "desktop" else self.MOBILE
+        style_map = {"desktop": self.DESKTOP, "mobile": self.MOBILE, "social": self.SOCIAL}
+        style = style_map.get(device, self.DESKTOP)
         chart_kwargs = self._clone_chart_kwargs(kwargs)
         chart_kwargs["style"] = style
         return self._create_chart(metadata, **chart_kwargs)
 
     def generate_chart(self, metadata, stem, **kwargs):
         """
-        Generate desktop and mobile versions of a chart.
+        Generate desktop, mobile, and social versions of a chart.
 
         Args:
             metadata: Chart metadata dictionary
@@ -138,7 +169,7 @@ class ChartView(AxisTickFormatMixin):
             **kwargs: Additional parameters for chart creation
 
         Returns:
-            dict: Dictionary with desktop/mobile figure objects and generated files
+            dict: Dictionary with desktop/mobile/social figure objects and generated files
         """
 
         export_data = kwargs.pop("export_data", None)
@@ -161,6 +192,14 @@ class ChartView(AxisTickFormatMixin):
                 self._save_chart(mobile_fig, f"{stem}_mobile", metadata, create_pptx=False)
             )
 
+            # Create social card version (PNG only, no header/footer)
+            social_kwargs = self._clone_chart_kwargs(kwargs)
+            social_kwargs["style"] = self.SOCIAL
+            social_fig = self._create_chart(metadata, **social_kwargs)
+            generated_files.extend(
+                self._save_chart(social_fig, f"{stem}_social", metadata, create_svg=False)
+            )
+
             # Export CSV if export_data is present
             if export_data is not None:
                 csv_path = self._export_csv(export_data, metadata, stem)
@@ -172,7 +211,12 @@ class ChartView(AxisTickFormatMixin):
 
         logger.info(f"✓ generated charts for {stem}")
 
-        return {"desktop": desktop_fig, "mobile": mobile_fig, "files": generated_files}
+        return {
+            "desktop": desktop_fig,
+            "mobile": mobile_fig,
+            "social": social_fig,
+            "files": generated_files,
+        }
 
     @staticmethod
     def _clone_chart_kwargs(kwargs: dict) -> dict:
@@ -990,25 +1034,27 @@ class ChartView(AxisTickFormatMixin):
             va="bottom",
         )
 
-    def _save_chart(self, fig, filename, metadata, create_pptx=False) -> list[str]:
+    def _save_chart(self, fig, filename, metadata, create_pptx=False, create_svg=True) -> list[str]:
         """
-        Save chart as SVG, PNG, and optionally PPTX.
+        Save chart as PNG, and optionally SVG and PPTX.
 
         Args:
             fig: The matplotlib Figure object
             filename: Base filename for saving
             metadata: title, source, etc context for chart
             create_pptx: Whether to create a PowerPoint file
+            create_svg: Whether to create an SVG file (default True)
 
         Returns:
             list[str]: File paths created by this save operation
         """
 
-        clean_filename = filename.replace("_desktop", "").replace("_mobile", "")
-        svg_path = self.outdir / f"{filename}.svg"
+        clean_filename = (
+            filename.replace("_desktop", "").replace("_mobile", "").replace("_social", "")
+        )
         png_path = self.outdir / f"{filename}.png"
 
-        svg_metadata = {
+        file_metadata = {
             "Title": metadata.get("title", clean_filename.replace("_", " ")),
             "Creator": "Casey Dreier/The Planetary Society",
             "Date": datetime.today().strftime("%Y-%m-%d"),
@@ -1016,10 +1062,16 @@ class ChartView(AxisTickFormatMixin):
             "Source": metadata.get("source"),
         }
 
-        fig.savefig(svg_path, metadata=svg_metadata, format="svg", dpi="figure")
-        fig.savefig(png_path, metadata=svg_metadata, format="png", dpi="figure")
-        logger.debug(f"✓ saved {svg_path.name} and {png_path.name}")
-        files = [str(svg_path), str(png_path)]
+        files: list[str] = []
+
+        if create_svg:
+            svg_path = self.outdir / f"{filename}.svg"
+            fig.savefig(svg_path, metadata=file_metadata, format="svg", dpi="figure")
+            files.append(str(svg_path))
+
+        fig.savefig(png_path, metadata=file_metadata, format="png", dpi="figure")
+        files.append(str(png_path))
+        logger.debug(f"✓ saved {', '.join(Path(p).name for p in files)}")
 
         if create_pptx:
             pptx_path = self.outdir / f"{filename.replace('_desktop', '')}.pptx"

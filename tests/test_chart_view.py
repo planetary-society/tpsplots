@@ -26,7 +26,7 @@ class MutatingChartView(ChartView):
 
 
 def test_generate_chart_isolates_nested_kwargs_between_renders(tmp_path):
-    """Desktop and mobile renders should not share nested kwargs state."""
+    """Desktop, mobile, and social renders should not share nested kwargs state."""
     view = MutatingChartView(outdir=tmp_path)
     legend = {"ncol": 4}
 
@@ -35,9 +35,10 @@ def test_generate_chart_isolates_nested_kwargs_between_renders(tmp_path):
     # Caller-supplied kwargs should not be mutated by chart generation.
     assert legend == {"ncol": 4}
 
-    desktop_legend, mobile_legend = view.legend_snapshots
+    desktop_legend, mobile_legend, social_legend = view.legend_snapshots
     assert desktop_legend["rendered_for"] == ["desktop"]
     assert mobile_legend["rendered_for"] == ["mobile"]
+    assert social_legend["rendered_for"] == ["social"]
 
 
 class FileTrackingChartView(ChartView):
@@ -49,11 +50,11 @@ class FileTrackingChartView(ChartView):
     def _create_chart(self, metadata, style, **kwargs):
         return object()
 
-    def _save_chart(self, fig, filename, metadata, create_pptx=False):
-        files = [
-            str(self.outdir / f"{filename}.svg"),
-            str(self.outdir / f"{filename}.png"),
-        ]
+    def _save_chart(self, fig, filename, metadata, create_pptx=False, create_svg=True):
+        files = []
+        if create_svg:
+            files.append(str(self.outdir / f"{filename}.svg"))
+        files.append(str(self.outdir / f"{filename}.png"))
         if create_pptx:
             files.append(str(self.outdir / f"{filename.replace('_desktop', '')}.pptx"))
         return files
@@ -73,6 +74,7 @@ def test_generate_chart_reports_generated_files(tmp_path):
         str(tmp_path / "budget.pptx"),
         str(tmp_path / "budget_mobile.svg"),
         str(tmp_path / "budget_mobile.png"),
+        str(tmp_path / "budget_social.png"),
         str(tmp_path / "budget.csv"),
     ]
     assert result["files"] == expected
@@ -289,6 +291,54 @@ def test_center_axes_respects_zone_bounds(tmp_path):
         assert pos.y0 >= zone_bottom - 0.01, f"Axes bottom {pos.y0} below zone {zone_bottom}"
         assert pos.y1 <= zone_top + 0.01, f"Axes top {pos.y1} above zone {zone_top}"
     plt.close(fig)
+
+
+def test_social_style_produces_correct_dimensions(tmp_path):
+    """SOCIAL style should produce a 1200x630 pixel image."""
+    style = ChartView.SOCIAL
+    fig = plt.figure(figsize=style["figsize"], dpi=style["dpi"])
+    assert fig.get_figwidth() * fig.dpi == 1200
+    assert fig.get_figheight() * fig.dpi == 630
+    plt.close(fig)
+
+
+def test_social_style_disables_header_but_keeps_footer(tmp_path):
+    """Social style should skip header but render footer (source attribution)."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    style = dict(view.SOCIAL)
+    fig, _ax = plt.subplots(figsize=style["figsize"], dpi=style["dpi"])
+    metadata = {"title": "Test Title", "subtitle": "Test subtitle", "source": "Test source"}
+
+    view._adjust_layout_for_header_footer(fig, metadata, style)
+
+    texts = [t.get_text() for t in fig.texts]
+    # Header (title/subtitle) should NOT appear
+    assert not any("Test Title" in t for t in texts)
+    assert not any("Test subtitle" in t for t in texts)
+    # Footer source attribution SHOULD appear
+    assert any("TEST SOURCE" in t for t in texts)
+    plt.close(fig)
+
+
+def test_social_save_produces_png_only(tmp_path):
+    """_save_chart with create_svg=False should only produce a PNG file."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    fig = plt.figure(figsize=(8, 4.2), dpi=150)
+
+    files = view._save_chart(fig, "test_social", metadata={}, create_svg=False)
+
+    assert len(files) == 1
+    assert files[0].endswith(".png")
+    assert "test_social.png" in files[0]
+
+
+def test_create_figure_supports_social_device(tmp_path):
+    """create_figure should route device='social' to the SOCIAL style."""
+    view = SingleDeviceChartView(outdir=tmp_path)
+
+    view.create_figure(metadata={"title": "Test"}, device="social")
+
+    assert view.create_calls == ["social"]
 
 
 def test_add_logo_adds_vector_path_patch(tmp_path, monkeypatch):

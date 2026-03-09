@@ -77,22 +77,26 @@ class WaffleChartView(ChartView):
             kwargs["rows"] = rows
             kwargs["columns"] = columns
 
-        # Set default figsize from style
+        # Set default figsize and dpi from style
         if "figsize" not in kwargs:
             kwargs["figsize"] = style["figsize"]
+        if "dpi" not in kwargs:
+            kwargs["dpi"] = style["dpi"]
 
-        # Special handling for mobile legend
-        if style == self.MOBILE and "legend" in kwargs and isinstance(kwargs["legend"], dict):
+        # Adjust legend positioning per device style
+        # Mobile: taller figure needs legend nudged up; social: shorter figure needs it down
+        bbox_y_offsets = {id(self.MOBILE): 0.02, id(self.SOCIAL): -0.06}
+        y_offset = bbox_y_offsets.get(id(style))
+
+        if y_offset is not None and "legend" in kwargs and isinstance(kwargs["legend"], dict):
             legend = kwargs["legend"]
-            # Reduce number of columns for mobile
-            if "ncol" in legend:
-                legend["ncol"] = math.ceil(legend["ncol"] / 2) + 1
-
-            # Adjust position if using bbox_to_anchor
             if "bbox_to_anchor" in legend:
                 bbox = legend["bbox_to_anchor"]
-                legend["bbox_to_anchor"] = (bbox[0], bbox[1] + 0.02)
+                legend["bbox_to_anchor"] = (bbox[0], bbox[1] + y_offset)
+            if style == self.MOBILE:
                 legend["borderpad"] = 0
+                if "ncol" in legend:
+                    legend["ncol"] = math.ceil(legend["ncol"] / 2) + 1
             kwargs["legend"] = legend
 
         # Create the waffle chart

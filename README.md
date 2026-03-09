@@ -7,7 +7,7 @@ A data visualization framework for The Planetary Society that creates consistent
 - **YAML-Driven Chart Generation** - Define charts declaratively without writing Python code
 - **Interactive Chart Editor** - Browser-based GUI for creating and editing charts with live preview
 - **Multiple Chart Types** - Line, scatter, bar, donut, lollipop, stacked bar, waffle, grouped bar, US map pie, and line subplots
-- **Automatic Responsive Output** - Generates both desktop (16:10) and mobile (8:9) versions
+- **Automatic Responsive Output** - Generates desktop (16:10), mobile (8:9), and social card (1200x630) versions
 - **Multi-Format Export** - SVG, PNG, PPTX, and CSV data export
 - **Flexible Data Sources** - Google Sheets, CSV files, or custom controller methods
 - **TPS Brand Styling** - Consistent Planetary Society branding with Poppins fonts
@@ -59,6 +59,7 @@ print(f"Generated {result['succeeded']} charts")
 Charts are saved to `charts/` by default:
 - `my_first_chart_desktop.svg` / `my_first_chart_mobile.svg`
 - `my_first_chart_desktop.png` / `my_first_chart_mobile.png`
+- `my_first_chart_social.png` (1200x630 social card, PNG only)
 - `my_first_chart.pptx` (desktop only)
 - `my_first_chart.csv` (if `export_data` specified)
 
