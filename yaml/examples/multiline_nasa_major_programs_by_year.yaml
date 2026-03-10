@@ -19,7 +19,7 @@ chart:
     - "{{stem_education}}"
     - "{{space_operations}}"
     - "{{overhead}}"
-
+  ylabel: "inflation-adjusted dollars"
   direct_line_labels:
     position: right
     fontsize: 10
