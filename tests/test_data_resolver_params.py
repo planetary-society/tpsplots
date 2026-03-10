@@ -26,6 +26,7 @@ class TestDataSourceParams:
         assert params.renames is None
         assert params.auto_clean_currency is None
         assert params.fiscal_year_column is None
+        assert params.truncate_at is None
 
     def test_columns_accepts_list(self):
         """Test columns field accepts list of strings."""
@@ -41,6 +42,21 @@ class TestDataSourceParams:
         """Test renames field accepts dict of old to new name mappings."""
         params = DataSourceParams(renames={"Old Name": "New Name"})
         assert params.renames == {"Old Name": "New Name"}
+
+    def test_truncate_at_accepts_false(self):
+        """truncate_at accepts False to disable truncation."""
+        params = DataSourceParams(truncate_at=False)
+        assert params.truncate_at is False
+
+    def test_truncate_at_accepts_string(self):
+        """truncate_at accepts a custom exact-match marker."""
+        params = DataSourceParams(truncate_at="Totals")
+        assert params.truncate_at == "Totals"
+
+    def test_truncate_at_rejects_whitespace_only_string(self):
+        """Whitespace-only truncate_at values should be rejected."""
+        with pytest.raises(ValidationError):
+            DataSourceParams(truncate_at="   ")
 
 
 class TestInflationConfig:
@@ -145,6 +161,7 @@ class TestParamsToKwargs:
             cast={"A": "int"},
             renames={"B": "C"},
             auto_clean_currency=True,
+            truncate_at="Totals",
         )
         result = DataResolver._params_to_kwargs(params)
         assert result == {
@@ -152,6 +169,7 @@ class TestParamsToKwargs:
             "cast": {"A": "int"},
             "renames": {"B": "C"},
             "auto_clean_currency": True,
+            "truncate_at": "Totals",
         }
 
 
@@ -284,6 +302,7 @@ class TestCSVControllerWithParams:
             renames={"old": "new"},
             auto_clean_currency=True,
             fiscal_year_column="Fiscal Year",
+            truncate_at="Totals",
         )
         assert controller.csv_path == "test.csv"
         assert controller.cast == {"col": "int"}
@@ -291,6 +310,7 @@ class TestCSVControllerWithParams:
         assert controller.renames == {"old": "new"}
         assert controller.auto_clean_currency is True
         assert controller.fiscal_year_column == "Fiscal Year"
+        assert controller.truncate_at == "Totals"
 
     def test_fiscal_year_column_default_none(self):
         """Test that fiscal_year_column defaults to None."""
@@ -341,3 +361,15 @@ class TestParamsToKwargsWithFiscalYear:
         # Should not raise TypeError for unexpected keyword argument
         controller = CSVController(**kwargs)
         assert controller.fiscal_year_column == "Year"
+
+    def test_truncate_at_false_included(self):
+        """truncate_at=False is included in kwargs."""
+        params = DataSourceParams(truncate_at=False)
+        result = DataResolver._params_to_kwargs(params)
+        assert result["truncate_at"] is False
+
+    def test_truncate_at_string_included(self):
+        """truncate_at custom string is included in kwargs."""
+        params = DataSourceParams(truncate_at="Totals")
+        result = DataResolver._params_to_kwargs(params)
+        assert result["truncate_at"] == "Totals"

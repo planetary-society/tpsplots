@@ -37,6 +37,7 @@ class PlanetaryBudgetDataSource(GoogleSheetsSource):
     # Disable base class auto-cleaning to avoid unwanted _raw columns;
     # we handle monetary cleaning ourselves in _clean_monetary_columns.
     AUTO_CLEAN_CURRENCY: ClassVar[bool] = False
+    TRUNCATE_AT: ClassVar[tuple[str, str]] = ("Total", "Totals")
 
     # Complete mapping of every tab name to its Google Sheets GID.
     TAB_GID_LOOKUP: ClassVar[dict[str, str]] = {
@@ -234,7 +235,6 @@ class PlanetaryBudgetDataSource(GoogleSheetsSource):
             df = self._df
             self._normalize_columns(df)
             self._clean_monetary_columns(df)
-            self._remove_total_and_trailing_rows(df)
             if self._convert_millions:
                 self._millions_to_absolute(df)
 
@@ -329,23 +329,3 @@ class PlanetaryBudgetDataSource(GoogleSheetsSource):
                 exclude.add(col)
 
         return [col for col in df.columns if col not in exclude]
-
-    @staticmethod
-    def _remove_total_and_trailing_rows(df: pd.DataFrame) -> None:
-        """Truncate from the first Total/Totals row onward (in-place).
-
-        Finds the first row where the first column matches "Total" or "Totals"
-        (case-insensitive) and drops that row and everything after it.
-        """
-        if df.columns.size == 0 or df.empty:
-            return
-
-        first_col = df.columns[0]
-        first_col_vals = df[first_col].astype(str).str.strip().str.lower()
-        total_mask = first_col_vals.isin({"total", "totals"})
-        total_indices = df.index[total_mask]
-
-        if len(total_indices) > 0:
-            first_total_idx = total_indices[0]
-            rows_to_drop = df.loc[first_total_idx:].index
-            df.drop(rows_to_drop, inplace=True)

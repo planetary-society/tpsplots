@@ -28,6 +28,7 @@ class GoogleSheetsController(ChartController):
         renames: dict[str, str] | None = None,
         auto_clean_currency: bool | dict | None = None,
         fiscal_year_column: str | bool | None = None,
+        truncate_at: bool | str | None = None,
     ):
         """
         Initialize the GoogleSheetsController with URL and options.
@@ -45,6 +46,11 @@ class GoogleSheetsController(ChartController):
                 - None: Auto-detect columns named "Fiscal Year", "FY", or "Year"
                 - str: Use this specific column name
                 - False: Disable fiscal year conversion
+            truncate_at: Truncate rows at the first matching first-column value.
+                - None: Use the source default marker
+                - True: Force use of the source default marker
+                - False: Disable truncation
+                - str: Use this exact trimmed marker
         """
         self.url = url
         self.cast = cast
@@ -52,6 +58,7 @@ class GoogleSheetsController(ChartController):
         self.renames = renames
         self.auto_clean_currency = auto_clean_currency if auto_clean_currency is not None else True
         self.fiscal_year_column = fiscal_year_column
+        self.truncate_at = truncate_at
         self._source = None
 
     def load_data(self):
@@ -83,6 +90,8 @@ class GoogleSheetsController(ChartController):
             source_kwargs["auto_clean_currency"] = self.auto_clean_currency
             if self.fiscal_year_column is not None:
                 source_kwargs["fiscal_year_column"] = self.fiscal_year_column
+            if self.truncate_at is not None:
+                source_kwargs["truncate_at"] = self.truncate_at
 
             normalized_url = self.normalize_google_sheets_url(self.url)
             self._source = GoogleSheetsSource(url=normalized_url, **source_kwargs)
@@ -136,6 +145,7 @@ class GoogleSheetsController(ChartController):
                     "renames": self.renames,
                     "auto_clean_currency": self.auto_clean_currency,
                     "fiscal_year_column": self.fiscal_year_column,
+                    "truncate_at": self.truncate_at,
                 },
             }
         except Exception as e:

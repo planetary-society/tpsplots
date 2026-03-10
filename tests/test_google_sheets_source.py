@@ -3,6 +3,7 @@
 from typing import ClassVar
 
 import pandas as pd
+import pytest
 
 from tpsplots.data_sources.google_sheets_source import GoogleSheetsSource
 
@@ -271,3 +272,59 @@ class TestGoogleSheetsSourceClassAttribute:
         # Should use instance _cast (int) and filter out "Totals"
         assert len(result) == 2
         assert result["Year"].dtype == "int64"
+
+
+class TestGoogleSheetsSourceTruncateAt:
+    """Tests for shared truncate_at handling in GoogleSheetsSource."""
+
+    @staticmethod
+    def _mock_csv(monkeypatch, text: str) -> None:
+        monkeypatch.setattr(
+            GoogleSheetsSource,
+            "_fetch_csv_content",
+            staticmethod(lambda _url: text),
+        )
+
+    def test_default_truncate_at_removes_total_colon_and_trailing_rows(self, monkeypatch):
+        """Default truncate_at should drop 'Total:' row and everything after it."""
+        self._mock_csv(monkeypatch, "Label,Value\nA,1\nB,2\nTotal:,3\nC,4\n")
+
+        source = GoogleSheetsSource(url="https://example.com/test.csv", fiscal_year_column=False)
+        df = source.data()
+
+        assert list(df["Label"]) == ["A", "B"]
+
+    def test_truncate_at_false_preserves_total_rows(self, monkeypatch):
+        """truncate_at=False should preserve total rows and trailing data."""
+        self._mock_csv(monkeypatch, "Label,Value\nA,1\nB,2\nTotal:,3\nC,4\n")
+
+        source = GoogleSheetsSource(
+            url="https://example.com/test.csv",
+            truncate_at=False,
+            fiscal_year_column=False,
+        )
+        df = source.data()
+
+        assert list(df["Label"]) == ["A", "B", "Total:", "C"]
+
+    def test_truncate_at_custom_marker_uses_exact_match(self, monkeypatch):
+        """Custom truncate_at should match the provided marker exactly."""
+        self._mock_csv(monkeypatch, "Label,Value\nA,1\nTotals,2\nC,3\n")
+
+        source = GoogleSheetsSource(
+            url="https://example.com/test.csv",
+            truncate_at="Totals",
+            fiscal_year_column=False,
+        )
+        df = source.data()
+
+        assert list(df["Label"]) == ["A"]
+
+    def test_default_truncate_at_does_not_match_other_summary_labels(self, monkeypatch):
+        """Default 'Total:' truncation should not match different labels like 'Totals'."""
+        self._mock_csv(monkeypatch, "Label,Value\nA,1\nTotals,2\nC,3\n")
+
+        source = GoogleSheetsSource(url="https://example.com/test.csv", fiscal_year_column=False)
+        df = source.data()
+
+        assert list(df["Label"]) == ["A", "Totals", "C"]

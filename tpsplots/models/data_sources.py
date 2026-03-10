@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CurrencyCleaningConfig(BaseModel):
@@ -46,6 +46,25 @@ class DataSourceParams(BaseModel):
             "str=column name, False=disable"
         ),
     )
+    truncate_at: bool | str | None = Field(
+        default=None,
+        description=(
+            "Truncate rows at the first first-column value that exactly matches the marker. "
+            "None=use source default, True=force source default, False=disable, "
+            "str=custom exact match marker."
+        ),
+    )
+
+    @field_validator("truncate_at")
+    @classmethod
+    def validate_truncate_at(cls, value: bool | str | None) -> bool | str | None:
+        """Reject empty string markers and normalize non-empty strings."""
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                raise ValueError("truncate_at cannot be empty or whitespace-only")
+            return stripped
+        return value
 
 
 class InflationConfig(BaseModel):

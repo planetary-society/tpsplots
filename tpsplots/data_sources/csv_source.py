@@ -55,6 +55,8 @@ class CSVSource(TabularDataSource):
     :class:`TabularDataSource`.
     """
 
+    TRUNCATE_AT = "Total:"
+
     def __init__(self, csv_path: str | None = None, **kwargs) -> None:
         """
         Initialize the CSVSource instance.

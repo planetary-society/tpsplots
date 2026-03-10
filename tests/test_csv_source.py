@@ -32,6 +32,46 @@ class TestCSVSourceBasicReading:
         result = source.data()
         assert isinstance(result, pd.DataFrame)
 
+    def test_default_truncate_at_removes_total_colon_and_trailing_rows(self, tmp_path):
+        """Default truncate_at should drop 'Total:' row and everything after it."""
+        csv_file = tmp_path / "test.csv"
+        csv_file.write_text("Label,Value\nA,1\nB,2\nTotal:,3\nC,4\n")
+
+        source = CSVSource(csv_path=str(csv_file), fiscal_year_column=False)
+        df = source.data()
+
+        assert list(df["Label"]) == ["A", "B"]
+
+    def test_truncate_at_false_preserves_total_rows(self, tmp_path):
+        """truncate_at=False should preserve total rows and trailing data."""
+        csv_file = tmp_path / "test.csv"
+        csv_file.write_text("Label,Value\nA,1\nB,2\nTotal:,3\nC,4\n")
+
+        source = CSVSource(csv_path=str(csv_file), truncate_at=False, fiscal_year_column=False)
+        df = source.data()
+
+        assert list(df["Label"]) == ["A", "B", "Total:", "C"]
+
+    def test_truncate_at_custom_marker_uses_exact_match(self, tmp_path):
+        """Custom truncate_at should match the provided marker exactly."""
+        csv_file = tmp_path / "test.csv"
+        csv_file.write_text("Label,Value\nA,1\nTotals,2\nC,3\n")
+
+        source = CSVSource(csv_path=str(csv_file), truncate_at="Totals", fiscal_year_column=False)
+        df = source.data()
+
+        assert list(df["Label"]) == ["A"]
+
+    def test_default_truncate_at_does_not_match_other_summary_labels(self, tmp_path):
+        """Default 'Total:' truncation should not match different labels like 'Totals'."""
+        csv_file = tmp_path / "test.csv"
+        csv_file.write_text("Label,Value\nA,1\nTotals,2\nC,3\n")
+
+        source = CSVSource(csv_path=str(csv_file), fiscal_year_column=False)
+        df = source.data()
+
+        assert list(df["Label"]) == ["A", "Totals", "C"]
+
 
 class TestCSVSourceMissingPath:
     """Error handling for missing/invalid paths."""

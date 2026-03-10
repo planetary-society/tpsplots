@@ -132,6 +132,11 @@ def test_trailing_rows_after_totals_removed(mock_fetch_csv):
     assert len(df) == 8
 
 
+def test_planetary_source_uses_shared_truncate_at_default():
+    """PlanetaryBudgetDataSource should retain its legacy Total/Totals defaults."""
+    assert PlanetaryBudgetDataSource.TRUNCATE_AT == ("Total", "Totals")
+
+
 # ── Properties ──
 
 

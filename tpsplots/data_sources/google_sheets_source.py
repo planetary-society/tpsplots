@@ -95,6 +95,8 @@ class GoogleSheetsSource(TabularDataSource):
     - RENAMES (Dict[str, str]): Column renames (optional)
     """
 
+    TRUNCATE_AT = "Total:"
+
     def __init__(self, url: str | None = None, **kwargs) -> None:
         """
         Initialize the GoogleSheetsSource instance.

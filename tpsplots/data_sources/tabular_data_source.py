@@ -61,6 +61,8 @@ class TabularDataSource(FiscalYearMixin, ABC):
 
     # Default for auto-cleaning currency columns (can be overridden in subclass)
     AUTO_CLEAN_CURRENCY: ClassVar[bool] = True
+    # Default row truncation marker(s) by first-column exact match.
+    TRUNCATE_AT: ClassVar[str | tuple[str, ...] | list[str] | None] = None
 
     def __init__(
         self,
@@ -69,6 +71,7 @@ class TabularDataSource(FiscalYearMixin, ABC):
         renames: dict[str, str] | None = None,
         auto_clean_currency: bool | dict | None = None,
         fiscal_year_column: str | bool | None = None,
+        truncate_at: bool | str | None = None,
     ) -> None:
         """
         Initialize the TabularDataSource.
@@ -85,12 +88,18 @@ class TabularDataSource(FiscalYearMixin, ABC):
                 - None: Auto-detect columns named "Fiscal Year", "FY", or "Year"
                 - str: Use this specific column name
                 - False: Disable fiscal year conversion
+            truncate_at: Truncate rows at the first matching first-column value.
+                - None: Use the source default marker
+                - True: Force use of the source default marker
+                - False: Disable truncation
+                - str: Use this exact trimmed marker
         """
         self._cast = cast
         self._columns = columns
         self._renames = renames
         self._auto_clean_currency = auto_clean_currency
         self._fiscal_year_column = fiscal_year_column
+        self._truncate_at = truncate_at
 
     # ------------------------------------------------------------------
     # Abstract method — subclasses must implement
@@ -184,6 +193,7 @@ class TabularDataSource(FiscalYearMixin, ABC):
         """
         # Read the raw data from the subclass
         df = self._read_raw_df()
+        df = self._truncate_rows(df)
 
         # Select columns if specified (instance attribute takes precedence)
         columns = self._columns or getattr(self.__class__, "COLUMNS", None)
@@ -209,6 +219,48 @@ class TabularDataSource(FiscalYearMixin, ABC):
         df = self._apply_fiscal_year_conversion(df, self._fiscal_year_column)
 
         return df
+
+    def _resolve_truncate_markers(self) -> tuple[str, ...]:
+        """Resolve the effective truncation markers for this instance."""
+        truncate_at = self._truncate_at
+        if truncate_at is False:
+            return ()
+
+        default = getattr(self.__class__, "TRUNCATE_AT", None)
+        candidate = default if truncate_at in (None, True) else truncate_at
+
+        if candidate is None or candidate is False:
+            return ()
+
+        if isinstance(candidate, str):
+            normalized = candidate.strip()
+            return (normalized,) if normalized else ()
+
+        if isinstance(candidate, (list, tuple)):
+            markers = tuple(str(item).strip() for item in candidate if str(item).strip())
+            return markers
+
+        return ()
+
+    def _truncate_rows(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Drop the first matched row and everything after it."""
+        if df.empty or df.columns.size == 0:
+            return df
+
+        markers = self._resolve_truncate_markers()
+        if not markers:
+            return df
+
+        first_col = df.columns[0]
+        normalized_markers = {marker.lower() for marker in markers}
+        first_col_vals = df[first_col].astype(str).str.strip().str.lower()
+        match_indices = df.index[first_col_vals.isin(normalized_markers)]
+
+        if len(match_indices) == 0:
+            return df
+
+        first_match_idx = match_indices[0]
+        return df.loc[:first_match_idx].iloc[:-1].copy()
 
     # ------------------------------------------------------------------
     # Internal helpers
