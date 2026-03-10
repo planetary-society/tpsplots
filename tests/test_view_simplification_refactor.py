@@ -149,6 +149,42 @@ def test_line_chart_supports_per_series_markersize_and_direct_labels(tmp_path):
     assert "Series B" in texts
 
 
+def test_generate_chart_preserves_xlim_for_stringified_numeric_x_data(tmp_path):
+    """Stringified numeric x-data should not let social tick thinning override xlim."""
+    view = LineChartView(outdir=tmp_path, style_file=None)
+    data = pd.DataFrame(
+        {
+            "Years from Start": [str(i) for i in range(23)] + ["Totals"],
+            "Apollo (2025 $)": [float(i) for i in range(14)] + [None] * 10,
+            "STS (2025 $)": [float(i) * 2 for i in range(11)] + [None] * 13,
+        }
+    )
+
+    def _skip_save(fig, filename, metadata, create_pptx=False, create_svg=True):
+        return []
+
+    view._save_chart = _skip_save  # type: ignore[method-assign]
+
+    result = view.generate_chart(
+        metadata={"title": "Numeric XLim"},
+        stem="numeric_xlim",
+        data=data,
+        x="Years from Start",
+        y=["Apollo (2025 $)", "STS (2025 $)"],
+        xlim=[0, 14],
+        fiscal_year_ticks=False,
+        scale="billions",
+        legend=False,
+    )
+
+    for device in ("desktop", "mobile", "social"):
+        ax = result[device].axes[0]
+        assert tuple(ax.get_xlim()) == (0.0, 14.0)
+
+    social_ticks = result["social"].axes[0].get_xticks()
+    assert max(social_ticks) <= 14.0
+
+
 def test_line_subplots_shared_legend_and_shared_axes(tmp_path):
     """Shared legend mode should produce one figure-level legend and shared axes."""
     view = LineSubplotsView(outdir=tmp_path, style_file=None)

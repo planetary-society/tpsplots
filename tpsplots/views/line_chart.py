@@ -832,12 +832,18 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
         elif is_categorical and max_xticks and len(x_data) > max_xticks:
             step = len(x_data) // max_xticks + 1
-            tick_positions = list(range(0, len(x_data), step))
+            current_xlim = ax.get_xlim()
+            tick_positions = [
+                pos for pos in range(0, len(x_data), step) if current_xlim[0] <= pos <= current_xlim[1]
+            ]
+            if not tick_positions:
+                tick_positions = list(range(0, len(x_data), step))
             ax.set_xticks(tick_positions)
             try:
                 ax.set_xticklabels([list(x_data)[i] for i in tick_positions])
             except Exception:
                 logger.warning("Could not set categorical xticklabels.")
+            ax.set_xlim(current_xlim)
 
     def _apply_line_scale_and_custom_ticks(self, ax, opts):
         """Apply scale formatters, custom ticks, and format specs."""
