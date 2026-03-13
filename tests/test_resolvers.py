@@ -65,6 +65,80 @@ class TestReferenceResolver:
         assert not ReferenceResolver.is_reference("column")
         assert not ReferenceResolver.is_reference("{{column}} extra")
 
+    # ── Monetary format specs ──────────────────────────────────────
+
+    def test_monetary_billions(self):
+        """{{amount:$B}} formats as dollar billions."""
+        data = {"amount": 6_417_000_000}
+        assert ReferenceResolver.resolve("{{amount:$B}}", data) == "$6.4 billion"
+
+    def test_monetary_billions_large(self):
+        """Amounts >= $10B use 0 decimal places."""
+        data = {"amount": 12_500_000_000}
+        assert ReferenceResolver.resolve("{{amount:$B}}", data) == "$12 billion"
+
+    def test_monetary_millions(self):
+        """{{amount:$M}} formats as dollar millions."""
+        data = {"amount": 342_600_000}
+        assert ReferenceResolver.resolve("{{amount:$M}}", data) == "$343 million"
+
+    def test_monetary_millions_small(self):
+        """Amounts < $10M use 1 decimal place."""
+        data = {"amount": 3_400_000}
+        assert ReferenceResolver.resolve("{{amount:$M}}", data) == "$3.4 million"
+
+    def test_monetary_thousands(self):
+        """{{amount:$K}} formats as dollar thousands."""
+        data = {"amount": 52_300}
+        assert ReferenceResolver.resolve("{{amount:$K}}", data) == "$52 thousand"
+
+    def test_monetary_auto_billions(self):
+        """{{amount:$}} auto-selects billions for large values."""
+        data = {"amount": 6_417_000_000}
+        assert ReferenceResolver.resolve("{{amount:$}}", data) == "$6.4 billion"
+
+    def test_monetary_auto_millions(self):
+        """{{amount:$}} auto-selects millions for mid-range values."""
+        data = {"amount": 342_600_000}
+        assert ReferenceResolver.resolve("{{amount:$}}", data) == "$343 million"
+
+    def test_monetary_auto_thousands(self):
+        """{{amount:$}} auto-selects thousands for smaller values."""
+        data = {"amount": 52_300}
+        assert ReferenceResolver.resolve("{{amount:$}}", data) == "$52 thousand"
+
+    def test_monetary_auto_plain(self):
+        """{{amount:$}} formats small values as plain dollars."""
+        data = {"amount": 750}
+        assert ReferenceResolver.resolve("{{amount:$}}", data) == "$750"
+
+    def test_monetary_negative(self):
+        """Negative amounts get a leading minus sign."""
+        data = {"amount": -1_500_000_000}
+        assert ReferenceResolver.resolve("{{amount:$B}}", data) == "-$1.5 billion"
+
+    def test_monetary_in_template(self):
+        """Monetary format works in embedded templates."""
+        data = {"cost": 6_417_000_000}
+        result = ReferenceResolver.resolve("NASA spent {{cost:$B}} on Saturn V", data)
+        assert result == "NASA spent $6.4 billion on Saturn V"
+
+    def test_monetary_zero(self):
+        """Zero formats cleanly."""
+        data = {"amount": 0}
+        assert ReferenceResolver.resolve("{{amount:$B}}", data) == "$0.0 billion"
+
+    def test_monetary_integer_input(self):
+        """Integer values are accepted."""
+        data = {"amount": 1_000_000_000}
+        assert ReferenceResolver.resolve("{{amount:$B}}", data) == "$1.0 billion"
+
+    def test_monetary_non_numeric_raises(self):
+        """Non-numeric values raise ConfigurationError."""
+        data = {"amount": "not a number"}
+        with pytest.raises(ConfigurationError, match="monetary format"):
+            ReferenceResolver.resolve("{{amount:$B}}", data)
+
     def test_comma_separated_refs_resolved_as_list(self):
         """Comma-separated {{...}} refs are split and resolved as a list."""
         data = {"col1": [1, 2], "col2": [3, 4]}

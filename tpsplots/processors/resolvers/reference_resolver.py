@@ -4,6 +4,7 @@ Supports:
 - Simple references: {{column_name}}
 - Nested dot notation: {{data.series.values}}
 - Format strings: {{value:.2f}}, {{date:%Y}}
+- Monetary format specs: {{amount:$B}}, {{amount:$M}}, {{amount:$K}}, {{amount:$}}
 """
 
 import re
@@ -21,6 +22,47 @@ TEMPLATE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 # Pattern to match comma-separated {{...}} references (defensive guard for
 # accidentally stringified arrays, e.g. "{{col1}},{{col2}}")
 MULTI_REFERENCE_PATTERN = re.compile(r"^\s*\{\{[^{}]+\}\}\s*(,\s*\{\{[^{}]+\}\}\s*)+$")
+
+
+# Monetary format specs: $B (billions), $M (millions), $K (thousands), $ (auto-scale)
+_MONETARY_SCALES = {
+    "$B": (1e9, "billion"),
+    "$M": (1e6, "million"),
+    "$K": (1e3, "thousand"),
+}
+
+
+def _format_monetary(value: float, spec: str) -> str:
+    """Format a numeric value as a dollar amount.
+
+    Specs:
+        $B — divide by 1e9, label "billion"
+        $M — divide by 1e6, label "million"
+        $K — divide by 1e3, label "thousand"
+        $  — auto-select scale based on magnitude
+    """
+    amount = float(value)
+    is_neg = amount < 0
+    amount = abs(amount)
+
+    if spec == "$":
+        # Auto-scale: pick the largest unit that yields >= 1
+        for s, (factor, _label) in _MONETARY_SCALES.items():
+            if amount >= factor:
+                spec = s
+                break
+        else:
+            # Under 1,000 — format as plain dollars
+            formatted = f"${amount:,.0f}" if amount == int(amount) else f"${amount:,.2f}"
+            return f"-{formatted}" if is_neg else formatted
+
+    factor, label = _MONETARY_SCALES[spec]
+    scaled = amount / factor
+
+    # Use 1 decimal when < 10, 0 decimals when >= 10 (e.g., $6.4 billion, $12 billion)
+    formatted = f"${scaled:,.1f} {label}" if scaled < 10 else f"${scaled:,.0f} {label}"
+
+    return f"-{formatted}" if is_neg else formatted
 
 
 class ReferenceResolver:
@@ -133,6 +175,14 @@ class ReferenceResolver:
 
         # Apply format specification if present
         if format_spec:
+            # Check for monetary format specs ($B, $M, $K, $)
+            if format_spec in _MONETARY_SCALES or format_spec == "$":
+                try:
+                    return _format_monetary(resolved, format_spec)
+                except (ValueError, TypeError) as e:
+                    raise ConfigurationError(
+                        f"Cannot apply monetary format '{format_spec}' to value: {resolved}"
+                    ) from e
             try:
                 return format(resolved, format_spec)
             except (ValueError, TypeError) as e:
