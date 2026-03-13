@@ -22,12 +22,13 @@ from typing import Any, ClassVar
 import pandas as pd
 
 from tpsplots.data_sources.fiscal_year_mixin import FiscalYearMixin
+from tpsplots.data_sources.truncate_rows_mixin import TruncateRowsMixin
 from tpsplots.utils.currency_processing import clean_currency_column, looks_like_currency_column
 
 logger = logging.getLogger(__name__)
 
 
-class TabularDataSource(FiscalYearMixin, ABC):
+class TabularDataSource(TruncateRowsMixin, FiscalYearMixin, ABC):
     """
     Abstract base class for tabular data sources.
 
@@ -61,8 +62,6 @@ class TabularDataSource(FiscalYearMixin, ABC):
 
     # Default for auto-cleaning currency columns (can be overridden in subclass)
     AUTO_CLEAN_CURRENCY: ClassVar[bool] = True
-    # Default row truncation marker(s) by first-column exact match.
-    TRUNCATE_AT: ClassVar[str | tuple[str, ...] | list[str] | None] = None
 
     def __init__(
         self,
@@ -221,7 +220,7 @@ class TabularDataSource(FiscalYearMixin, ABC):
         return df
 
     def _resolve_truncate_markers(self) -> tuple[str, ...]:
-        """Resolve the effective truncation markers for this instance."""
+        """Resolve truncation markers, supporting constructor-level override."""
         truncate_at = self._truncate_at
         if truncate_at is False:
             return ()
@@ -241,26 +240,6 @@ class TabularDataSource(FiscalYearMixin, ABC):
             return markers
 
         return ()
-
-    def _truncate_rows(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Drop the first matched row and everything after it."""
-        if df.empty or df.columns.size == 0:
-            return df
-
-        markers = self._resolve_truncate_markers()
-        if not markers:
-            return df
-
-        first_col = df.columns[0]
-        normalized_markers = {marker.lower() for marker in markers}
-        first_col_vals = df[first_col].astype(str).str.strip().str.lower()
-        match_indices = df.index[first_col_vals.isin(normalized_markers)]
-
-        if len(match_indices) == 0:
-            return df
-
-        first_match_idx = match_indices[0]
-        return df.loc[:first_match_idx].iloc[:-1].copy()
 
     # ------------------------------------------------------------------
     # Internal helpers
