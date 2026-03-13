@@ -3,7 +3,6 @@
 from typing import ClassVar
 
 import pandas as pd
-import pytest
 
 from tpsplots.data_sources.google_sheets_source import GoogleSheetsSource
 

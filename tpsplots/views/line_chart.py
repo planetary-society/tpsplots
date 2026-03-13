@@ -834,7 +834,9 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             step = len(x_data) // max_xticks + 1
             current_xlim = ax.get_xlim()
             tick_positions = [
-                pos for pos in range(0, len(x_data), step) if current_xlim[0] <= pos <= current_xlim[1]
+                pos
+                for pos in range(0, len(x_data), step)
+                if current_xlim[0] <= pos <= current_xlim[1]
             ]
             if not tick_positions:
                 tick_positions = list(range(0, len(x_data), step))
@@ -977,7 +979,6 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         # Apply label with mobile scaling
         label_size = style.get("label_size")
         tick_size = style.get("tick_size")
-        style_type = style.get("type", "desktop")
         if ylabel_right:
             ax2.set_ylabel(ylabel_right, fontsize=label_size, style="normal", labelpad=4)
 

@@ -1,5 +1,7 @@
 """Regression tests for directorate filtering in NASAFYChartsController."""
 
+from typing import ClassVar
+
 import pandas as pd
 import pytest
 
@@ -8,12 +10,12 @@ from tpsplots.controllers.nasa_fy_charts_controller import NASAFYChartsControlle
 
 class _StubFY2026Controller(NASAFYChartsController):
     FISCAL_YEAR = 2026
-    ACCOUNTS = {
+    ACCOUNTS: ClassVar[dict[str, str]] = {
         "Deep Space Exploration Systems": "Exploration",
         "LEO & Space Ops": "Space Ops",
         "Science": "Science",
     }
-    ACCOUNT_ALIASES = {
+    ACCOUNT_ALIASES: ClassVar[dict[str, list[str]]] = {
         "LEO & Space Ops": ["Space Operations"],
     }
 
