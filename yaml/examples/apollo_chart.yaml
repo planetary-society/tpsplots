@@ -1,0 +1,38 @@
+data:
+  source: apollo_controller.program_spending
+
+chart:
+  type: line
+  output: saturn_family_spending_inflation_adjusted
+  title: "Saturn Family Launch Vehicle Costs"
+  subtitle: "NASA spent {{Saturn V_adjusted_nnsi_sum:$}} on the Saturn V, compared to {{Saturn C-I/I_adjusted_nnsi_sum:$}} for the Saturn I and {{Saturn IB_adjusted_nnsi_sum:$}} for the Saturn IB."
+  source: "NASA Historical Data Book"
+
+  x: "{{Fiscal Year}}"
+  y:
+  - "{{Saturn V_adjusted_nnsi}}"
+  - "{{Saturn C-I/I_adjusted_nnsi}}"
+  - "{{Saturn IB_adjusted_nnsi}}"
+  - "{{Engine Development_adjusted_nnsi}}"
+  color:
+  - "Rocket Flame"
+  - "Neptune Blue"
+  - "Light Neptune"
+  - "Plasma Purple"
+  linestyle:
+  - "-"
+  - "-"
+  - "-"
+  - "-"
+  labels:
+  - "Saturn V"
+  - "Saturn I"
+  - "Saturn IB"
+  - "Engine Development"
+  scale: billions
+  fiscal_year_ticks: true
+  grid: true
+  grid_axis: y
+  legend:
+    loc: upper right
+  export_data: "{{data}}"
