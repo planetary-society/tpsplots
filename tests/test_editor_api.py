@@ -229,6 +229,29 @@ class TestDataEndpoints:
         assert "/chart/pie_data" in missing
 
 
+class TestPreviewEndpoint:
+    def test_preview_renders_png_for_line_chart(self, client, yaml_dir):
+        csv_path = yaml_dir / "preview.csv"
+        csv_path.write_text("Year,Value\n2024,10\n2025,20\n", encoding="utf-8")
+
+        config = {
+            "data": {"source": f"csv:{csv_path}"},
+            "chart": {
+                "type": "line",
+                "output": "preview_line",
+                "title": "Preview",
+                "x": "{{Year}}",
+                "y": "{{Value}}",
+            },
+        }
+
+        resp = client.post("/api/preview", json={"config": config, "device": "desktop"})
+
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "image/png"
+        assert resp.content.startswith(b"\x89PNG\r\n\x1a\n")
+
+
 class TestSecurityHeaders:
     def test_csp_header_on_html(self, client):
         resp = client.get("/")

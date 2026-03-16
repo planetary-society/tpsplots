@@ -13,37 +13,17 @@ CLI usage:
     $ tpsplots yaml/  # Process all YAML files in directory
 """
 
-import os
-import sys
-import warnings
 from pathlib import Path
 
 
-# Auto-detect headless environment and switch to Agg backend before importing pyplot
-# This prevents "couldn't connect to display" errors in CI/CD and server environments
-def _is_headless() -> bool:
-    """Detect if running in a headless environment without a display."""
-    # Check for explicit environment variable override
-    if os.environ.get("TPSPLOTS_HEADLESS", "").lower() in ("1", "true", "yes"):
-        return True
-    if os.environ.get("TPSPLOTS_HEADLESS", "").lower() in ("0", "false", "no"):
-        return False
-
-    # On Linux/Unix, check for DISPLAY environment variable
-    if sys.platform.startswith("linux") or sys.platform == "darwin":
-        if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
-            return True
-
-    # Check for common CI/CD environment variables
-    ci_vars = ["CI", "GITHUB_ACTIONS", "GITLAB_CI", "JENKINS_URL", "CIRCLECI"]
-    return bool(any(os.environ.get(var) for var in ci_vars))
-
-
 def _configure_matplotlib():
+    """Use a single non-interactive backend for all package rendering."""
     import matplotlib
 
-    if _is_headless():
-        matplotlib.use("Agg")
+    # tpsplots only renders charts to files or HTTP responses. Forcing Agg
+    # avoids GUI FigureManager creation and keeps preview rendering safe in
+    # worker threads on macOS and other desktop platforms.
+    matplotlib.use("Agg")
 
     import matplotlib.font_manager as fm
     import matplotlib.pyplot as plt
