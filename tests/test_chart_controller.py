@@ -200,6 +200,53 @@ class TestBuildMetadataSource:
         assert "source" not in metadata
 
 
+# ── Column sums from df.attrs ──
+
+
+class TestBuildMetadataColumnSumsAttr:
+    """Tests for column_sums dict in df.attrs flowing through to metadata."""
+
+    def test_column_sums_attr_surfaces_as_nested_dict(self, controller):
+        df = pd.DataFrame({"Fiscal Year": [2020, 2021]})
+        df.attrs["column_sums"] = {"Budget": 300.0}
+        metadata = controller._build_metadata(df)
+        assert metadata["column_sums"] == {"Budget": 300.0}
+
+    def test_multiple_sums_preserved_in_dict(self, controller):
+        df = pd.DataFrame({"Fiscal Year": [2020]})
+        df.attrs["column_sums"] = {"Budget": 100.0, "Amount": 50.0}
+        metadata = controller._build_metadata(df)
+        assert metadata["column_sums"]["Budget"] == 100.0
+        assert metadata["column_sums"]["Amount"] == 50.0
+
+    def test_empty_column_sums_omits_key(self, controller):
+        df = pd.DataFrame({"Fiscal Year": [2020]})
+        df.attrs["column_sums"] = {}
+        metadata = controller._build_metadata(df)
+        assert "column_sums" not in metadata
+
+    def test_missing_column_sums_attr_omits_key(self, controller):
+        df = pd.DataFrame({"Fiscal Year": [2020]})
+        metadata = controller._build_metadata(df)
+        assert "column_sums" not in metadata
+
+    def test_existing_fy_and_inflation_keys_unaffected(self, controller):
+        df = pd.DataFrame({"Fiscal Year": [2020, 2021]})
+        df.attrs["inflation_target_year"] = 2025
+        df.attrs["column_sums"] = {"Budget": 500.0}
+        metadata = controller._build_metadata(df)
+        assert metadata["max_fiscal_year"] == 2021
+        assert metadata["inflation_adjusted_year"] == 2025
+        assert metadata["column_sums"]["Budget"] == 500.0
+
+    def test_non_column_sums_attrs_not_copied(self, controller):
+        df = pd.DataFrame({"Fiscal Year": [2020]})
+        df.attrs["something_else"] = "ignored"
+        df.attrs["column_sums"] = {}
+        metadata = controller._build_metadata(df)
+        assert "something_else" not in metadata
+
+
 # ── Standalone _add_inflation_adjusted_year_metadata ──
 
 

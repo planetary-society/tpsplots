@@ -10,6 +10,8 @@ from tpsplots.data_sources.apollo_data_source import (
     FacilitiesConstructionSpending,
     ProjectGemini,
     RoboticLunarProgramSpending,
+    SaturnLaunchVehicles,
+    _ApolloBase,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,7 +50,7 @@ class Apollo(ChartController):
 
     def _spending_result(
         self,
-        source_cls: type,
+        source_cls: type[_ApolloBase],
         fiscal_year_col: str,
         source_label: str,
     ) -> dict:
@@ -59,9 +61,10 @@ class Apollo(ChartController):
         )
 
         df = source_cls().data()
+        monetary_columns = source_cls.MONETARY_COLUMNS
 
         inflation_config = InflationAdjustmentConfig(
-            nnsi_columns=source_cls.MONETARY_COLUMNS,
+            nnsi_columns=monetary_columns,
         )
         df = InflationAdjustmentProcessor(inflation_config).process(df)
 
@@ -69,7 +72,7 @@ class Apollo(ChartController):
         result[fiscal_year_col] = df[fiscal_year_col]
 
         export_cols = [fiscal_year_col]
-        for col in source_cls.MONETARY_COLUMNS:
+        for col in monetary_columns:
             adjusted_col = f"{col}_adjusted_nnsi"
             has_adjusted = adjusted_col in df.columns
 
@@ -152,4 +155,12 @@ class Apollo(ChartController):
             FacilitiesConstructionSpending,
             fiscal_year_col="Year",
             source_label="NASA Historical Data Book, Apollo Facilities Construction",
+        )
+
+    def launch_vehicles_spending(self) -> dict:
+        """Return Saturn-family launch vehicle development costs with NNSI adjustment."""
+        return self._spending_result(
+            SaturnLaunchVehicles,
+            fiscal_year_col="Fiscal Year",
+            source_label="NASA Historical Data Book, Saturn-family launch vehicle development costs",
         )

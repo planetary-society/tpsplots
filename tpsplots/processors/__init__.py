@@ -16,6 +16,7 @@ from tpsplots.processors.calculated_column_processor import (
     ColumnCalculation,
     register_calculation,
 )
+from tpsplots.processors.column_sum_processor import ColumnSumConfig, ColumnSumProcessor
 from tpsplots.processors.dataframe_to_yaml_processor import (
     DataFrameToYAMLConfig,
     DataFrameToYAMLProcessor,
@@ -43,6 +44,8 @@ __all__ = [
     "CalculatedColumnConfig",
     "CalculatedColumnProcessor",
     "ColumnCalculation",
+    "ColumnSumConfig",
+    "ColumnSumProcessor",
     "DataFrameToYAMLConfig",
     "DataFrameToYAMLProcessor",
     "FiscalYearConfig",

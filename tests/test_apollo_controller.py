@@ -8,7 +8,7 @@ Tests focus on:
 - Export DataFrame is built correctly
 
 Covers: program_spending, robotic_lunar_spending, gemini_spending,
-        facilities_construction_spending.
+        facilities_construction_spending, launch_vehicles.
 """
 
 from unittest.mock import MagicMock, patch
@@ -436,3 +436,95 @@ class TestFacilitiesConstructionSpending:
         for col in FACILITIES_MONETARY:
             assert col in export_df.columns
             assert f"{col}_adjusted_nnsi" in export_df.columns
+
+
+# ────────────────────────── Saturn Launch Vehicles ──────────────────────────
+
+LAUNCH_VEHICLE_MONETARY = [
+    "Saturn Launch Vehicles",
+    "Saturn C-I/I",
+    "Saturn IB",
+    "Saturn V",
+    "Engine Development",
+    "Support, Development, & Operations",
+]
+
+
+@pytest.fixture()
+def launch_vehicles_result():
+    """Run launch_vehicles_spending() with mocked Apollo data source."""
+    fixture_df = pd.DataFrame(
+        {
+            "Fiscal Year": pd.to_datetime(["1961-01-01", "1962-01-01"]),
+            "Saturn Launch Vehicles": [10_000_000.0, 40_000_000.0],
+            "Saturn C-I/I": [10_000_000.0, 12_000_000.0],
+            "Saturn IB": [0.0, 8_000_000.0],
+            "Saturn V": [0.0, 15_000_000.0],
+            "Engine Development": [0.0, 3_000_000.0],
+            "Support, Development, & Operations": [0.0, 2_000_000.0],
+            "CSM": [1_000_000.0, 2_000_000.0],
+        }
+    )
+
+    mock_apollo = MagicMock()
+    mock_apollo.data.return_value = fixture_df.copy()
+
+    mock_processor = MagicMock()
+    mock_processor.process = _mock_inflation_processor(LAUNCH_VEHICLE_MONETARY)
+
+    with (
+        patch("tpsplots.controllers.apollo_controller.ApolloSpending", return_value=mock_apollo),
+        patch(
+            "tpsplots.processors.InflationAdjustmentProcessor",
+            return_value=mock_processor,
+        ),
+    ):
+        from tpsplots.controllers.apollo_controller import Apollo
+
+        yield Apollo().launch_vehicles_spending()
+
+
+class TestLaunchVehicles:
+    """Tests for ApolloController.launch_vehicles_spending()."""
+
+    def test_has_data_key(self, launch_vehicles_result):
+        assert "data" in launch_vehicles_result
+        assert isinstance(launch_vehicles_result["data"], pd.DataFrame)
+
+    def test_has_fiscal_year(self, launch_vehicles_result):
+        assert "Fiscal Year" in launch_vehicles_result
+        assert pd.api.types.is_datetime64_any_dtype(launch_vehicles_result["Fiscal Year"])
+
+    def test_includes_only_launch_vehicle_columns(self, launch_vehicles_result):
+        result_df = launch_vehicles_result["data"]
+        expected_columns = {
+            "Fiscal Year",
+            *LAUNCH_VEHICLE_MONETARY,
+            *{f"{col}_adjusted_nnsi" for col in LAUNCH_VEHICLE_MONETARY},
+        }
+        assert set(result_df.columns) == expected_columns
+        assert "CSM" not in result_df.columns
+
+    def test_nominal_and_adjusted_columns_present(self, launch_vehicles_result):
+        for col in LAUNCH_VEHICLE_MONETARY:
+            assert col in launch_vehicles_result
+            assert f"{col}_adjusted_nnsi" in launch_vehicles_result
+
+    def test_total_sum(self, launch_vehicles_result):
+        assert launch_vehicles_result["Saturn Launch Vehicles_sum"] == 50_000_000
+
+    def test_metadata_keys(self, launch_vehicles_result):
+        meta = launch_vehicles_result["metadata"]
+        assert meta["min_fiscal_year"] == 1961
+        assert meta["max_fiscal_year"] == 1962
+        assert meta["inflation_adjusted_year"] == INFLATION_TARGET_YEAR
+        assert "Saturn" in meta["source"]
+
+    def test_export_df(self, launch_vehicles_result):
+        export_df = launch_vehicles_result["export_df"]
+        expected_columns = {
+            "Fiscal Year",
+            *LAUNCH_VEHICLE_MONETARY,
+            *{f"{col}_adjusted_nnsi" for col in LAUNCH_VEHICLE_MONETARY},
+        }
+        assert set(export_df.columns) == expected_columns

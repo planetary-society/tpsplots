@@ -204,3 +204,30 @@ class FacilitiesConstructionSpending(_ApolloBase):
 
     def __init__(self) -> None:
         super().__init__(self.CSV_URL)
+
+
+class SaturnLaunchVehicles(ApolloSpending):
+    """Saturn-family launch vehicle development costs (subset of ApolloSpending).
+
+    Narrows the full Apollo spending sheet to the Saturn launch vehicle columns
+    only, using the same CSV source and row-skip logic as ``ApolloSpending``.
+    """
+
+    COLUMNS: ClassVar[list[str]] = [
+        "Fiscal Year",
+        "Saturn Launch Vehicles",
+        "Saturn C-I/I",
+        "Saturn IB",
+        "Saturn V",
+        "Engine Development",
+        "Support, Development, & Operations",
+    ]
+
+    MONETARY_COLUMNS: ClassVar[list[str]] = [
+        "Saturn Launch Vehicles",
+        "Saturn C-I/I",
+        "Saturn IB",
+        "Saturn V",
+        "Engine Development",
+        "Support, Development, & Operations",
+    ]

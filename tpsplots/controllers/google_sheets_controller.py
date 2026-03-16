@@ -101,16 +101,7 @@ class GoogleSheetsController(ChartController):
                 f"Loaded Google Sheets data from {normalized_url} ({len(df)} rows, {len(df.columns)} columns)"
             )
 
-            # Use base class method to build result dictionary
-            result = self._build_result_dict(df)
-            result["metadata"] = self._build_metadata(
-                df,
-                fiscal_year_col=self._resolve_fiscal_year_metadata_column(
-                    df,
-                    self.fiscal_year_column,
-                ),
-            )
-            return result
+            return self._build_load_result(df, self.fiscal_year_column)
 
         except Exception as e:
             raise DataSourceError(
