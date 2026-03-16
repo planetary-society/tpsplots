@@ -143,9 +143,20 @@ class ChartController:
         return upper_value + (multiple - remainder)
 
     def _export_helper(
-        self, original_df: pd.DataFrame, columns_to_export: list[str]
+        self,
+        original_df: pd.DataFrame,
+        columns_to_export: list[str],
+        rounding: dict[str, int] | None = None,
     ) -> pd.DataFrame:
-        """Helper method to prepare columns for export, assuming it will mostly be Fiscal Year and dollar amounts"""
+        """Prepare columns for export with per-column rounding control.
+
+        Args:
+            original_df: Source DataFrame.
+            columns_to_export: Column names to include in the export.
+            rounding: Optional dict mapping column names to decimal precision.
+                Columns not listed default to ``round(2)``.  Pass e.g.
+                ``{"YOY % FTE Change": 4}`` to keep four decimal places.
+        """
         export_df = original_df[columns_to_export].copy().reset_index(drop=True)
 
         if "Fiscal Year" in columns_to_export:
@@ -162,7 +173,10 @@ class ChartController:
             if col == "Fiscal Year":
                 continue
             numeric_series = pd.to_numeric(export_df[col], errors="coerce")
-            export_df[col] = numeric_series.round(0)
+            if numeric_series.isna().all():
+                continue  # Skip purely non-numeric columns (e.g. labels)
+            precision = rounding.get(col, 2) if rounding else 2
+            export_df[col] = numeric_series.round(precision)
         return export_df
 
     def _build_metadata(
