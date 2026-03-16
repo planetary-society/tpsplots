@@ -31,7 +31,7 @@ class LollipopChartConfig(
     Inherits shared fields from mixins:
     - AxisMixin: xlim, ylim, xlabel, ylabel, tick_rotation, tick_size, label_size
     - GridMixin: grid, grid_axis
-    - TickFormatMixin: x_tick_format, y_tick_format, fiscal_year_ticks, max_xticks
+    - TickFormatMixin: x_tick_format, y_tick_format, fiscal_year_ticks, max_xticks, integer_xticks
     - ScaleMixin: scale, axis_scale
     - SortMixin: sort_by, sort_ascending
     - ChartConfigBase: output, title, subtitle, source, figsize, dpi, export_data,

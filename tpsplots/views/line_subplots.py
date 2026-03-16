@@ -8,6 +8,7 @@ import numpy as np
 from tpsplots.models.charts.line_subplots import LineSubplotsChartConfig
 
 from .chart_view import ChartView
+from .line_chart import _is_integer_x_data
 from .mixins import GridAxisMixin, LineSeriesMixin
 
 logger = logging.getLogger(__name__)
@@ -277,6 +278,7 @@ class LineSubplotsView(LineSeriesMixin, GridAxisMixin, ChartView):
         xticks = kwargs.get("xticks")
         xticklabels = kwargs.get("xticklabels")
         max_xticks = kwargs.get("max_xticks", style.get("max_ticks"))
+        integer_xticks = kwargs.get("integer_xticks")
         fiscal_year_ticks = kwargs.get("fiscal_year_ticks", True)
         tick_format_kwargs = dict(kwargs)
         x_tick_format, y_tick_format = self._pop_axis_tick_format_kwargs(tick_format_kwargs)
@@ -321,7 +323,10 @@ class LineSubplotsView(LineSeriesMixin, GridAxisMixin, ChartView):
 
             # Set tick locators if needed
             if max_xticks:
-                ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
+                use_integer = (
+                    integer_xticks if integer_xticks is not None else _is_integer_x_data(x_data)
+                )
+                ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks, integer=use_integer))
 
         scaled_x = False
         scaled_y = False
@@ -347,7 +352,7 @@ class LineSubplotsView(LineSeriesMixin, GridAxisMixin, ChartView):
             ax.set_xticks(xticks)
             if xticklabels is not None:
                 ax.set_xticklabels(xticklabels)
-            elif all(isinstance(x, (int, float)) and float(x).is_integer() for x in xticks):
+            elif _is_integer_x_data(xticks):
                 ax.set_xticklabels([f"{int(x)}" for x in xticks])
 
         self._apply_tick_format_specs(

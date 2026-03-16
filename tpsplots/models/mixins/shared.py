@@ -135,6 +135,14 @@ class TickFormatMixin(BaseModel):
             "For categorical axes, calculates step = len(categories) // max_xticks + 1"
         ),
     )
+    integer_xticks: bool | None = Field(
+        None,
+        description=(
+            "Control integer-only x-axis ticks for numeric axes. "
+            "None (default): auto-detects — uses integer ticks when all x values are integer-valued. "
+            "True: always use integer ticks. False: allow fractional steps (disables auto-detection)."
+        ),
+    )
 
 
 class ScaleMixin(BaseModel):

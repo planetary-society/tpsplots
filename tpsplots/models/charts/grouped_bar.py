@@ -47,7 +47,7 @@ class GroupedBarChartConfig(
     - AxisMixin: xlim, ylim, xlabel, ylabel, tick_rotation, tick_size, label_size
     - GridMixin: grid, grid_axis
     - LegendMixin: legend
-    - TickFormatMixin: x_tick_format, y_tick_format, fiscal_year_ticks, max_xticks
+    - TickFormatMixin: x_tick_format, y_tick_format, fiscal_year_ticks, max_xticks, integer_xticks
     - ScaleMixin: scale, axis_scale
     - ValueDisplayMixin: show_values, value_format, value_suffix, value_offset,
       value_fontsize, value_color, value_weight

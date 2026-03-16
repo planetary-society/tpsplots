@@ -16,6 +16,27 @@ from .mixins import DirectLineLabelsMixin, GridAxisMixin, LineSeriesMixin
 logger = logging.getLogger(__name__)
 
 
+def _is_integer_x_data(x_data) -> bool:
+    """Return True if all x values are integer-valued (int dtype or whole-number floats)."""
+    if x_data is None or len(x_data) == 0:
+        return False
+    if isinstance(x_data, pd.Series):
+        if pd.api.types.is_integer_dtype(x_data):
+            return True
+        if pd.api.types.is_float_dtype(x_data):
+            return bool((x_data % 1 == 0).all())
+        return False
+    if isinstance(x_data, np.ndarray):
+        if np.issubdtype(x_data.dtype, np.integer):
+            return True
+        if np.issubdtype(x_data.dtype, np.floating):
+            return bool((x_data % 1 == 0).all())
+        return False
+    return all(
+        isinstance(v, int) or (isinstance(v, float) and float(v).is_integer()) for v in x_data
+    )
+
+
 class SeriesTypeStyle(TypedDict, total=False):
     """Type definition for series type style configuration."""
 
@@ -692,6 +713,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         xticks = kwargs.pop("xticks", None)
         xticklabels = kwargs.pop("xticklabels", None)
         max_xticks = kwargs.pop("max_xticks", style.get("max_ticks"))
+        integer_xticks = kwargs.pop("integer_xticks", None)
         x_tick_format, y_tick_format = self._pop_axis_tick_format_kwargs(kwargs)
         x_data = kwargs.pop("x_data", None)
 
@@ -725,6 +747,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             "xticks": xticks,
             "xticklabels": xticklabels,
             "max_xticks": max_xticks,
+            "integer_xticks": integer_xticks,
             "x_tick_format": x_tick_format,
             "y_tick_format": y_tick_format,
             "x_data": x_data,
@@ -809,6 +832,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         tick_rotation = opts["tick_rotation"]
         tick_size = opts["tick_size"]
         max_xticks = opts["max_xticks"]
+        integer_xticks = opts["integer_xticks"]
         fiscal_year_ticks = opts["fiscal_year_ticks"]
 
         if fiscal_year_ticks and x_data is not None and self._contains_dates(x_data):
@@ -829,7 +853,10 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             x_data is not None and len(x_data) > 0 and isinstance(next(iter(x_data)), str)
         )
         if max_xticks and not is_categorical:
-            ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks))
+            use_integer = (
+                integer_xticks if integer_xticks is not None else _is_integer_x_data(x_data)
+            )
+            ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks, integer=use_integer))
         elif is_categorical and max_xticks and len(x_data) > max_xticks:
             step = len(x_data) // max_xticks + 1
             current_xlim = ax.get_xlim()
@@ -876,7 +903,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             ax.set_xticks(opts["xticks"])
             if opts["xticklabels"] is not None:
                 ax.set_xticklabels(opts["xticklabels"])
-            elif all(isinstance(x, (int, float)) and float(x).is_integer() for x in opts["xticks"]):
+            elif _is_integer_x_data(opts["xticks"]):
                 ax.set_xticklabels([f"{int(x)}" for x in opts["xticks"]])
 
         self._apply_tick_format_specs(
