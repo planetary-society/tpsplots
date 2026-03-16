@@ -182,7 +182,8 @@ class TestEscapeHatchConflicts:
             ctx = build_render_context(validated, data, log_conflicts=True)
 
         assert ctx.resolved_params["linewidth"] == 5  # escape hatch wins
-        assert "overlap" in caplog.text.lower() or "override" in caplog.text.lower()
+        warning_messages = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert any("matplotlib_config" in message and "linewidth" in message for message in warning_messages)
 
     def test_log_conflicts_false_silent(self, tmp_path, caplog):
         """With log_conflicts=False, overlapping keys should be silent."""
@@ -243,7 +244,8 @@ class TestExpandSeriesOverrides:
         with caplog.at_level("WARNING"):
             result = expand_series_overrides(params)
         assert "series_main" not in result
-        assert "non-numeric" in caplog.text.lower()
+        warning_messages = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert any("series_overrides" in message and "main" in message for message in warning_messages)
 
     def test_no_overrides_passthrough(self):
         params = {"x": [1, 2], "y": [3, 4]}
@@ -261,4 +263,5 @@ class TestExpandSeriesOverrides:
             result = expand_series_overrides(params)
         # series_overrides is popped then skipped — key is removed
         assert "series_overrides" not in result
-        assert "Expected series_overrides to be a dict" in caplog.text
+        warning_messages = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert any("series_overrides" in message and "dict" in message for message in warning_messages)

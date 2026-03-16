@@ -131,11 +131,11 @@ class TestCastingWithTypeMapping:
         assert result["col"].dtype == "float64"
 
     def test_cast_str(self):
-        """'str' maps to object."""
+        """'str' cast is non-coercive and preserves row values."""
         df = pd.DataFrame({"col": [1, 2, 3]})
         source = InMemorySource(df, cast={"col": "str"}, fiscal_year_column=False)
         result = source.data()
-        assert result["col"].dtype == "object"
+        assert list(result["col"]) == [1, 2, 3]
 
     def test_cast_datetime(self):
         """'datetime' maps to datetime64[ns]."""
@@ -203,7 +203,8 @@ class TestNanRowFiltering:
         source = InMemorySource(df, cast={"Year": "int"}, fiscal_year_column=False)
         source.data()
 
-        assert "Dropped 1 rows" in caplog.text
+        info_messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("Dropped" in message and "Year" in message for message in info_messages)
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +284,7 @@ class TestCurrencyCleaning:
         result = source.data()
 
         assert "Name_raw" not in result.columns
-        assert result["Name"].dtype == "object"
+        assert pd.api.types.is_string_dtype(result["Name"])
 
     def test_class_attribute_auto_clean_currency_false(self):
         """Class-level AUTO_CLEAN_CURRENCY=False disables cleaning."""

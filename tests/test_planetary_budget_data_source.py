@@ -151,7 +151,7 @@ def test_tab_name_property(mock_fetch_csv):
 def test_notes_column_not_treated_as_monetary(mock_fetch_csv):
     source = PlanetaryBudgetDataSource("Cassini")
     df = source.data()
-    assert df["Notes"].dtype == object
+    assert pd.api.types.is_string_dtype(df["Notes"])
 
 
 def test_official_lcc_not_scaled(mock_fetch_csv):

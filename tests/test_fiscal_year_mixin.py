@@ -1,7 +1,7 @@
 """Tests for FiscalYearMixin functionality."""
 
+import logging
 from datetime import datetime
-from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -176,18 +176,19 @@ class TestApplyFiscalYearConversion:
         assert result["Date"].iloc[0] == 2020
         assert result["Date"].iloc[1] == 2021
 
-    def test_warns_when_specified_column_not_found(self):
+    def test_warns_when_specified_column_not_found(self, caplog):
         """Should warn and return unchanged when specified column not found."""
         df = pd.DataFrame({"Year": [2020, 2021], "Amount": [100, 200]})
         mixin = ConcreteClass()
 
-        with patch("tpsplots.data_sources.fiscal_year_mixin.logger") as mock_logger:
+        with caplog.at_level(logging.WARNING):
             result = mixin._apply_fiscal_year_conversion(df, fiscal_year_column="NonExistent")
-            mock_logger.warning.assert_called_once()
 
         # Should return unchanged DataFrame
         assert result["Year"].iloc[0] == 2020
         assert result["Year"].iloc[1] == 2021
+        warning_messages = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert any("NonExistent" in message for message in warning_messages)
 
 
 class TestGoogleSheetsFiscalYearIntegration:

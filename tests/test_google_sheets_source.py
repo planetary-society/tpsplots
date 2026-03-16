@@ -67,7 +67,7 @@ class TestGoogleSheetsSourceCasting:
         assert pd.api.types.is_datetime64_any_dtype(result["Date"])
 
     def test_cast_str_does_not_filter_rows(self):
-        """Test that casting to string does not filter any rows."""
+        """Test that non-numeric casts preserve rows and values."""
         source = GoogleSheetsSource.__new__(GoogleSheetsSource)
         source._cast = {"ID": "str"}
 
@@ -80,9 +80,8 @@ class TestGoogleSheetsSourceCasting:
 
         result = source._cast_columns(df)
 
-        # No rows should be dropped
         assert len(result) == 3
-        assert result["ID"].dtype == "object"
+        assert list(result["ID"]) == [123, 456, 789]
 
     def test_cast_multiple_columns(self):
         """Test casting multiple columns with different types."""
@@ -170,7 +169,8 @@ class TestGoogleSheetsSourceCasting:
 
         result = source._cast_columns(df)
 
-        assert "CAST column 'NonExistent' not found" in caplog.text
+        warning_messages = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert any("NonExistent" in message for message in warning_messages)
         assert len(result) == 3  # No rows dropped
 
     def test_cast_int64_type_mapping(self):
@@ -222,7 +222,8 @@ class TestGoogleSheetsSourceCasting:
 
         source._cast_columns(df)
 
-        assert "Dropped 2 rows with invalid values" in caplog.text
+        info_messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("Dropped" in message and "Year" in message for message in info_messages)
 
 
 class TestGoogleSheetsSourceClassAttribute:

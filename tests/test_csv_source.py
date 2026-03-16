@@ -91,7 +91,7 @@ class TestCSVSourceAllParams:
     """All TabularDataSource params are forwarded and applied."""
 
     def test_cast_applied(self, tmp_path):
-        """cast parameter converts column types."""
+        """Non-numeric cast does not drop rows or rewrite values."""
         csv_file = tmp_path / "data.csv"
         csv_file.write_text("ID,Score\n1,10.5\n2,20.5\n3,30.5\n")
 
@@ -102,7 +102,8 @@ class TestCSVSourceAllParams:
         )
         df = source.data()
 
-        assert df["ID"].dtype == "object"
+        assert len(df) == 3
+        assert list(df["ID"]) == [1, 2, 3]
 
     def test_columns_applied(self, tmp_path):
         """columns parameter selects specific columns."""

@@ -252,7 +252,8 @@ class TestDataFrameTransforms:
         result = apply_column_cast(df, {"col": "unknown_type"})
         # Column should be unchanged
         assert list(result["col"]) == ["1", "2"]
-        assert "Unknown cast type 'unknown_type'" in caplog.text
+        warning_messages = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert any("unknown_type" in message and "col" in message for message in warning_messages)
 
     def test_apply_column_renames(self):
         """Test column renaming."""
