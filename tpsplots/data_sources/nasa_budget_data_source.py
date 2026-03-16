@@ -227,23 +227,18 @@ class NASABudget(FiscalYearMixin):
     # ── I/O helpers ────────────────────────────────────────────────
     @staticmethod
     def _fetch_url_content(url: str) -> str:
-        """
-        Fetch content from a URL.
-
-        Args:
-            url: The URL to fetch
-
-        Returns:
-            The text content of the response
-        """
+        """Fetch raw CSV text from a URL without parsing it first."""
         try:
-            # Try direct read first
-            return pd.read_csv(url).to_csv(index=False)
-        except (URLError, ssl.SSLError):
-            # If direct read fails, use requests
             response = requests.get(url, timeout=30, verify=certifi.where())
             response.raise_for_status()
             return response.text
+        except requests.exceptions.RequestException as exc:
+            raise URLError(str(exc)) from exc
+
+    def _read_remote_csv(self, url: str) -> pd.DataFrame:
+        """Read a remote CSV with a single pandas parse."""
+        text = self._fetch_url_content(url)
+        return pd.read_csv(io.StringIO(text))
 
     def _read_csv(self) -> pd.DataFrame:
         """
@@ -261,8 +256,7 @@ class NASABudget(FiscalYearMixin):
 
         # Check if it's a URL or local file
         if self._csv_source.startswith(("http://", "https://")):
-            text = self._fetch_url_content(self._csv_source)
-            df = pd.read_csv(io.StringIO(text))
+            df = self._read_remote_csv(self._csv_source)
         else:
             # Local file - read directly
             df = pd.read_csv(self._csv_source)

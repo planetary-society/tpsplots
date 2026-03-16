@@ -218,3 +218,35 @@ class TestCleanPercentageColumn:
         assert cleaned["% of U.S. Discretionary Spending"].iloc[0] == pytest.approx(1.90)
         assert pd.isna(cleaned["% of U.S. Discretionary Spending"].iloc[1])
         assert cleaned["% of U.S. Discretionary Spending"].iloc[2] == pytest.approx(2.00)
+
+
+class TestReadCsv:
+    """Tests for CSV loading behavior."""
+
+    @pytest.fixture(autouse=True)
+    def setup_nasa_budget(self):
+        """Get NASABudget class with mocked dependencies."""
+        self.NASABudget = get_nasa_budget_class()
+
+    def test_read_csv_reads_remote_source_once(self):
+        """Remote CSV sources should be parsed directly without a second round trip."""
+        budget = self.NASABudget("https://example.com/nasa-budget.csv")
+        csv_text = "Fiscal Year,Budget\n2024,10\n"
+        expected = pd.DataFrame({"Fiscal Year": [2024], "Budget": [10]})
+
+        with (
+            patch.object(
+                self.NASABudget,
+                "_fetch_url_content",
+                return_value=csv_text,
+            ) as mock_fetch,
+            patch(
+                "tpsplots.data_sources.nasa_budget_data_source.pd.read_csv",
+                return_value=expected,
+            ) as mock_read_csv,
+        ):
+            result = budget._read_csv()
+
+        assert result is expected
+        mock_fetch.assert_called_once_with("https://example.com/nasa-budget.csv")
+        assert mock_read_csv.call_count == 1
