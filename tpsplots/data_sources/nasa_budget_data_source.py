@@ -610,4 +610,10 @@ class Workforce(NASABudget):
                     .astype("Int64")
                 )
 
+        # Compute year-over-year FTE changes (requires sorted fiscal years)
+        fte_col = "Full-time Equivalent (FTE)"
+        if fte_col in df.columns:
+            df["YOY FTE Change"] = df[fte_col].diff().astype("Int64")
+            df["YOY % FTE Change"] = df[fte_col].pct_change()
+
         return df

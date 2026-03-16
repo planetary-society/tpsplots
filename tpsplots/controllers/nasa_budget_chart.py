@@ -6,7 +6,7 @@ from datetime import datetime
 import pandas as pd
 
 from tpsplots.controllers.chart_controller import ChartController
-from tpsplots.data_sources.nasa_budget_data_source import Directorates, Historical
+from tpsplots.data_sources.nasa_budget_data_source import Directorates, Historical, Workforce
 
 logger = logging.getLogger(__name__)
 
@@ -39,15 +39,13 @@ class NASABudgetChart(ChartController):
         # Drop rows where primary right-axis series is invalid.
         df = df[df[spending_col].notna()].copy()
 
-        # Keep export data in chart-ready units (no integer rounding for percentages).
         export_cols = [
             "Fiscal Year",
             "Appropriation_adjusted_nnsi",
             spending_col,
             discretionary_col,
         ]
-        export_df = df[export_cols].copy().reset_index(drop=True)
-        export_df["Fiscal Year"] = pd.to_datetime(export_df["Fiscal Year"]).dt.strftime("%Y")
+        export_df = self._export_helper(df, export_cols)
 
         metadata = self._build_metadata(
             df,
@@ -343,3 +341,71 @@ class NASABudgetChart(ChartController):
         result["export_df"] = export_df
 
         return result
+
+    def workforce(self) -> dict:
+        """Return NASA workforce headcount data with year-over-year changes.
+
+        Returns:
+            dict with keys:
+                - fiscal_year: Series of fiscal years as datetime
+                - fte: Series of Full-time Equivalent counts
+                - ftp: Series of Full-time Permanent counts
+                - yoy_fte_change: Series of year-over-year FTE change (absolute)
+                - yoy_pct_fte_change: Series of year-over-year FTE change (decimal fraction)
+                - export_df: DataFrame for CSV export
+                - metadata: dict with fiscal year ranges, per-column min/max/FY stats,
+                  and peak/trough fiscal years (which FY had the highest/lowest value)
+        """
+        df = Workforce().data()
+
+        export_cols = [
+            "Fiscal Year",
+            "Full-time Permanent (FTP)",
+            "Full-time Equivalent (FTE)",
+            "YOY FTE Change",
+            "YOY % FTE Change",
+        ]
+        export_df = self._export_helper(df, export_cols, rounding={"YOY % FTE Change": 4})
+
+        # Build standard metadata with per-column FY ranges and value stats
+        metadata = self._build_metadata(
+            df,
+            fiscal_year_col="Fiscal Year",
+            value_columns={
+                "fte": "Full-time Equivalent (FTE)",
+                "ftp": "Full-time Permanent (FTP)",
+                "yoy_fte_change": "YOY FTE Change",
+                "yoy_pct_fte_change": "YOY % FTE Change",
+            },
+            source="NASA Workforce Data",
+        )
+
+        # Add fiscal years where peak/trough occurred.
+        # (The peak/trough *values* are already in max_{label}/min_{label} from
+        # _build_metadata; these keys add the *when* — which FY had the extremum.)
+        for label, col in [
+            ("fte", "Full-time Equivalent (FTE)"),
+            ("ftp", "Full-time Permanent (FTP)"),
+        ]:
+            valid = df[df[col].notna()]
+            if not valid.empty:
+                fy = valid["Fiscal Year"]
+                metadata[f"peak_{label}_fiscal_year"] = int(
+                    fy.loc[valid[col].idxmax()].strftime("%Y")
+                )
+                metadata[f"trough_{label}_fiscal_year"] = int(
+                    fy.loc[valid[col].idxmin()].strftime("%Y")
+                )
+
+        return {
+            "data": df,
+            # Core data columns
+            "fiscal_year": df["Fiscal Year"],
+            "fte": df["Full-time Equivalent (FTE)"],
+            "ftp": df["Full-time Permanent (FTP)"],
+            "yoy_fte_change": df["YOY FTE Change"],
+            "yoy_pct_fte_change": df["YOY % FTE Change"],
+            # Export and metadata
+            "export_df": export_df,
+            "metadata": metadata,
+        }
