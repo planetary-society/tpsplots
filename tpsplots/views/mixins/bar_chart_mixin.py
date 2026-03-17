@@ -64,6 +64,10 @@ class BarChartMixin:
             # Fallback to default
             return [self.TPS_COLORS["Neptune Blue"]] * num_bars
 
+    def _format_value_label(self, value, format_type, prefix="", suffix=""):
+        """Format a value with optional prefix and suffix."""
+        return prefix + self._format_value(value, format_type) + suffix
+
     def _add_bar_value_labels(
         self,
         ax,
@@ -77,6 +81,7 @@ class BarChartMixin:
         color,
         weight,
         baseline=0,
+        value_prefix="",
     ):
         """
         Add value labels to each bar.
@@ -104,8 +109,9 @@ class BarChartMixin:
                 value_offset = value_range * 0.02
 
         for bar, value in zip(bars, values, strict=False):
-            # Format the value
-            formatted_value = self._format_value(value, value_format) + value_suffix
+            formatted_value = self._format_value_label(
+                value, value_format, prefix=value_prefix, suffix=value_suffix
+            )
 
             if orientation == "vertical":
                 # Position label above or below bar depending on value
@@ -146,7 +152,9 @@ class BarChartMixin:
                     weight=weight,
                 )
 
-    def _add_value_based_legend(self, ax, values, positive_color, negative_color, style):
+    def _add_value_based_legend(
+        self, ax, values, positive_color, negative_color, style, legend_config=True
+    ):
         """
         Add legend for positive/negative value colors.
 
@@ -156,6 +164,7 @@ class BarChartMixin:
             positive_color: Color for positive values
             negative_color: Color for negative values
             style: Style dictionary with legend_size
+            legend_config: True for defaults, string for loc, or dict for ax.legend kwargs
         """
         legend_elements = []
         legend_labels = []
@@ -176,12 +185,12 @@ class BarChartMixin:
             legend_labels.append("Negative")
 
         if legend_elements:
-            ax.legend(
-                legend_elements,
-                legend_labels,
-                loc="upper right",
-                fontsize=style.get("legend_size", 12),
-            )
+            legend_kwargs = {"loc": "best", "fontsize": style.get("legend_size", 12)}
+            if isinstance(legend_config, dict):
+                legend_kwargs.update(legend_config)
+            elif isinstance(legend_config, str):
+                legend_kwargs["loc"] = legend_config
+            ax.legend(legend_elements, legend_labels, **legend_kwargs)
 
     def _apply_percentage_tick_formatter(self, ax, orientation):
         """

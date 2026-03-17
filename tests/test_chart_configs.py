@@ -238,8 +238,97 @@ class TestModelAcceptance:
             groups=[{"values": "{{g1}}"}],
             labels=["G1"],
             show_values=True,
+            category_label_format="year",
         )
         assert config.type == "grouped_bar"
+
+    def test_bar_accepts_category_label_format(self):
+        config = BarChartConfig(
+            type="bar",
+            output="test",
+            title="T",
+            categories="{{cats}}",
+            values="{{values}}",
+            category_label_format="%Y",
+        )
+        assert config.category_label_format == "%Y"
+
+    def test_stacked_bar_accepts_category_label_format(self):
+        config = StackedBarChartConfig(
+            type="stacked_bar",
+            output="test",
+            title="T",
+            categories="{{cats}}",
+            values={"One": "{{values}}"},
+            category_label_format="year",
+        )
+        assert config.category_label_format == "year"
+
+    def test_bar_family_accepts_value_axis_tick_visibility_fields(self):
+        bar = BarChartConfig(
+            type="bar",
+            output="test",
+            title="T",
+            categories="{{cats}}",
+            values="{{values}}",
+            show_yticks=False,
+        )
+        stacked = StackedBarChartConfig(
+            type="stacked_bar",
+            output="test",
+            title="T",
+            categories="{{cats}}",
+            values={"One": "{{values}}"},
+            orientation="horizontal",
+            show_xticks=False,
+        )
+        grouped = GroupedBarChartConfig(
+            type="grouped_bar",
+            output="test",
+            title="T",
+            categories="{{cats}}",
+            groups=[{"values": "{{g1}}"}],
+            show_yticks=False,
+        )
+
+        assert bar.show_yticks is False
+        assert stacked.show_xticks is False
+        assert grouped.show_yticks is False
+
+    def test_bar_rejects_show_xticks_on_vertical_orientation(self):
+        with pytest.raises(ValidationError, match="show_xticks is only supported"):
+            BarChartConfig(
+                type="bar",
+                output="test",
+                title="T",
+                categories="{{cats}}",
+                values="{{values}}",
+                orientation="vertical",
+                show_xticks=False,
+            )
+
+    def test_stacked_bar_rejects_show_yticks_on_horizontal_orientation(self):
+        with pytest.raises(ValidationError, match="show_yticks is only supported"):
+            StackedBarChartConfig(
+                type="stacked_bar",
+                output="test",
+                title="T",
+                categories="{{cats}}",
+                values={"One": "{{values}}"},
+                orientation="horizontal",
+                show_yticks=False,
+            )
+
+    def test_grouped_bar_rejects_show_xticks(self):
+        with pytest.raises(ValidationError, match="show_xticks is only supported"):
+            GroupedBarChartConfig(
+                type="grouped_bar",
+                output="test",
+                title="T",
+                categories="{{cats}}",
+                groups=[{"values": "{{g1}}"}],
+                show_xticks=False,
+            )
 
     def test_us_map_pie_accepts_fields(self):
         config = USMapPieChartConfig(
@@ -325,6 +414,42 @@ class TestRejection:
                 output="t",
                 title="t",
                 **{alias_field: alias_value},
+            )
+
+    @pytest.mark.parametrize(
+        "config_cls", [BarChartConfig, GroupedBarChartConfig, StackedBarChartConfig]
+    )
+    def test_bar_family_rejects_axis_scale(self, config_cls):
+        with pytest.raises(ValidationError):
+            config_cls(
+                type=config_cls.model_fields["type"].default,
+                output="t",
+                title="t",
+                **{"axis_scale": "y"},
+            )
+
+    @pytest.mark.parametrize(
+        "config_cls", [BarChartConfig, GroupedBarChartConfig, StackedBarChartConfig]
+    )
+    def test_bar_family_rejects_max_xticks(self, config_cls):
+        with pytest.raises(ValidationError):
+            config_cls(
+                type=config_cls.model_fields["type"].default,
+                output="t",
+                title="t",
+                **{"max_xticks": 5},
+            )
+
+    @pytest.mark.parametrize(
+        "config_cls", [BarChartConfig, GroupedBarChartConfig, StackedBarChartConfig]
+    )
+    def test_bar_family_rejects_fiscal_year_ticks(self, config_cls):
+        with pytest.raises(ValidationError):
+            config_cls(
+                type=config_cls.model_fields["type"].default,
+                output="t",
+                title="t",
+                **{"fiscal_year_ticks": True},
             )
 
 

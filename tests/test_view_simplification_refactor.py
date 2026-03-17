@@ -3,6 +3,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import pytest
 
 from tpsplots.views.line_chart import LineChartView
 from tpsplots.views.line_subplots import LineSubplotsView
@@ -170,8 +171,30 @@ def test_grouped_bar_shows_y_axis_by_default(tmp_path):
     ax = fig.axes[0]
     fig.canvas.draw()
 
-    assert ax.spines["left"].get_visible()
     assert any(tick.get_text() for tick in ax.get_yticklabels())
+
+
+def test_grouped_bar_defaults_match_bar_family_contract(tmp_path):
+    """Grouped bar should use the shared default grid/legend/show-values contract."""
+    from tpsplots.views.grouped_bar_chart import GroupedBarChartView
+
+    view = GroupedBarChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Grouped Defaults"},
+        style=view.DESKTOP,
+        categories=["A", "B", "C"],
+        groups=[
+            {"label": "First", "values": [10, 20, 30]},
+            {"label": "Second", "values": [12, 22, 32]},
+        ],
+    )
+    ax = fig.axes[0]
+    fig.canvas.draw()
+
+    assert any(line.get_visible() for line in ax.get_ygridlines())
+    assert ax.get_legend() is not None
+    assert ax.get_legend()._loc == 0
+    assert not ax.texts
 
 
 def test_grouped_bar_y_axis_matches_default_chart_style(tmp_path):
@@ -203,11 +226,12 @@ def test_grouped_bar_y_axis_matches_default_chart_style(tmp_path):
     if expected_label_color == "inherit":
         expected_label_color = plt.rcParams["axes.labelcolor"]
 
-    assert grouped_ax.spines["left"].get_visible()
-    assert grouped_ax.spines["left"].get_linewidth() == plt.rcParams["axes.linewidth"]
-    assert grouped_ax.spines["left"].get_edgecolor() == plt.matplotlib.colors.to_rgba(
-        plt.rcParams["axes.edgecolor"]
-    )
+    assert grouped_ax.spines["left"].get_visible() == plt.rcParams["axes.spines.left"]
+    if grouped_ax.spines["left"].get_visible():
+        assert grouped_ax.spines["left"].get_linewidth() == plt.rcParams["axes.linewidth"]
+        assert grouped_ax.spines["left"].get_edgecolor() == plt.matplotlib.colors.to_rgba(
+            plt.rcParams["axes.edgecolor"]
+        )
     assert grouped_ax.yaxis.label.get_fontstyle() == "italic"
     assert grouped_ax.get_yticklabels()[0].get_fontsize() == grouped_view.DESKTOP["tick_size"]
     assert grouped_tick.tick1line.get_visible()
@@ -215,6 +239,80 @@ def test_grouped_bar_y_axis_matches_default_chart_style(tmp_path):
     assert grouped_tick.tick1line.get_markeredgewidth() == plt.rcParams["ytick.major.width"]
     assert grouped_tick.tick1line.get_color() == plt.rcParams["ytick.color"]
     assert grouped_ax.get_yticklabels()[0].get_color() == expected_label_color
+
+
+def test_bar_family_value_axis_matches_default_styling(tmp_path):
+    """Bar-family charts should inherit the default matplotlib value-axis styling."""
+    from tpsplots.views.bar_chart import BarChartView
+    from tpsplots.views.grouped_bar_chart import GroupedBarChartView
+    from tpsplots.views.stacked_bar_chart import StackedBarChartView
+
+    chart_cases = [
+        (
+            BarChartView,
+            {
+                "categories": ["A", "B"],
+                "values": [10, 20],
+                "legend": False,
+            },
+        ),
+        (
+            GroupedBarChartView,
+            {
+                "categories": ["A", "B"],
+                "groups": [
+                    {"label": "First", "values": [10, 20]},
+                    {"label": "Second", "values": [12, 22]},
+                ],
+                "legend": False,
+            },
+        ),
+        (
+            StackedBarChartView,
+            {
+                "categories": ["A", "B"],
+                "values": {"One": [10, 20], "Two": [5, 15]},
+                "legend": False,
+            },
+        ),
+    ]
+
+    with plt.rc_context(
+        {
+            "axes.spines.left": False,
+            "axes.linewidth": 2.0,
+            "axes.edgecolor": "#414141",
+            "ytick.major.width": 1.3,
+            "ytick.major.size": 6.0,
+            "ytick.color": "#414141",
+            "ytick.labelcolor": "#414141",
+        }
+    ):
+        ref_fig, ref_ax = plt.subplots()
+        ref_ax.plot([0, 1], [0, 1])
+        ref_ax.set_ylabel("Value")
+        ref_fig.canvas.draw()
+
+        ref_tick = ref_ax.yaxis.get_major_ticks()[0]
+        for view_cls, kwargs in chart_cases:
+            view = view_cls(outdir=tmp_path, style_file=None)
+            fig = view._create_chart(
+                metadata={"title": "Axis RC"},
+                style=view.DESKTOP,
+                **kwargs,
+            )
+            ax = fig.axes[0]
+            fig.canvas.draw()
+            tick = ax.yaxis.get_major_ticks()[0]
+
+            assert ax.spines["left"].get_visible() == ref_ax.spines["left"].get_visible()
+            assert ax.spines["left"].get_linewidth() == ref_ax.spines["left"].get_linewidth()
+            assert ax.spines["left"].get_edgecolor() == ref_ax.spines["left"].get_edgecolor()
+            assert tick.tick1line.get_visible() == ref_tick.tick1line.get_visible()
+            assert tick.tick1line.get_markersize() == ref_tick.tick1line.get_markersize()
+            assert tick.tick1line.get_markeredgewidth() == ref_tick.tick1line.get_markeredgewidth()
+            assert tick.tick1line.get_color() == ref_tick.tick1line.get_color()
+            assert ax.get_yticklabels()[0].get_color() == ref_ax.get_yticklabels()[0].get_color()
 
 
 def test_grouped_bar_hides_category_tick_marks_by_default(tmp_path):
@@ -262,25 +360,277 @@ def test_grouped_bar_respects_label_size_override(tmp_path):
     assert ax.yaxis.label.get_size() == 31
 
 
-def test_grouped_bar_uses_style_default_tick_rotation(tmp_path):
-    """Grouped bar chart should inherit default x tick rotation from the active style."""
+@pytest.mark.parametrize(
+    ("view_cls", "chart_kwargs"),
+    [
+        (
+            "bar",
+            {
+                "categories": [
+                    "Category label that is intentionally very long 1",
+                    "Category label that is intentionally very long 2",
+                    "Category label that is intentionally very long 3",
+                ],
+                "values": [10, 20, 30],
+            },
+        ),
+        (
+            "grouped_bar",
+            {
+                "categories": [
+                    "Category label that is intentionally very long 1",
+                    "Category label that is intentionally very long 2",
+                    "Category label that is intentionally very long 3",
+                ],
+                "groups": [
+                    {"label": "First", "values": [10, 20, 30]},
+                    {"label": "Second", "values": [12, 22, 32]},
+                ],
+                "legend": False,
+            },
+        ),
+        (
+            "stacked_bar",
+            {
+                "categories": [
+                    "Category label that is intentionally very long 1",
+                    "Category label that is intentionally very long 2",
+                    "Category label that is intentionally very long 3",
+                ],
+                "values": {"One": [10, 20, 30], "Two": [5, 15, 25]},
+                "legend": False,
+            },
+        ),
+    ],
+)
+def test_bar_family_auto_rotates_long_category_labels(tmp_path, view_cls, chart_kwargs):
+    """Bar-family charts should share the long-label auto-rotation heuristic."""
+    from tpsplots.views.bar_chart import BarChartView
     from tpsplots.views.grouped_bar_chart import GroupedBarChartView
+    from tpsplots.views.stacked_bar_chart import StackedBarChartView
 
-    view = GroupedBarChartView(outdir=tmp_path, style_file=None)
+    views = {
+        "bar": BarChartView,
+        "grouped_bar": GroupedBarChartView,
+        "stacked_bar": StackedBarChartView,
+    }
+    view = views[view_cls](outdir=tmp_path, style_file=None)
+    style = {**view.DESKTOP, "figsize": (4, 4)}
     fig = view._create_chart(
-        metadata={"title": "Grouped Mobile Rotation"},
-        style=view.MOBILE,
-        categories=["A", "B", "C"],
-        groups=[
-            {"label": "First", "values": [10, 20, 30]},
-            {"label": "Second", "values": [12, 22, 32]},
-        ],
-        legend=False,
+        metadata={"title": "Auto Rotation"},
+        style=style,
+        **chart_kwargs,
     )
     ax = fig.axes[0]
     fig.canvas.draw()
 
-    assert ax.get_xticklabels()[0].get_rotation() == view.MOBILE["tick_rotation"]
+    assert ax.get_xticklabels()[0].get_rotation() == 90
+
+
+@pytest.mark.parametrize(
+    ("view_cls", "chart_kwargs"),
+    [
+        (
+            "bar",
+            {
+                "categories": ["A", "B"],
+                "values": [10, 20],
+                "show_yticks": False,
+                "legend": False,
+            },
+        ),
+        (
+            "grouped_bar",
+            {
+                "categories": ["A", "B"],
+                "groups": [
+                    {"label": "First", "values": [10, 20]},
+                    {"label": "Second", "values": [12, 22]},
+                ],
+                "show_yticks": False,
+                "legend": False,
+            },
+        ),
+        (
+            "stacked_bar",
+            {
+                "categories": ["A", "B"],
+                "values": {"One": [10, 20], "Two": [5, 15]},
+                "show_yticks": False,
+                "legend": False,
+            },
+        ),
+    ],
+)
+def test_bar_family_hides_vertical_value_axis_when_show_yticks_false(
+    tmp_path, view_cls, chart_kwargs
+):
+    """Vertical bar-family charts should hide the y value axis consistently."""
+    from tpsplots.views.bar_chart import BarChartView
+    from tpsplots.views.grouped_bar_chart import GroupedBarChartView
+    from tpsplots.views.stacked_bar_chart import StackedBarChartView
+
+    views = {
+        "bar": BarChartView,
+        "grouped_bar": GroupedBarChartView,
+        "stacked_bar": StackedBarChartView,
+    }
+    view = views[view_cls](outdir=tmp_path, style_file=None)
+    fig = view._create_chart(metadata={"title": "Hide Y"}, style=view.DESKTOP, **chart_kwargs)
+    ax = fig.axes[0]
+    fig.canvas.draw()
+
+    assert not any(tick.get_text() for tick in ax.get_yticklabels())
+    assert not ax.spines["left"].get_visible()
+
+
+@pytest.mark.parametrize(
+    ("view_cls", "chart_kwargs"),
+    [
+        (
+            "bar",
+            {
+                "categories": ["A", "B"],
+                "values": [10, 20],
+                "orientation": "horizontal",
+                "show_xticks": False,
+                "legend": False,
+            },
+        ),
+        (
+            "stacked_bar",
+            {
+                "categories": ["A", "B"],
+                "values": {"One": [10, 20], "Two": [5, 15]},
+                "orientation": "horizontal",
+                "show_xticks": False,
+                "legend": False,
+            },
+        ),
+    ],
+)
+def test_bar_family_hides_horizontal_value_axis_when_show_xticks_false(
+    tmp_path, view_cls, chart_kwargs
+):
+    """Horizontal bar-family charts should hide the x value axis consistently."""
+    from tpsplots.views.bar_chart import BarChartView
+    from tpsplots.views.stacked_bar_chart import StackedBarChartView
+
+    views = {
+        "bar": BarChartView,
+        "stacked_bar": StackedBarChartView,
+    }
+    view = views[view_cls](outdir=tmp_path, style_file=None)
+    fig = view._create_chart(metadata={"title": "Hide X"}, style=view.DESKTOP, **chart_kwargs)
+    ax = fig.axes[0]
+    fig.canvas.draw()
+
+    assert not any(tick.get_text() for tick in ax.get_xticklabels())
+    assert not ax.spines["bottom"].get_visible()
+
+
+@pytest.mark.parametrize(
+    ("view_cls", "chart_kwargs", "message"),
+    [
+        (
+            "bar",
+            {"categories": ["A"], "values": [1], "orientation": "vertical", "show_xticks": False},
+            "show_xticks is only supported for horizontal bar charts",
+        ),
+        (
+            "bar",
+            {"categories": ["A"], "values": [1], "orientation": "horizontal", "show_yticks": False},
+            "show_yticks is only supported for vertical bar charts",
+        ),
+        (
+            "stacked_bar",
+            {
+                "categories": ["A"],
+                "values": {"One": [1]},
+                "orientation": "vertical",
+                "show_xticks": False,
+            },
+            "show_xticks is only supported for horizontal bar charts",
+        ),
+        (
+            "stacked_bar",
+            {
+                "categories": ["A"],
+                "values": {"One": [1]},
+                "orientation": "horizontal",
+                "show_yticks": False,
+            },
+            "show_yticks is only supported for vertical bar charts",
+        ),
+        (
+            "grouped_bar",
+            {
+                "categories": ["A"],
+                "groups": [{"label": "First", "values": [1]}],
+                "show_xticks": False,
+            },
+            "show_xticks is only supported for horizontal bar charts",
+        ),
+    ],
+)
+def test_bar_family_rejects_incompatible_value_axis_tick_options(
+    tmp_path, view_cls, chart_kwargs, message
+):
+    """Bar-family charts should reject x/y value-axis tick options on the wrong orientation."""
+    from tpsplots.views.bar_chart import BarChartView
+    from tpsplots.views.grouped_bar_chart import GroupedBarChartView
+    from tpsplots.views.stacked_bar_chart import StackedBarChartView
+
+    views = {
+        "bar": BarChartView,
+        "grouped_bar": GroupedBarChartView,
+        "stacked_bar": StackedBarChartView,
+    }
+    view = views[view_cls](outdir=tmp_path, style_file=None)
+
+    with pytest.raises(ValueError, match=message):
+        view._create_chart(
+            metadata={"title": "Invalid Axis Ticks"}, style=view.DESKTOP, **chart_kwargs
+        )
+
+
+def test_stacked_bar_default_legend_uses_auto_location(tmp_path):
+    """Stacked bars should default to an auto-placed legend when enabled."""
+    from tpsplots.views.stacked_bar_chart import StackedBarChartView
+
+    view = StackedBarChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Stacked Legend"},
+        style=view.DESKTOP,
+        categories=["A", "B"],
+        values={"One": [10, 20], "Two": [5, 15]},
+    )
+    ax = fig.axes[0]
+    fig.canvas.draw()
+
+    assert ax.get_legend() is not None
+    assert ax.get_legend()._loc == 0
+
+
+def test_bar_value_based_legend_uses_auto_location_when_enabled(tmp_path):
+    """Regular bars should use auto legend placement when value-based legend is enabled."""
+    from tpsplots.views.bar_chart import BarChartView
+
+    view = BarChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Bar Legend"},
+        style=view.DESKTOP,
+        categories=["A", "B"],
+        values=[10, -5],
+        positive_color="green",
+        negative_color="red",
+        legend=True,
+    )
+    ax = fig.axes[0]
+    fig.canvas.draw()
+
+    assert ax.get_legend() is not None
+    assert ax.get_legend()._loc == 0
 
 
 def test_grouped_bar_parses_literal_newlines_in_category_labels(tmp_path):
@@ -302,6 +652,67 @@ def test_grouped_bar_parses_literal_newlines_in_category_labels(tmp_path):
     fig.canvas.draw()
 
     assert ax.get_xticklabels()[0].get_text() == "Line 1\nLine 2"
+
+
+def test_bar_formats_datetime_categories_as_years_by_default(tmp_path):
+    """Bar charts should auto-render datetime categories as readable years."""
+    from tpsplots.views.bar_chart import BarChartView
+
+    view = BarChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Bar Years"},
+        style=view.DESKTOP,
+        categories=pd.to_datetime(["1959-01-01", "1960-01-01", "1961-01-01"]),
+        values=[1, 2, 3],
+        legend=False,
+    )
+    ax = fig.axes[0]
+    fig.canvas.draw()
+
+    assert ax.get_xticklabels()[0].get_text() == "1959"
+    assert ax.get_xticklabels()[1].get_text() == "1960"
+
+
+def test_grouped_bar_formats_datetime_categories_as_years_by_default(tmp_path):
+    """Grouped bars should auto-render datetime categories as readable years."""
+    from tpsplots.views.grouped_bar_chart import GroupedBarChartView
+
+    view = GroupedBarChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Grouped Years"},
+        style=view.DESKTOP,
+        categories=pd.to_datetime(["1959-01-01", "1960-01-01", "1961-01-01"]),
+        groups=[
+            {"label": "First", "values": [10, 20, 30]},
+            {"label": "Second", "values": [12, 22, 32]},
+        ],
+        legend=False,
+    )
+    ax = fig.axes[0]
+    fig.canvas.draw()
+
+    assert ax.get_xticklabels()[0].get_text() == "1959"
+    assert ax.get_xticklabels()[1].get_text() == "1960"
+
+
+def test_stacked_bar_formats_datetime_categories_with_explicit_label_format(tmp_path):
+    """Stacked bars should support explicit categorical date label formatting."""
+    from tpsplots.views.stacked_bar_chart import StackedBarChartView
+
+    view = StackedBarChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Stacked Years"},
+        style=view.DESKTOP,
+        categories=pd.to_datetime(["1959-01-01", "1960-01-01"]),
+        values={"One": [10, 20], "Two": [5, 15]},
+        category_label_format="%Y",
+        legend=False,
+    )
+    ax = fig.axes[0]
+    fig.canvas.draw()
+
+    assert ax.get_xticklabels()[0].get_text() == "1959"
+    assert ax.get_xticklabels()[1].get_text() == "1960"
 
 
 def test_stacked_bar_axis_labels_are_italic(tmp_path):

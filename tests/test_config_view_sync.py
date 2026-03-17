@@ -58,6 +58,9 @@ import ast
 import inspect
 
 from tpsplots.views import VIEW_REGISTRY
+from tpsplots.views.bar_chart import BarChartView
+from tpsplots.views.grouped_bar_chart import GroupedBarChartView
+from tpsplots.views.stacked_bar_chart import StackedBarChartView
 
 # Keys that are internal to the framework — not user-facing config fields.
 # These are injected by generate_chart(), _setup_figure(), or passed between
@@ -137,4 +140,17 @@ def test_view_kwargs_match_config_fields():
             f"{config_class.__name__}: {sorted(missing)}\n"
             f"  -> Add these as fields to the config model, or if they are "
             f"internal/framework-only, add them to INTERNAL_KEYS in this test."
+        )
+
+
+def test_bar_family_config_surface_matches_supported_renderer_contract():
+    """Bar-family configs should not expose unsupported shared line-axis fields."""
+    unsupported_fields = {"axis_scale", "max_xticks", "fiscal_year_ticks"}
+
+    for view_class in (BarChartView, GroupedBarChartView, StackedBarChartView):
+        config_fields = set(view_class.CONFIG_CLASS.model_fields.keys())
+        assert "category_label_format" in config_fields
+        assert not (config_fields & unsupported_fields), (
+            f"{view_class.CONFIG_CLASS.__name__} still exposes unsupported fields: "
+            f"{sorted(config_fields & unsupported_fields)}"
         )

@@ -9,12 +9,14 @@ import pandas as pd
 from tpsplots.models.charts.stacked_bar import StackedBarChartConfig
 
 from .chart_view import ChartView
-from .mixins import BarChartMixin, ColorCycleMixin, GridAxisMixin
+from .mixins import BarChartMixin, CategoricalBarMixin, ColorCycleMixin, GridAxisMixin
 
 logger = logging.getLogger(__name__)
 
 
-class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartView):
+class StackedBarChartView(
+    CategoricalBarMixin, BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartView
+):
     """Specialized view for stacked bar charts with a focus on exposing matplotlib's API."""
 
     CONFIG_CLASS = StackedBarChartConfig
@@ -66,6 +68,8 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
             - grid: bool - Show grid (default: True)
             - grid_axis: str - Grid axis ('x', 'y', 'both', default: based on orientation)
             - show_category_ticks: bool - Show tick marks on category axis (default: False)
+            - show_xticks: bool - Show x-axis tick labels on horizontal charts (default: True)
+            - show_yticks: bool - Show y-axis tick labels on vertical charts (default: True)
 
         Returns:
         --------
@@ -89,12 +93,12 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
         # Extract required parameters
         categories = kwargs.pop("categories", None)
         values = kwargs.pop("values", None)
+        category_label_format = kwargs.pop("category_label_format", None)
 
         if categories is None or values is None:
             raise ValueError("Both 'categories' and 'values' are required for stacked_bar_plot")
 
-        # Parse literal newline sequences in category labels to actual newlines
-        categories = self._parse_newlines_in_labels(categories)
+        categories = self._normalize_categories(categories)
 
         # Convert values to DataFrame if it's a dict
         if isinstance(values, dict):
@@ -116,6 +120,7 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
         colors = kwargs.pop("colors", None)
         show_values = kwargs.pop("show_values", False)
         value_format = kwargs.pop("value_format", "integer")
+        value_prefix = kwargs.pop("value_prefix", "")
         value_suffix = kwargs.pop("value_suffix", "")
         value_threshold = kwargs.pop("value_threshold", 5.0)
         value_fontsize = kwargs.pop("value_fontsize", style.get("tick_size", 12) * 0.8)
@@ -123,6 +128,7 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
         value_weight = kwargs.pop("value_weight", "bold")
         stack_labels = kwargs.pop("stack_labels", False)
         stack_label_format = kwargs.pop("stack_label_format", value_format)
+        stack_label_prefix = kwargs.pop("stack_label_prefix", value_prefix)
         stack_label_suffix = kwargs.pop("stack_label_suffix", value_suffix)
         width = kwargs.pop("width", 0.8)
         height = kwargs.pop("height", 0.8)
@@ -140,16 +146,20 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
             self._create_vertical_stacked_bars(
                 ax, df, colors, width, alpha, edgecolor, linewidth, bottom_values
             )
-            x_positions = np.arange(len(categories))
-            ax.set_xticks(x_positions)
-            ax.set_xticklabels(categories)
+            positions = self._build_category_positions(categories)
         else:  # horizontal
             self._create_horizontal_stacked_bars(
                 ax, df, colors, height, alpha, edgecolor, linewidth, bottom_values
             )
-            y_positions = np.arange(len(categories))
-            ax.set_yticks(y_positions)
-            ax.set_yticklabels(categories)
+            positions = self._build_category_positions(categories)
+
+        self._apply_category_axis(
+            ax,
+            categories,
+            positions,
+            orientation=orientation,
+            category_label_format=category_label_format,
+        )
 
         # Add value labels within stack segments if requested
         if show_values:
@@ -158,6 +168,7 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
                 df,
                 orientation,
                 value_format,
+                value_prefix,
                 value_suffix,
                 value_threshold,
                 value_fontsize,
@@ -174,6 +185,7 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
                 df,
                 orientation,
                 stack_label_format,
+                stack_label_prefix,
                 stack_label_suffix,
                 value_fontsize,
                 value_color,
@@ -193,9 +205,11 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
                 for color in colors[: len(labels)]
             ]
 
-            legend_kwargs = {"fontsize": style["legend_size"]}
+            legend_kwargs = {"fontsize": style["legend_size"], "loc": "best"}
             if isinstance(legend, dict):
                 legend_kwargs.update(legend)
+            elif isinstance(legend, str):
+                legend_kwargs["loc"] = legend
 
             ax.legend(legend_patches, labels, **legend_kwargs)
 
@@ -262,6 +276,7 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
         df,
         orientation,
         value_format,
+        value_prefix,
         value_suffix,
         threshold,
         fontsize,
@@ -288,8 +303,9 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
                         # Calculate position for label (middle of segment)
                         y_pos = bottom_values[j] + value / 2
 
-                        # Format the value
-                        formatted_value = self._format_value(value, value_format) + value_suffix
+                        formatted_value = self._format_value_label(
+                            value, value_format, prefix=value_prefix, suffix=value_suffix
+                        )
 
                         ax.text(
                             positions[j],
@@ -316,8 +332,9 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
                         # Calculate position for label (middle of segment)
                         x_pos = left_values[j] + value / 2
 
-                        # Format the value
-                        formatted_value = self._format_value(value, value_format) + value_suffix
+                        formatted_value = self._format_value_label(
+                            value, value_format, prefix=value_prefix, suffix=value_suffix
+                        )
 
                         ax.text(
                             x_pos,
@@ -333,7 +350,17 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
                 left_values += values
 
     def _add_stack_labels(
-        self, ax, df, orientation, label_format, label_suffix, fontsize, color, width, height
+        self,
+        ax,
+        df,
+        orientation,
+        label_format,
+        label_prefix,
+        label_suffix,
+        fontsize,
+        color,
+        width,
+        height,
     ):
         """Add total value labels at the end of each stacked bar."""
         positions = np.arange(len(df.index))
@@ -341,7 +368,9 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
 
         if orientation == "vertical":
             for i, total in enumerate(totals):
-                formatted_total = self._format_value(total, label_format) + label_suffix
+                formatted_total = self._format_value_label(
+                    total, label_format, prefix=label_prefix, suffix=label_suffix
+                )
                 ax.text(
                     positions[i],
                     total,
@@ -354,7 +383,9 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
                 )
         else:  # horizontal
             for i, total in enumerate(totals):
-                formatted_total = self._format_value(total, label_format) + label_suffix
+                formatted_total = self._format_value_label(
+                    total, label_format, prefix=label_prefix, suffix=label_suffix
+                )
                 ax.text(
                     total,
                     positions[i],
@@ -383,7 +414,6 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
 
     def _apply_stacked_bar_styling(self, ax, style, orientation, **kwargs):
         """Apply consistent styling to the stacked bar chart."""
-        # Extract styling parameters
         x_tick_format, y_tick_format = self._pop_axis_tick_format_kwargs(kwargs)
         scale = kwargs.pop("scale", None)
         xlim = kwargs.pop("xlim", None)
@@ -393,37 +423,28 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
         grid = kwargs.pop("grid", True)
         grid_axis = kwargs.pop("grid_axis", "y" if orientation == "vertical" else "x")
         tick_size = kwargs.pop("tick_size", style.get("tick_size", 12))
+        show_xticks = kwargs.pop("show_xticks", None)
+        show_yticks = kwargs.pop("show_yticks", None)
 
-        # Auto-rotation logic for category labels
-        if orientation == "vertical":
-            # Get current axis limits to calculate available width
-            xlim_current = ax.get_xlim()
-            chart_width = xlim_current[1] - xlim_current[0]
-            num_categories = len(ax.get_xticklabels())
-
-            if num_categories > 0:
-                available_width_per_bar = chart_width / num_categories
-                categories = [label.get_text() for label in ax.get_xticklabels()]
-
-                # Determine if labels should be rotated
-                should_rotate = self._should_rotate_labels(
-                    ax, categories, tick_size, available_width_per_bar
-                )
-                tick_rotation = 90 if should_rotate else 0
-            else:
-                tick_rotation = 0
-        else:
-            # For horizontal charts, don't rotate y-axis labels
-            tick_rotation = 0
-
-        # Allow manual override of tick rotation
-        tick_rotation = kwargs.pop("tick_rotation", tick_rotation)
+        tick_rotation = self._resolve_category_tick_rotation(
+            ax,
+            orientation=orientation,
+            tick_size=tick_size,
+            explicit_rotation=kwargs.pop("tick_rotation", None),
+        )
         show_category_ticks = kwargs.pop("show_category_ticks", False)
+        label_size = kwargs.pop("label_size", style.get("label_size", 12))
+        value_format = kwargs.pop("value_format", None)
+        show_value_axis = self._resolve_value_axis_visibility(
+            orientation=orientation,
+            show_xticks=show_xticks,
+            show_yticks=show_yticks,
+        )
 
-        label_size = style.get("label_size", 12)
-        tick_size = self._apply_common_axis_styling(
+        self._apply_shared_value_axis_styling(
             ax,
             style=style,
+            orientation=orientation,
             xlabel=xlabel,
             ylabel=ylabel,
             label_size=label_size,
@@ -431,67 +452,12 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
             tick_rotation=tick_rotation,
             grid=grid,
             grid_axis=grid_axis,
-            xlim=None,
-            ylim=None,
+            xlim=xlim,
+            ylim=ylim,
+            scale=scale,
+            value_format=value_format,
+            x_tick_format=x_tick_format,
+            y_tick_format=y_tick_format,
+            show_category_ticks=show_category_ticks,
+            show_value_axis=show_value_axis,
         )
-
-        # Disable minor ticks using mixin
-        self._disable_minor_ticks(ax)
-
-        # Control category tick mark visibility using mixin
-        if not show_category_ticks:
-            self._hide_category_ticks(ax, orientation)
-
-        # Ensure category labels are centered using BarChartMixin methods
-        if orientation == "vertical":
-            self._apply_vertical_category_alignment(ax, tick_rotation)
-        else:
-            self._apply_horizontal_category_alignment(ax)
-
-        scaled_x = False
-        scaled_y = False
-
-        # Apply scale formatter if specified
-        if scale:
-            axis_to_scale = "y" if orientation == "vertical" else "x"
-            tick_format = y_tick_format if axis_to_scale == "y" else x_tick_format
-            self._apply_scale_formatter(ax, scale, axis=axis_to_scale, tick_format=tick_format)
-            scaled_y = axis_to_scale == "y"
-            scaled_x = axis_to_scale == "x"
-
-        self._apply_tick_format_specs(
-            ax,
-            x_tick_format=x_tick_format if not scaled_x else None,
-            y_tick_format=y_tick_format if not scaled_y else None,
-            has_explicit_xticklabels=orientation == "vertical",
-            has_explicit_yticklabels=orientation == "horizontal",
-        )
-
-        # Ensure integer-only ticks for count-based data using mixin
-        self._apply_integer_locator(ax, orientation)
-
-        # Apply custom limits using mixin
-        self._apply_axis_limits(ax, xlim=xlim, ylim=ylim)
-
-    def _measure_text_width(self, ax, text, fontsize):
-        """Measure the rendered width of text in data coordinates."""
-        temp_text = ax.text(0, 0, text, fontsize=fontsize, transform=ax.transData)
-        try:
-            bbox = temp_text.get_window_extent(renderer=ax.figure.canvas.get_renderer())
-            bbox_data = bbox.transformed(ax.transData.inverted())
-            return bbox_data.width
-        finally:
-            temp_text.remove()
-
-    def _should_rotate_labels(self, ax, categories, tick_size, available_width_per_bar):
-        """Determine if category labels should be rotated based on text width."""
-        # Calculate 80% of available width as threshold
-        width_threshold = available_width_per_bar * 0.8
-
-        # Check if any label exceeds the threshold
-        for category in categories:
-            text_width = self._measure_text_width(ax, str(category), tick_size)
-            if text_width > width_threshold:
-                return True
-
-        return False

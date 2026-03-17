@@ -7,12 +7,12 @@ import numpy as np
 from tpsplots.models.charts.bar import BarChartConfig
 
 from .chart_view import ChartView
-from .mixins import BarChartMixin, GridAxisMixin
+from .mixins import BarChartMixin, CategoricalBarMixin, GridAxisMixin
 
 logger = logging.getLogger(__name__)
 
 
-class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
+class BarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, ChartView):
     """Specialized view for standard bar charts with a focus on exposing matplotlib's API."""
 
     CONFIG_CLASS = BarChartConfig
@@ -61,6 +61,8 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
             - sort_by: str - Sort categories by 'value', 'category', or None (default: None)
             - sort_ascending: bool - Sort direction if sort_by is specified (default: True)
             - show_category_ticks: bool - Show tick marks on category axis (default: False)
+            - show_xticks: bool - Show x-axis tick labels on horizontal charts (default: True)
+            - show_yticks: bool - Show y-axis tick labels on vertical charts (default: True)
             - baseline: float - Baseline value for bars (default: 0)
 
         Returns:
@@ -89,12 +91,11 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
         if categories is None or values is None:
             raise ValueError("Both 'categories' and 'values' are required for bar_plot")
 
-        # Convert to numpy arrays for easier handling
-        categories = np.array(categories)
-        values = np.array(values)
+        category_label_format = kwargs.pop("category_label_format", None)
 
-        # Parse literal newline sequences in category labels to actual newlines
-        categories = self._parse_newlines_in_labels(categories)
+        # Convert to arrays for easier handling while preserving date-like categories
+        categories = self._normalize_categories(categories)
+        values = np.array(values)
 
         # Validate data lengths
         if len(categories) != len(values):
@@ -127,6 +128,7 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
         negative_color = kwargs.pop("negative_color", None)
         show_values = kwargs.pop("show_values", False)
         value_format = kwargs.pop("value_format", "float")
+        value_prefix = kwargs.pop("value_prefix", "")
         value_suffix = kwargs.pop("value_suffix", "")
         value_offset = kwargs.pop("value_offset", None)
         value_fontsize = kwargs.pop("value_fontsize", style.get("tick_size", 12) * 0.9)
@@ -143,8 +145,8 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
         bar_colors = self._determine_bar_colors(values, colors, positive_color, negative_color)
 
         # Create the bar chart
+        positions = self._build_category_positions(categories)
         if orientation == "vertical":
-            positions = np.arange(len(categories))
             bars = ax.bar(
                 positions,
                 values,
@@ -155,10 +157,7 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
                 edgecolor=edgecolor,
                 linewidth=linewidth,
             )
-            ax.set_xticks(positions)
-            ax.set_xticklabels(categories)
         else:  # horizontal
-            positions = np.arange(len(categories))
             bars = ax.barh(
                 positions,
                 values,
@@ -169,8 +168,14 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
                 edgecolor=edgecolor,
                 linewidth=linewidth,
             )
-            ax.set_yticks(positions)
-            ax.set_yticklabels(categories)
+
+        self._apply_category_axis(
+            ax,
+            categories,
+            positions,
+            orientation=orientation,
+            category_label_format=category_label_format,
+        )
 
         # Add value labels if requested
         if show_values:
@@ -186,6 +191,7 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
                 value_color,
                 value_weight,
                 baseline,
+                value_prefix=value_prefix,
             )
 
         # Apply styling (now includes percentage formatting)
@@ -194,7 +200,7 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
         # Add legend if multiple colors are used and labels are provided
         legend = kwargs.pop("legend", False)
         if legend and (positive_color or negative_color):
-            self._add_value_based_legend(ax, values, positive_color, negative_color, style)
+            self._add_value_based_legend(ax, values, positive_color, negative_color, style, legend)
 
         # Adjust layout for header and footer
         self._adjust_layout_for_header_footer(fig, metadata, style)
@@ -224,7 +230,6 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
 
     def _apply_bar_styling(self, ax, style, orientation, **kwargs):
         """Apply consistent styling to the bar chart."""
-        # Extract styling parameters
         x_tick_format, y_tick_format = self._pop_axis_tick_format_kwargs(kwargs)
         scale = kwargs.pop("scale", None)
         xlim = kwargs.pop("xlim", None)
@@ -235,21 +240,28 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
         grid_axis = kwargs.pop("grid_axis", "y" if orientation == "vertical" else "x")
         tick_size = kwargs.pop("tick_size", style.get("tick_size", 12))
         label_size = kwargs.pop("label_size", style.get("label_size", 20))
+        show_xticks = kwargs.pop("show_xticks", None)
+        show_yticks = kwargs.pop("show_yticks", None)
 
-        # Calculate default rotation based on orientation
-        # For horizontal bars, value axis (x-axis) should never be rotated
-        # For vertical bars, category axis (x-axis) may need rotation for long labels
-        default_rotation = style.get("tick_rotation", 45) if orientation == "vertical" else 0
-
-        # Allow manual override via YAML parameter
-        tick_rotation = kwargs.pop("tick_rotation", default_rotation)
+        tick_rotation = self._resolve_category_tick_rotation(
+            ax,
+            orientation=orientation,
+            tick_size=tick_size,
+            explicit_rotation=kwargs.pop("tick_rotation", None),
+        )
         baseline = kwargs.pop("baseline", 0)
-        value_format = kwargs.pop("value_format", None)  # Extract value_format
+        value_format = kwargs.pop("value_format", None)
         show_category_ticks = kwargs.pop("show_category_ticks", False)
+        show_value_axis = self._resolve_value_axis_visibility(
+            orientation=orientation,
+            show_xticks=show_xticks,
+            show_yticks=show_yticks,
+        )
 
-        tick_size = self._apply_common_axis_styling(
+        tick_size = self._apply_shared_value_axis_styling(
             ax,
             style=style,
+            orientation=orientation,
             xlabel=xlabel,
             ylabel=ylabel,
             label_size=label_size,
@@ -257,8 +269,14 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
             tick_rotation=tick_rotation,
             grid=grid,
             grid_axis=grid_axis,
-            xlim=None,
-            ylim=None,
+            xlim=xlim,
+            ylim=ylim,
+            scale=scale,
+            value_format=value_format,
+            x_tick_format=x_tick_format,
+            y_tick_format=y_tick_format,
+            show_category_ticks=show_category_ticks,
+            show_value_axis=show_value_axis,
         )
 
         # Add baseline reference line if different from 0
@@ -267,52 +285,3 @@ class BarChartView(BarChartMixin, GridAxisMixin, ChartView):
                 ax.axhline(y=baseline, color="gray", linestyle="-", linewidth=1, alpha=0.7)
             else:
                 ax.axvline(x=baseline, color="gray", linestyle="-", linewidth=1, alpha=0.7)
-
-        # Disable minor ticks using mixin method
-        self._disable_minor_ticks(ax)
-
-        scaled_x = False
-        scaled_y = False
-
-        # Apply percentage formatting if value_format is 'percentage'
-        if value_format == "percentage":
-            self._apply_percentage_tick_formatter(ax, orientation)
-            scaled_y = orientation == "vertical"
-            scaled_x = orientation == "horizontal"
-
-        # Apply scale formatter if specified (but not if we already applied percentage formatting)
-        elif scale:
-            axis_to_scale = "y" if orientation == "vertical" else "x"
-            tick_format = y_tick_format if axis_to_scale == "y" else x_tick_format
-            self._apply_scale_formatter(ax, scale, axis=axis_to_scale, tick_format=tick_format)
-            scaled_y = axis_to_scale == "y"
-            scaled_x = axis_to_scale == "x"
-
-        # Pop max_xticks to consume it from kwargs, but don't apply
-        # MaxNLocator — bar charts use explicit category labels tied
-        # to fixed positions; MaxNLocator would break that mapping.
-        kwargs.pop("max_xticks", None)
-
-        self._apply_tick_format_specs(
-            ax,
-            x_tick_format=x_tick_format if not scaled_x else None,
-            y_tick_format=y_tick_format if not scaled_y else None,
-            has_explicit_xticklabels=orientation == "vertical",
-            has_explicit_yticklabels=orientation == "horizontal",
-        )
-
-        # Ensure integer-only ticks on value axis using mixin method
-        self._apply_integer_locator(ax, orientation=orientation)
-
-        # Control category tick mark visibility using mixin method
-        if not show_category_ticks:
-            self._hide_category_ticks(ax, orientation=orientation)
-
-        # Apply custom limits using mixin method
-        self._apply_axis_limits(ax, xlim=xlim, ylim=ylim)
-
-        # Apply category alignment
-        if orientation == "vertical":
-            self._apply_vertical_category_alignment(ax, tick_rotation)
-        else:
-            self._apply_horizontal_category_alignment(ax)
