@@ -65,7 +65,7 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
             - tick_size: int - Tick label font size
             - label_size: int - Axis label font size
             - show_category_ticks: bool - Show x-axis tick marks (default: False)
-            - show_yticks: bool - Show y-axis tick labels (default: False)
+            - show_yticks: bool - Show y-axis tick labels (default: True)
             - legend: dict - Legend configuration
             - labels: list - Legend labels for each group (overrides group label)
             - export_data: DataFrame - CSV export DataFrame
@@ -133,7 +133,7 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
         tick_size = kwargs.pop("tick_size", style.get("tick_size", 14))
         label_size = kwargs.pop("label_size", style.get("label_size", 20))
         show_category_ticks = kwargs.pop("show_category_ticks", False)
-        show_yticks = kwargs.pop("show_yticks", False)
+        show_yticks = kwargs.pop("show_yticks", True)
         legend_config = kwargs.pop("legend", {"loc": "upper left"})
 
         # Set up bar positions
@@ -359,7 +359,8 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
             ax.tick_params(axis="y", left=False, labelleft=False)
             ax.spines["left"].set_visible(False)
         else:
-            ax.tick_params(axis="y", labelsize=tick_size)
+            ax.spines["left"].set_visible(True)
+            ax.tick_params(axis="y", left=True, labelleft=True, labelsize=tick_size)
             if value_format == "percentage":
                 self._apply_percentage_tick_formatter(ax, orientation="vertical")
                 scaled_y = True

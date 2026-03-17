@@ -97,7 +97,7 @@ class GroupedBarChartConfig(
     show_yticks: bool | None = Field(
         None,
         description=(
-            "Show y-axis tick labels and left spine. Default: False (y-axis hidden). "
+            "Show y-axis tick labels and left spine. Default: True (y-axis visible). "
             "When False, the left spine is also removed for a cleaner look. "
             "When True, scale formatting is applied to the y-axis"
         ),

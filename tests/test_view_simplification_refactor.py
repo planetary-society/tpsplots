@@ -152,6 +152,28 @@ def test_grouped_bar_keeps_y_grid_when_y_tick_labels_hidden(tmp_path):
     assert not any(tick.get_text() for tick in ax.get_yticklabels())
 
 
+def test_grouped_bar_shows_y_axis_by_default(tmp_path):
+    """Grouped bar chart should show the y-axis by default."""
+    from tpsplots.views.grouped_bar_chart import GroupedBarChartView
+
+    view = GroupedBarChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Grouped Default Axis"},
+        style=view.DESKTOP,
+        categories=["A", "B", "C"],
+        groups=[
+            {"label": "First", "values": [10, 20, 30]},
+            {"label": "Second", "values": [12, 22, 32]},
+        ],
+        legend=False,
+    )
+    ax = fig.axes[0]
+    fig.canvas.draw()
+
+    assert ax.spines["left"].get_visible()
+    assert any(tick.get_text() for tick in ax.get_yticklabels())
+
+
 def test_grouped_bar_hides_category_tick_marks_by_default(tmp_path):
     """Grouped bar chart should hide x-axis category tick marks by default."""
     from tpsplots.views.grouped_bar_chart import GroupedBarChartView
