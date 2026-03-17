@@ -57,7 +57,6 @@ import io
 # Assumed external library for inflation adjustments
 import logging
 import re
-import ssl
 from collections.abc import Callable
 from datetime import date
 from functools import cached_property
@@ -520,20 +519,21 @@ class Directorates(NASABudget):
     # Example placeholders:
     COLUMNS: ClassVar[list[str]] = [
         "Fiscal Year",
-        "Aeronautics",
         "Exploration",
+        "Science",
         "Space Operations",
-        "STMD",
-        "SMD",
+        "Space Technology",
+        "Aeronautics",
         "Education/STEM Outreach",
         "Cross Agency Support/CECR",
     ]
+    # TODO: Align ACCOUNTS keys across FY controllers with the post-rename column
+    # names so this bridge isn't needed (e.g. FY2026 uses "Exploration" but the
+    # renamed column is "Deep Space Exploration Systems").
     RENAMES: ClassVar[dict[str, str]] = {
-        "Cross Agency Support/CECR": "Facilities, IT, & Salaries",
-        "Education/STEM Outreach": "STEM Education",
-        "STMD": "Space Technology",
         "Exploration": "Deep Space Exploration Systems",
-        "SMD": "Science",
+        "Education/STEM Outreach": "STEM Education",
+        "Cross Agency Support/CECR": "Facilities, IT, & Salaries",
     }
     MONETARY_COLUMNS: ClassVar[list[str]] = [
         "Aeronautics",

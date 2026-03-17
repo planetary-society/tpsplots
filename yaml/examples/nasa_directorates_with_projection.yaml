@@ -1,0 +1,71 @@
+data:
+  source: nasa_fy2026_controller.directorates_context
+
+chart:
+  type: line_subplots
+  output: nasa_directorates_fy2026_projection
+  title: "NASA directorate spending with FY2026 White House proposal"
+  subtitle: "Historical enacted budgets and the FY2026 Presidential Budget Request by directorate."
+  source: "NASA Congressional Budget Justifications, FYs 1990-2026"
+
+  subplot_data:
+    - title: "Exploration"
+      x: "{{Fiscal Year}}"
+      y:
+        - "{{Exploration}}"
+        - "{{Exploration White House Budget Projection}}"
+      labels: ["Enacted", "Proposed"]
+      colors: ["Neptune Blue", "Rocket Flame"]
+      linestyles: ["-", "-"]
+      markers: ["", "o"]
+      linewidths: [3, 3]
+    - title: "Science"
+      x: "{{Fiscal Year}}"
+      y:
+        - "{{Science}}"
+        - "{{Science White House Budget Projection}}"
+      labels: ["Enacted", "Proposed"]
+      colors: ["Neptune Blue", "Rocket Flame"]
+      linestyles: ["-", "-"]
+      markers: ["", "o"]
+      linewidths: [3, 3]
+    - title: "Space Operations"
+      x: "{{Fiscal Year}}"
+      y:
+        - "{{Space Ops}}"
+        - "{{Space Ops White House Budget Projection}}"
+      labels: ["Enacted", "Proposed"]
+      colors: ["Neptune Blue", "Rocket Flame"]
+      linestyles: ["-", "-"]
+      markers: ["", "o"]
+      linewidths: [3, 3]
+    - title: "Space Tech"
+      x: "{{Fiscal Year}}"
+      y:
+        - "{{Space Tech}}"
+        - "{{Space Tech White House Budget Projection}}"
+      labels: ["Enacted", "Proposed"]
+      colors: ["Neptune Blue", "Rocket Flame"]
+      linestyles: ["-", "-"]
+      markers: ["", "o"]
+      linewidths: [3, 3]
+    - title: "Aeronautics"
+      x: "{{Fiscal Year}}"
+      y:
+        - "{{Aero}}"
+        - "{{Aero White House Budget Projection}}"
+      labels: ["Enacted", "Proposed"]
+      colors: ["Neptune Blue", "Rocket Flame"]
+      linestyles: ["-", "-"]
+      markers: ["", "o"]
+      linewidths: [3, 3]
+
+  grid_shape: [3, 2]
+  xlim: [2007-01-01, 2030-01-01]
+  scale: billions
+  shared_x: false
+  shared_y: true
+  shared_legend: true
+  legend: true
+  subplot_title_size: 14
+  export_data: "{{export_df}}"

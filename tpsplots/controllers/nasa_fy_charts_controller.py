@@ -5,6 +5,7 @@ import pandas as pd
 
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.data_sources.nasa_budget_data_source import (
+    Directorates,
     Historical,
     Science,
     ScienceDivisions,
@@ -36,6 +37,18 @@ class NASAFYChartsController(ChartController):
         "Heliophysics",
     ]
 
+    # Column name emitted by BudgetProjectionProcessor before per-series renaming.
+    _WH_PROJECTION_COL: ClassVar[str] = "White House Budget Projection"
+
+    # TODO: This map exists because Directorates.RENAMES uses different names
+    # than the budget_detail row names used as ACCOUNTS keys. Ideally the two
+    # naming systems would be aligned so this bridge isn't needed.
+    # Maps ACCOUNTS/budget_detail source name → Directorates renamed column name.
+    DIRECTORATES_COLUMN_MAP: ClassVar[dict[str, str]] = {
+        "Exploration": "Deep Space Exploration Systems",
+        "STEM Engagement": "STEM Education",
+    }
+
     def __init__(self):
         if not hasattr(self, "FISCAL_YEAR"):
             raise ValueError("FISCAL_YEAR must be defined in the subclass")
@@ -49,6 +62,21 @@ class NASAFYChartsController(ChartController):
     @cached_property
     def new_awards(self) -> pd.DataFrame:
         return NewNASAAwards().data()
+
+    @cached_property
+    def directorates(self) -> pd.DataFrame:
+        return Directorates().data()
+
+    def _accounts_to_map(self) -> dict[str, str]:
+        """Convert ACCOUNTS (dict or list) to a source→display mapping.
+
+        Returns an empty dict if ACCOUNTS is not defined on the subclass.
+        """
+        if not hasattr(self, "ACCOUNTS"):
+            return {}
+        if isinstance(self.ACCOUNTS, dict):
+            return dict(self.ACCOUNTS)
+        return {a: a for a in self.ACCOUNTS}
 
     # Methods for award tracking
     def _get_award_data(self, award_type: str = "Grant") -> dict:
@@ -143,11 +171,7 @@ class NASAFYChartsController(ChartController):
 
         # Step 1: Filter to accounts (using AccountsFilterProcessor)
         if hasattr(self, "ACCOUNTS"):
-            if isinstance(self.ACCOUNTS, dict):
-                configured_accounts = list(self.ACCOUNTS.keys())
-            else:
-                configured_accounts = list(self.ACCOUNTS)
-
+            configured_accounts = list(self._accounts_to_map().keys())
             account_aliases = getattr(self, "ACCOUNT_ALIASES", {})
             filter_config = AccountsFilterConfig(
                 accounts=self.ACCOUNTS,
@@ -286,6 +310,92 @@ class NASAFYChartsController(ChartController):
         """
         return self.directorates_comparison_grouped()
 
+    def _directorates_data(self) -> pd.DataFrame:
+        """Prepare directorate data with multi-year history and WH projections.
+
+        Mirrors _science_divisions_data() for top-level directorates.
+        Uses Directorates().data() for multi-year enacted history, then chains
+        BudgetProjectionProcessor for each matched account to graft the current
+        FY request and runout projections from budget_detail.
+
+        Only directorates present in both ACCOUNTS (or its keys) AND the
+        Directorates historical sheet are processed; others are silently skipped.
+
+        Returns:
+            DataFrame with Fiscal Year + per-directorate enacted and projection columns:
+            - {display_name} - enacted historical values (NaN for current FY+)
+            - {display_name} White House Budget Projection - PBR request + runouts
+        """
+        account_map = self._accounts_to_map()
+        hist_df = self.directorates
+
+        col_lookup = {c.strip().casefold(): c for c in hist_df.columns if c != "Fiscal Year"}
+
+        # Select only the relevant historical columns
+        relevant_cols = ["Fiscal Year"]
+        matched_accounts: dict[str, tuple[str, str]] = {}  # source -> (hist_col, display_name)
+        for source_name, display_name in account_map.items():
+            normalized = source_name.strip().casefold()
+            if normalized in col_lookup:
+                hist_col = col_lookup[normalized]
+            else:
+                # Fall back to explicit column alias (e.g. "Exploration" → "Deep Space Exploration Systems")
+                alias = self.DIRECTORATES_COLUMN_MAP.get(source_name)
+                if alias is None:
+                    continue  # silently skip accounts with no Directorates history
+                alias_key = alias.strip().casefold()
+                if alias_key not in col_lookup:
+                    continue
+                hist_col = col_lookup[alias_key]
+            relevant_cols.append(hist_col)
+            matched_accounts[source_name] = (hist_col, display_name)
+
+        df = hist_df[relevant_cols].copy()
+
+        for source_name, (hist_col, display_name) in matched_accounts.items():
+            # Rename historical column to display_name before processing
+            if hist_col != display_name:
+                df = df.rename(columns={hist_col: display_name})
+
+            # Graft PBR request and runout projections from budget_detail
+            config = BudgetProjectionConfig(
+                fiscal_year=self.FISCAL_YEAR,
+                budget_detail_row_name=source_name,
+                appropriation_column=display_name,
+                pbr_column=display_name,
+            )
+            df = BudgetProjectionProcessor(config).process(df, self.budget_detail)
+
+            # Rename generic projection column to directorate-specific
+            df = df.rename(
+                columns={self._WH_PROJECTION_COL: f"{display_name} {self._WH_PROJECTION_COL}"}
+            )
+
+        df = df.sort_values("Fiscal Year").reset_index(drop=True)
+        df.attrs["fiscal_year"] = self.FISCAL_YEAR
+
+        return df
+
+    def directorates_context(self) -> dict:
+        """Return historical budget data for each NASA directorate with WH projections.
+
+        Uses ACCOUNTS from the subclass to determine which directorates to include.
+        Mirrors science_division_context() but for top-level directorates.
+
+        Each matched directorate includes:
+        - Multi-year enacted history from the Directorates Google Sheet
+        - Current FY PBR request and runout projections via BudgetProjectionProcessor
+
+        Returns:
+            dict with columns for each matched directorate:
+            - {display_name} - enacted historical values
+            - {display_name} White House Budget Projection - PBR + runouts
+        """
+        df = self._directorates_data()
+        result = DataFrameToYAMLProcessor().process(df)
+        result["metadata"] = self._build_metadata(df, fiscal_year_col=None)
+        return result
+
     def _science_divisions_data(self) -> pd.DataFrame:
         """Prepare science division data with inflation adjustment and PBR projection.
 
@@ -316,9 +426,7 @@ class NASAFYChartsController(ChartController):
 
             # Rename generic projection column to division-specific
             df = df.rename(
-                columns={
-                    "White House Budget Projection": f"{division} White House Budget Projection"
-                }
+                columns={self._WH_PROJECTION_COL: f"{division} {self._WH_PROJECTION_COL}"}
             )
 
             # Step 2: Apply inflation adjustment
