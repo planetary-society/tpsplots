@@ -51,7 +51,7 @@ and `source` fields. The standard keys are:
 | `source` | str | Source attribution string |
 | `column_sums` | dict | Column totals (when ColumnSumProcessor runs) |
 
-Controllers that pass `value_columns` to `_build_metadata` also produce per-column keys:
+CSV and Google Sheets controllers auto-produce per-column keys for numeric columns, and custom controllers can opt in explicitly by passing `value_columns` to `_build_metadata`:
 
 | Key pattern | Description |
 |-------------|-------------|
@@ -69,6 +69,7 @@ Individual controllers may add extra keys (e.g. `total_budget`, `total_projects`
 - [`comparison_charts_controller`](controllers/comparison_charts_controller.md) — Controller for comparison charts (waffle, etc.).
 - [`mission_spending_controller`](controllers/mission_spending_controller.md) — Prepares mission outlay and obligations data for charting.
 - [`nasa_budget_chart`](controllers/nasa_budget_chart.md) — Controller for top-line NASA budget charts.
+- [`nasa_fy2024_controller`](controllers/nasa_fy2024_controller.md)
 - [`nasa_fy2025_controller`](controllers/nasa_fy2025_controller.md) — Controller for FY 2025 NASA budget charts and analysis.
 - [`nasa_fy2026_controller`](controllers/nasa_fy2026_controller.md) — Controller for FY 2026 NASA budget charts and analysis.
 - [`nasa_fy2027_controller`](controllers/nasa_fy2027_controller.md) — Controller for FY 2027 NASA budget charts and analysis.

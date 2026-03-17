@@ -9,8 +9,8 @@ See also: [All Controllers](../controllers.md) | [Data Configuration](../data.md
 
 Prepares mission outlay and obligations data for charting.
 
-| Method                            | YAML Source                                                 | Description                                                            |
-| --------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Method | YAML Source | Description |
+|--------|------------|-------------|
 | `process_mission_spending_data()` | `mission_spending_controller.process_mission_spending_data` | Process and generate spending charts for all configured NASA missions. |
 
 ## `mission_spending_controller.process_mission_spending_data`
@@ -25,4 +25,4 @@ Note: This is a batch generator, not a YAML data source method.
 It calls the view layer directly to produce chart files.
 
 Args:
-outdir: Output directory for generated chart files.
+    outdir: Output directory for generated chart files.

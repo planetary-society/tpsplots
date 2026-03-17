@@ -1,29 +1,27 @@
-# nasa_fy2027_controller
+# nasa_fy2024_controller
 
 > Auto-generated from controller docstrings. Do not edit manually.
 > Regenerate with: `tpsplots docs`
 
 See also: [All Controllers](../controllers.md) | [Data Configuration](../data.md)
 
-**Class:** `NASAFY2027Controller`
-
-Controller for FY 2027 NASA budget charts and analysis.
+**Class:** `NASAFY2025Controller`
 
 | Method | YAML Source | Description |
 |--------|------------|-------------|
-| `directorates_comparison()` | `nasa_fy2027_controller.directorates_comparison` | Return directorate comparison data (grouped bar format by default). |
-| `directorates_comparison_grouped()` | `nasa_fy2027_controller.directorates_comparison_grouped` | Return directorate data formatted for grouped bar charts. |
-| `directorates_comparison_raw()` | `nasa_fy2027_controller.directorates_comparison_raw` | Return directorate data as raw table for flexible charting/export. |
-| `directorates_context()` | `nasa_fy2027_controller.directorates_context` | Return historical budget data for each NASA directorate with WH projections. |
-| `major_accounts_context()` | `nasa_fy2027_controller.major_accounts_context` | Return NASA major accounts data from 2006 to the controller's fiscal year. |
-| `new_contract_awards_comparison_to_prior_years()` | `nasa_fy2027_controller.new_contract_awards_comparison_to_prior_years` | Return new NASA contract award data compared to prior fiscal years. |
-| `new_grants_awards_comparison_to_prior_year()` | `nasa_fy2027_controller.new_grants_awards_comparison_to_prior_year` | Return new NASA grant award data compared to prior fiscal years. |
-| `pbr_historical_context()` | `nasa_fy2027_controller.pbr_historical_context` | Return historical budget data with current FY PBR and runout projections. |
-| `science_context()` | `nasa_fy2027_controller.science_context` | Return historical budget data for NASA Science Mission Directorate (SMD). |
-| `science_division_context()` | `nasa_fy2027_controller.science_division_context` | Return historical budget data for each NASA science division. |
-| `workforce_projections()` | `nasa_fy2027_controller.workforce_projections` | Return historical workforce data with optional FY projection. |
+| `directorates_comparison()` | `nasa_fy2024_controller.directorates_comparison` | Return directorate comparison data (grouped bar format by default). |
+| `directorates_comparison_grouped()` | `nasa_fy2024_controller.directorates_comparison_grouped` | Return directorate data formatted for grouped bar charts. |
+| `directorates_comparison_raw()` | `nasa_fy2024_controller.directorates_comparison_raw` | Return directorate data as raw table for flexible charting/export. |
+| `directorates_context()` | `nasa_fy2024_controller.directorates_context` | Return historical budget data for each NASA directorate with WH projections. |
+| `major_accounts_context()` | `nasa_fy2024_controller.major_accounts_context` | Return NASA major accounts data from 2006 to the controller's fiscal year. |
+| `new_contract_awards_comparison_to_prior_years()` | `nasa_fy2024_controller.new_contract_awards_comparison_to_prior_years` | Return new NASA contract award data compared to prior fiscal years. |
+| `new_grants_awards_comparison_to_prior_year()` | `nasa_fy2024_controller.new_grants_awards_comparison_to_prior_year` | Return new NASA grant award data compared to prior fiscal years. |
+| `pbr_historical_context()` | `nasa_fy2024_controller.pbr_historical_context` | Return historical budget data with current FY PBR and runout projections. |
+| `science_context()` | `nasa_fy2024_controller.science_context` | Return historical budget data for NASA Science Mission Directorate (SMD). |
+| `science_division_context()` | `nasa_fy2024_controller.science_division_context` | Return historical budget data for each NASA science division. |
+| `workforce_projections()` | `nasa_fy2024_controller.workforce_projections` | Return historical workforce data with optional FY projection. |
 
-## `nasa_fy2027_controller.directorates_comparison`
+## `nasa_fy2024_controller.directorates_comparison`
 
 Return directorate comparison data (grouped bar format by default).
 
@@ -32,7 +30,7 @@ backwards compatibility with existing YAML files.
 
 For raw table data, use directorates_comparison_raw() instead.
 
-## `nasa_fy2027_controller.directorates_comparison_grouped`
+## `nasa_fy2024_controller.directorates_comparison_grouped`
 
 Return directorate data formatted for grouped bar charts.
 
@@ -44,7 +42,7 @@ Creates pre-configured group sets for different chart variants:
 Returns:
     dict with categories, groups, and group sets ready for YAML templates.
 
-## `nasa_fy2027_controller.directorates_comparison_raw`
+## `nasa_fy2024_controller.directorates_comparison_raw`
 
 Return directorate data as raw table for flexible charting/export.
 
@@ -53,7 +51,7 @@ Use for: tables, heatmaps, custom chart types, data export.
 Returns:
     dict with columns as keys, including Account and all FY columns.
 
-## `nasa_fy2027_controller.directorates_context`
+## `nasa_fy2024_controller.directorates_context`
 
 Return historical budget data for each NASA directorate with WH projections.
 
@@ -69,7 +67,7 @@ Returns:
     - {display_name} - enacted historical values
     - {display_name} White House Budget Projection - PBR + runouts
 
-## `nasa_fy2027_controller.major_accounts_context`
+## `nasa_fy2024_controller.major_accounts_context`
 
 Return NASA major accounts data from 2006 to the controller's fiscal year.
 
@@ -81,7 +79,7 @@ Returns:
     DataFrame with one row per major account and columns for each
     fiscal year's enacted/requested values.
 
-## `nasa_fy2027_controller.new_contract_awards_comparison_to_prior_years`
+## `nasa_fy2024_controller.new_contract_awards_comparison_to_prior_years`
 
 Return new NASA contract award data compared to prior fiscal years.
 
@@ -91,7 +89,7 @@ fiscal year against the five prior years.
 Returns:
     dict with chart-ready series and metadata for YAML variable references.
 
-## `nasa_fy2027_controller.new_grants_awards_comparison_to_prior_year`
+## `nasa_fy2024_controller.new_grants_awards_comparison_to_prior_year`
 
 Return new NASA grant award data compared to prior fiscal years.
 
@@ -101,7 +99,7 @@ fiscal year against the five prior years.
 Returns:
     dict with chart-ready series and metadata for YAML variable references.
 
-## `nasa_fy2027_controller.pbr_historical_context`
+## `nasa_fy2024_controller.pbr_historical_context`
 
 Return historical budget data with current FY PBR and runout projections.
 
@@ -120,7 +118,7 @@ Returns:
     prior_appropriation_to_pbr_change_dollars,
     prior_appropriation_to_pbr_change_percent, etc.
 
-## `nasa_fy2027_controller.science_context`
+## `nasa_fy2024_controller.science_context`
 
 Return historical budget data for NASA Science Mission Directorate (SMD).
 
@@ -135,7 +133,7 @@ Inflation adjustment uses FISCAL_YEAR - 1 as target year.
 Returns:
     dict with chart-ready series and metadata for YAML variable references
 
-## `nasa_fy2027_controller.science_division_context`
+## `nasa_fy2024_controller.science_division_context`
 
 Return historical budget data for each NASA science division.
 
@@ -148,7 +146,7 @@ Returns:
     - {Division}_adjusted_nnsi - inflation-adjusted values
     - {Division} White House Budget Projection - PBR + runouts
 
-## `nasa_fy2027_controller.workforce_projections`
+## `nasa_fy2024_controller.workforce_projections`
 
 Return historical workforce data with optional FY projection.
 
