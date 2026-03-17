@@ -285,7 +285,10 @@ class TabularDataSource(TruncateRowsMixin, FiscalYearMixin, ABC):
                     columns_to_dropna.append(col)
                 # Special handling for numeric types - use to_numeric for proper coercion
                 elif normalized_dtype in ("int64", "float64") or dtype in ("int", "float"):
-                    df[col] = pd.to_numeric(df[col], errors="coerce")
+                    df[col] = pd.to_numeric(
+                        self._normalize_numeric_strings(df[col]),
+                        errors="coerce",
+                    )
                     columns_to_dropna.append(col)
                     # Int conversion deferred until after dropna (see loop below)
                 else:
@@ -311,6 +314,12 @@ class TabularDataSource(TruncateRowsMixin, FiscalYearMixin, ABC):
                 df[col] = df[col].astype("int64")
 
         return df
+
+    def _normalize_numeric_strings(self, series: pd.Series) -> pd.Series:
+        """Strip thousands separators from string-like values before numeric coercion."""
+        if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
+            return series.astype(str).str.replace(",", "", regex=False)
+        return series
 
     def _auto_clean_currency_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """

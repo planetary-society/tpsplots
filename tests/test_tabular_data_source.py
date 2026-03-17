@@ -160,6 +160,15 @@ class TestCastingWithTypeMapping:
         assert len(result) == 1
         assert result["col"].dtype == "float64"
 
+    def test_cast_int_strips_thousands_separators(self):
+        """Comma-formatted numerics are normalized before int casting."""
+        df = pd.DataFrame({"col": ["32,203", "4,500"]})
+        source = InMemorySource(df, cast={"col": "int"}, fiscal_year_column=False)
+        result = source.data()
+
+        assert result["col"].dtype == "int64"
+        assert list(result["col"]) == [32203, 4500]
+
 
 # ---------------------------------------------------------------------------
 # Test: NaN row filtering
