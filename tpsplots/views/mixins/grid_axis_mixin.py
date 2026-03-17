@@ -158,40 +158,8 @@ class GridAxisMixin:
                 ylabel, fontsize=label_size, loc=loc, style=font_style, labelpad=ylabel_pad
             )
 
-    def _scale_tick_size_for_mobile(self, tick_size: float | None, style_type: str) -> float | None:
-        """
-        Return tick size unchanged.
-
-        Kept for backward compatibility with callers that pass tick_size through
-        this method.  Mobile scaling is now handled via the MOBILE style config.
-
-        Args:
-            tick_size: Font size for tick labels
-            style_type: 'desktop' or 'mobile' (unused, kept for API compat)
-        """
-        return tick_size
-
-    def _apply_tick_styling(
-        self,
-        ax,
-        tick_size=None,
-        tick_rotation=0,
-        style_type="desktop",
-    ):
-        """
-        Apply consistent tick label styling to both axes.
-
-        For charts needing conditional axis handling (e.g., fiscal year detection),
-        use _scale_tick_size_for_mobile() instead and apply tick_params manually.
-
-        Args:
-            ax: Matplotlib axes object
-            tick_size: Font size for tick labels
-            tick_rotation: Rotation angle for x-axis tick labels
-            style_type: 'desktop' or 'mobile' for responsive sizing
-        """
-        tick_size = self._scale_tick_size_for_mobile(tick_size, style_type)
-
+    def _apply_tick_styling(self, ax, tick_size=None, tick_rotation=0):
+        """Apply consistent tick label styling to both axes."""
         ax.tick_params(axis="x", labelsize=tick_size, rotation=tick_rotation)
         ax.tick_params(axis="y", labelsize=tick_size)
 
@@ -216,7 +184,6 @@ class GridAxisMixin:
         loc="center",
         xlabel_pad=10,
         ylabel_pad=4,
-        scale_ticks_for_mobile=True,
     ):
         """
         Compose common label/grid/tick/limit styling across chart views.
@@ -240,10 +207,9 @@ class GridAxisMixin:
             loc: Axis label location
             xlabel_pad: X-axis label pad
             ylabel_pad: Y-axis label pad
-            scale_ticks_for_mobile: Apply mobile tick downscaling when True
 
         Returns:
-            float | None: Effective tick size after optional mobile scaling
+            float | None: Effective tick size
         """
         if label_size is None:
             label_size = style.get("label_size")
@@ -272,15 +238,11 @@ class GridAxisMixin:
             linewidth=grid_linewidth,
         )
 
-        tick_style_type = style_type if scale_ticks_for_mobile else "desktop"
         self._apply_tick_styling(
             ax,
             tick_size=tick_size,
             tick_rotation=tick_rotation,
-            style_type=tick_style_type,
         )
         self._apply_axis_limits(ax, xlim=xlim, ylim=ylim)
 
-        if scale_ticks_for_mobile:
-            return self._scale_tick_size_for_mobile(tick_size, style_type)
         return tick_size

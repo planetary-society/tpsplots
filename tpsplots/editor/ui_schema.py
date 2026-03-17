@@ -113,6 +113,7 @@ _CHART_FIELD_GROUPS: dict[str, dict[str, str]] = {
         "alpha": "Bar Styling",
         "edgecolor": "Bar Styling",
         "linewidth": "Bar Styling",
+        "show_category_ticks": "Axis",
         "value_prefix": "Value Labels",
         "show_yticks": "Axis",
     },
@@ -411,7 +412,7 @@ FIELD_TIERS: dict[str, dict[str, list[str]]] = {
     },
     "grouped_bar": {
         "essential": ["colors", "labels", "show_values", "value_format", "scale", "legend"],
-        "common": ["width", "value_fontsize", "tick_size", "ylim"],
+        "common": ["width", "value_fontsize", "tick_size", "ylim", "show_category_ticks"],
     },
     "bar": {
         "essential": ["colors", "show_values", "value_format", "scale", "legend"],

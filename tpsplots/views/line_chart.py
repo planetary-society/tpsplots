@@ -783,14 +783,12 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
                 ylabel=opts["ylabel"],
                 label_size=opts["label_size"],
                 style_type=style["type"],
-                italic=False,
             )
             ax.grid(**grid)
             self._apply_tick_styling(
                 ax,
                 tick_size=opts["tick_size"],
                 tick_rotation=opts["tick_rotation"],
-                style_type="desktop",
             )
             return
 
@@ -816,8 +814,6 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             grid_axis=effective_grid_axis,
             grid_linestyle="-",
             grid_linewidth=0.8,
-            italic=False,
-            scale_ticks_for_mobile=False,
         )
 
     def _apply_line_axis_limits(self, ax, xlim, ylim, x_data):

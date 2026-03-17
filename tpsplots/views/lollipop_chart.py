@@ -545,8 +545,6 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
             grid_axis=grid_axis,
             xlim=None,
             ylim=None,
-            italic=False,
-            scale_ticks_for_mobile=False,
         )
 
         # Explicitly disable y-axis minor ticks (categories are discrete)

@@ -5,6 +5,7 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 
+from tpsplots.colors import lighten_color
 from tpsplots.models.charts.grouped_bar import GroupedBarChartConfig
 
 from .chart_view import ChartView
@@ -60,8 +61,10 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
             - grid: bool - Show grid (default: False)
             - grid_axis: str - Grid axis ('x', 'y', 'both', default: 'y')
             - scale: str - Value formatting scale ('billions', 'millions', etc.)
-            - tick_rotation: int - Category label rotation (default: 0)
+            - tick_rotation: int - Category label rotation (default: style-specific)
             - tick_size: int - Tick label font size
+            - label_size: int - Axis label font size
+            - show_category_ticks: bool - Show x-axis tick marks (default: False)
             - show_yticks: bool - Show y-axis tick labels (default: False)
             - legend: dict - Legend configuration
             - labels: list - Legend labels for each group (overrides group label)
@@ -96,6 +99,8 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
         if categories is None or groups is None:
             raise ValueError("Both 'categories' and 'groups' are required for grouped_bar_plot")
 
+        categories = self._parse_newlines_in_labels(categories)
+
         # Set up figure and extract metadata using base class helpers
         fig, ax = self._setup_figure(style, kwargs)
         self._extract_metadata_from_kwargs(metadata, kwargs)
@@ -123,8 +128,11 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
         grid_axis = kwargs.pop("grid_axis", "y")
         scale = kwargs.pop("scale", None)
         x_tick_format, y_tick_format = self._pop_axis_tick_format_kwargs(kwargs)
-        tick_rotation = kwargs.pop("tick_rotation", 0)
+        default_rotation = style.get("tick_rotation", 45)
+        tick_rotation = kwargs.pop("tick_rotation", default_rotation)
         tick_size = kwargs.pop("tick_size", style.get("tick_size", 14))
+        label_size = kwargs.pop("label_size", style.get("label_size", 20))
+        show_category_ticks = kwargs.pop("show_category_ticks", False)
         show_yticks = kwargs.pop("show_yticks", False)
         legend_config = kwargs.pop("legend", {"loc": "upper left"})
 
@@ -238,7 +246,7 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
                         stack_val,
                         width,
                         bottom=base_val,
-                        color=stacked_color or self._lighten_color(color),
+                        color=stacked_color or lighten_color(color),
                         alpha=alpha,
                         edgecolor=edgecolor,
                         linewidth=linewidth,
@@ -317,9 +325,8 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
 
         # Customize axes
         ax.set_xticks(x)
-        ax.set_xticklabels(categories, fontsize=tick_size, rotation=tick_rotation)
+        ax.set_xticklabels(categories)
 
-        label_size = style.get("label_size", 20)
         self._apply_common_axis_styling(
             ax,
             style=style,
@@ -332,19 +339,31 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
             grid_axis=grid_axis,
             xlim=xlim,
             ylim=ylim,
-            scale_ticks_for_mobile=False,
         )
+
+        # Consume max_xticks — not applicable for categorical bar charts
+        kwargs.pop("max_xticks", None)
+
+        self._disable_minor_ticks(ax)
+        self._apply_integer_locator(ax, orientation="vertical")
+
+        if not show_category_ticks:
+            self._hide_category_ticks(ax, orientation="vertical")
+
+        self._apply_vertical_category_alignment(ax, tick_rotation)
 
         scaled_y = False
 
         # Style the chart - y-axis ticks
         if not show_yticks:
-            ax.set_yticks([])
+            ax.tick_params(axis="y", left=False, labelleft=False)
             ax.spines["left"].set_visible(False)
         else:
             ax.tick_params(axis="y", labelsize=tick_size)
-            # Apply scale formatter if specified
-            if scale:
+            if value_format == "percentage":
+                self._apply_percentage_tick_formatter(ax, orientation="vertical")
+                scaled_y = True
+            elif scale:
                 self._apply_scale_formatter(ax, scale, axis="y", tick_format=y_tick_format)
                 scaled_y = True
 
@@ -366,30 +385,3 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
         self._adjust_layout_for_header_footer(fig, metadata, style)
 
         return fig
-
-    def _lighten_color(self, color, factor=0.4):
-        """
-        Lighten a color by blending it with white.
-
-        Args:
-            color: Hex color string (e.g., "#037CC2")
-            factor: Amount to lighten (0=no change, 1=white)
-
-        Returns:
-            Lightened hex color string
-        """
-        if color.startswith("#"):
-            color = color[1:]
-
-        try:
-            r = int(color[0:2], 16)
-            g = int(color[2:4], 16)
-            b = int(color[4:6], 16)
-
-            r = int(r + (255 - r) * factor)
-            g = int(g + (255 - g) * factor)
-            b = int(b + (255 - b) * factor)
-
-            return f"#{r:02x}{g:02x}{b:02x}"
-        except (ValueError, IndexError):
-            return color

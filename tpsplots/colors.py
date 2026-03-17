@@ -1,11 +1,11 @@
-"""TPS brand color palette definitions.
+"""TPS brand color palette definitions and color utilities.
 
 This module provides the canonical color definitions for all TPS charts.
 Import from here rather than from views to avoid circular dependencies
 and maintain proper separation between data/controller and view layers.
 
 Usage:
-    from tpsplots.colors import COLORS, TPS_COLORS
+    from tpsplots.colors import COLORS, TPS_COLORS, lighten_color
 
     # Accessibility-first colors (short names)
     blue = COLORS["blue"]  # "#037CC2"
@@ -45,3 +45,26 @@ TPS_COLORS: dict[str, str] = {
     "Black Hole": "#000000",
     "Polar White": "#FFFFFF",
 }
+
+
+def lighten_color(color: str, factor: float = 0.4) -> str:
+    """Lighten a hex color by blending it with white.
+
+    Args:
+        color: Hex color string (e.g., "#037CC2")
+        factor: Amount to lighten (0=no change, 1=white)
+
+    Returns:
+        Lightened hex color string, or original on parse failure.
+    """
+    hex_str = color.lstrip("#")
+    try:
+        r = int(hex_str[0:2], 16)
+        g = int(hex_str[2:4], 16)
+        b = int(hex_str[4:6], 16)
+        r = int(r + (255 - r) * factor)
+        g = int(g + (255 - g) * factor)
+        b = int(b + (255 - b) * factor)
+        return f"#{r:02x}{g:02x}{b:02x}"
+    except (ValueError, IndexError):
+        return color

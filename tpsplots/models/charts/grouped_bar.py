@@ -5,7 +5,7 @@ Covers all kwargs accepted by GroupedBarChartView._create_chart.
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from tpsplots.models.mixins import (
     AxisMixin,
@@ -47,7 +47,7 @@ class GroupedBarChartConfig(
     - AxisMixin: xlim, ylim, xlabel, ylabel, tick_rotation, tick_size, label_size
     - GridMixin: grid, grid_axis
     - LegendMixin: legend
-    - TickFormatMixin: x_tick_format, y_tick_format, fiscal_year_ticks, max_xticks, integer_xticks
+    - TickFormatMixin: x_tick_format, y_tick_format, max_xticks, integer_xticks
     - ScaleMixin: scale, axis_scale
     - ValueDisplayMixin: show_values, value_format, value_suffix, value_offset,
       value_fontsize, value_color, value_weight
@@ -62,6 +62,12 @@ class GroupedBarChartConfig(
     groups: list[GroupConfig | dict] | None = Field(
         None, description="List of group configurations"
     )
+
+    # --- Rejected fields ---
+    @field_validator("fiscal_year_ticks", mode="before")
+    @classmethod
+    def reject_fiscal_year_ticks(cls, v):
+        return cls._reject_fiscal_year_ticks(v, "grouped bar")
 
     # --- Styling ---
     colors: str | list[str] | None = Field(None, description="Override colors for groups")
@@ -79,6 +85,13 @@ class GroupedBarChartConfig(
     alpha: float | None = Field(None, description="Bar transparency (0.0-1.0)")
     edgecolor: str | None = Field(None, description="Bar edge color")
     linewidth: float | None = Field(None, description="Bar edge line width")
+    show_category_ticks: bool | None = Field(
+        None,
+        description=(
+            "Show tick marks on the category axis (x-axis). Default: False "
+            "(tick labels remain visible either way)"
+        ),
+    )
 
     # --- Grouped-bar specific ---
     show_yticks: bool | None = Field(

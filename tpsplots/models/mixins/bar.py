@@ -77,7 +77,6 @@ class BarStylingMixin(BaseModel):
     """Shared bar styling parameters.
 
     Used by: bar, stacked_bar.
-    Mirrors: BarChartMixin._apply_common_bar_styling
     """
 
     width: float | None = Field(

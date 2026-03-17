@@ -87,6 +87,26 @@ def test_line_chart_grid_dict_still_applies_custom_axis(tmp_path):
     assert not any(line.get_visible() for line in ax.get_ygridlines())
 
 
+def test_line_chart_axis_labels_are_italic_with_grid_dict(tmp_path):
+    """Line chart axis labels should remain italic in the dict-grid branch."""
+    view = LineChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Italic Labels"},
+        style=view.DESKTOP,
+        x=[1, 2, 3, 4],
+        y=[[10, 20, 30, 40]],
+        xlabel="Year",
+        ylabel="Amount",
+        legend=False,
+        fiscal_year_ticks=False,
+        grid={"axis": "x", "alpha": 0.25},
+    )
+    ax = fig.axes[0]
+
+    assert ax.xaxis.label.get_fontstyle() == "italic"
+    assert ax.yaxis.label.get_fontstyle() == "italic"
+
+
 def test_line_chart_grid_axis_kwarg_controls_visible_axis(tmp_path):
     """Line chart should honor explicit grid_axis when grid is enabled."""
     view = LineChartView(outdir=tmp_path, style_file=None)
@@ -105,6 +125,138 @@ def test_line_chart_grid_axis_kwarg_controls_visible_axis(tmp_path):
 
     assert any(line.get_visible() for line in ax.get_xgridlines())
     assert not any(line.get_visible() for line in ax.get_ygridlines())
+
+
+def test_grouped_bar_keeps_y_grid_when_y_tick_labels_hidden(tmp_path):
+    """Grouped bar chart should preserve y-gridlines when hiding y-axis labels."""
+    from tpsplots.views.grouped_bar_chart import GroupedBarChartView
+
+    view = GroupedBarChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Grouped Grid"},
+        style=view.DESKTOP,
+        categories=["A", "B", "C"],
+        groups=[
+            {"label": "First", "values": [10, 20, 30]},
+            {"label": "Second", "values": [12, 22, 32]},
+        ],
+        grid=True,
+        grid_axis="y",
+        show_yticks=False,
+        legend=False,
+    )
+    ax = fig.axes[0]
+    fig.canvas.draw()
+
+    assert any(line.get_visible() for line in ax.get_ygridlines())
+    assert not any(tick.get_text() for tick in ax.get_yticklabels())
+
+
+def test_grouped_bar_hides_category_tick_marks_by_default(tmp_path):
+    """Grouped bar chart should hide x-axis category tick marks by default."""
+    from tpsplots.views.grouped_bar_chart import GroupedBarChartView
+
+    view = GroupedBarChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Grouped Tick Marks"},
+        style=view.DESKTOP,
+        categories=["A", "B", "C"],
+        groups=[
+            {"label": "First", "values": [10, 20, 30]},
+            {"label": "Second", "values": [12, 22, 32]},
+        ],
+        legend=False,
+    )
+    ax = fig.axes[0]
+    fig.canvas.draw()
+
+    assert not ax.xaxis.get_major_ticks()[0].tick1line.get_visible()
+
+
+def test_grouped_bar_respects_label_size_override(tmp_path):
+    """Grouped bar chart should honor explicit axis label size overrides."""
+    from tpsplots.views.grouped_bar_chart import GroupedBarChartView
+
+    view = GroupedBarChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Grouped Labels"},
+        style=view.DESKTOP,
+        categories=["A", "B", "C"],
+        groups=[
+            {"label": "First", "values": [10, 20, 30]},
+            {"label": "Second", "values": [12, 22, 32]},
+        ],
+        xlabel="Category",
+        ylabel="Value",
+        label_size=31,
+        legend=False,
+    )
+    ax = fig.axes[0]
+
+    assert ax.xaxis.label.get_size() == 31
+    assert ax.yaxis.label.get_size() == 31
+
+
+def test_grouped_bar_uses_style_default_tick_rotation(tmp_path):
+    """Grouped bar chart should inherit default x tick rotation from the active style."""
+    from tpsplots.views.grouped_bar_chart import GroupedBarChartView
+
+    view = GroupedBarChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Grouped Mobile Rotation"},
+        style=view.MOBILE,
+        categories=["A", "B", "C"],
+        groups=[
+            {"label": "First", "values": [10, 20, 30]},
+            {"label": "Second", "values": [12, 22, 32]},
+        ],
+        legend=False,
+    )
+    ax = fig.axes[0]
+    fig.canvas.draw()
+
+    assert ax.get_xticklabels()[0].get_rotation() == view.MOBILE["tick_rotation"]
+
+
+def test_grouped_bar_parses_literal_newlines_in_category_labels(tmp_path):
+    """Grouped bar chart should convert literal \\n sequences into real line breaks."""
+    from tpsplots.views.grouped_bar_chart import GroupedBarChartView
+
+    view = GroupedBarChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Grouped Newlines"},
+        style=view.DESKTOP,
+        categories=["Line 1\\nLine 2", "B", "C"],
+        groups=[
+            {"label": "First", "values": [10, 20, 30]},
+            {"label": "Second", "values": [12, 22, 32]},
+        ],
+        legend=False,
+    )
+    ax = fig.axes[0]
+    fig.canvas.draw()
+
+    assert ax.get_xticklabels()[0].get_text() == "Line 1\nLine 2"
+
+
+def test_stacked_bar_axis_labels_are_italic(tmp_path):
+    """Stacked bar chart axis labels should render in italics."""
+    from tpsplots.views.stacked_bar_chart import StackedBarChartView
+
+    view = StackedBarChartView(outdir=tmp_path, style_file=None)
+    fig = view._create_chart(
+        metadata={"title": "Italic Stack"},
+        style=view.DESKTOP,
+        categories=["A", "B"],
+        values={"One": [10, 20], "Two": [5, 15]},
+        xlabel="Category",
+        ylabel="Value",
+        legend=False,
+    )
+    ax = fig.axes[0]
+
+    assert ax.xaxis.label.get_fontstyle() == "italic"
+    assert ax.yaxis.label.get_fontstyle() == "italic"
 
 
 def test_line_chart_direct_labels_do_not_duplicate_markersize_kwarg(tmp_path):

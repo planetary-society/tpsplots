@@ -1,0 +1,37 @@
+# Example bar chart using NASA authorization bill metadata.
+# Plots bill word count by year as a bar chart.
+
+data:
+  source: csv:yaml/examples/data/nasa_authorizations.csv
+  params:
+    columns:
+    - Year
+    - Word Count
+    cast:
+      Word Count: int
+      Year: int
+    fiscal_year_column: false
+
+chart:
+  type: bar
+  output: nasa_authorizations_word_count_bar
+  title: "NASA Authorization Bills Have Gotten Longer"
+  subtitle: "As Congress shifted from annual to irregular reauthorizations,
+    NASA authorization bills grew substantially in word count."
+  source: "Congress.gov"
+
+  categories: "{{Year}}"
+  values: "{{Word Count}}"
+  xlabel: "Year"
+  ylabel: "Word Count"
+  y_tick_format: ",.0f"
+  tick_size: 8
+  tick_rotation: 90
+  colors: "Neptune Blue"
+  alpha: 0.8
+  grid: true
+  grid_axis: y
+  legend: false
+  sort_by: category
+
+  export_data: "{{data}}"

@@ -6,7 +6,7 @@ _apply_stacked_bar_styling.
 
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from tpsplots.models.mixins import (
     AxisMixin,
@@ -36,7 +36,7 @@ class StackedBarChartConfig(
     - AxisMixin: xlim, ylim, xlabel, ylabel, tick_rotation, tick_size, label_size
     - GridMixin: grid, grid_axis
     - LegendMixin: legend
-    - TickFormatMixin: x_tick_format, y_tick_format, fiscal_year_ticks, max_xticks, integer_xticks
+    - TickFormatMixin: x_tick_format, y_tick_format, max_xticks, integer_xticks
     - ScaleMixin: scale, axis_scale
     - ValueDisplayMixin: show_values, value_format, value_suffix, value_offset,
       value_fontsize, value_color, value_weight
@@ -47,6 +47,12 @@ class StackedBarChartConfig(
     """
 
     type: Literal["stacked_bar"] = Field("stacked_bar", description="Chart type discriminator")
+
+    # --- Rejected fields ---
+    @field_validator("fiscal_year_ticks", mode="before")
+    @classmethod
+    def reject_fiscal_year_ticks(cls, v):
+        return cls._reject_fiscal_year_ticks(v, "stacked bar")
 
     # --- Data bindings ---
     categories: Any = Field(None, description="Category labels for the axis")

@@ -296,8 +296,6 @@ class LineSubplotsView(LineSeriesMixin, GridAxisMixin, ChartView):
             grid_alpha=0.3,
             grid_linestyle="-",
             grid_linewidth=0.8,
-            italic=False,
-            scale_ticks_for_mobile=False,
         )
 
         # Get x-axis data for date detection

@@ -95,6 +95,29 @@ def test_grouped_bar_chart_applies_y_tick_format(tmp_path):
     assert any("," in label for label in y_labels)
 
 
+def test_grouped_bar_chart_applies_percentage_tick_format(tmp_path):
+    """Grouped bar chart should format y-axis ticks as percentages."""
+    view = GroupedBarChartView(outdir=tmp_path, style_file=None)
+
+    fig = view._create_chart(
+        metadata={"title": "Test"},
+        style=view.DESKTOP,
+        categories=["A", "B", "C"],
+        groups=[
+            {"label": "A", "values": [10, 20, 30]},
+            {"label": "B", "values": [12, 22, 32]},
+        ],
+        show_yticks=True,
+        value_format="percentage",
+        legend=False,
+    )
+
+    ax = fig.axes[0]
+    fig.canvas.draw()
+    y_labels = _non_empty_tick_texts(ax.get_yticklabels())
+    assert any(label.endswith("%") for label in y_labels)
+
+
 def test_lollipop_chart_scale_composes_with_x_tick_format(tmp_path):
     """Lollipop chart should compose x-axis scale and tick formatting."""
     view = LollipopChartView(outdir=tmp_path, style_file=None)

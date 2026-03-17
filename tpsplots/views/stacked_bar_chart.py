@@ -433,8 +433,6 @@ class StackedBarChartView(BarChartMixin, ColorCycleMixin, GridAxisMixin, ChartVi
             grid_axis=grid_axis,
             xlim=None,
             ylim=None,
-            italic=False,
-            scale_ticks_for_mobile=True,
         )
 
         # Disable minor ticks using mixin
