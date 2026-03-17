@@ -79,8 +79,13 @@ class ChartController:
 
         fy_col = self._resolve_fiscal_year_metadata_column(df, fiscal_year_column)
         df = ColumnSumProcessor(ColumnSumConfig(exclude=[fy_col] if fy_col else [])).process(df)
+        value_columns = df.attrs.get("value_columns")
         result = self._build_result_dict(df)
-        result["metadata"] = self._build_metadata(df, fiscal_year_col=fy_col)
+        result["metadata"] = self._build_metadata(
+            df,
+            fiscal_year_col=fy_col,
+            value_columns=value_columns,
+        )
         return result
 
     @staticmethod

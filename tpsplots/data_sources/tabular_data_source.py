@@ -23,6 +23,7 @@ import pandas as pd
 
 from tpsplots.data_sources.fiscal_year_mixin import FiscalYearMixin
 from tpsplots.data_sources.truncate_rows_mixin import TruncateRowsMixin
+from tpsplots.processors.dataframe_to_yaml_processor import to_snake_case
 from tpsplots.utils.currency_processing import clean_currency_column, looks_like_currency_column
 
 logger = logging.getLogger(__name__)
@@ -216,6 +217,7 @@ class TabularDataSource(TruncateRowsMixin, FiscalYearMixin, ABC):
 
         # Apply fiscal year conversion (auto-detects or uses configured column)
         df = self._apply_fiscal_year_conversion(df, self._fiscal_year_column)
+        df = self._annotate_value_columns_metadata(df)
 
         return df
 
@@ -320,6 +322,41 @@ class TabularDataSource(TruncateRowsMixin, FiscalYearMixin, ABC):
         if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
             return series.astype(str).str.replace(",", "", regex=False)
         return series
+
+    def _annotate_value_columns_metadata(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Record auto-detected numeric value columns for downstream metadata generation."""
+        value_columns: dict[str, str] = {}
+        fiscal_year_col = self._resolve_metadata_fiscal_year_column(df)
+
+        for col in df.select_dtypes(include="number").columns:
+            if col == fiscal_year_col or col.endswith("_raw"):
+                continue
+
+            key = to_snake_case(col)
+            if key in value_columns and value_columns[key] != col:
+                logger.warning(
+                    "Skipping metadata alias '%s' for column '%s'; already assigned to '%s'",
+                    key,
+                    col,
+                    value_columns[key],
+                )
+                continue
+            value_columns[key] = col
+
+        if value_columns:
+            df.attrs["value_columns"] = value_columns
+        else:
+            df.attrs.pop("value_columns", None)
+
+        return df
+
+    def _resolve_metadata_fiscal_year_column(self, df: pd.DataFrame) -> str | None:
+        """Resolve the fiscal-year column name used for auto-generated metadata."""
+        if self._fiscal_year_column is False:
+            return None
+        if isinstance(self._fiscal_year_column, str):
+            return self._fiscal_year_column if self._fiscal_year_column in df.columns else None
+        return FiscalYearMixin._detect_fy_column(df)
 
     def _auto_clean_currency_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """

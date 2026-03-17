@@ -66,3 +66,25 @@ class TestCSVControllerMetadataSums:
 
         assert "Cost_raw" not in sums
         assert "Cost" in sums  # cleaned numeric column IS summed
+
+
+class TestCSVControllerValueMetadata:
+    def test_numeric_columns_expose_min_max_metadata(self, tmp_path):
+        csv_file = tmp_path / "data.csv"
+        csv_file.write_text(
+            "Fiscal Year,Budget Amount,Headcount,Label\n"
+            "2020,100.0,10,Alpha\n"
+            "2021,250.0,12,Beta\n"
+            "2022,175.0,9,Gamma\n"
+        )
+
+        result = CSVController(csv_path=str(csv_file)).load_data()
+        metadata = result["metadata"]
+
+        assert metadata["max_budget_amount"] == 250.0
+        assert metadata["min_budget_amount"] == 100.0
+        assert metadata["max_budget_amount_fiscal_year"] == 2022
+        assert metadata["min_budget_amount_fiscal_year"] == 2020
+        assert metadata["max_headcount"] == 12.0
+        assert metadata["min_headcount"] == 9.0
+        assert "max_label" not in metadata

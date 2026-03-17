@@ -747,8 +747,9 @@ def _render_metadata_section(lines: list[str]) -> None:
             "| `source` | str | Source attribution string |",
             "| `column_sums` | dict | Column totals (when ColumnSumProcessor runs) |",
             "",
-            "Controllers that pass `value_columns` to `_build_metadata` also produce"
-            " per-column keys:",
+            "CSV and Google Sheets controllers auto-produce per-column keys for"
+            " numeric columns, and custom controllers can opt in explicitly by"
+            " passing `value_columns` to `_build_metadata`:",
             "",
             "| Key pattern | Description |",
             "|-------------|-------------|",
