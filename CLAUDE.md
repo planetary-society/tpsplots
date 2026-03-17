@@ -30,14 +30,14 @@ YAML Config → YAMLChartProcessor → DataResolver → View → Output Files
 | Directory | Purpose |
 |-----------|---------|
 | `tpsplots/views/` | Chart rendering (inherit from `ChartView`) |
-| `tpsplots/controllers/` | Data preparation (inherit from `ChartController`) |
+| `tpsplots/controllers/` | Data preparation (inherit from `ChartController` or `TabularDataController`) |
 | `tpsplots/models/` | Pydantic schemas for YAML validation |
 | `tpsplots/models/charts/` | Per-chart-type config models (one file per chart type) |
 | `tpsplots/models/mixins/` | Shared field groups (bar styling, base params, etc.) |
 | `tpsplots/processors/` | Data transformations (see [PROCESSORS.md](PROCESSORS.md)) |
 | `tpsplots/data_sources/` | Data loading (NASA budget, Google Sheets, etc.) |
 | `tpsplots/editor/` | Interactive web editor (session, routes, static frontend) |
-| `tpsplots/utils/` | Shared utilities (currency cleaning, DataFrame transforms, formatting) |
+| `tpsplots/utils/` | Shared utilities (currency cleaning, date processing, formatting) |
 
 ## Adding Chart Types
 

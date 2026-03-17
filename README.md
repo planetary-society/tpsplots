@@ -602,6 +602,7 @@ tpsplots/
 │   └── resolvers/           # Data, parameter, metadata resolution
 ├── templates/               # Chart type templates for --new
 ├── utils/                   # Shared utilities
+│   ├── currency_processing.py
 │   ├── date_processing.py
 │   └── formatting.py
 └── views/                   # Chart visualization classes
