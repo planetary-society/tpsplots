@@ -9,6 +9,7 @@ from typing import Annotated
 import typer
 
 from tpsplots import __version__
+from tpsplots.commands.docs import docs
 from tpsplots.commands.editor import editor
 from tpsplots.commands.s3_sync import s3_sync
 from tpsplots.commands.textedit import textedit
@@ -111,9 +112,7 @@ def emit_generate_summary(
         summary = f"Summary: {success_count} succeeded, {failure_count} failed"
 
     summary_color = (
-        typer.colors.GREEN
-        if failure_count == 0 and config_error_count == 0
-        else typer.colors.RED
+        typer.colors.GREEN if failure_count == 0 and config_error_count == 0 else typer.colors.RED
     )
     typer.secho(summary, fg=summary_color, bold=True)
 
@@ -470,6 +469,7 @@ def validate_cmd(
 
 
 # Register s3-sync subcommand
+app.command("docs")(docs)
 app.command("s3-sync")(s3_sync)
 app.command("textedit")(textedit)
 app.command("editor")(editor)
