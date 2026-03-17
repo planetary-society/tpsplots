@@ -229,9 +229,17 @@ def test_generate_all(tmp_path):
     """generate_all creates all expected files."""
     written = generate_all(tmp_path)
 
-    expected_files = {"index.md", "data.md"} | {f"{ct}.md" for ct in CONFIG_REGISTRY}
-    actual_files = {p.name for p in written}
-    assert actual_files == expected_files
+    # Top-level files
+    top_level_names = {p.name for p in written if p.parent == tmp_path}
+    expected_top = {"index.md", "data.md", "controllers.md"} | {
+        f"{ct}.md" for ct in CONFIG_REGISTRY
+    }
+    assert top_level_names == expected_top
+
+    # Controller subdirectory files exist
+    ctrl_files = [p for p in written if p.parent.name == "controllers"]
+    assert len(ctrl_files) > 0, "No controller files generated in controllers/"
+    assert (tmp_path / "controllers" / "apollo_controller.md").exists()
 
     # All files are non-empty
     for path in written:
@@ -252,6 +260,84 @@ def test_generate_single_type(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Controller docs
+# ---------------------------------------------------------------------------
+
+
+def test_discover_controllers():
+    """discover_controllers returns concrete controllers with methods."""
+    from tpsplots.docs_generator import discover_controllers
+
+    controllers = discover_controllers()
+    assert len(controllers) > 0
+
+    # Every controller has at least one method
+    for ctrl in controllers:
+        assert len(ctrl.methods) > 0, f"{ctrl.class_name} has no methods"
+
+    # Known controllers are present
+    module_names = {c.module_name for c in controllers}
+    assert "apollo_controller" in module_names
+    assert "nasa_budget_chart" in module_names
+    assert "planetary_mission_budget" in module_names
+
+
+def test_discover_controllers_excludes_base_classes():
+    """Base classes should not appear in discovered controllers."""
+    from tpsplots.docs_generator import discover_controllers
+
+    controllers = discover_controllers()
+    class_names = {c.class_name for c in controllers}
+    assert "ChartController" not in class_names
+    assert "TabularDataController" not in class_names
+    assert "NASAFYChartsController" not in class_names
+
+
+def test_all_controller_methods_have_docstrings():
+    """Every public controller method should have a non-empty docstring."""
+    from tpsplots.docs_generator import discover_controllers
+
+    controllers = discover_controllers()
+    missing = []
+    for ctrl in controllers:
+        for m in ctrl.methods:
+            if not m.description:
+                missing.append(m.yaml_source)
+    assert not missing, f"Methods missing docstrings: {missing}"
+
+
+def test_controllers_index_renders():
+    """Controllers index page links to individual controller pages."""
+    from tpsplots.docs_generator import render_controllers_index
+
+    page = render_controllers_index()
+    assert "# Controllers" in page
+    assert "## CSV and Google Sheets" in page
+    assert "## Standard Metadata" in page
+    # Links to individual controller pages
+    assert "controllers/apollo_controller.md" in page
+    assert "controllers/nasa_budget_chart.md" in page
+
+
+def test_controller_page_renders():
+    """Individual controller page renders with methods."""
+    from tpsplots.docs_generator import discover_controllers, render_controller_page
+
+    controllers = discover_controllers()
+    apollo = next(c for c in controllers if c.module_name == "apollo_controller")
+    page = render_controller_page(apollo)
+    assert "# apollo_controller" in page
+    assert "program_spending" in page
+    assert "YAML Source" in page
+
+
+def test_index_includes_controllers():
+    """Index page links to controllers page."""
+    page = render_index_page()
+    assert "controllers.md" in page
+
+
+# ---------------------------------------------------------------------------
 # Snapshot: docs stay in sync with models
 # ---------------------------------------------------------------------------
 
@@ -263,6 +349,7 @@ def test_docs_up_to_date(tmp_path):
     """Committed docs match freshly generated output."""
     generate_all(tmp_path)
 
+    # Check top-level docs
     for committed_file in DOCS_DIR.glob("*.md"):
         fresh = tmp_path / committed_file.name
         if not fresh.exists():
@@ -272,3 +359,17 @@ def test_docs_up_to_date(tmp_path):
         assert committed_content == fresh_content, (
             f"{committed_file.name} is out of date. Run 'tpsplots docs' to regenerate."
         )
+
+    # Check controllers subdirectory
+    ctrl_dir = DOCS_DIR / "controllers"
+    if ctrl_dir.exists():
+        for committed_file in ctrl_dir.glob("*.md"):
+            fresh = tmp_path / "controllers" / committed_file.name
+            if not fresh.exists():
+                continue
+            committed_content = committed_file.read_text()
+            fresh_content = fresh.read_text()
+            assert committed_content == fresh_content, (
+                f"controllers/{committed_file.name} is out of date. "
+                "Run 'tpsplots docs' to regenerate."
+            )
