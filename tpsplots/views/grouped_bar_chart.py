@@ -359,8 +359,28 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
             ax.tick_params(axis="y", left=False, labelleft=False)
             ax.spines["left"].set_visible(False)
         else:
+            spine_color = plt.rcParams.get("axes.edgecolor", "black")
+            spine_width = plt.rcParams.get("axes.linewidth", 0.8)
+            tick_length = plt.rcParams.get("ytick.major.size", 3.5)
+            tick_width = plt.rcParams.get("ytick.major.width", 0.8)
+            tick_color = plt.rcParams.get("ytick.color", spine_color)
+            label_color = plt.rcParams.get("ytick.labelcolor", "inherit")
+            if label_color == "inherit":
+                label_color = plt.rcParams.get("axes.labelcolor", tick_color)
+
             ax.spines["left"].set_visible(True)
-            ax.tick_params(axis="y", left=True, labelleft=True, labelsize=tick_size)
+            ax.spines["left"].set_linewidth(spine_width)
+            ax.spines["left"].set_edgecolor(spine_color)
+            ax.tick_params(
+                axis="y",
+                left=True,
+                labelleft=True,
+                labelsize=tick_size,
+                length=tick_length,
+                width=tick_width,
+                color=tick_color,
+                labelcolor=label_color,
+            )
             if value_format == "percentage":
                 self._apply_percentage_tick_formatter(ax, orientation="vertical")
                 scaled_y = True

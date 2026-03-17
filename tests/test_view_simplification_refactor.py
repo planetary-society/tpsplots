@@ -174,6 +174,49 @@ def test_grouped_bar_shows_y_axis_by_default(tmp_path):
     assert any(tick.get_text() for tick in ax.get_yticklabels())
 
 
+def test_grouped_bar_y_axis_matches_default_chart_style(tmp_path):
+    """Grouped bar chart should render the default shared y-axis visual style."""
+    import matplotlib.pyplot as plt
+
+    from tpsplots.views.grouped_bar_chart import GroupedBarChartView
+
+    grouped_view = GroupedBarChartView(outdir=tmp_path, style_file=None)
+
+    grouped_fig = grouped_view._create_chart(
+        metadata={"title": "Grouped"},
+        style=grouped_view.DESKTOP,
+        categories=["A", "B"],
+        groups=[
+            {"label": "First", "values": [10, 20]},
+            {"label": "Second", "values": [12, 22]},
+        ],
+        xlabel="Category",
+        ylabel="Value",
+        legend=False,
+    )
+
+    grouped_ax = grouped_fig.axes[0]
+    grouped_fig.canvas.draw()
+
+    grouped_tick = grouped_ax.yaxis.get_major_ticks()[0]
+    expected_label_color = plt.rcParams["ytick.labelcolor"]
+    if expected_label_color == "inherit":
+        expected_label_color = plt.rcParams["axes.labelcolor"]
+
+    assert grouped_ax.spines["left"].get_visible()
+    assert grouped_ax.spines["left"].get_linewidth() == plt.rcParams["axes.linewidth"]
+    assert grouped_ax.spines["left"].get_edgecolor() == plt.matplotlib.colors.to_rgba(
+        plt.rcParams["axes.edgecolor"]
+    )
+    assert grouped_ax.yaxis.label.get_fontstyle() == "italic"
+    assert grouped_ax.get_yticklabels()[0].get_fontsize() == grouped_view.DESKTOP["tick_size"]
+    assert grouped_tick.tick1line.get_visible()
+    assert grouped_tick.tick1line.get_markersize() == plt.rcParams["ytick.major.size"]
+    assert grouped_tick.tick1line.get_markeredgewidth() == plt.rcParams["ytick.major.width"]
+    assert grouped_tick.tick1line.get_color() == plt.rcParams["ytick.color"]
+    assert grouped_ax.get_yticklabels()[0].get_color() == expected_label_color
+
+
 def test_grouped_bar_hides_category_tick_marks_by_default(tmp_path):
     """Grouped bar chart should hide x-axis category tick marks by default."""
     from tpsplots.views.grouped_bar_chart import GroupedBarChartView
