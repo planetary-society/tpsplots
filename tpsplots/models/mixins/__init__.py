@@ -1,6 +1,13 @@
 """Mixin base models for chart configuration."""
 
-from tpsplots.models.mixins.bar import BarStylingMixin, ValueDisplayMixin
+from tpsplots.models.mixins.bar import (
+    BarStylingMixin,
+    CategoricalBarAxisMixin,
+    ValueAxisVisibilityMixin,
+    ValueDisplayMixin,
+    ValueScaleMixin,
+    validate_bar_value_axis_visibility,
+)
 from tpsplots.models.mixins.base import (
     TEMPLATE_REF_PATTERN,
     ChartConfigBase,
@@ -18,18 +25,19 @@ from tpsplots.models.mixins.shared import (
 
 __all__ = [
     "TEMPLATE_REF_PATTERN",
-    # Shared mixins
     "AxisMixin",
-    # Bar-family mixins
     "BarStylingMixin",
-    # Base
+    "CategoricalBarAxisMixin",
     "ChartConfigBase",
     "GridMixin",
     "LegendMixin",
     "ScaleMixin",
     "SortMixin",
     "TickFormatMixin",
+    "ValueAxisVisibilityMixin",
     "ValueDisplayMixin",
+    "ValueScaleMixin",
     "is_template_ref",
+    "validate_bar_value_axis_visibility",
     "validate_numeric_or_ref",
 ]

@@ -6,17 +6,19 @@ _apply_stacked_bar_styling.
 
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from tpsplots.models.mixins import (
     AxisMixin,
     BarStylingMixin,
+    CategoricalBarAxisMixin,
     ChartConfigBase,
     GridMixin,
     LegendMixin,
-    ScaleMixin,
-    TickFormatMixin,
+    ValueAxisVisibilityMixin,
     ValueDisplayMixin,
+    ValueScaleMixin,
+    validate_bar_value_axis_visibility,
 )
 
 
@@ -24,8 +26,9 @@ class StackedBarChartConfig(
     AxisMixin,
     GridMixin,
     LegendMixin,
-    TickFormatMixin,
-    ScaleMixin,
+    CategoricalBarAxisMixin,
+    ValueAxisVisibilityMixin,
+    ValueScaleMixin,
     ValueDisplayMixin,
     BarStylingMixin,
     ChartConfigBase,
@@ -36,17 +39,33 @@ class StackedBarChartConfig(
     - AxisMixin: xlim, ylim, xlabel, ylabel, tick_rotation, tick_size, label_size
     - GridMixin: grid, grid_axis
     - LegendMixin: legend
-    - TickFormatMixin: x_tick_format, y_tick_format, fiscal_year_ticks, max_xticks, integer_xticks
-    - ScaleMixin: scale, axis_scale
-    - ValueDisplayMixin: show_values, value_format, value_suffix, value_offset,
-      value_fontsize, value_color, value_weight
-    - BarStylingMixin: width, height, alpha, edgecolor, linewidth, orientation,
-      show_category_ticks, baseline
+    - CategoricalBarAxisMixin: x_tick_format, y_tick_format, category_label_format
+    - ValueAxisVisibilityMixin: show_xticks, show_yticks
+    - ValueScaleMixin: scale
+    - ValueDisplayMixin: show_values, value_prefix, value_format, value_suffix,
+      value_offset, value_fontsize, value_color, value_weight
+    - BarStylingMixin: width, alpha, edgecolor, linewidth, show_category_ticks
     - ChartConfigBase: output, title, subtitle, source, figsize, dpi, export_data,
       matplotlib_config
     """
 
     type: Literal["stacked_bar"] = Field("stacked_bar", description="Chart type discriminator")
+
+    # --- Orientation (bar + stacked_bar only) ---
+    height: float | None = Field(
+        None,
+        description=(
+            "Bar height as fraction of category spacing (0.0-1.0). Default: 0.8. "
+            "Only applies to horizontal bars; use width for vertical"
+        ),
+    )
+    orientation: Literal["vertical", "horizontal"] | None = Field(
+        None,
+        description=(
+            "Bar orientation: 'vertical' (categories on x, values on y) "
+            "or 'horizontal' (categories on y, values on x). Default: 'vertical'"
+        ),
+    )
 
     # --- Data bindings ---
     categories: Any = Field(None, description="Category labels for the axis")
@@ -86,6 +105,10 @@ class StackedBarChartConfig(
             "or Python format spec. Default: same as value_format"
         ),
     )
+    stack_label_prefix: str | None = Field(
+        None,
+        description=("Text prepended before each stack total label. Default: same as value_prefix"),
+    )
     stack_label_suffix: str | None = Field(
         None,
         description=(
@@ -96,3 +119,9 @@ class StackedBarChartConfig(
     bottom_values: list | None = Field(
         None, description="Custom bottom values for stacking (advanced use)"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_value_axis_visibility(cls, data):
+        """Reject x/y value-axis visibility options on incompatible orientations."""
+        return validate_bar_value_axis_visibility(data)

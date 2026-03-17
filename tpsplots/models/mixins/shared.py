@@ -128,6 +128,19 @@ class TickFormatMixin(BaseModel):
             "all years if <10yr range, every 5yr if <20yr, decades if >20yr"
         ),
     )
+
+    @staticmethod
+    def _reject_fiscal_year_ticks(v, chart_type: str):
+        """Shared validation helper for categorical chart types that reject fiscal_year_ticks."""
+        if v is not None:
+            raise ValueError(
+                f"fiscal_year_ticks is not supported for {chart_type} charts. "
+                "Categorical bar charts label each bar individually. "
+                "To prevent date conversion of year columns, set "
+                "fiscal_year_column: false in data.params."
+            )
+        return v
+
     max_xticks: NumericIntOrRef | None = Field(
         None,
         description=(

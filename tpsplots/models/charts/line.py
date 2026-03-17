@@ -131,13 +131,14 @@ class LineChartConfig(
     labels: str | list[str | None] | None = Field(None, description="Legend label(s)")
 
     # --- Series types (semantic styling) ---
-    series_types: list[str] | None = Field(
+    series_types: list[str] | str | None = Field(
         None,
         description=(
             "Semantic series types that apply default styling per series. "
             "Values: 'prior' (gray dashed, 1.5pt), 'average' (blue solid, 4pt, circle markers), "
             "'current' (Rocket Flame solid, 4pt, circle markers). "
-            "List length must match number of y series. Overridden by explicit color/linestyle/etc."
+            "List length must match number of y series. May also be a template ref "
+            "like '{{series_types}}'. Overridden by explicit color/linestyle/etc."
         ),
     )
 

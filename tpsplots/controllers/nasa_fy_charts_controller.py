@@ -70,15 +70,38 @@ class NASAFYChartsController(ChartController):
         return result
 
     def new_grants_awards_comparison_to_prior_year(self) -> dict:
-        """Process grant award data for historical comparison."""
+        """Return new NASA grant award data compared to prior fiscal years.
+
+        Compares cumulative monthly grant award values for the current
+        fiscal year against the five prior years.
+
+        Returns:
+            dict with chart-ready series and metadata for YAML variable references.
+        """
         return self._get_award_data(award_type="Grant")
 
     def new_contract_awards_comparison_to_prior_years(self) -> dict:
-        """Process contract award data for historical comparison."""
+        """Return new NASA contract award data compared to prior fiscal years.
+
+        Compares cumulative monthly contract award values for the current
+        fiscal year against the five prior years.
+
+        Returns:
+            dict with chart-ready series and metadata for YAML variable references.
+        """
         return self._get_award_data(award_type="Contract")
 
     def major_accounts_context(self) -> pd.DataFrame:
-        """Returns NASA major accounts from 2006 to given fiscal year, as well as current fiscal year projection."""
+        """Return NASA major accounts data from 2006 to the controller's fiscal year.
+
+        Filters budget detail rows to the accounts defined in the subclass's
+        ACCOUNTS class variable, applies aliases, and renames the first column
+        to "Account".
+
+        Returns:
+            DataFrame with one row per major account and columns for each
+            fiscal year's enacted/requested values.
+        """
         from tpsplots.processors.accounts_filter_processor import (
             AccountsFilterConfig,
             AccountsFilterProcessor,

@@ -70,6 +70,20 @@ class TestGetChartTypeSchema:
             fyt = props["fiscal_year_ticks"]
             assert fyt.get("type") == "boolean"
 
+    @pytest.mark.parametrize("chart_type", ["bar", "grouped_bar", "stacked_bar"])
+    def test_bar_family_schema_hides_unsupported_shared_fields(self, chart_type):
+        schema = get_chart_type_schema(chart_type)
+        props = schema["properties"]
+        assert "axis_scale" not in props
+        assert "max_xticks" not in props
+        assert "fiscal_year_ticks" not in props
+
+    @pytest.mark.parametrize("chart_type", ["bar", "grouped_bar", "stacked_bar"])
+    def test_bar_family_schema_exposes_category_label_format(self, chart_type):
+        schema = get_chart_type_schema(chart_type)
+        props = schema["properties"]
+        assert "category_label_format" in props
+
     def test_no_null_branches_in_any_schema(self):
         """No schema should have null branches in anyOf after processing."""
         for chart_type in CONFIG_REGISTRY:
@@ -115,6 +129,11 @@ class TestGetUiSchema:
         group_names = [g["name"] for g in groups]
         assert "Identity" in group_names
         assert "Bar Styling" in group_names
+
+    def test_bar_ui_groups_include_category_label_format(self):
+        ui = get_ui_schema("bar")
+        tick_group = next(g for g in ui["ui:groups"] if g["name"] == "Tick Format")
+        assert "category_label_format" in tick_group["fields"]
 
     def test_identity_group_default_open(self):
         ui = get_ui_schema("bar")

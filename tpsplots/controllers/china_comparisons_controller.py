@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 class ChinaComparisonCharts(ChartController):
+    """Controller for China vs U.S. space science mission comparison charts."""
+
     SOURCE = "CNSA Technical Papers and Releases; NASA Mission Database"
 
     def _process_us_mission_data(self):
@@ -185,9 +187,19 @@ class ChinaComparisonCharts(ChartController):
         return data
 
     def china_space_science_mission_count_bar_chart(self):
-        """Generate grouped bar chart showing mission counts by decade for China vs U.S.
+        """Return grouped bar chart data comparing China vs U.S. space science mission counts.
 
-        Returns a dict with chart data for YAML processing.
+        Counts missions per decade (2000s, 2010s, 2020s) for both nations,
+        splitting each decade into launched and planned categories. Stacked
+        values show planned missions in the 2020s decade.
+
+        Returns:
+            dict with keys:
+                - data: DataFrame with combined mission listings
+                - categories: list of decade labels
+                - groups: list of GroupConfig dicts (China, U.S.)
+                - export_df: DataFrame for CSV export
+                - metadata: dict with standard keys
         """
         # Process both datasets
         china_data = self._process_china_mission_data()
@@ -272,9 +284,20 @@ class ChinaComparisonCharts(ChartController):
         }
 
     def china_space_science_mission_mass_growth_line_chart(self):
-        """Generate line chart showing average mass per decade for China vs U.S.
+        """Return line chart data comparing average launch mass growth for China vs U.S.
 
-        Returns a dict with chart data for YAML processing.
+        Calculates mean spacecraft launch mass per decade (2000s, 2010s,
+        2020s) for both nations, showing how China's missions are increasing
+        in mass and complexity.
+
+        Returns:
+            dict with keys:
+                - data: DataFrame with combined mission listings
+                - x: list of decade labels
+                - y: list of [china_values, us_values]
+                - labels: list of nation names
+                - export_df: DataFrame for CSV export
+                - metadata: dict with standard keys
         """
         # Process China data
         china_data = self._process_china_mission_data()

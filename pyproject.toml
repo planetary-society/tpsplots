@@ -1,6 +1,6 @@
 [project]
 name = "tpsplots"
-version = "1.0.0"
+version = "0.1.0"
 description = "A library to create custom Planetary Society-branded charts from YAML configurations."
 authors = [
     {name = "Casey Dreier", email = "casey.dreier@planetary.org"}

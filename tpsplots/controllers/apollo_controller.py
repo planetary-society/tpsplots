@@ -53,6 +53,9 @@ class Apollo(ChartController):
         source_cls: type[_ApolloBase],
         fiscal_year_col: str,
         source_label: str,
+        *,
+        columns: list[str] | None = None,
+        monetary_columns: list[str] | None = None,
     ) -> dict:
         """Build a standard spending result dict for an Apollo-era data source."""
         from tpsplots.processors import (
@@ -61,7 +64,9 @@ class Apollo(ChartController):
         )
 
         df = source_cls().data()
-        monetary_columns = source_cls.MONETARY_COLUMNS
+        if columns is not None:
+            df = df[columns].copy()
+        monetary_columns = monetary_columns or source_cls.MONETARY_COLUMNS
 
         inflation_config = InflationAdjustmentConfig(
             nnsi_columns=monetary_columns,
@@ -158,9 +163,26 @@ class Apollo(ChartController):
         )
 
     def launch_vehicles_spending(self) -> dict:
-        """Return Saturn-family launch vehicle development costs with NNSI adjustment."""
+        """Return Saturn-family launch vehicle development costs with NNSI adjustment.
+
+        Covers Saturn I, Saturn IB, and Saturn V development spending
+        extracted from the full Apollo program dataset.
+
+        Returns:
+            dict with keys:
+                - data: Full DataFrame with all columns including adjusted
+                - Fiscal Year: Series of fiscal year datetimes
+                - {col}: Nominal series for each monetary column
+                - {col}_adjusted_nnsi: Adjusted series for each monetary column
+                - {col}_sum: int sum of nominal values
+                - {col}_adjusted_nnsi_sum: int sum of adjusted values
+                - export_df: DataFrame for CSV export
+                - metadata: dict with standard keys (min/max FY, inflation year, source)
+        """
         return self._spending_result(
-            SaturnLaunchVehicles,
+            ApolloSpending,
             fiscal_year_col="Fiscal Year",
             source_label="NASA Historical Data Book, Saturn-family launch vehicle development costs",
+            columns=["Fiscal Year", *SaturnLaunchVehicles.MONETARY_COLUMNS],
+            monetary_columns=SaturnLaunchVehicles.MONETARY_COLUMNS,
         )

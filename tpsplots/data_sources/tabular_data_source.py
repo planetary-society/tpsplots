@@ -291,7 +291,7 @@ class TabularDataSource(TruncateRowsMixin, FiscalYearMixin, ABC):
                 else:
                     df[col] = df[col].astype(normalized_dtype, errors="ignore")
                 logger.debug(f"Cast column '{col}' to {normalized_dtype}")
-            except Exception as e:
+            except (ValueError, TypeError) as e:
                 logger.error(f"Failed to cast column '{col}' to {normalized_dtype}: {e}")
 
         # Drop rows with NaN values in coerced columns (filters out invalid rows like "Totals")

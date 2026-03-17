@@ -5,16 +5,19 @@ Covers all kwargs accepted by GroupedBarChartView._create_chart.
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from tpsplots.models.mixins import (
     AxisMixin,
+    BarStylingMixin,
+    CategoricalBarAxisMixin,
     ChartConfigBase,
     GridMixin,
     LegendMixin,
-    ScaleMixin,
-    TickFormatMixin,
+    ValueAxisVisibilityMixin,
     ValueDisplayMixin,
+    ValueScaleMixin,
+    validate_bar_value_axis_visibility,
 )
 
 
@@ -36,9 +39,11 @@ class GroupedBarChartConfig(
     AxisMixin,
     GridMixin,
     LegendMixin,
-    TickFormatMixin,
-    ScaleMixin,
+    CategoricalBarAxisMixin,
+    ValueAxisVisibilityMixin,
+    ValueScaleMixin,
     ValueDisplayMixin,
+    BarStylingMixin,
     ChartConfigBase,
 ):
     """Validated configuration for ``type: grouped_bar`` charts.
@@ -47,10 +52,12 @@ class GroupedBarChartConfig(
     - AxisMixin: xlim, ylim, xlabel, ylabel, tick_rotation, tick_size, label_size
     - GridMixin: grid, grid_axis
     - LegendMixin: legend
-    - TickFormatMixin: x_tick_format, y_tick_format, fiscal_year_ticks, max_xticks, integer_xticks
-    - ScaleMixin: scale, axis_scale
-    - ValueDisplayMixin: show_values, value_format, value_suffix, value_offset,
-      value_fontsize, value_color, value_weight
+    - CategoricalBarAxisMixin: x_tick_format, y_tick_format, category_label_format
+    - ValueAxisVisibilityMixin: show_xticks, show_yticks
+    - ValueScaleMixin: scale
+    - ValueDisplayMixin: show_values, value_prefix, value_format, value_suffix,
+      value_offset, value_fontsize, value_color, value_weight
+    - BarStylingMixin: width, alpha, edgecolor, linewidth, show_category_ticks
     - ChartConfigBase: output, title, subtitle, source, figsize, dpi, export_data,
       matplotlib_config
     """
@@ -68,31 +75,9 @@ class GroupedBarChartConfig(
     labels: str | list[str] | None = Field(
         None, description="Legend labels for each group (overrides group label)"
     )
-    width: float | None = Field(
-        None,
-        description=(
-            "Width of each individual bar within a group as fraction of category spacing. "
-            "Default: 0.35. Bars are centered around each category position with "
-            "total group width = width x num_groups"
-        ),
-    )
-    alpha: float | None = Field(None, description="Bar transparency (0.0-1.0)")
-    edgecolor: str | None = Field(None, description="Bar edge color")
-    linewidth: float | None = Field(None, description="Bar edge line width")
 
-    # --- Grouped-bar specific ---
-    show_yticks: bool | None = Field(
-        None,
-        description=(
-            "Show y-axis tick labels and left spine. Default: False (y-axis hidden). "
-            "When False, the left spine is also removed for a cleaner look. "
-            "When True, scale formatting is applied to the y-axis"
-        ),
-    )
-    value_prefix: str | None = Field(
-        None,
-        description=(
-            "Text prepended before each formatted value label. Default: '' (empty). "
-            "Examples: '$', '~'. Combined with value_suffix for full formatting"
-        ),
-    )
+    @model_validator(mode="before")
+    @classmethod
+    def validate_value_axis_visibility(cls, data):
+        """Reject horizontal-only x-axis visibility options on grouped bars."""
+        return validate_bar_value_axis_visibility(data)

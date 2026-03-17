@@ -5,15 +5,16 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 
+from tpsplots.colors import lighten_color
 from tpsplots.models.charts.grouped_bar import GroupedBarChartConfig
 
 from .chart_view import ChartView
-from .mixins import BarChartMixin, GridAxisMixin
+from .mixins import BarChartMixin, CategoricalBarMixin, GridAxisMixin
 
 logger = logging.getLogger(__name__)
 
 
-class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
+class GroupedBarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, ChartView):
     """Specialized view for grouped bar charts with optional stacking on last group."""
 
     CONFIG_CLASS = GroupedBarChartConfig
@@ -42,7 +43,7 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
 
             Optional parameters (consistent with BarChartView):
             - width: float - Width of each bar (default: 0.35)
-            - show_values: bool - Show value labels on bars (default: True)
+            - show_values: bool - Show value labels on bars (default: False)
             - value_format: str - Format for values: 'integer', 'float', 'monetary', 'percentage'
             - value_prefix: str - Text to prepend to formatted values (default: '')
             - value_suffix: str - Text to append to formatted values (default: '')
@@ -57,13 +58,16 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
             - ylabel: str - Y-axis label (default: '')
             - xlim: tuple/dict - X-axis limits
             - ylim: tuple/dict - Y-axis limits
-            - grid: bool - Show grid (default: False)
+            - grid: bool - Show grid (default: True)
             - grid_axis: str - Grid axis ('x', 'y', 'both', default: 'y')
             - scale: str - Value formatting scale ('billions', 'millions', etc.)
-            - tick_rotation: int - Category label rotation (default: 0)
+            - tick_rotation: int - Category label rotation (default: auto)
             - tick_size: int - Tick label font size
-            - show_yticks: bool - Show y-axis tick labels (default: False)
-            - legend: dict - Legend configuration
+            - label_size: int - Axis label font size
+            - show_category_ticks: bool - Show x-axis tick marks (default: False)
+            - show_xticks: bool - Show x-axis value ticks on horizontal charts (unsupported)
+            - show_yticks: bool - Show y-axis tick labels (default: True)
+            - legend: bool/dict - Legend configuration
             - labels: list - Legend labels for each group (overrides group label)
             - export_data: DataFrame - CSV export DataFrame
             - colors: str/list - Optional override colors for groups (cycled if shorter)
@@ -92,9 +96,12 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
         groups = kwargs.pop("groups", None)
         colors = kwargs.pop("colors", None)
         labels = kwargs.pop("labels", None)
+        category_label_format = kwargs.pop("category_label_format", None)
 
         if categories is None or groups is None:
             raise ValueError("Both 'categories' and 'groups' are required for grouped_bar_plot")
+
+        categories = self._normalize_categories(categories)
 
         # Set up figure and extract metadata using base class helpers
         fig, ax = self._setup_figure(style, kwargs)
@@ -102,7 +109,7 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
 
         # Extract optional parameters - standardized with BarChartView
         width = kwargs.pop("width", 0.35)
-        show_values = kwargs.pop("show_values", True)
+        show_values = kwargs.pop("show_values", False)
         value_format = kwargs.pop("value_format", "integer")
         value_prefix = kwargs.pop("value_prefix", "")
         value_suffix = kwargs.pop("value_suffix", "")
@@ -119,14 +126,22 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
         ylabel = kwargs.pop("ylabel", "")
         xlim = kwargs.pop("xlim", None)
         ylim = kwargs.pop("ylim", None)
-        grid = kwargs.pop("grid", False)
+        grid = kwargs.pop("grid", True)
         grid_axis = kwargs.pop("grid_axis", "y")
         scale = kwargs.pop("scale", None)
         x_tick_format, y_tick_format = self._pop_axis_tick_format_kwargs(kwargs)
-        tick_rotation = kwargs.pop("tick_rotation", 0)
         tick_size = kwargs.pop("tick_size", style.get("tick_size", 14))
-        show_yticks = kwargs.pop("show_yticks", False)
-        legend_config = kwargs.pop("legend", {"loc": "upper left"})
+        explicit_tick_rotation = kwargs.pop("tick_rotation", None)
+        label_size = kwargs.pop("label_size", style.get("label_size", 20))
+        show_category_ticks = kwargs.pop("show_category_ticks", False)
+        show_xticks = kwargs.pop("show_xticks", None)
+        show_yticks = kwargs.pop("show_yticks", True)
+        legend_config = kwargs.pop("legend", True)
+        show_value_axis = self._resolve_value_axis_visibility(
+            orientation="vertical",
+            show_xticks=show_xticks,
+            show_yticks=show_yticks,
+        )
 
         # Set up bar positions
         x = np.arange(len(categories))
@@ -238,7 +253,7 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
                         stack_val,
                         width,
                         bottom=base_val,
-                        color=stacked_color or self._lighten_color(color),
+                        color=stacked_color or lighten_color(color),
                         alpha=alpha,
                         edgecolor=edgecolor,
                         linewidth=linewidth,
@@ -248,10 +263,8 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
                 if show_values:
                     # Simple bars
                     for j in range(simple_count):
-                        formatted_value = (
-                            value_prefix
-                            + self._format_value(values[j], value_format)
-                            + value_suffix
+                        formatted_value = self._format_value_label(
+                            values[j], value_format, prefix=value_prefix, suffix=value_suffix
                         )
                         ax.text(
                             pos[j],
@@ -269,8 +282,8 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
                     ):
                         total = base_val + stack_val
                         idx = stacked_start + j
-                        formatted_value = (
-                            value_prefix + self._format_value(total, value_format) + value_suffix
+                        formatted_value = self._format_value_label(
+                            total, value_format, prefix=value_prefix, suffix=value_suffix
                         )
                         ax.text(
                             pos[idx],
@@ -297,8 +310,8 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
 
                 if show_values:
                     for j, val in enumerate(values):
-                        formatted_value = (
-                            value_prefix + self._format_value(val, value_format) + value_suffix
+                        formatted_value = self._format_value_label(
+                            val, value_format, prefix=value_prefix, suffix=value_suffix
                         )
                         ax.text(
                             pos[j],
@@ -315,14 +328,24 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
             legend_handles.append(plt.Rectangle((0, 0), 1, 1, facecolor=color, edgecolor=edgecolor))
             legend_labels.append(label)
 
-        # Customize axes
-        ax.set_xticks(x)
-        ax.set_xticklabels(categories, fontsize=tick_size, rotation=tick_rotation)
+        self._apply_category_axis(
+            ax,
+            categories,
+            x,
+            orientation="vertical",
+            category_label_format=category_label_format,
+        )
+        tick_rotation = self._resolve_category_tick_rotation(
+            ax,
+            orientation="vertical",
+            tick_size=tick_size,
+            explicit_rotation=explicit_tick_rotation,
+        )
 
-        label_size = style.get("label_size", 20)
-        self._apply_common_axis_styling(
+        self._apply_shared_value_axis_styling(
             ax,
             style=style,
+            orientation="vertical",
             xlabel=xlabel,
             ylabel=ylabel,
             label_size=label_size,
@@ -332,64 +355,24 @@ class GroupedBarChartView(BarChartMixin, GridAxisMixin, ChartView):
             grid_axis=grid_axis,
             xlim=xlim,
             ylim=ylim,
-            scale_ticks_for_mobile=False,
+            scale=scale,
+            value_format=value_format,
+            x_tick_format=x_tick_format,
+            y_tick_format=y_tick_format,
+            show_category_ticks=show_category_ticks,
+            show_value_axis=show_value_axis,
         )
-
-        scaled_y = False
-
-        # Style the chart - y-axis ticks
-        if not show_yticks:
-            ax.set_yticks([])
-            ax.spines["left"].set_visible(False)
-        else:
-            ax.tick_params(axis="y", labelsize=tick_size)
-            # Apply scale formatter if specified
-            if scale:
-                self._apply_scale_formatter(ax, scale, axis="y", tick_format=y_tick_format)
-                scaled_y = True
-
-            self._apply_tick_format_specs(
-                ax,
-                x_tick_format=x_tick_format,
-                y_tick_format=y_tick_format if not scaled_y else None,
-                has_explicit_xticklabels=True,
-            )
 
         # Add legend
         if legend_config:
-            legend_kwargs = {"fontsize": style.get("tick_size", 14) * 0.8}
+            legend_kwargs = {"fontsize": style.get("tick_size", 14) * 0.8, "loc": "best"}
             if isinstance(legend_config, dict):
                 legend_kwargs.update(legend_config)
+            elif isinstance(legend_config, str):
+                legend_kwargs["loc"] = legend_config
             ax.legend(legend_handles, legend_labels, **legend_kwargs)
 
         # Adjust layout for header and footer
         self._adjust_layout_for_header_footer(fig, metadata, style)
 
         return fig
-
-    def _lighten_color(self, color, factor=0.4):
-        """
-        Lighten a color by blending it with white.
-
-        Args:
-            color: Hex color string (e.g., "#037CC2")
-            factor: Amount to lighten (0=no change, 1=white)
-
-        Returns:
-            Lightened hex color string
-        """
-        if color.startswith("#"):
-            color = color[1:]
-
-        try:
-            r = int(color[0:2], 16)
-            g = int(color[2:4], 16)
-            b = int(color[4:6], 16)
-
-            r = int(r + (255 - r) * factor)
-            g = int(g + (255 - g) * factor)
-            b = int(b + (255 - b) * factor)
-
-            return f"#{r:02x}{g:02x}{b:02x}"
-        except (ValueError, IndexError):
-            return color

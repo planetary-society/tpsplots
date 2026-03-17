@@ -235,6 +235,7 @@ class PlanetaryBudgetDataSource(GoogleSheetsSource):
             df = self._df
             self._normalize_columns(df)
             self._clean_monetary_columns(df)
+            self._normalize_text_columns(df)
             if self._convert_millions:
                 self._millions_to_absolute(df)
 
@@ -309,6 +310,14 @@ class PlanetaryBudgetDataSource(GoogleSheetsSource):
         """Convert monetary values from millions to absolute dollars (in-place)."""
         for col in self._detect_monetary_columns(df):
             df[col] = df[col] * 1_000_000
+
+    @classmethod
+    def _normalize_text_columns(cls, df: pd.DataFrame) -> None:
+        """Cast excluded descriptive columns to pandas string dtype (in-place)."""
+        for col in df.columns:
+            col_lower = str(col).strip().lower()
+            if any(pat.lower() in col_lower for pat in cls._NON_MONETARY_PATTERNS):
+                df[col] = df[col].astype("string")
 
     @classmethod
     def _detect_monetary_columns(cls, df: pd.DataFrame) -> list[str]:

@@ -209,7 +209,6 @@ class TestMixinIntegration:
         assert hasattr(view, "_add_bar_value_labels")
         assert hasattr(view, "_add_value_based_legend")
         assert hasattr(view, "_apply_percentage_tick_formatter")
-        assert hasattr(view, "_apply_common_bar_styling")
 
         # Verify required dependencies from ChartView are present
         assert hasattr(view, "TPS_COLORS")
