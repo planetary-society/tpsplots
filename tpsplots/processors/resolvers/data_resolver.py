@@ -149,7 +149,7 @@ class DataResolver:
             raise DataSourceError("Controller method name is required")
         try:
             module = importlib.import_module(f"tpsplots.controllers.{module_name}")
-        except Exception as e:
+        except Exception as e:  # Boundary: wrap as DataSourceError
             raise DataSourceError(f"Could not import controller module '{module_name}': {e}") from e
 
         controller_class = DataResolver._find_controller_class(
@@ -215,7 +215,7 @@ class DataResolver:
         try:
             result = getattr(controller, method_name)()
             logger.info("Retrieved data from %s.%s", controller_class.__name__, method_name)
-        except Exception as e:
+        except Exception as e:  # Boundary: wrap as DataSourceError
             raise DataSourceError(
                 f"Error calling {controller_class.__name__}.{method_name}: {e}"
             ) from e
@@ -261,7 +261,9 @@ class DataResolver:
             kwargs = {"csv_path": path, **DataResolver._params_to_kwargs(params)}
             controller = CSVController(**kwargs)
             return controller.load_data()
-        except Exception as e:
+        except DataSourceError:
+            raise
+        except Exception as e:  # Boundary: wrap as DataSourceError
             raise DataSourceError(f"Error loading CSV data: {e}") from e
 
     @staticmethod
@@ -273,7 +275,9 @@ class DataResolver:
             kwargs = {"url": url, **DataResolver._params_to_kwargs(params)}
             controller = GoogleSheetsController(**kwargs)
             return controller.load_data()
-        except Exception as e:
+        except DataSourceError:
+            raise
+        except Exception as e:  # Boundary: wrap as DataSourceError
             raise DataSourceError(f"Error loading URL data: {e}") from e
 
     @staticmethod

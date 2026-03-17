@@ -79,7 +79,7 @@ class YAMLChartProcessor:
         # Validate just the data section (it never contains {{...}} refs)
         try:
             data_source = DataSourceConfig(**data_section)
-        except Exception as e:
+        except Exception as e:  # Boundary: wrap as ConfigurationError
             raise ConfigurationError(
                 f"YAML configuration validation failed (data section): {e}"
             ) from e
@@ -89,7 +89,7 @@ class YAMLChartProcessor:
             self.data = DataResolver.resolve(data_source)
         except DataSourceError:
             raise
-        except Exception as e:
+        except Exception as e:  # Boundary: wrap as ConfigurationError
             raise ConfigurationError(
                 f"Cannot resolve template references: data source failed: {e}"
             ) from e
@@ -104,7 +104,7 @@ class YAMLChartProcessor:
             config = YAMLChartConfig(**raw_config)
             logger.info("YAML configuration validated successfully")
             return config
-        except Exception as e:
+        except Exception as e:  # Boundary: wrap as ConfigurationError
             raise ConfigurationError(f"YAML configuration validation failed: {e}") from e
 
     def _get_view(self, chart_type: str):

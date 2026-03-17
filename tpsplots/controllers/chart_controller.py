@@ -50,7 +50,7 @@ class ChartController:
                     year_col_name = f"{col}_year"
                     result[year_col_name] = round_date_to_year(dt_series).values
                     logger.debug(f"Created year column '{year_col_name}' from '{col}'")
-                except Exception as e:
+                except (ValueError, KeyError, TypeError, AttributeError) as e:
                     logger.debug(f"Could not convert '{col}' to years: {e}")
 
         return result
@@ -192,7 +192,7 @@ class ChartController:
                 export_df["Fiscal Year"] = pd.to_datetime(export_df["Fiscal Year"]).dt.strftime(
                     "%Y"
                 )
-            except Exception:
+            except (ValueError, TypeError):
                 export_df["Fiscal Year"] = export_df["Fiscal Year"].astype(
                     str
                 )  # Fallback to string

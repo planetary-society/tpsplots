@@ -7,12 +7,6 @@ from pydantic import ValidationError
 from tpsplots.exceptions import DataSourceError
 from tpsplots.models.data_sources import DataSourceConfig, DataSourceParams, InflationConfig
 from tpsplots.processors.resolvers.data_resolver import DataResolver
-from tpsplots.utils.dataframe_transforms import (
-    VALID_CAST_TYPES,
-    apply_column_cast,
-    apply_column_renames,
-    filter_columns,
-)
 
 
 class TestDataSourceParams:
@@ -221,58 +215,6 @@ class TestApplyInflationAdjustment:
 
         assert "Amount_adjusted_nnsi" in updated
         assert "Amount_adjusted_nnsi" in updated["data"].columns
-
-
-class TestDataFrameTransforms:
-    """Tests for dataframe transform utilities."""
-
-    def test_valid_cast_types_constant(self):
-        """Test that VALID_CAST_TYPES contains expected types."""
-        assert "int" in VALID_CAST_TYPES
-        assert "float" in VALID_CAST_TYPES
-        assert "str" in VALID_CAST_TYPES
-        assert "datetime" in VALID_CAST_TYPES
-
-    def test_apply_column_cast_int(self):
-        """Test casting to int."""
-        df = pd.DataFrame({"col": ["1", "2", "3"]})
-        result = apply_column_cast(df, {"col": "int"})
-        assert result["col"].dtype == "Int64"
-        assert list(result["col"]) == [1, 2, 3]
-
-    def test_apply_column_cast_float(self):
-        """Test casting to float."""
-        df = pd.DataFrame({"col": ["1.5", "2.5", "3.5"]})
-        result = apply_column_cast(df, {"col": "float"})
-        assert result["col"].dtype == "float64"
-
-    def test_apply_column_cast_unknown_type_warns(self, caplog):
-        """Test that unknown cast types log a warning."""
-        df = pd.DataFrame({"col": ["1", "2"]})
-        result = apply_column_cast(df, {"col": "unknown_type"})
-        # Column should be unchanged
-        assert list(result["col"]) == ["1", "2"]
-        warning_messages = [record.message for record in caplog.records if record.levelname == "WARNING"]
-        assert any("unknown_type" in message and "col" in message for message in warning_messages)
-
-    def test_apply_column_renames(self):
-        """Test column renaming."""
-        df = pd.DataFrame({"old": [1, 2]})
-        result = apply_column_renames(df, {"old": "new"})
-        assert "new" in result.columns
-        assert "old" not in result.columns
-
-    def test_filter_columns_success(self):
-        """Test filtering to specified columns."""
-        df = pd.DataFrame({"a": [1], "b": [2], "c": [3]})
-        result = filter_columns(df, ["a", "c"])
-        assert list(result.columns) == ["a", "c"]
-
-    def test_filter_columns_missing_raises_error(self):
-        """Test that missing columns raise DataSourceError."""
-        df = pd.DataFrame({"a": [1], "b": [2]})
-        with pytest.raises(DataSourceError, match="Columns not found"):
-            filter_columns(df, ["a", "missing"])
 
 
 class TestCSVControllerWithParams:

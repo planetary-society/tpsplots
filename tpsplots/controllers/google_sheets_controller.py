@@ -1,150 +1,38 @@
 """Google Sheets data controller for YAML-driven chart generation."""
 
-import logging
+from __future__ import annotations
+
 import re
 
-from tpsplots.controllers.chart_controller import ChartController
+from tpsplots.controllers.tabular_data_controller import TabularDataController
 from tpsplots.data_sources.google_sheets_source import GoogleSheetsSource
-from tpsplots.exceptions import DataSourceError
-
-logger = logging.getLogger(__name__)
 
 
-class GoogleSheetsController(ChartController):
-    """
-    Controller for processing Google Sheets data sources using GoogleSheetsSource.
+class GoogleSheetsController(TabularDataController):
+    """Controller for processing Google Sheets data sources.
 
-    This controller wraps the existing GoogleSheetsSource class to provide
-    a standard controller interface for the YAML chart generation system,
-    while leveraging all the features of GoogleSheetsSource (column selection,
-    type casting, etc.).
+    Wraps :class:`~tpsplots.data_sources.google_sheets_source.GoogleSheetsSource`
+    to provide a standard controller interface for the YAML chart generation
+    system.
     """
 
-    def __init__(
-        self,
-        url: str | None = None,
-        cast: dict[str, str] | None = None,
-        columns: list[str] | None = None,
-        renames: dict[str, str] | None = None,
-        auto_clean_currency: bool | dict | None = None,
-        fiscal_year_column: str | bool | None = None,
-        truncate_at: bool | str | None = None,
-    ):
-        """
-        Initialize the GoogleSheetsController with URL and options.
-
-        Args:
-            url: Google Sheets URL (can be regular URL or CSV export URL)
-            cast: Column type overrides (e.g., {"Date": "datetime", "ID": "str"})
-            columns: Columns to keep from the sheet
-            renames: Column renames (e.g., {"Old Name": "New Name"})
-            auto_clean_currency: Auto-detect and clean currency columns (default True).
-                Can be bool or dict with 'enabled' and 'multiplier' keys.
-                When enabled, columns with 80%+ values matching $X,XXX pattern are
-                converted to float64 and originals are preserved as {column}_raw.
-            fiscal_year_column: Column to convert to datetime (default auto-detect).
-                - None: Auto-detect columns named "Fiscal Year", "FY", or "Year"
-                - str: Use this specific column name
-                - False: Disable fiscal year conversion
-            truncate_at: Truncate rows at the first matching first-column value.
-                - None: Use the source default marker
-                - True: Force use of the source default marker
-                - False: Disable truncation
-                - str: Use this exact trimmed marker
-        """
+    def __init__(self, url: str | None = None, **kwargs) -> None:
+        super().__init__(**kwargs)
         self.url = url
-        self.cast = cast
-        self.columns = columns
-        self.renames = renames
-        self.auto_clean_currency = auto_clean_currency if auto_clean_currency is not None else True
-        self.fiscal_year_column = fiscal_year_column
-        self.truncate_at = truncate_at
-        self._source = None
 
-    def load_data(self):
-        """
-        Load data from Google Sheets and return as dict for YAML processing.
-
-        Returns:
-            dict: Dictionary containing:
-                - 'data': Full pandas DataFrame (for export_data)
-                - Individual column keys: Column data as numpy arrays
-                - '{column}_year' keys: Rounded year integers for date columns
-
-        Raises:
-            ValueError: If URL is not provided
-            RuntimeError: If data cannot be fetched from URL
-        """
+    def _validate_input(self) -> None:
         if not self.url:
             raise ValueError("url must be provided to load Google Sheets data")
 
-        try:
-            # Create GoogleSheetsSource with all parameters
-            source_kwargs = {}
-            if self.cast:
-                source_kwargs["cast"] = self.cast
-            if self.columns:
-                source_kwargs["columns"] = self.columns
-            if self.renames:
-                source_kwargs["renames"] = self.renames
-            source_kwargs["auto_clean_currency"] = self.auto_clean_currency
-            if self.fiscal_year_column is not None:
-                source_kwargs["fiscal_year_column"] = self.fiscal_year_column
-            if self.truncate_at is not None:
-                source_kwargs["truncate_at"] = self.truncate_at
+    def _create_source(self) -> GoogleSheetsSource:
+        normalized_url = self.normalize_google_sheets_url(self.url)
+        return GoogleSheetsSource(url=normalized_url, **self._build_source_kwargs())
 
-            normalized_url = self.normalize_google_sheets_url(self.url)
-            self._source = GoogleSheetsSource(url=normalized_url, **source_kwargs)
-            df = self._source.data()
-
-            logger.info(
-                f"Loaded Google Sheets data from {normalized_url} ({len(df)} rows, {len(df.columns)} columns)"
-            )
-
-            return self._build_load_result(df, self.fiscal_year_column)
-
-        except Exception as e:
-            raise DataSourceError(
-                f"Error fetching data from Google Sheets URL {self.url}: {e}"
-            ) from e
-
-    def get_data_summary(self):
-        """
-        Get a summary of the loaded data for debugging purposes.
-
-        Returns:
-            dict: Summary information about the loaded data
-        """
-        if not self.url:
-            return {"error": "No URL specified"}
-
-        try:
-            if not self._source:
-                # Create source if not already created
-                self.load_data()
-
-            df = self._source.data()
-            return {
-                "url": self.url,
-                "rows": len(df),
-                "columns": list(df.columns),
-                "dtypes": df.dtypes.to_dict(),
-                "sample_data": df.head(3).to_dict("records"),
-                "configuration": {
-                    "cast": self.cast,
-                    "columns": self.columns,
-                    "renames": self.renames,
-                    "auto_clean_currency": self.auto_clean_currency,
-                    "fiscal_year_column": self.fiscal_year_column,
-                    "truncate_at": self.truncate_at,
-                },
-            }
-        except Exception as e:
-            return {"error": f"Could not analyze Google Sheets data: {e}"}
+    def _source_description(self) -> str:
+        return f"Google Sheets URL {self.url}"
 
     def get_column_data(self, column_name: str):
-        """
-        Get data from a specific column using GoogleSheetsSource's attribute access.
+        """Get data from a specific column using GoogleSheetsSource's attribute access.
 
         Args:
             column_name: Name of the column to retrieve
@@ -159,8 +47,7 @@ class GoogleSheetsController(ChartController):
 
     @staticmethod
     def normalize_google_sheets_url(url: str) -> str:
-        """
-        Convert a regular Google Sheets URL to CSV export format.
+        """Convert a regular Google Sheets URL to CSV export format.
 
         Preserves the ``gid`` parameter (tab selector) when present in the
         original URL's fragment (``#gid=…``) or query string (``?gid=…``).
@@ -172,13 +59,11 @@ class GoogleSheetsController(ChartController):
             str: CSV export URL
         """
         if "docs.google.com/spreadsheets" in url and "export?format=csv" not in url:
-            # Extract sheet ID and convert to CSV export URL
             sheet_id_match = re.search(r"/spreadsheets/d/([a-zA-Z0-9-_]+)", url)
             if sheet_id_match:
                 sheet_id = sheet_id_match.group(1)
                 export_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
-                # Preserve gid from fragment (#gid=…) or query string (?gid=…&…)
                 gid_match = re.search(r"[#?&]gid=(\d+)", url)
                 if gid_match:
                     export_url += f"&gid={gid_match.group(1)}"

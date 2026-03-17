@@ -2,6 +2,7 @@
 
 import csv
 import logging
+import struct
 import textwrap
 import warnings
 from copy import deepcopy
@@ -247,7 +248,7 @@ class ChartView(AxisTickFormatMixin):
                 csv_path = self._export_csv(export_data, metadata, stem)
                 generated_files.append(str(csv_path))
 
-        except Exception as e:
+        except Exception as e:  # Boundary: convert any render failure to RenderingError
             logger.error(f"Error generating chart {stem}: {e}")
             raise RenderingError(f"Error generating chart {stem}: {e}") from e
 
@@ -605,6 +606,15 @@ class ChartView(AxisTickFormatMixin):
             isinstance(first_elem, str) and first_elem.isdigit() and 1900 <= int(first_elem) <= 2100
         )
 
+    @staticmethod
+    def _compute_scale_decimals(axis_limits: tuple, factor: float) -> tuple[int, float | None]:
+        """Compute decimal places from axis range and scale factor."""
+        try:
+            range_value = abs(axis_limits[1] - axis_limits[0]) / factor
+            return (1 if range_value < 10 else 0), range_value
+        except (ZeroDivisionError, TypeError):
+            return 0, None
+
     def _apply_scale_formatter(
         self,
         ax,
@@ -644,21 +654,9 @@ class ChartView(AxisTickFormatMixin):
         range_value = None
         if decimals is None:
             if axis in ("y", "both"):
-                ylim = ax.get_ylim()
-                try:
-                    range_value = (abs(ylim[1] - ylim[0])) / factor
-                    decimals = 1 if range_value < 10 else 0
-                except Exception:
-                    decimals = 0
-                    range_value = None
+                decimals, range_value = self._compute_scale_decimals(ax.get_ylim(), factor)
             elif axis == "x":
-                xlim = ax.get_xlim()
-                try:
-                    range_value = (abs(xlim[1] - xlim[0])) / factor
-                    decimals = 1 if range_value < 10 else 0
-                except Exception:
-                    decimals = 0
-                    range_value = None
+                decimals, range_value = self._compute_scale_decimals(ax.get_xlim(), factor)
             else:
                 decimals = 0
 
@@ -1084,7 +1082,7 @@ class ChartView(AxisTickFormatMixin):
                 x=style.get("logo_x", 0.01),
                 y=style.get("logo_y", 0.01),
             )
-        except Exception as e:
+        except (FileNotFoundError, OSError, ValueError, struct.error) as e:
             logger.error(f"Warning: Could not add logo: {e}")
 
     def _add_source(self, fig, source_text, style):
