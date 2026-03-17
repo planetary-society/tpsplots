@@ -4,6 +4,8 @@ from tpsplots.controllers.nasa_fy_charts_controller import NASAFYChartsControlle
 
 
 class NASAFY2025Controller(NASAFYChartsController):
+    """Controller for FY 2025 NASA budget charts and analysis."""
+
     FISCAL_YEAR = 2025
 
     ACCOUNTS: ClassVar[list[str]] = [

@@ -4,6 +4,8 @@ from tpsplots.controllers.nasa_fy_charts_controller import NASAFYChartsControlle
 
 
 class NASAFY2027Controller(NASAFYChartsController):
+    """Controller for FY 2027 NASA budget charts and analysis."""
+
     FISCAL_YEAR = 2027
     WORKFORCE_PROJECTION = 0  # FY2027 proposed workforce level
 

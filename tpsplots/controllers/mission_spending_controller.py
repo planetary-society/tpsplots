@@ -30,7 +30,14 @@ class MissionSpendingController(ChartController):
         self.csv_path = csv_path or self.DEFAULT_CSV_PATH
 
     def process_mission_spending_data(self, outdir: Path = Path("charts")):
-        """Process and plot mission spending data for all configured missions.
+        """Process and generate spending charts for all configured NASA missions.
+
+        Iterates through a predefined list of missions, loading outlay and
+        obligation CSV files for each, and generating line charts comparing
+        current vs prior fiscal year cumulative spending.
+
+        Note: This is a batch generator, not a YAML data source method.
+        It calls the view layer directly to produce chart files.
 
         Args:
             outdir: Output directory for generated chart files.

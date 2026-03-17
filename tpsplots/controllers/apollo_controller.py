@@ -163,7 +163,22 @@ class Apollo(ChartController):
         )
 
     def launch_vehicles_spending(self) -> dict:
-        """Return Saturn-family launch vehicle development costs with NNSI adjustment."""
+        """Return Saturn-family launch vehicle development costs with NNSI adjustment.
+
+        Covers Saturn I, Saturn IB, and Saturn V development spending
+        extracted from the full Apollo program dataset.
+
+        Returns:
+            dict with keys:
+                - data: Full DataFrame with all columns including adjusted
+                - Fiscal Year: Series of fiscal year datetimes
+                - {col}: Nominal series for each monetary column
+                - {col}_adjusted_nnsi: Adjusted series for each monetary column
+                - {col}_sum: int sum of nominal values
+                - {col}_adjusted_nnsi_sum: int sum of adjusted values
+                - export_df: DataFrame for CSV export
+                - metadata: dict with standard keys (min/max FY, inflation year, source)
+        """
         return self._spending_result(
             ApolloSpending,
             fiscal_year_col="Fiscal Year",

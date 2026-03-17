@@ -8,6 +8,8 @@ from tpsplots.data_sources.missions import Missions
 
 
 class NASAFY2026Controller(NASAFYChartsController):
+    """Controller for FY 2026 NASA budget charts and analysis."""
+
     FISCAL_YEAR = 2026
     WORKFORCE_PROJECTION = 11853  # FY2026 proposed workforce level
 
@@ -27,7 +29,19 @@ class NASAFY2026Controller(NASAFYChartsController):
 
     # Custom charts for FY 2026
     def nasa_center_workforce_map(self):
-        """Prepare a map showing workforce breakdown at NASA centers."""
+        """Return workforce data for each NASA center as a US map pie chart.
+
+        Provides per-center pie data showing proposed FY 2026 staffing cuts
+        vs remaining workforce, suitable for the us_map_pie chart type.
+
+        Returns:
+            dict with keys:
+                - data: DataFrame with per-center staffing totals
+                - pie_data: dict mapping center abbreviations to pie configs
+                  (values, labels, colors)
+                - export_df: DataFrame for CSV export
+                - metadata: dict with standard keys
+        """
 
         pie_data = {
             "HQ": {
@@ -110,9 +124,23 @@ class NASAFY2026Controller(NASAFYChartsController):
         }
 
     def cancelled_missions_lollipop_chart(self):
-        """
-        Prepare a lollipop chart showing the launch date to end of all NASA missions
-        proposed as cancelled in FY 2026.
+        """Return lollipop chart data for NASA missions proposed as cancelled in FY 2026.
+
+        Shows the launch date to cancellation date range for each active
+        NASA-led mission proposed for cancellation in the FY 2026 budget.
+
+        Returns:
+            dict with keys:
+                - data: DataFrame with mission details
+                - categories: Series of mission names
+                - start_values: Series of launch years
+                - end_values: Series of end years (2026)
+                - xlim: tuple of x-axis limits
+                - total_projects: int count of affected missions
+                - total_value: str formatted total lifecycle cost
+                - total_development_time: int total development years
+                - export_df: DataFrame for CSV export
+                - metadata: dict with standard keys
         """
         data_source = Missions()
         df = data_source.data()
