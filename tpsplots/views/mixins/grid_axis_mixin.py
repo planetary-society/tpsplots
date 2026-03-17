@@ -40,6 +40,7 @@ class GridAxisMixin:
             linewidth: Grid line width (default: 0.5)
         """
         if grid:
+            ax.set_axisbelow(True)
             ax.grid(axis=grid_axis, alpha=alpha, linestyle=linestyle, linewidth=linewidth)
         else:
             ax.grid(False)
