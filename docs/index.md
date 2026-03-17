@@ -6,6 +6,7 @@
 ## Data Configuration
 
 - [Data Configuration](data.md) — source, params, inflation adjustment
+- [Controllers](controllers.md) — available data source methods for YAML
 
 ## Chart Types
 
