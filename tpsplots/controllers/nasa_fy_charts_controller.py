@@ -389,9 +389,20 @@ class NASAFYChartsController(ChartController):
         Returns:
             dict with columns for each matched directorate:
             - {display_name} - enacted historical values
+            - {display_name}_adjusted_nnsi - inflation-adjusted enacted values
             - {display_name} White House Budget Projection - PBR + runouts
         """
         df = self._directorates_data()
+        inflation_columns = [
+            col
+            for col in df.columns
+            if col != "Fiscal Year" and not col.endswith(f" {self._WH_PROJECTION_COL}")
+        ]
+        inflation_config = InflationAdjustmentConfig(
+            target_year=self.FISCAL_YEAR - 1,
+            nnsi_columns=inflation_columns,
+        )
+        df = InflationAdjustmentProcessor(inflation_config).process(df)
         result = DataFrameToYAMLProcessor().process(df)
         result["metadata"] = self._build_metadata(df, fiscal_year_col=None)
         return result

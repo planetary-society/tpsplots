@@ -1,6 +1,7 @@
 """Regression tests for directorate filtering in NASAFYChartsController."""
 
 from typing import ClassVar
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -110,3 +111,48 @@ def test_major_accounts_context_matches_case_insensitive_account_labels():
         "SCIENCE",
     ]
     assert result["FY 2026 Request"].tolist() == [9.5, 8.5, 7.5]
+
+
+def test_directorates_context_applies_inflation_adjustment(monkeypatch):
+    """Directorate context should expose inflation-adjusted directorate series."""
+    controller = object.__new__(_StubFY2026Controller)
+    directorates_df = pd.DataFrame(
+        {
+            "Fiscal Year": pd.to_datetime(["2024-01-01", "2025-01-01", "2026-01-01"]),
+            "Exploration": [10.0, 11.0, 12.0],
+            "Exploration White House Budget Projection": [pd.NA, 12.5, 13.5],
+            "Science": [20.0, 21.0, 22.0],
+            "Science White House Budget Projection": [pd.NA, 22.5, 23.5],
+        }
+    )
+
+    monkeypatch.setattr(
+        _StubFY2026Controller,
+        "_directorates_data",
+        lambda self: directorates_df.copy(),
+    )
+
+    mock_processor = MagicMock()
+
+    def _apply_adjustment(df):
+        adjusted = df.copy()
+        for col in ["Exploration", "Science"]:
+            adjusted[f"{col}_adjusted_nnsi"] = adjusted[col] * 1.5
+        adjusted.attrs["inflation_target_year"] = 2025
+        return adjusted
+
+    mock_processor.process.side_effect = _apply_adjustment
+
+    with patch(
+        "tpsplots.controllers.nasa_fy_charts_controller.InflationAdjustmentProcessor",
+        return_value=mock_processor,
+    ) as processor_cls:
+        result = controller.directorates_context()
+
+    inflation_config = processor_cls.call_args.args[0]
+    assert inflation_config.target_year == 2025
+    assert inflation_config.nnsi_columns == ["Exploration", "Science"]
+    assert "Exploration_adjusted_nnsi" in result
+    assert "Science_adjusted_nnsi" in result
+    assert "Exploration White House Budget Projection_adjusted_nnsi" not in result
+    assert result["metadata"]["inflation_adjusted_year"] == 2025
