@@ -10,15 +10,15 @@ chart:
   source: "{{metadata.source}}"
 
   # Data bindings from controller
-  x: "{{fiscal_year}}"
+  x: "{{Fiscal Year}}"
   y:
-    - "{{deep_space_exploration_systems}}"
-    - "{{science}}"
-    - "{{aeronautics}}"
-    - "{{space_technology}}"
-    - "{{stem_education}}"
-    - "{{space_operations}}"
-    - "{{overhead}}"
+    - "{{Deep Space Exploration Systems_adjusted_nnsi}}"
+    - "{{Science_adjusted_nnsi}}"
+    - "{{Aeronautics_adjusted_nnsi}}"
+    - "{{Space Technology_adjusted_nnsi}}"
+    - "{{STEM Education_adjusted_nnsi}}"
+    - "{{Space Operations_adjusted_nnsi}}"
+    - "{{Facilities, IT, & Salaries_adjusted_nnsi}}"
   ylabel: "inflation-adjusted dollars"
   direct_line_labels:
     position: right

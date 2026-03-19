@@ -8,9 +8,9 @@ chart:
   subtitle: "NASA's budget has not kept pace with overall U.S. spending."
   source: "Congressional Budget Justifications, {{metadata.min_fiscal_year}}-{{metadata.max_fiscal_year}}"
 
-  x: "{{fiscal_year}}"
-  y: "{{appropriation_adjusted}}"
-  y_right: "{{us_spending_share}}"
+  x: "{{Fiscal Year}}"
+  y: "{{Appropriation_adjusted_nnsi}}"
+  y_right: "{{Spending Share}}"
 
   color: ["Neptune Blue", "Lunar Soil"]
   linestyle: ["-", ":"]

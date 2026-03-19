@@ -86,14 +86,14 @@ def test_nasa_spending_share_by_year_returns_clean_numeric_percent_columns(monke
     controller = NASABudgetChart()
     result = controller.nasa_spending_share_by_year()
 
-    assert list(result["fiscal_year"]) == list(pd.to_datetime(["2022-01-01", "2023-01-01"]))
-    assert list(result["appropriation_adjusted"]) == [24_000_000_000, 25_000_000_000]
-    assert list(result["us_spending_percent"]) == [0.70, 0.65]
-    assert result["us_spending_share"].tolist() == pytest.approx([0.007, 0.0065])
-    assert result["us_discretionary_spending_percent"].iloc[0] == 1.90
-    assert pd.isna(result["us_discretionary_spending_percent"].iloc[1])
-    assert result["us_discretionary_spending_share"].iloc[0] == pytest.approx(0.019)
-    assert pd.isna(result["us_discretionary_spending_share"].iloc[1])
+    assert list(result["Fiscal Year"]) == list(pd.to_datetime(["2022-01-01", "2023-01-01"]))
+    assert list(result["Appropriation_adjusted_nnsi"]) == [24_000_000_000, 25_000_000_000]
+    assert list(result["% of U.S. Spending"]) == [0.70, 0.65]
+    assert result["Spending Share"].tolist() == pytest.approx([0.007, 0.0065])
+    assert result["% of U.S. Discretionary Spending"].iloc[0] == 1.90
+    assert pd.isna(result["% of U.S. Discretionary Spending"].iloc[1])
+    assert result["Discretionary Spending Share"].iloc[0] == pytest.approx(0.019)
+    assert pd.isna(result["Discretionary Spending Share"].iloc[1])
 
     export_df = result["export_df"]
     assert list(export_df.columns) == [

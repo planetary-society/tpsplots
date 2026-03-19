@@ -57,17 +57,15 @@ class NASABudgetChart(ChartController):
             },
         )
 
-        return {
-            "data": df,
-            "fiscal_year": df["Fiscal Year"],
-            "appropriation_adjusted": df["Appropriation_adjusted_nnsi"],
-            "us_spending_percent": df[spending_col],
-            "us_spending_share": df[spending_col] / 100.0,
-            "us_discretionary_spending_percent": df[discretionary_col],
-            "us_discretionary_spending_share": df[discretionary_col] / 100.0,
-            "export_df": export_df,
-            "metadata": metadata,
-        }
+        # Pre-compute share columns (fraction form for percentage axis formatting)
+        df["Spending Share"] = df[spending_col] / 100.0
+        df["Discretionary Spending Share"] = df[discretionary_col] / 100.0
+
+        result = {col: df[col] for col in df.columns}
+        result["data"] = df
+        result["export_df"] = export_df
+        result["metadata"] = metadata
+        return result
 
     def nasa_budget_by_year(self) -> dict:
         """Return comprehensive NASA budget data for YAML-driven chart generation.
@@ -77,20 +75,10 @@ class NASABudgetChart(ChartController):
         pbr_historical_context() method instead.
 
         Returns:
-            dict with keys:
-                - fiscal_year: Series of fiscal years as datetime
-                - presidential_administration: Series of president names
-                - pbr: Nominal Presidential Budget Request values
-                - appropriation: Nominal Congressional Appropriation values
-                - pbr_adjusted: Inflation-adjusted PBR (NNSI)
-                - appropriation_adjusted: Inflation-adjusted appropriation (NNSI)
+            dict with all DataFrame columns as keys (pass-through), plus:
+                - data: full DataFrame
                 - export_df: DataFrame for CSV export
-                - max_fiscal_year: Maximum fiscal year (for source attribution)
-                - metadata: dict with helpful context values:
-                    - max_fiscal_year, min_fiscal_year: Overall FY range
-                    - max_pbr_fiscal_year, min_pbr_fiscal_year: FY range for PBR data
-                    - max_appropriation_fiscal_year, min_appropriation_fiscal_year: FY range for appropriation data
-                    - inflation_adjusted_year: Target FY for inflation adjustment (e.g., 2024)
+                - metadata: dict with FY ranges, per-column stats, inflation year
         """
         from tpsplots.processors import (
             InflationAdjustmentConfig,
@@ -129,25 +117,11 @@ class NASABudgetChart(ChartController):
             },
         )
 
-        # Keep max_fiscal_year at top level for backwards compatibility
-        max_fy = metadata["max_fiscal_year"]
-
-        return {
-            "data": df,
-            # Core data columns
-            "fiscal_year": df["Fiscal Year"],
-            "presidential_administration": df["Presidential Administration"],
-            # Nominal dollar values
-            "pbr": df["PBR"],
-            "appropriation": df["Appropriation"],
-            # Inflation-adjusted values
-            "pbr_adjusted": df["PBR_adjusted_nnsi"],
-            "appropriation_adjusted": df["Appropriation_adjusted_nnsi"],
-            # Export and metadata
-            "export_df": export_df,
-            "max_fiscal_year": max_fy,  # Backwards compatible
-            "metadata": metadata,
-        }
+        result = {col: df[col] for col in df.columns}
+        result["data"] = df
+        result["export_df"] = export_df
+        result["metadata"] = metadata
+        return result
 
     def nasa_major_programs_by_year_inflation_adjusted(self):
         """Line chart of NASA's directorate budgets from 2007 until the last fiscal year.
@@ -155,15 +129,8 @@ class NASABudgetChart(ChartController):
         Returns columnar data for flexible YAML-driven chart generation.
 
         Returns:
-            dict with keys:
-                - fiscal_year: Series of fiscal year dates
-                - deep_space_exploration_systems: Series of adjusted budget values
-                - science: Series of adjusted budget values
-                - aeronautics: Series of adjusted budget values
-                - space_technology: Series of adjusted budget values
-                - stem_education: Series of adjusted budget values
-                - space_operations: Series of adjusted budget values
-                - overhead: Series of adjusted budget values (Facilities, IT, & Salaries)
+            dict with all DataFrame columns as keys (pass-through), plus:
+                - data: full DataFrame
                 - export_df: DataFrame for CSV export
                 - metadata: dict with max_fiscal_year, min_fiscal_year, source,
                   inflation_adjusted_year
@@ -228,21 +195,11 @@ class NASABudgetChart(ChartController):
             min_fiscal_year=2008,
         )
 
-        return {
-            "data": df,
-            # Core data columns (individual series for YAML binding)
-            "fiscal_year": df["Fiscal Year"],
-            "deep_space_exploration_systems": df["Deep Space Exploration Systems_adjusted_nnsi"],
-            "science": df["Science_adjusted_nnsi"],
-            "aeronautics": df["Aeronautics_adjusted_nnsi"],
-            "space_technology": df["Space Technology_adjusted_nnsi"],
-            "stem_education": df["STEM Education_adjusted_nnsi"],
-            "space_operations": df["Space Operations_adjusted_nnsi"],
-            "overhead": df["Facilities, IT, & Salaries_adjusted_nnsi"],
-            # Export and metadata
-            "export_df": export_df,
-            "metadata": metadata,
-        }
+        result = {col: df[col] for col in df.columns}
+        result["data"] = df
+        result["export_df"] = export_df
+        result["metadata"] = metadata
+        return result
 
     def nasa_major_activites_donut_chart(self) -> dict:
         """Generate donut chart breakdown of NASA directorate budgets for the last fiscal year.
@@ -346,12 +303,8 @@ class NASABudgetChart(ChartController):
         """Return NASA workforce headcount data with year-over-year changes.
 
         Returns:
-            dict with keys:
-                - fiscal_year: Series of fiscal years as datetime
-                - fte: Series of Full-time Equivalent counts
-                - ftp: Series of Full-time Permanent counts
-                - yoy_fte_change: Series of year-over-year FTE change (absolute)
-                - yoy_pct_fte_change: Series of year-over-year FTE change (decimal fraction)
+            dict with all DataFrame columns as keys (pass-through), plus:
+                - data: full DataFrame
                 - export_df: DataFrame for CSV export
                 - metadata: dict with fiscal year ranges, per-column min/max/FY stats,
                   and peak/trough fiscal years (which FY had the highest/lowest value)
@@ -397,15 +350,8 @@ class NASABudgetChart(ChartController):
                     fy.loc[valid[col].idxmin()].strftime("%Y")
                 )
 
-        return {
-            "data": df,
-            # Core data columns
-            "fiscal_year": df["Fiscal Year"],
-            "fte": df["Full-time Equivalent (FTE)"],
-            "ftp": df["Full-time Permanent (FTP)"],
-            "yoy_fte_change": df["YOY FTE Change"],
-            "yoy_pct_fte_change": df["YOY % FTE Change"],
-            # Export and metadata
-            "export_df": export_df,
-            "metadata": metadata,
-        }
+        result = {col: df[col] for col in df.columns}
+        result["data"] = df
+        result["export_df"] = export_df
+        result["metadata"] = metadata
+        return result
