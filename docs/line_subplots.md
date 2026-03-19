@@ -38,11 +38,11 @@ chart:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `grid_shape` | list[int] or tuple[int, int] | — | Subplot grid as [rows, cols]. Default: auto-calculated from ceil(sqrt(n_plots)). Unused cells are hidden. Example: [2, 3] for a 2-row x 3-column grid |
+| `grid_shape` | list[int] or tuple | — | Subplot grid as [rows, cols]. Default: auto-calculated from ceil(sqrt(n_plots)). Unused cells are hidden. Example: [2, 3] for a 2-row x 3-column grid |
 | `shared_x` | bool | — | Share x-axis scale and ticks across all subplots in the same column. Default: True. When True, only the bottom row shows x-axis tick labels |
 | `shared_y` | bool | — | Share y-axis scale and ticks across all subplots in the same row. Default: True. When True, only the leftmost column shows y-axis tick labels |
 | `shared_legend` | bool | — | Use a single shared legend below the subplot grid instead of per-subplot legends. Default: False. Labels are collected from the first subplot only (avoids duplicates) |
-| `legend_position` | list[float] or tuple[float, float] | — | Position for shared legend as [x, y] in figure coordinates (0-1). Default: [0.5, -0.05] (centered below the grid). Only applies when shared_legend is True |
+| `legend_position` | list[float] or tuple | — | Position for shared legend as [x, y] in figure coordinates (0-1). Default: [0.5, -0.05] (centered below the grid). Only applies when shared_legend is True |
 | `subplot_title_size` | float | — | Font size in points for individual subplot titles. Default: style label_size (typically 20pt). Set smaller for dense grids to avoid overlap |
 
 ## Scale
