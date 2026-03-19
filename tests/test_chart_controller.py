@@ -132,6 +132,17 @@ class TestBuildMetadataValueColumns:
         assert metadata["max_amount_fiscal_year"] == 2022
         assert metadata["min_amount_fiscal_year"] == 2021
 
+    def test_value_columns_include_first_and_last_non_null_values(self, controller):
+        df = pd.DataFrame(
+            {
+                "Fiscal Year": [2020, 2021, 2022, 2023, 2024],
+                "Budget": [None, 125.0, 250.0, None, 400.0],
+            }
+        )
+        metadata = controller._build_metadata(df, value_columns={"budget": "Budget"})
+        assert metadata["first_budget"] == 125.0
+        assert metadata["last_budget"] == 400.0
+
     def test_value_columns_missing_column_skipped(self, controller):
         df = pd.DataFrame({"Fiscal Year": [2020], "A": [1.0]})
         metadata = controller._build_metadata(df, value_columns={"missing": "NonExistent"})

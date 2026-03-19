@@ -757,6 +757,8 @@ def _render_metadata_section(lines: list[str]) -> None:
             "| `min_{name}_fiscal_year` | Earliest FY with non-null data for that column |",
             "| `max_{name}` | Maximum value for that column |",
             "| `min_{name}` | Minimum value for that column |",
+            "| `first_{name}` | First non-null value for that column |",
+            "| `last_{name}` | Last non-null value for that column |",
             "",
             "Individual controllers may add extra keys (e.g. `total_budget`,"
             " `total_projects`). See each method's Returns section below.",

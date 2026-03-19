@@ -319,6 +319,15 @@ def test_controllers_index_renders():
     assert "controllers/nasa_budget_chart.md" in page
 
 
+def test_controllers_index_documents_first_and_last_metadata_keys():
+    """Controllers index includes first/last per-column metadata patterns."""
+    from tpsplots.docs_generator import render_controllers_index
+
+    page = render_controllers_index()
+    assert "`first_{name}`" in page
+    assert "`last_{name}`" in page
+
+
 def test_controller_page_renders():
     """Individual controller page renders with methods."""
     from tpsplots.docs_generator import discover_controllers, render_controller_page

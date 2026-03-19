@@ -239,7 +239,8 @@ class ChartController:
                           fiscal year calculations and value statistics. E.g.,
                           {"appropriation": "Appropriation"} will generate
                           max_appropriation_fiscal_year, min_appropriation_fiscal_year,
-                          max_appropriation, and min_appropriation.
+                          max_appropriation, min_appropriation,
+                          first_appropriation, and last_appropriation.
             source: Source attribution string (e.g., "NASA Budget Justifications").
             max_fiscal_year: Explicit override for max_fiscal_year (takes precedence
                 over DataFrame extraction).
@@ -254,6 +255,8 @@ class ChartController:
                 - min_{name}_fiscal_year: int - Min FY with non-null data for each value_column
                 - max_{name}: float - Max value for each value_column
                 - min_{name}: float - Min value for each value_column
+                - first_{name}: float - First non-null value for each value_column
+                - last_{name}: float - Last non-null value for each value_column
                 - inflation_adjusted_year: int - Target year for inflation adjustment
                 - source: str - Source attribution
 
@@ -283,6 +286,7 @@ class ChartController:
                 if col in df.columns:
                     mask = df[col].notna()
                     if mask.any():
+                        col_values = df.loc[mask, col]
                         col_fy = fy_series[mask]
                         if pd.api.types.is_integer_dtype(df[fiscal_year_col]):
                             metadata[f"max_{name}_fiscal_year"] = int(col_fy.max())
@@ -290,8 +294,10 @@ class ChartController:
                         else:
                             metadata[f"max_{name}_fiscal_year"] = int(col_fy.max().strftime("%Y"))
                             metadata[f"min_{name}_fiscal_year"] = int(col_fy.min().strftime("%Y"))
-                        metadata[f"max_{name}"] = float(df[col][mask].max())
-                        metadata[f"min_{name}"] = float(df[col][mask].min())
+                        metadata[f"max_{name}"] = float(col_values.max())
+                        metadata[f"min_{name}"] = float(col_values.min())
+                        metadata[f"first_{name}"] = float(col_values.iloc[0])
+                        metadata[f"last_{name}"] = float(col_values.iloc[-1])
 
         # 3. Apply explicit FY overrides
         if max_fiscal_year is not None:
