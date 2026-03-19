@@ -26,7 +26,7 @@ need White House Budget Projections, use the FY-specific controller's
 pbr_historical_context() method instead.
 
 Returns:
-dict with all DataFrame columns as keys (pass-through), plus: - data: full DataFrame - export_df: DataFrame for CSV export - max_fiscal_year: Maximum fiscal year (for source attribution) - metadata: dict with FY ranges, per-column stats, inflation year
+dict with all DataFrame columns as keys (pass-through), plus: - data: full DataFrame - export_df: DataFrame for CSV export - metadata: dict with FY ranges, per-column stats, inflation year
 
 ## `nasa_budget_chart.nasa_major_activites_donut_chart`
 
