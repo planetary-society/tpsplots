@@ -279,3 +279,52 @@ class TestYAMLChartProcessorCore:
         assert "series_0" in result["kwargs"]
         assert result["kwargs"]["series_0"]["linewidth"] == 5
         assert result["kwargs"]["series_0"]["color"] == "#037CC2"
+
+    def test_processor_resolves_mixed_template_and_python_format_specs(self, tmp_path, monkeypatch):
+        """Chart metadata templates should support mixed refs and valid Python format specs."""
+        controller_path = tmp_path / "template_controller.py"
+        controller_path.write_text(
+            textwrap.dedent(
+                """
+                from tpsplots.controllers.chart_controller import ChartController
+
+
+                class TemplateController(ChartController):
+                    def chart_data(self):
+                        return {
+                            "x_data": [1, 2],
+                            "y_data": [3, 4],
+                            "metadata": {"last_fte": 12345.0, "max_fiscal_year": 2025},
+                        }
+                """
+            ).strip()
+        )
+
+        yaml_path = tmp_path / "template_chart.yaml"
+        yaml_path.write_text(
+            textwrap.dedent(
+                f"""
+                data:
+                  source: controller:{controller_path}:chart_data
+
+                chart:
+                  type: line
+                  output: template_chart
+                  title: "Template Chart"
+                  subtitle: "{{{{metadata.last_fte:,.0f}}}} FTEs in {{{{metadata.max_fiscal_year}}}}"
+                  x: "{{{{x_data}}}}"
+                  y: "{{{{y_data}}}}"
+                """
+            ).strip()
+        )
+
+        monkeypatch.setattr(
+            YAMLChartProcessor,
+            "VIEW_REGISTRY",
+            {"line_plot": self.DummyView},
+        )
+
+        processor = YAMLChartProcessor(yaml_path, outdir=tmp_path / "charts")
+        result = processor.generate_chart()
+
+        assert result["metadata"]["subtitle"] == "12,345 FTEs in 2025"

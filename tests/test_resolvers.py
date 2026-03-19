@@ -65,6 +65,11 @@ class TestReferenceResolver:
         assert not ReferenceResolver.is_reference("column")
         assert not ReferenceResolver.is_reference("{{column}} extra")
 
+    def test_is_reference_rejects_mixed_template_string(self):
+        """Mixed template strings are not single complete references."""
+        value = "{{metadata.last_fte}} FTEs in {{metadata.max_fiscal_year}}"
+        assert not ReferenceResolver.is_reference(value)
+
     # ── Monetary format specs ──────────────────────────────────────
 
     def test_monetary_billions(self):
@@ -162,6 +167,25 @@ class TestReferenceResolver:
         data = {"val": 42}
         result = ReferenceResolver.resolve("Total: {{val}}", data)
         assert result == "Total: 42"
+
+    def test_mixed_template_starting_with_reference_resolves_as_template(self):
+        """Mixed templates that start and end with refs should not be parsed as one ref."""
+        data = {"metadata": {"last_fte": 12345, "max_fiscal_year": 2025}}
+        value = "{{metadata.last_fte}} FTEs in {{metadata.max_fiscal_year}}"
+        result = ReferenceResolver.resolve(value, data)
+        assert result == "12345 FTEs in 2025"
+
+    def test_format_string_with_thousands_separator_and_precision(self):
+        """Valid Python specs like :,.0f should be accepted."""
+        data = {"metadata": {"last_fte": 12345.0}}
+        result = ReferenceResolver.resolve("{{metadata.last_fte:,.0f}}", data)
+        assert result == "12,345"
+
+    def test_format_string_with_alignment_thousands_separator_and_precision(self):
+        """More complex Python format specs should pass through to format()."""
+        data = {"metadata": {"last_fte": 12345.0}}
+        result = ReferenceResolver.resolve("{{metadata.last_fte:>10,.0f}}", data)
+        assert result == "    12,345"
 
 
 class TestParameterResolver:

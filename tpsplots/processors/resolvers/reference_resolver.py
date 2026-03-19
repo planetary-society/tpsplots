@@ -14,10 +14,10 @@ from tpsplots.exceptions import ConfigurationError
 
 # Pattern to match {{...}} references
 # Captures the content inside the braces
-REFERENCE_PATTERN = re.compile(r"^\{\{(.+?)\}\}$")
+REFERENCE_PATTERN = re.compile(r"^\{\{([^{}]+)\}\}$")
 
 # Pattern to find all {{...}} references in a string (for template substitution)
-TEMPLATE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
+TEMPLATE_PATTERN = re.compile(r"\{\{([^{}]+)\}\}")
 
 # Pattern to match comma-separated {{...}} references (defensive guard for
 # accidentally stringified arrays, e.g. "{{col1}},{{col2}}")
@@ -156,22 +156,32 @@ class ReferenceResolver:
         - Nested: "data.series.values"
         - Formatted: "value:.2f"
         """
-        # Check for format specification
         format_spec = None
+        resolved = None
+
         if ":" in ref_expr:
-            # Split on last colon to handle nested paths with colons
-            # But be careful: format specs are typically short (e.g., .2f, %Y)
-            # Use heuristic: if part after colon looks like format spec, treat as such
-            parts = ref_expr.rsplit(":", 1)
-            if len(parts) == 2:
-                potential_path, potential_format = parts
-                # Format specs are typically short and don't contain dots
-                if len(potential_format) <= 10 and "." not in potential_format.lstrip("."):
-                    ref_expr = potential_path.strip()
-                    format_spec = potential_format.strip()
+            # Treat the first split whose path resolves as the format boundary.
+            # This accepts full Python format specs like ",.0f" and "%H:%M",
+            # while still falling back to literal colon-containing keys if no
+            # candidate path resolves.
+            for i, char in enumerate(ref_expr):
+                if char != ":":
+                    continue
+                potential_path = ref_expr[:i].strip()
+                potential_format = ref_expr[i + 1 :].strip()
+                if not potential_path or not potential_format:
+                    continue
+                try:
+                    resolved = ReferenceResolver._resolve_path(potential_path, data)
+                except ConfigurationError:
+                    continue
+                ref_expr = potential_path
+                format_spec = potential_format
+                break
 
         # Resolve the path
-        resolved = ReferenceResolver._resolve_path(ref_expr, data)
+        if resolved is None:
+            resolved = ReferenceResolver._resolve_path(ref_expr, data)
 
         # Apply format specification if present
         if format_spec:
