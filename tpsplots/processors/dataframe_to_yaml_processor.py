@@ -74,7 +74,7 @@ class DataFrameToYAMLConfig:
 
     fiscal_year_column: str = "Fiscal Year"
     columns_to_export: list[str] | None = None
-    export_df_key: str = "export_df"
+    export_df_key: str | None = "export_df"
     include_attrs: bool = True
     export_note_template: str | None = None
     clear_projection_before_fy: bool = True  # Clear projection for FY <= current FY
@@ -142,9 +142,10 @@ class DataFrameToYAMLProcessor:
             if col in df.columns:
                 result[col] = df[col]
 
-        # Build export DataFrame
-        export_df = self._build_export_df(df)
-        result[self.config.export_df_key] = export_df
+        # Build export DataFrame (skip when caller provides its own)
+        if self.config.export_df_key is not None:
+            export_df = self._build_export_df(df)
+            result[self.config.export_df_key] = export_df
 
         # Include DataFrame.attrs if configured
         if self.config.include_attrs:

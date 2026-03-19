@@ -175,6 +175,9 @@ class ChartController:
         # Otherwise, add the difference needed to reach the next multiple boundary
         return upper_value + (multiple - remainder)
 
+    # TODO: Consolidate _export_helper logic (FY formatting, per-column rounding)
+    # into DataFrameToYAMLProcessor so controllers don't need to build export_df
+    # separately. Currently used by NASABudgetChart and ApolloController.
     def _export_helper(
         self,
         original_df: pd.DataFrame,

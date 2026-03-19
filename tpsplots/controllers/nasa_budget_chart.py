@@ -7,6 +7,10 @@ import pandas as pd
 
 from tpsplots.controllers.chart_controller import ChartController
 from tpsplots.data_sources.nasa_budget_data_source import Directorates, Historical, Workforce
+from tpsplots.processors.dataframe_to_yaml_processor import (
+    DataFrameToYAMLConfig,
+    DataFrameToYAMLProcessor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +65,7 @@ class NASABudgetChart(ChartController):
         df["Spending Share"] = df[spending_col] / 100.0
         df["Discretionary Spending Share"] = df[discretionary_col] / 100.0
 
-        result = {col: df[col] for col in df.columns}
-        result["data"] = df
+        result = DataFrameToYAMLProcessor(DataFrameToYAMLConfig(export_df_key=None)).process(df)
         result["export_df"] = export_df
         result["metadata"] = metadata
         return result
@@ -117,8 +120,7 @@ class NASABudgetChart(ChartController):
             },
         )
 
-        result = {col: df[col] for col in df.columns}
-        result["data"] = df
+        result = DataFrameToYAMLProcessor(DataFrameToYAMLConfig(export_df_key=None)).process(df)
         result["export_df"] = export_df
         result["metadata"] = metadata
         return result
@@ -195,8 +197,7 @@ class NASABudgetChart(ChartController):
             min_fiscal_year=2008,
         )
 
-        result = {col: df[col] for col in df.columns}
-        result["data"] = df
+        result = DataFrameToYAMLProcessor(DataFrameToYAMLConfig(export_df_key=None)).process(df)
         result["export_df"] = export_df
         result["metadata"] = metadata
         return result
@@ -216,11 +217,6 @@ class NASABudgetChart(ChartController):
                 - total_budget: float - Total budget across displayed directorates
                 - export_df: DataFrame for CSV export (includes STEM Education)
         """
-        from tpsplots.processors.dataframe_to_yaml_processor import (
-            DataFrameToYAMLConfig,
-            DataFrameToYAMLProcessor,
-        )
-
         df = Directorates().data()
 
         # Calculate the last completed fiscal year
@@ -276,7 +272,7 @@ class NASABudgetChart(ChartController):
         # Configure for categorical data (no fiscal year column in output)
         config = DataFrameToYAMLConfig(
             fiscal_year_column="__none__",  # Column doesn't exist, skips FY-specific logic
-            export_df_key="export_df",
+            export_df_key=None,
         )
         result = DataFrameToYAMLProcessor(config).process(chart_df)
 
@@ -294,7 +290,7 @@ class NASABudgetChart(ChartController):
         result["Directorate"] = result["Directorate"].tolist()
         result["Budget"] = result["Budget"].tolist()
 
-        # Override export_df with our complete version (includes STEM Education)
+        # Export includes all directorates (including STEM Education)
         result["export_df"] = export_df
 
         return result
@@ -350,8 +346,7 @@ class NASABudgetChart(ChartController):
                     fy.loc[valid[col].idxmin()].strftime("%Y")
                 )
 
-        result = {col: df[col] for col in df.columns}
-        result["data"] = df
+        result = DataFrameToYAMLProcessor(DataFrameToYAMLConfig(export_df_key=None)).process(df)
         result["export_df"] = export_df
         result["metadata"] = metadata
         return result
