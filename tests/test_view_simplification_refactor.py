@@ -1,5 +1,7 @@
 """Targeted tests for simplified view helper paths."""
 
+import warnings
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -67,6 +69,60 @@ def test_direct_line_label_auto_places_labels_for_all_series(tmp_path):
     text_values = [t.get_text() for t in ax.texts]
     assert "One" in text_values
     assert "Two" in text_values
+
+
+def test_direct_line_label_text_bbox_uses_real_extent(tmp_path):
+    """Temporary text measurement should return the rendered bbox, not a placeholder box."""
+    view = LineChartView(outdir=tmp_path, style_file=None)
+    fig, ax = plt.subplots()
+    fig.canvas.draw()
+
+    text_bbox = view._get_text_bbox_display(
+        "Series A",
+        fontsize=12,
+        color="blue",
+        add_bbox=True,
+        renderer=fig.canvas.get_renderer(),
+        ax=ax,
+    )
+
+    assert text_bbox is not None
+    assert text_bbox.width > 10
+    assert text_bbox.height > 10
+
+
+def test_direct_line_label_auto_datetime_axis_avoids_runtime_warnings(tmp_path):
+    """Auto endpoint labels should handle datetime x-values without transform warnings."""
+    view = LineChartView(outdir=tmp_path, style_file=None)
+    fig, ax = plt.subplots()
+    x_data = pd.to_datetime(["2024-01-01", "2025-01-01", "2026-01-01"])
+    y_data = [
+        [1.0, 1.1, 1.2],
+        [1.05, 1.15, 1.25],
+    ]
+    for series in y_data:
+        ax.plot(x_data, series)
+    fig.canvas.draw()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        view._add_direct_line_endpoint_labels(
+            ax,
+            x_data=x_data,
+            y_data=y_data,
+            labels=["One", "Two"],
+            colors=["#037CC2", "#FF5D47"],
+            style=view.DESKTOP,
+            fig=fig,
+            direct_line_labels={"position": "auto", "bbox": True},
+            markersize=6,
+        )
+
+    runtime_warnings = [
+        warning for warning in caught if issubclass(warning.category, RuntimeWarning)
+    ]
+    assert runtime_warnings == []
+    assert all(abs(text.get_position()[0]) < 1e6 for text in ax.texts)
 
 
 def test_line_chart_grid_dict_still_applies_custom_axis(tmp_path):

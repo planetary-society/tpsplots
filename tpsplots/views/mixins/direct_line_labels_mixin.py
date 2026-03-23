@@ -2,6 +2,7 @@
 
 import logging
 import math
+from datetime import date, datetime
 
 import matplotlib.dates as mdates
 import matplotlib.path as mpath
@@ -14,6 +15,30 @@ logger = logging.getLogger(__name__)
 
 class DirectLineLabelsMixin:
     """Reusable methods for placing labels near lines and endpoints."""
+
+    @staticmethod
+    def _is_datetime_like_x_value(value):
+        """Returns True when an x-value should be normalized with matplotlib date units."""
+        return isinstance(value, (date, datetime, np.datetime64)) or hasattr(value, "to_pydatetime")
+
+    @staticmethod
+    def _coerce_x_for_display_transform(x_value):
+        """Normalizes datetime-like x-values before matplotlib data/display transforms."""
+        x_array = np.asarray(x_value)
+
+        if np.issubdtype(x_array.dtype, np.datetime64):
+            return mdates.date2num(x_value)
+
+        if x_array.ndim == 0:
+            scalar_value = x_array.item()
+            if DirectLineLabelsMixin._is_datetime_like_x_value(scalar_value):
+                return mdates.date2num(scalar_value)
+            return scalar_value
+
+        if x_array.size > 0 and DirectLineLabelsMixin._is_datetime_like_x_value(x_array.flat[0]):
+            return np.asarray(mdates.date2num(x_value))
+
+        return x_array
 
     def _add_direct_line_labels(
         self, ax, y_values, label_info, position="right", offset=0.02, fontsize=12, add_bbox=True
@@ -138,8 +163,9 @@ class DirectLineLabelsMixin:
                 boxstyle="round,pad=0.2", facecolor="white", edgecolor=color, alpha=0.8, linewidth=1
             )
 
+        # Use alpha=0 instead of visible=False so matplotlib still computes the real bbox
         temp_text = ax.text(
-            0, 0, text, fontsize=fontsize, fontweight="bold", bbox=bbox_props, visible=False
+            0, 0, text, fontsize=fontsize, fontweight="bold", color=color, bbox=bbox_props, alpha=0
         )
 
         try:
@@ -230,6 +256,8 @@ class DirectLineLabelsMixin:
             except Exception as e:
                 logger.error(f"Could not process x_data for direct labeling: {e}")
                 return
+
+        numeric_x = self._coerce_x_for_display_transform(numeric_x)
 
         # Prepare line data in display coordinates for collision detection (only if auto mode)
         all_line_data_display = []
@@ -398,16 +426,11 @@ class DirectLineLabelsMixin:
             x_offset, y_offset = offset_points, 0
             ha, va = "left", "center"
 
-        # Convert datetime to matplotlib date numbers for proper transform round-trip
-        x_for_transform = x_data
-        if hasattr(x_data, "dtype") and np.issubdtype(x_data.dtype, np.datetime64):
-            x_for_transform = mdates.date2num(x_data)
-
         transform = matplotlib.transforms.offset_copy(
             ax.transData, fig=ax.get_figure(), x=x_offset, y=y_offset, units="points"
         )
 
-        anchor_display = transform.transform((x_for_transform, y_data))
+        anchor_display = transform.transform((x_data, y_data))
         anchor_data = ax.transData.inverted().transform(anchor_display)
         final_x = anchor_data[0]
 
@@ -560,12 +583,12 @@ class DirectLineLabelsMixin:
 
         # Penalty for overlapping with existing labels.
         buffer = 4
-        try:
+        if label_bbox.width <= 0 or label_bbox.height <= 0:
+            buffered_bbox = label_bbox
+        else:
             buffered_bbox = label_bbox.expanded(
                 1 + buffer / label_bbox.width, 1 + buffer / label_bbox.height
             )
-        except ZeroDivisionError:
-            buffered_bbox = label_bbox
 
         for existing_bbox in existing_labels_bboxes:
             if buffered_bbox.overlaps(existing_bbox):
