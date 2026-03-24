@@ -12,6 +12,7 @@ Controller for FY 2026 NASA budget charts and analysis.
 | Method | YAML Source | Description |
 |--------|------------|-------------|
 | `cancelled_missions_lollipop_chart()` | `nasa_fy2026_controller.cancelled_missions_lollipop_chart` | Return lollipop chart data for NASA missions proposed as cancelled in FY 2026. |
+| `congressional_vs_white_house_nasa_budgets()` | `nasa_fy2026_controller.congressional_vs_white_house_nasa_budgets` | Return request vs HAC-CJS vs SAC-CJS comparison for each account. |
 | `directorates_comparison()` | `nasa_fy2026_controller.directorates_comparison` | Return directorate comparison data (grouped bar format by default). |
 | `directorates_comparison_grouped()` | `nasa_fy2026_controller.directorates_comparison_grouped` | Return directorate data formatted for grouped bar charts. |
 | `directorates_comparison_raw()` | `nasa_fy2026_controller.directorates_comparison_raw` | Return directorate data as raw table for flexible charting/export. |
@@ -44,6 +45,16 @@ Returns:
         - total_development_time: int total development years
         - export_df: DataFrame for CSV export
         - metadata: dict with standard keys
+
+## `nasa_fy2026_controller.congressional_vs_white_house_nasa_budgets`
+
+Return request vs HAC-CJS vs SAC-CJS comparison for each account.
+
+Returns a ``categories`` dict keyed by display name (e.g. "NASA",
+"Exploration"), where each value is a dict with ``values`` suitable
+for a simple bar chart.  Access via bracket notation in YAML::
+
+    categories: '{{categories["NASA"].values}}'
 
 ## `nasa_fy2026_controller.directorates_comparison`
 

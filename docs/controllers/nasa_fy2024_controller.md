@@ -9,6 +9,7 @@ See also: [All Controllers](../controllers.md) | [Data Configuration](../data.md
 
 | Method | YAML Source | Description |
 |--------|------------|-------------|
+| `congressional_vs_white_house_nasa_budgets()` | `nasa_fy2024_controller.congressional_vs_white_house_nasa_budgets` | Return request vs HAC-CJS vs SAC-CJS comparison for each account. |
 | `directorates_comparison()` | `nasa_fy2024_controller.directorates_comparison` | Return directorate comparison data (grouped bar format by default). |
 | `directorates_comparison_grouped()` | `nasa_fy2024_controller.directorates_comparison_grouped` | Return directorate data formatted for grouped bar charts. |
 | `directorates_comparison_raw()` | `nasa_fy2024_controller.directorates_comparison_raw` | Return directorate data as raw table for flexible charting/export. |
@@ -20,6 +21,16 @@ See also: [All Controllers](../controllers.md) | [Data Configuration](../data.md
 | `science_context()` | `nasa_fy2024_controller.science_context` | Return historical budget data for NASA Science Mission Directorate (SMD). |
 | `science_division_context()` | `nasa_fy2024_controller.science_division_context` | Return historical budget data for each NASA science division. |
 | `workforce_projections()` | `nasa_fy2024_controller.workforce_projections` | Return historical workforce data with optional FY projection. |
+
+## `nasa_fy2024_controller.congressional_vs_white_house_nasa_budgets`
+
+Return request vs HAC-CJS vs SAC-CJS comparison for each account.
+
+Returns a ``categories`` dict keyed by display name (e.g. "NASA",
+"Exploration"), where each value is a dict with ``values`` suitable
+for a simple bar chart.  Access via bracket notation in YAML::
+
+    categories: '{{categories["NASA"].values}}'
 
 ## `nasa_fy2024_controller.directorates_comparison`
 
