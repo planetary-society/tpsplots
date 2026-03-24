@@ -60,12 +60,12 @@ class ChartController:
         df: pd.DataFrame,
         fiscal_year_column: str | bool | None = None,
     ) -> dict[str, Any]:
-        """Apply column-sum processing and build the standard result dict.
+        """Build the standard result dict from a loaded DataFrame.
 
         Shared post-load pipeline used by generic data controllers (CSV,
-        Google Sheets). Resolves the fiscal year column once, runs
-        :class:`~tpsplots.processors.ColumnSumProcessor`, then builds the
-        result dict and metadata in a single call.
+        Google Sheets).  Column sums are computed later by
+        :meth:`DataResolver._compute_column_sums` so that calculated columns
+        (e.g. inflation-adjusted series) are included.
 
         Args:
             df: Loaded DataFrame from the data source.
@@ -75,10 +75,7 @@ class ChartController:
         Returns:
             dict with ``data``, per-column arrays, and ``metadata`` keys.
         """
-        from tpsplots.processors import ColumnSumConfig, ColumnSumProcessor
-
         fy_col = self._resolve_fiscal_year_metadata_column(df, fiscal_year_column)
-        df = ColumnSumProcessor(ColumnSumConfig(exclude=[fy_col] if fy_col else [])).process(df)
         value_columns = df.attrs.get("value_columns")
         result = self._build_result_dict(df)
         result["metadata"] = self._build_metadata(

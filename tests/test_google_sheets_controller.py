@@ -31,7 +31,6 @@ def test_load_data_normalizes_google_sheets_url(monkeypatch):
     )
     assert "data" in result
     assert list(result["data"].columns) == ["Year", "Value"]
-    assert result["metadata"]["column_sums"]["Value"] == 1.0
 
 
 _normalize = staticmethod(GoogleSheetsController.normalize_google_sheets_url)

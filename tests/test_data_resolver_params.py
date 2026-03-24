@@ -217,6 +217,40 @@ class TestApplyInflationAdjustment:
         assert "Amount_adjusted_nnsi" in updated["data"].columns
 
 
+class TestColumnSumsIncludeCalculatedColumns:
+    """Column sums are computed after inflation so adjusted columns are included."""
+
+    def test_inflation_adjusted_columns_in_sums(self, tmp_path, mock_nnsi):
+        csv_file = tmp_path / "data.csv"
+        csv_file.write_text("Fiscal Year,Amount\n2020,100.0\n2021,200.0\n")
+
+        config = DataSourceConfig(
+            source=str(csv_file),
+            calculate_inflation=InflationConfig(columns=["Amount"], target_year=2024),
+        )
+        result = DataResolver.resolve(config)
+        sums = result["metadata"]["column_sums"]
+
+        assert "Amount" in sums
+        assert "Amount_adjusted_nnsi" in sums
+        assert sums["Amount_adjusted_nnsi"] > 0
+
+    def test_fiscal_year_excluded_from_sums_with_inflation(self, tmp_path, mock_nnsi):
+        csv_file = tmp_path / "data.csv"
+        csv_file.write_text("Fiscal Year,Budget\n2020,100.0\n2021,200.0\n")
+
+        config = DataSourceConfig(
+            source=str(csv_file),
+            calculate_inflation=InflationConfig(columns=["Budget"], target_year=2024),
+        )
+        result = DataResolver.resolve(config)
+        sums = result["metadata"]["column_sums"]
+
+        assert "Fiscal Year" not in sums
+        assert "Budget" in sums
+        assert "Budget_adjusted_nnsi" in sums
+
+
 class TestCSVControllerWithParams:
     """Tests for CSVController with the new params."""
 

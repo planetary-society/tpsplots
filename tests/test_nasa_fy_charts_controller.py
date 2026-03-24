@@ -87,6 +87,38 @@ def test_directorates_grouped_supports_configured_account_aliases():
     assert result["export_df"].shape[0] == 2
 
 
+def test_congressional_vs_white_house_budgets_includes_nasa_and_directorates():
+    """Should expose request, HAC-CJS, and SAC-CJS for NASA and configured accounts."""
+    controller = _make_controller(
+        pd.DataFrame(
+            {
+                "Account": [
+                    "NASA Total",
+                    "Deep Space Exploration Systems",
+                    "LEO & Space Ops",
+                    "Science",
+                    "Unrelated",
+                ],
+                "FY 2026 Request": [18.8, 9.5, 8.5, 7.5, 1.0],
+                "HAC-CJS": [24.8, 9.7, 4.2, 6.0, 0.1],
+                "SAC-CJS": [24.9, 7.8, 4.3, 7.3, 0.2],
+            }
+        )
+    )
+
+    result = controller.congressional_vs_white_house_nasa_budgets()
+
+    categories = result["categories"]
+    expected_labels = ["FY 2026 Request", "HAC-CJS", "SAC-CJS"]
+    assert categories["NASA"]["labels"] == expected_labels
+    assert categories["NASA"]["values"] == [18.8, 24.8, 24.9]
+    assert categories["Exploration"]["values"] == [9.5, 9.7, 7.8]
+    assert categories["Space Ops"]["values"] == [8.5, 4.2, 4.3]
+    assert categories["Science"]["values"] == [7.5, 6.0, 7.3]
+    assert "Unrelated" not in categories
+    assert "metadata" in result
+
+
 def test_major_accounts_context_matches_case_insensitive_account_labels():
     """Major accounts filtering should be case-insensitive."""
     controller = _make_controller(

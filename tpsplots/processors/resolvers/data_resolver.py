@@ -12,8 +12,10 @@ from typing import Any
 import pandas as pd
 
 from tpsplots.controllers.chart_controller import ChartController
+from tpsplots.data_sources.fiscal_year_mixin import FiscalYearMixin
 from tpsplots.exceptions import DataSourceError
 from tpsplots.models.data_sources import DataSourceConfig, DataSourceParams, InflationConfig
+from tpsplots.processors.column_sum_processor import ColumnSumConfig, ColumnSumProcessor
 from tpsplots.processors.inflation_adjustment_processor import (
     InflationAdjustmentConfig,
     InflationAdjustmentProcessor,
@@ -62,6 +64,11 @@ class DataResolver:
             result = DataResolver._apply_inflation_adjustment(
                 result, data_source.calculate_inflation
             )
+
+        # Compute column sums after all transformations so they include
+        # calculated columns (e.g. inflation-adjusted series)
+        if kind in ("url", "csv"):
+            result = DataResolver._compute_column_sums(result)
 
         return result
 
@@ -332,5 +339,33 @@ class DataResolver:
             inflation_config.columns,
             config.target_year,
         )
+
+        return result
+
+    @staticmethod
+    def _compute_column_sums(result: dict[str, Any]) -> dict[str, Any]:
+        """Compute column sums as the final step of the data pipeline.
+
+        Runs :class:`~tpsplots.processors.ColumnSumProcessor` on the final
+        DataFrame so that all columns — including those added by earlier
+        transformations (e.g. inflation adjustment) — are included.
+
+        Args:
+            result: Dictionary containing ``data`` DataFrame and ``metadata``.
+
+        Returns:
+            Updated result dictionary with column sums in ``df.attrs``
+            and ``result["metadata"]``.
+        """
+        if "data" not in result or not isinstance(result["data"], pd.DataFrame):
+            return result
+
+        df = result["data"]
+        fy_col = FiscalYearMixin._detect_fy_column(df)
+        df = ColumnSumProcessor(ColumnSumConfig(exclude=[fy_col] if fy_col else [])).process(df)
+        result["data"] = df
+
+        if "metadata" in result:
+            result["metadata"]["column_sums"] = df.attrs.get("column_sums", {})
 
         return result

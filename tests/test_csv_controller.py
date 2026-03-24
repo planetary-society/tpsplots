@@ -3,6 +3,15 @@
 import pandas as pd
 
 from tpsplots.controllers.csv_controller import CSVController
+from tpsplots.models.data_sources import DataSourceConfig, DataSourceParams
+from tpsplots.processors.resolvers.data_resolver import DataResolver
+
+
+def _resolve_csv(path, **params_kwargs) -> dict:
+    """Helper: resolve a CSV file through DataResolver (column sums included)."""
+    params = DataSourceParams(**params_kwargs) if params_kwargs else None
+    config = DataSourceConfig(source=str(path), params=params)
+    return DataResolver.resolve(config)
 
 
 class TestCSVControllerResultStructure:
@@ -19,11 +28,13 @@ class TestCSVControllerResultStructure:
 
 
 class TestCSVControllerMetadataSums:
+    """Column sums are computed by DataResolver after all transformations."""
+
     def test_numeric_columns_summed(self, tmp_path):
         csv_file = tmp_path / "data.csv"
         csv_file.write_text("Year,Budget,Amount\n2020,100.0,10.0\n2021,200.0,20.0\n")
 
-        result = CSVController(csv_path=str(csv_file), fiscal_year_column=False).load_data()
+        result = _resolve_csv(csv_file, fiscal_year_column=False)
         sums = result["metadata"]["column_sums"]
 
         assert sums["Budget"] == 300.0
@@ -33,7 +44,7 @@ class TestCSVControllerMetadataSums:
         csv_file = tmp_path / "data.csv"
         csv_file.write_text("Label,Value\nfoo,1.0\nbar,2.0\n")
 
-        result = CSVController(csv_path=str(csv_file), fiscal_year_column=False).load_data()
+        result = _resolve_csv(csv_file, fiscal_year_column=False)
         sums = result["metadata"]["column_sums"]
 
         assert "Label" not in sums
@@ -43,7 +54,7 @@ class TestCSVControllerMetadataSums:
         csv_file = tmp_path / "data.csv"
         csv_file.write_text("Fiscal Year,Budget\n2020,100.0\n2021,200.0\n")
 
-        result = CSVController(csv_path=str(csv_file)).load_data()
+        result = _resolve_csv(csv_file)
         sums = result["metadata"]["column_sums"]
 
         assert "Fiscal Year" not in sums
@@ -57,11 +68,7 @@ class TestCSVControllerMetadataSums:
         csv_file = tmp_path / "data.csv"
         csv_file.write_text("Label,Cost\nA,$100\nB,$200\nC,$300\n")
 
-        result = CSVController(
-            csv_path=str(csv_file),
-            fiscal_year_column=False,
-            auto_clean_currency=True,
-        ).load_data()
+        result = _resolve_csv(csv_file, fiscal_year_column=False, auto_clean_currency=True)
         sums = result["metadata"]["column_sums"]
 
         assert "Cost_raw" not in sums
