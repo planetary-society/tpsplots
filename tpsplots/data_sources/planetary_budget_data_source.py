@@ -313,8 +313,15 @@ class PlanetaryBudgetDataSource(GoogleSheetsSource):
 
     @classmethod
     def _normalize_text_columns(cls, df: pd.DataFrame) -> None:
-        """Cast excluded descriptive columns to pandas string dtype (in-place)."""
+        """Cast excluded descriptive columns to pandas string dtype (in-place).
+
+        Skips columns that already have a datetime dtype, since upstream
+        processing (e.g. FiscalYearMixin) may have intentionally converted
+        them to datetime for proper axis handling.
+        """
         for col in df.columns:
+            if pd.api.types.is_datetime64_any_dtype(df[col]):
+                continue
             col_lower = str(col).strip().lower()
             if any(pat.lower() in col_lower for pat in cls._NON_MONETARY_PATTERNS):
                 df[col] = df[col].astype("string")

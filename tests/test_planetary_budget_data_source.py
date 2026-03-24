@@ -154,6 +154,13 @@ def test_notes_column_not_treated_as_monetary(mock_fetch_csv):
     assert pd.api.types.is_string_dtype(df["Notes"])
 
 
+def test_fiscal_year_preserves_datetime_dtype(mock_fetch_csv):
+    """Fiscal Year should remain datetime64 after processing, not cast to string."""
+    source = PlanetaryBudgetDataSource("Cassini")
+    df = source.data()
+    assert pd.api.types.is_datetime64_any_dtype(df["Fiscal Year"])
+
+
 def test_official_lcc_not_scaled(mock_fetch_csv):
     """Official LCC is excluded from monetary detection — should stay as-is."""
     source = PlanetaryBudgetDataSource("Cassini", convert_millions=False)
