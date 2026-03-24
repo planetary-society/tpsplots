@@ -331,7 +331,10 @@ class DataResolver:
 
         # Expose inflation_target_year for use in titles/subtitles
         if "inflation_target_year" in df.attrs:
-            result["inflation_target_year"] = df.attrs["inflation_target_year"]
+            target_year = int(df.attrs["inflation_target_year"])
+            result["inflation_target_year"] = target_year
+            if "metadata" in result:
+                result["metadata"]["inflation_adjusted_year"] = target_year
 
         logger.info(
             "Applied %s inflation adjustment to columns: %s (target year: %s)",
