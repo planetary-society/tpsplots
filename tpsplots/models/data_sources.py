@@ -72,6 +72,8 @@ class InflationConfig(BaseModel):
 
     Applies inflation adjustment to specified columns after data loading.
     Creates new columns named {column}_adjusted_{type} (e.g., Apollo_adjusted_nnsi).
+    Adjusted values are normalized to one target fiscal year across the series,
+    not to each row's own prior fiscal year.
     """
 
     columns: list[str] = Field(..., description="Columns to adjust for inflation")
@@ -82,7 +84,12 @@ class InflationConfig(BaseModel):
         default="Fiscal Year", description="Column containing fiscal year for each row"
     )
     target_year: int | None = Field(
-        default=None, description="FY to adjust to (default: auto-calculate prior FY)"
+        default=None,
+        description=(
+            "Single fiscal year to adjust all values to. If omitted, auto-calculates the"
+            " prior FY from the current date; some controllers instead set this"
+            " explicitly, often to FISCAL_YEAR - 1."
+        ),
     )
 
 

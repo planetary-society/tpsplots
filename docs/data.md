@@ -57,7 +57,7 @@ Configuration for inflation adjustment.
 | `columns` | list[str] | **required** | Columns to adjust for inflation |
 | `type` | `"nnsi"`, `"gdp"` | `"nnsi"` | Inflation adjustment type (nnsi or gdp) |
 | `fiscal_year_column` | str | `"Fiscal Year"` | Column containing fiscal year for each row |
-| `target_year` | int | — | FY to adjust to (default: auto-calculate prior FY) |
+| `target_year` | int | — | Single fiscal year to adjust all values to. If omitted, auto-calculates the prior FY from the current date; some controllers instead set this explicitly, often to FISCAL_YEAR - 1. |
 
 ## CurrencyCleaningConfig
 

@@ -743,9 +743,15 @@ def _render_metadata_section(lines: list[str]) -> None:
             "|-----|------|-------------|",
             "| `max_fiscal_year` | int | Latest fiscal year in the dataset |",
             "| `min_fiscal_year` | int | Earliest fiscal year in the dataset |",
-            "| `inflation_adjusted_year` | int | Target year for inflation adjustment (when applicable) |",
+            "| `inflation_adjusted_year` | int | Common target year used for inflation-adjusted values, rather than a per-row prior-year basis (when applicable) |",
             "| `source` | str | Source attribution string |",
             "| `column_sums` | dict | Column totals (when ColumnSumProcessor runs) |",
+            "",
+            "When inflation adjustment is enabled, adjusted series are normalized to a"
+            " single target fiscal year. If the processor config omits `target_year`,"
+            " it defaults to the prior fiscal year based on the current date. Many"
+            " budget-cycle controllers set this explicitly to `FISCAL_YEAR - 1` so a"
+            " FY 2025 controller, for example, produces FY 2024 dollars.",
             "",
             "CSV and Google Sheets controllers auto-produce per-column keys for"
             " numeric columns, and custom controllers can opt in explicitly by"
