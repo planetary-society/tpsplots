@@ -1,0 +1,25 @@
+# Example FY2026 NASA top-line bar chart comparing White House request and congressional marks.
+
+data:
+  source: nasa_fy2026_controller.congressional_vs_white_house_nasa_budgets
+
+chart:
+  type: bar
+  output: fy2026_nasa_topline_pbr_hac_sac_bar
+  title: "NASA FY2026 Top Line: PBR vs HAC-CJS vs SAC-CJS"
+  subtitle: "The White House proposed a sharp cut, while House and Senate CJS marks would keep NASA near FY2025 levels."
+  source: "{{metadata.source}}"
+
+  categories: '{{categories["NASA"].labels}}'
+  values: '{{categories["NASA"].values}}'
+  ylabel: "Budget Authority"
+  scale: billions
+  value_format: monetary
+  show_values: true
+  colors:
+  - Rocket Flame
+  - Lunar Soil
+  - Lunar Soil
+  grid: true
+  grid_axis: y
+  legend: false

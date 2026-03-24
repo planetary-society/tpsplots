@@ -39,6 +39,8 @@ class NASAFYChartsController(ChartController):
 
     # Column name emitted by BudgetProjectionProcessor before per-series renaming.
     _WH_PROJECTION_COL: ClassVar[str] = "White House Budget Projection"
+    _NASA_TOPLINE_ACCOUNT: ClassVar[str] = "NASA Total"
+    _NASA_TOPLINE_LABEL: ClassVar[str] = "NASA"
 
     # TODO: This map exists because Directorates.RENAMES uses different names
     # than the budget_detail row names used as ACCOUNTS keys. Ideally the two
@@ -77,6 +79,85 @@ class NASAFYChartsController(ChartController):
         if isinstance(self.ACCOUNTS, dict):
             return dict(self.ACCOUNTS)
         return {a: a for a in self.ACCOUNTS}
+
+    def _account_aliases(
+        self,
+        configured_accounts: list[str] | None = None,
+    ) -> dict[str, str | list[str]]:
+        """Return ACCOUNT_ALIASES, optionally filtered to configured accounts."""
+        aliases: dict[str, str | list[str]] = getattr(self, "ACCOUNT_ALIASES", {})
+        if configured_accounts is not None:
+            configured_set = set(configured_accounts)
+            aliases = {k: v for k, v in aliases.items() if k in configured_set}
+        return aliases
+
+    def _budget_detail_accounts_map(
+        self,
+        *,
+        include_nasa_topline: bool = False,
+    ) -> dict[str, str]:
+        """Return configured budget-detail accounts with optional NASA total row."""
+        accounts_map = {}
+        if include_nasa_topline:
+            accounts_map[self._NASA_TOPLINE_ACCOUNT] = self._NASA_TOPLINE_LABEL
+        accounts_map.update(self._accounts_to_map())
+        return accounts_map
+
+    def _filter_budget_detail(self, accounts_map: dict[str, str]) -> pd.DataFrame:
+        """Filter budget_detail to the given accounts using short names and aliases."""
+        from tpsplots.processors.accounts_filter_processor import (
+            AccountsFilterConfig,
+            AccountsFilterProcessor,
+        )
+
+        filter_config = AccountsFilterConfig(
+            accounts=accounts_map,
+            aliases=self._account_aliases(list(accounts_map.keys())),
+            use_short_names=True,
+        )
+        return AccountsFilterProcessor(filter_config).process(self.budget_detail)
+
+    def _budget_detail_grouped_comparison(
+        self,
+        *,
+        accounts_map: dict[str, str],
+        value_columns: list[str],
+        group_labels: list[str] | None = None,
+        source: str | None = None,
+    ) -> dict:
+        """Return grouped-bar context for selected budget-detail rows and columns."""
+        from tpsplots.processors.grouped_bar_transform_processor import (
+            GroupedBarTransformConfig,
+            GroupedBarTransformProcessor,
+        )
+
+        df = self._filter_budget_detail(accounts_map)
+
+        if df.empty:
+            configured_accounts = list(accounts_map.keys())
+            raise ValueError(
+                "No budget detail rows matched configured accounts after normalization. "
+                f"Configured accounts: {configured_accounts}"
+            )
+
+        missing_columns = [col for col in value_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(
+                "Missing required budget detail comparison columns: "
+                f"{missing_columns}. Available columns: {list(df.columns)}"
+            )
+
+        transform_config = GroupedBarTransformConfig(
+            category_column="Account",
+            value_columns=value_columns,
+            group_labels=group_labels,
+        )
+        df = GroupedBarTransformProcessor(transform_config).process(df)
+
+        result = DataFrameToYAMLProcessor().process(df)
+        result["groups_all"] = result.get("groups", [])
+        result["metadata"] = self._build_metadata(df, fiscal_year_col=None, source=source)
+        return result
 
     # Methods for award tracking
     def _get_award_data(self, award_type: str = "Grant") -> dict:
@@ -142,7 +223,7 @@ class NASAFYChartsController(ChartController):
         if hasattr(self, "ACCOUNTS"):
             filter_config = AccountsFilterConfig(
                 accounts=self.ACCOUNTS,
-                aliases=getattr(self, "ACCOUNT_ALIASES", {}),
+                aliases=self._account_aliases(list(self._accounts_to_map().keys())),
                 account_column=account_col,
                 use_short_names=False,
             )
@@ -172,10 +253,9 @@ class NASAFYChartsController(ChartController):
         # Step 1: Filter to accounts (using AccountsFilterProcessor)
         if hasattr(self, "ACCOUNTS"):
             configured_accounts = list(self._accounts_to_map().keys())
-            account_aliases = getattr(self, "ACCOUNT_ALIASES", {})
             filter_config = AccountsFilterConfig(
                 accounts=self.ACCOUNTS,
-                aliases=account_aliases,
+                aliases=self._account_aliases(configured_accounts),
                 use_short_names=isinstance(self.ACCOUNTS, dict),
             )
             df = AccountsFilterProcessor(filter_config).process(df)
@@ -309,6 +389,38 @@ class NASAFYChartsController(ChartController):
         For raw table data, use directorates_comparison_raw() instead.
         """
         return self.directorates_comparison_grouped()
+
+    def congressional_vs_white_house_nasa_budgets(self) -> dict:
+        """Return request vs HAC-CJS vs SAC-CJS comparison for each account.
+
+        Returns a ``categories`` dict keyed by display name (e.g. "NASA",
+        "Exploration"), where each value is a dict with ``values`` suitable
+        for a simple bar chart.  Access via bracket notation in YAML::
+
+            categories: '{{categories["NASA"].values}}'
+        """
+        request_col = f"FY {self.FISCAL_YEAR} Request"
+        value_columns = [request_col, "HAC-CJS", "SAC-CJS"]
+        accounts_map = self._budget_detail_accounts_map(include_nasa_topline=True)
+
+        df = self._filter_budget_detail(accounts_map)
+
+        categories: dict = {}
+        for _, row in df.iterrows():
+            label = row["Account"]
+            categories[label] = {
+                "labels": value_columns,
+                "values": [row[col] for col in value_columns],
+            }
+
+        return {
+            "categories": categories,
+            "metadata": self._build_metadata(
+                df,
+                fiscal_year_col=None,
+                source=f"NASA FY {self.FISCAL_YEAR} Budget Request, HAC-CJS, SAC-CJS",
+            ),
+        }
 
     def _directorates_data(self) -> pd.DataFrame:
         """Prepare directorate data with multi-year history and WH projections.

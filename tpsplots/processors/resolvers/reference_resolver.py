@@ -3,6 +3,7 @@
 Supports:
 - Simple references: {{column_name}}
 - Nested dot notation: {{data.series.values}}
+- Bracket notation: {{accounts["NASA Total"].values}}
 - Format strings: {{value:.2f}}, {{date:%Y}}
 - Monetary format specs: {{amount:$B}}, {{amount:$M}}, {{amount:$K}}, {{amount:$}}
 """
@@ -203,22 +204,62 @@ class ReferenceResolver:
         return resolved
 
     @staticmethod
+    def _parse_path(path: str) -> list[str]:
+        """Parse a path with dot and bracket notation into segments.
+
+        Examples:
+        - ``"column"`` → ``["column"]``
+        - ``"data.series.values"`` → ``["data", "series", "values"]``
+        - ``'accounts["NASA Total"].values'`` → ``["accounts", "NASA Total", "values"]``
+        """
+        segments: list[str] = []
+        i = 0
+        while i < len(path):
+            if path[i] == "[":
+                # Bracket notation: extract quoted key
+                quote_start = path.find('"', i)
+                if quote_start == -1:
+                    quote_start = path.find("'", i)
+                if quote_start == -1:
+                    break
+                quote_char = path[quote_start]
+                quote_end = path.find(quote_char, quote_start + 1)
+                if quote_end == -1:
+                    break
+                segments.append(path[quote_start + 1 : quote_end])
+                # Skip past closing bracket
+                i = path.find("]", quote_end)
+                i = i + 1 if i != -1 else len(path)
+                # Skip trailing dot
+                if i < len(path) and path[i] == ".":
+                    i += 1
+            elif path[i] == ".":
+                i += 1
+            else:
+                # Dot-notation segment: read until next dot or bracket
+                end = i
+                while end < len(path) and path[end] not in (".", "["):
+                    end += 1
+                segment = path[i:end].strip()
+                if segment:
+                    segments.append(segment)
+                i = end
+        return segments
+
+    @staticmethod
     def _resolve_path(path: str, data: dict[str, Any]) -> Any:
         """
-        Resolve a dot-notation path against the data context.
+        Resolve a path against the data context.
 
         Examples:
         - "column" → data["column"]
         - "data.series.values" → data["data"]["series"]["values"]
+        - 'accounts["NASA Total"].values' → data["accounts"]["NASA Total"]["values"]
         """
-        parts = path.split(".")
+        parts = ReferenceResolver._parse_path(path)
         current = data
 
         for i, part in enumerate(parts):
-            part = part.strip()
-            if not part:
-                continue
-
             if isinstance(current, dict):
                 if part not in current:
                     traversed = ".".join(parts[:i]) if i > 0 else "(root)"

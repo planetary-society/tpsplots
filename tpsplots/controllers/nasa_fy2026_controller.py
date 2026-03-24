@@ -27,6 +27,13 @@ class NASAFY2026Controller(NASAFYChartsController):
         "Construction and Environmental Compliance and Restoration": "CECR",
     }
 
+    # TODO: Unify account naming so ACCOUNTS keys match budget-detail CSV rows
+    # (as FY2027 does), eliminating the need for these aliases.
+    ACCOUNT_ALIASES: ClassVar[dict[str, list[str]]] = {
+        "Exploration": ["Deep Space Exploration Systems"],
+        "Space Operations": ["LEO & Space Ops"],
+    }
+
     # Custom charts for FY 2026
     def nasa_center_workforce_map(self):
         """Return workforce data for each NASA center as a US map pie chart.
