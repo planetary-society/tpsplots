@@ -67,8 +67,7 @@ class DataResolver:
 
         # Compute column sums after all transformations so they include
         # calculated columns (e.g. inflation-adjusted series)
-        if kind in ("url", "csv"):
-            result = DataResolver._compute_column_sums(result)
+        result = DataResolver._compute_column_sums(result)
 
         return result
 
@@ -369,6 +368,8 @@ class DataResolver:
         result["data"] = df
 
         if "metadata" in result:
-            result["metadata"]["column_sums"] = df.attrs.get("column_sums", {})
+            column_sums = df.attrs.get("column_sums", {})
+            if column_sums:
+                result["metadata"]["column_sums"] = column_sums
 
         return result

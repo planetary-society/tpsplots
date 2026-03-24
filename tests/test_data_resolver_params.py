@@ -264,6 +264,32 @@ class TestCSVInflationMetadataAndSums:
         assert result["inflation_target_year"] == 2024
 
 
+class TestControllerSourceColumnSums:
+    """Column sums should be computed for controller-based sources too."""
+
+    def test_controller_source_has_column_sums(self, tmp_path):
+        """A controller method resolved via DataResolver should have column_sums in metadata."""
+        # Create a minimal controller module that returns a DataFrame with numeric columns
+        controller_file = tmp_path / "dummy_controller.py"
+        controller_file.write_text(
+            "import pandas as pd\n"
+            "from tpsplots.controllers.chart_controller import ChartController\n"
+            "\n"
+            "class DummyController(ChartController):\n"
+            "    def totals(self):\n"
+            "        df = pd.DataFrame({'Year': [2020, 2021], 'Budget': [100.0, 200.0]})\n"
+            "        result = self._build_result_dict(df)\n"
+            "        result['metadata'] = self._build_metadata(df, fiscal_year_col=None)\n"
+            "        return result\n"
+        )
+
+        config = DataSourceConfig(source=f"{controller_file}:totals")
+        result = DataResolver.resolve(config)
+
+        assert "column_sums" in result["metadata"]
+        assert result["metadata"]["column_sums"]["Budget"] == 300.0
+
+
 class TestCSVControllerWithParams:
     """Tests for CSVController with the new params."""
 
