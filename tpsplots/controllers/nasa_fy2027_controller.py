@@ -13,12 +13,12 @@ class NASAFY2027Controller(NASAFYChartsController):
     # Note: CSV uses "LEO & Space Ops" (not "Space Operations").
     # Inspector General excluded (too small relative to other accounts).
     ACCOUNTS: ClassVar[dict[str, str]] = {
-        "Deep Space Exploration Systems": "Exploration",
-        "LEO & Space Ops": "Space Ops",
+        "Exploration": "Exploration",
+        "Space Operations": "Space Ops",
         "Space Technology": "Space Tech",
         "Science": "Science",
         "Aeronautics": "Aero",
         "STEM Engagement": "STEM",
-        "Safety, Security, & Mission Services": "SSMS",
-        "Construction & Environmental Compliance & Restoration": "CECR",
+        "Safety, Security, and Mission Services": "SSMS",
+        "Construction and Environmental Compliance and Restoration": "CECR",
     }
