@@ -233,6 +233,11 @@ _CHART_FIELD_GROUPS: dict[str, dict[str, str]] = {
     },
     "us_map_pie": {
         "pie_data": "Data Bindings",
+        "data": "Data Bindings",
+        "location_column": "Data Bindings",
+        "value_columns": "Data Bindings",
+        "labels": "Data Bindings",
+        "colors": "Data Bindings",
         "pie_size_column": "Pie Sizing",
         "base_pie_size": "Pie Sizing",
         "max_pie_size": "Pie Sizing",

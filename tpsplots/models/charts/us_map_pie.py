@@ -5,7 +5,7 @@ Covers all kwargs accepted by USMapPieChartView._create_chart.
 
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from tpsplots.models.mixins import ChartConfigBase
 
@@ -15,6 +15,16 @@ class USMapPieChartConfig(ChartConfigBase):
 
     Inherits from ChartConfigBase only (no axis/grid/legend mixins —
     US map pie charts handle their own legend and axes).
+
+    Two input pathways are supported:
+
+    1. **Controller-built pie_data**: provide ``pie_data`` directly (typically
+       as a ``{{pie_data}}`` template ref from a controller method that emits
+       the dict). Used by FY2026 (see ``nasa_center_workforce_map``).
+    2. **CSV-driven columns**: provide ``data`` (a DataFrame template ref) plus
+       ``location_column``, ``value_columns``, ``labels``, and ``colors``. The
+       view builds the ``pie_data`` dict from those columns. Rows whose
+       ``location_column`` value is blank/null are loaded but not plotted.
     """
 
     type: Literal["us_map_pie"] = Field("us_map_pie", description="Chart type discriminator")
@@ -24,9 +34,78 @@ class USMapPieChartConfig(ChartConfigBase):
         None,
         description=(
             "Dict mapping location names to pie chart data dicts "
-            "(each with 'values', 'labels', 'colors')"
+            "(each with 'values', 'labels', 'colors'). Required unless the "
+            "column-oriented fields below are provided."
         ),
     )
+    data: Any = Field(
+        None,
+        description=(
+            "DataFrame template reference (e.g. '{{data}}') used with the "
+            "column-oriented fields below to assemble pie_data from a CSV. "
+            "Ignored when pie_data is provided directly."
+        ),
+    )
+    location_column: str | None = Field(
+        None,
+        description=(
+            "Column name in ``data`` whose values match NASA_CENTERS keys "
+            "(full names or abbreviations). Rows with blank/null values in "
+            "this column are dropped from plotted pies."
+        ),
+    )
+    value_columns: list[str] | None = Field(
+        None,
+        description=(
+            "Column names in ``data`` to use as pie segment values, one per segment. "
+            "Length must equal ``labels`` and ``colors``."
+        ),
+    )
+    labels: list[str] | None = Field(
+        None, description="Legend label for each pie segment; aligned with ``value_columns``."
+    )
+    colors: list[str] | None = Field(
+        None,
+        description=(
+            "Color for each pie segment; aligned with ``value_columns``. "
+            "Accepts hex codes or TPS brand names (e.g. 'Neptune Blue')."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _check_column_inputs(self) -> "USMapPieChartConfig":
+        """Enforce the column-oriented field group is internally consistent."""
+        location_column = self.location_column
+        value_columns = self.value_columns
+        labels = self.labels
+        colors = self.colors
+
+        if location_column is None and value_columns is None and labels is None and colors is None:
+            return self
+
+        if location_column is None or value_columns is None or labels is None or colors is None:
+            missing = [
+                name
+                for name, value in (
+                    ("location_column", location_column),
+                    ("value_columns", value_columns),
+                    ("labels", labels),
+                    ("colors", colors),
+                )
+                if value is None
+            ]
+            raise ValueError(
+                "When using the column-oriented us_map_pie pathway, "
+                f"all of location_column/value_columns/labels/colors must be set. Missing: {missing}"
+            )
+
+        if not (len(value_columns) == len(labels) == len(colors)):
+            raise ValueError(
+                "value_columns, labels, and colors must have equal length "
+                f"(got {len(value_columns)}, {len(labels)}, {len(colors)})"
+            )
+
+        return self
 
     # --- Pie sizing ---
     pie_size_column: str | None = Field(

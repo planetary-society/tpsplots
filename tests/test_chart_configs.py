@@ -341,6 +341,46 @@ class TestModelAcceptance:
         )
         assert config.type == "us_map_pie"
 
+    def test_us_map_pie_accepts_column_oriented_fields(self):
+        config = USMapPieChartConfig(
+            type="us_map_pie",
+            output="test",
+            title="T",
+            data="{{data}}",
+            location_column="Map Key",
+            value_columns=["Remaining", "Departing"],
+            labels=["Remaining", "Departing"],
+            colors=["Neptune Blue", "Rocket Flame"],
+        )
+        assert config.location_column == "Map Key"
+        assert config.value_columns == ["Remaining", "Departing"]
+
+    def test_us_map_pie_rejects_partial_column_setup(self):
+        with pytest.raises(ValidationError) as exc:
+            USMapPieChartConfig(
+                type="us_map_pie",
+                output="test",
+                title="T",
+                location_column="Map Key",
+                value_columns=["A", "B"],
+                # labels and colors missing
+            )
+        assert "labels" in str(exc.value)
+        assert "colors" in str(exc.value)
+
+    def test_us_map_pie_rejects_length_mismatch(self):
+        with pytest.raises(ValidationError) as exc:
+            USMapPieChartConfig(
+                type="us_map_pie",
+                output="test",
+                title="T",
+                location_column="Map Key",
+                value_columns=["A", "B"],
+                labels=["A", "B", "C"],
+                colors=["red", "blue"],
+            )
+        assert "equal length" in str(exc.value)
+
     def test_line_subplots_accepts_fields(self):
         config = LineSubplotsChartConfig(
             type="line_subplots",

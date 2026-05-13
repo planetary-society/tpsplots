@@ -1,0 +1,37 @@
+data:
+  source: csv:yaml/examples/data/2025_NASA_DRP_cuts_by_center.csv
+  params:
+    auto_clean_currency: false
+    cast:
+      Starting Population: int
+      Estimated Final Population: int
+      Total Civil Servants Departing Agency: int
+      Departure Share: float
+
+chart:
+  type: us_map_pie
+  output: fy2025_nasa_drp_center_workforce_map
+  title: "NASA DRP departures by center"
+  subtitle: "Estimated civil servant departures and remaining population by NASA center."
+  source: "NASA FY 2025 Estimate"
+
+  data: "{{data}}"
+  location_column: "Map Key"
+  value_columns:
+    - "Estimated Final Population"
+    - "Total Civil Servants Departing Agency"
+  labels:
+    - "Estimated Final Population"
+    - "Departing Agency"
+  colors:
+    - "Neptune Blue"
+    - "Rocket Flame"
+
+  show_percentages: [false, true]
+  show_pie_labels: true
+  base_pie_size: 4500
+  show_state_boundaries: true
+  offset_line_color: "#666666"
+  offset_line_style: "-."
+  offset_line_width: 2
+  export_data: "{{data}}"

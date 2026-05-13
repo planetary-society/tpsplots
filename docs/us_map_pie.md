@@ -24,7 +24,12 @@ chart:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `pie_data` | any (template ref) | — | Dict mapping location names to pie chart data dicts (each with 'values', 'labels', 'colors') |
+| `pie_data` | any (template ref) | — | Dict mapping location names to pie chart data dicts (each with 'values', 'labels', 'colors'). Required unless the column-oriented fields below are provided. |
+| `data` | any (template ref) | — | DataFrame template reference (e.g. '{{data}}') used with the column-oriented fields below to assemble pie_data from a CSV. Ignored when pie_data is provided directly. |
+| `location_column` | str | — | Column name in ``data`` whose values match NASA_CENTERS keys (full names or abbreviations). Rows with blank/null values in this column are dropped from plotted pies. |
+| `value_columns` | list[str] | — | Column names in ``data`` to use as pie segment values, one per segment. Length must equal ``labels`` and ``colors``. |
+| `labels` | list[str] | — | Legend label for each pie segment; aligned with ``value_columns``. |
+| `colors` | list[str] | — | Color for each pie segment; aligned with ``value_columns``. Accepts hex codes or TPS brand names (e.g. 'Neptune Blue'). |
 
 ## Pie Sizing
 

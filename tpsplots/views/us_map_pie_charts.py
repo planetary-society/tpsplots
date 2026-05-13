@@ -6,6 +6,7 @@ from typing import ClassVar
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 from tpsplots.models.charts.us_map_pie import USMapPieChartConfig
 
@@ -286,6 +287,92 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
         for spine in ax.spines.values():
             spine.set_visible(False)
 
+    @staticmethod
+    def _build_pie_data_from_columns(
+        data,
+        location_column: str,
+        value_columns: list[str],
+        labels: list[str],
+        colors: list[str],
+    ) -> dict[str, dict[str, list]]:
+        """Assemble the ``pie_data`` dict from a DataFrame + column mappings.
+
+        Rows with blank/null ``location_column`` values are loaded but dropped
+        from the plotted pies (logged at INFO with a count and the dropped
+        rows' first non-location text column for traceability).
+
+        Raises:
+            ValueError: if ``data`` is not a DataFrame, required columns are
+                missing, or a mapped row has null/non-numeric segment values.
+        """
+        if not isinstance(data, pd.DataFrame):
+            raise ValueError(
+                "us_map_pie column-oriented pathway requires 'data' to be a DataFrame, "
+                f"got {type(data).__name__}"
+            )
+        if location_column not in data.columns:
+            raise ValueError(
+                f"location_column '{location_column}' not in data columns: {list(data.columns)}"
+            )
+        missing_value_cols = [c for c in value_columns if c not in data.columns]
+        if missing_value_cols:
+            raise ValueError(
+                f"value_columns not found in data: {missing_value_cols}. "
+                f"Available columns: {list(data.columns)}"
+            )
+
+        keys = data[location_column]
+        is_blank = keys.isna() | (keys.astype(str).str.strip() == "")
+        if is_blank.any():
+            dropped_labels = USMapPieChartView._describe_dropped_rows(
+                data.loc[is_blank], location_column
+            )
+            logger.info(
+                "us_map_pie: dropped %d unmapped row(s) (blank %s): %s",
+                len(dropped_labels),
+                location_column,
+                dropped_labels,
+            )
+            plotted = data.loc[~is_blank]
+        else:
+            plotted = data
+
+        pie_data: dict[str, dict[str, list]] = {}
+        for _, row in plotted.iterrows():
+            key = str(row[location_column]).strip()
+            values: list[float] = []
+            for col in value_columns:
+                v = row[col]
+                if pd.isna(v):
+                    raise ValueError(f"Mapped row '{key}' has null value in column '{col}'")
+                try:
+                    values.append(float(v))
+                except (TypeError, ValueError) as e:
+                    raise ValueError(
+                        f"Mapped row '{key}' has non-numeric value {v!r} in column '{col}'"
+                    ) from e
+            pie_data[key] = {
+                "values": values,
+                "labels": list(labels),
+                "colors": list(colors),
+            }
+        return pie_data
+
+    @staticmethod
+    def _describe_dropped_rows(dropped_df, location_column: str) -> list[str]:
+        """Pick a human-readable label per dropped row for log output."""
+        candidates = [c for c in dropped_df.columns if c != location_column]
+        descriptions: list[str] = []
+        for _, row in dropped_df.iterrows():
+            label = None
+            for c in candidates:
+                val = row[c]
+                if isinstance(val, str) and val.strip():
+                    label = val.strip()
+                    break
+            descriptions.append(label if label else f"row {row.name}")
+        return descriptions
+
     def _create_chart(self, metadata, style, **kwargs):
         """
         Create a US map with pie charts using the scatter-based approach.
@@ -300,8 +387,21 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
         """
         # Extract required parameters
         pie_data = kwargs.pop("pie_data", None)
+        data = kwargs.pop("data", None)
+        location_column = kwargs.pop("location_column", None)
+        value_columns = kwargs.pop("value_columns", None)
+        labels = kwargs.pop("labels", None)
+        colors = kwargs.pop("colors", None)
+
         if pie_data is None:
-            raise ValueError("pie_data is required for us_map_pie_plot")
+            if location_column is None:
+                raise ValueError(
+                    "us_map_pie requires either 'pie_data' or the column-oriented fields "
+                    "(data, location_column, value_columns, labels, colors)"
+                )
+            pie_data = self._build_pie_data_from_columns(
+                data, location_column, value_columns, labels, colors
+            )
 
         # Extract optional parameters
         pie_size_column = kwargs.pop("pie_size_column", None)
@@ -333,8 +433,8 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
         # Combine default locations with custom ones
         all_locations = {**self.NASA_CENTERS, **custom_locations}
 
-        scaled_base_pie_size, scaled_min_pie_size, scaled_max_pie_size = self._scale_pie_size_params(
-            style, base_pie_size, min_pie_size, max_pie_size
+        scaled_base_pie_size, scaled_min_pie_size, scaled_max_pie_size = (
+            self._scale_pie_size_params(style, base_pie_size, min_pie_size, max_pie_size)
         )
 
         # Calculate pie sizes if using proportional sizing
