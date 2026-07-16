@@ -113,20 +113,24 @@ class TreemapChartView(ColorCycleMixin, ChartView):
         rectangles = squarify.squarify(normalized_values, 0, 0, width, height)
         return list(zip(items, rectangles, strict=True))
 
-    @staticmethod
     def _format_tile_text(
+        self,
         item: _TreemapItem,
         total: float,
         show_labels: bool,
+        show_values: bool,
         show_percentages: bool,
+        value_format: str,
         wrap_length: int,
     ) -> str:
-        """Build a wrapped label and percentage without coupling their visibility."""
+        """Build independently controlled label, value, and percentage lines."""
         lines: list[str] = []
         if show_labels:
             lines.extend(
                 textwrap.wrap(item.label, width=wrap_length, break_long_words=False) or [item.label]
             )
+        if show_values:
+            lines.append(self._format_value(item.value, value_format))
         if show_percentages:
             lines.append(f"{item.value / total * 100:.1f}%")
         return "\n".join(lines)
@@ -191,13 +195,15 @@ class TreemapChartView(ColorCycleMixin, ChartView):
         *,
         total: float,
         show_labels: bool,
+        show_values: bool,
         show_percentages: bool,
+        value_format: str,
         label_min_area_pct: float,
         label_wrap_length: int,
         label_fontsize: float,
     ) -> None:
         """Draw candidate labels once, then hide any that exceed a 4pt tile inset."""
-        if not show_labels and not show_percentages:
+        if not show_labels and not show_values and not show_percentages:
             return
 
         candidates: list[tuple[Rectangle, object]] = []
@@ -209,7 +215,9 @@ class TreemapChartView(ColorCycleMixin, ChartView):
                 item,
                 total,
                 show_labels,
+                show_values,
                 show_percentages,
+                value_format,
                 label_wrap_length,
             )
             if not label_text:
@@ -267,7 +275,9 @@ class TreemapChartView(ColorCycleMixin, ChartView):
         linewidth = kwargs.pop("linewidth", 2.0)
         alpha = kwargs.pop("alpha", 1.0)
         show_labels = kwargs.pop("show_labels", True)
+        show_values = kwargs.pop("show_values", False)
         show_percentages = kwargs.pop("show_percentages", True)
+        value_format = kwargs.pop("value_format", "float")
         label_min_area_pct = kwargs.pop("label_min_area_pct", 1.0)
         label_wrap_length = kwargs.pop("label_wrap_length", style.get("label_wrap_length", 15))
         label_fontsize = kwargs.pop("label_fontsize", style.get("label_size", 12))
@@ -307,7 +317,9 @@ class TreemapChartView(ColorCycleMixin, ChartView):
                 drawn_tiles,
                 total=math.fsum(item.value for item in items),
                 show_labels=show_labels,
+                show_values=show_values,
                 show_percentages=show_percentages,
+                value_format=value_format,
                 label_min_area_pct=label_min_area_pct,
                 label_wrap_length=label_wrap_length,
                 label_fontsize=label_fontsize,

@@ -63,6 +63,35 @@ class FileTrackingChartView(ChartView):
         return Path(self.outdir / f"{stem}.csv")
 
 
+def test_clone_chart_kwargs_isolates_dataframes():
+    """Top-level DataFrame/Series kwargs must be deep-copied so device renders
+    cannot mutate a shared frame."""
+    import pandas as pd
+
+    original_df = pd.DataFrame({"a": [1, 2, 3]})
+    original_series = pd.Series([1, 2, 3])
+
+    cloned = ChartView._clone_chart_kwargs({"df": original_df, "s": original_series})
+
+    assert cloned["df"] is not original_df
+    assert cloned["s"] is not original_series
+
+    cloned["df"].loc[0, "a"] = 999
+    cloned["s"].iloc[0] = 999
+
+    assert original_df.loc[0, "a"] == 1
+    assert original_series.iloc[0] == 1
+
+
+def test_generate_chart_returns_only_files(tmp_path):
+    """generate_chart returns just the file list; device figures are saved and
+    closed internally, not handed back to callers."""
+    view = FileTrackingChartView(outdir=tmp_path)
+    result = view.generate_chart(metadata={}, stem="budget")
+
+    assert set(result) == {"files"}
+
+
 def test_generate_chart_reports_generated_files(tmp_path):
     """generate_chart should include all output file paths in result['files']."""
     view = FileTrackingChartView(outdir=tmp_path)
@@ -125,6 +154,13 @@ def test_transition_quarter_timeline_is_not_a_datetime_axis(tmp_path):
     view = ChartView(outdir=tmp_path, style_file=None)
 
     assert view._contains_dates(["1975", "1976", "1976 TQ", "1977"]) is False
+
+
+def test_transition_quarter_with_non_string_first_element_is_not_a_datetime_axis(tmp_path):
+    """A mixed column whose first element is an int must still detect the TQ label."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+
+    assert view._contains_dates([1976, "1976 TQ", 1977]) is False
 
 
 def test_ordinary_fiscal_year_labels_are_a_datetime_axis(tmp_path):

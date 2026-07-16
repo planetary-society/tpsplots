@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import yaml
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -26,8 +27,12 @@ def create_files_router(session: EditorSession) -> APIRouter:
             return {"config": config}
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except yaml.YAMLError as exc:
+            raise HTTPException(status_code=400, detail=f"Malformed YAML: {exc}") from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @router.post("/save")
     def save(payload: SaveRequest) -> dict:

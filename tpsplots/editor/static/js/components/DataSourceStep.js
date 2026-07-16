@@ -7,6 +7,7 @@ import { html } from "../lib/html.js";
 import { SchemaForm } from "./SchemaForm.js";
 import { DataParamsWidget } from "../widgets/DataParamsWidget.js";
 import { InflationConfigWidget } from "../widgets/InflationConfigWidget.js";
+import { refreshData } from "../api.js";
 
 const EMPTY_HIDDEN = new Set();
 
@@ -35,6 +36,17 @@ export function DataSourceStep({
   const closeDialog = useCallback(() => {
     dialogRef.current?.close();
   }, []);
+
+  // Clear the server-side data cache, then re-run the profile fetch. Local
+  // CSVs refresh automatically (mtime-keyed cache); this is the only way to
+  // re-pull remote sources (URLs, Google Sheets, controllers) mid-session.
+  const handleRefresh = useCallback(async () => {
+    try {
+      await refreshData();
+    } finally {
+      onTestSource?.();
+    }
+  }, [onTestSource]);
 
   const widgets = useMemo(
     () => ({ dataParams: DataParamsWidget, inflationConfig: InflationConfigWidget }),
@@ -77,6 +89,15 @@ export function DataSourceStep({
           onClick=${onTestSource}
         >
           ${profileStatus === "loading" ? "Testing Source\u2026" : "Test Source"}
+        </button>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          disabled=${!canTestSource || profileStatus === "loading"}
+          onClick=${handleRefresh}
+          title="Re-fetch remote sources (URLs, Google Sheets, controllers); local CSVs refresh automatically"
+        >
+          Refresh
         </button>
         <button
           type="button"

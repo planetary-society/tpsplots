@@ -264,30 +264,75 @@ class TestCSVInflationMetadataAndSums:
         assert result["inflation_target_year"] == 2024
 
 
+def _write_dummy_controller(tmp_path) -> str:
+    """Write a minimal controller module and return its path."""
+    controller_file = tmp_path / "dummy_controller.py"
+    controller_file.write_text(
+        "import pandas as pd\n"
+        "from tpsplots.controllers.chart_controller import ChartController\n"
+        "\n"
+        "class DummyController(ChartController):\n"
+        "    def totals(self):\n"
+        "        df = pd.DataFrame({'Year': [2020, 2021], 'Budget': [100.0, 200.0]})\n"
+        "        result = self._build_result_dict(df)\n"
+        "        result['metadata'] = self._build_metadata(df, fiscal_year_col=None)\n"
+        "        return result\n"
+    )
+    return str(controller_file)
+
+
 class TestControllerSourceColumnSums:
     """Column sums should be computed for controller-based sources too."""
 
     def test_controller_source_has_column_sums(self, tmp_path):
         """A controller method resolved via DataResolver should have column_sums in metadata."""
-        # Create a minimal controller module that returns a DataFrame with numeric columns
-        controller_file = tmp_path / "dummy_controller.py"
-        controller_file.write_text(
-            "import pandas as pd\n"
-            "from tpsplots.controllers.chart_controller import ChartController\n"
-            "\n"
-            "class DummyController(ChartController):\n"
-            "    def totals(self):\n"
-            "        df = pd.DataFrame({'Year': [2020, 2021], 'Budget': [100.0, 200.0]})\n"
-            "        result = self._build_result_dict(df)\n"
-            "        result['metadata'] = self._build_metadata(df, fiscal_year_col=None)\n"
-            "        return result\n"
-        )
-
-        config = DataSourceConfig(source=f"{controller_file}:totals")
+        controller_path = _write_dummy_controller(tmp_path)
+        config = DataSourceConfig(source=f"{controller_path}:totals")
         result = DataResolver.resolve(config)
 
         assert "column_sums" in result["metadata"]
         assert result["metadata"]["column_sums"]["Budget"] == 300.0
+
+
+class TestControllerSourceParamsRejected:
+    """data.params is unsupported for controller sources and must fail loudly."""
+
+    def test_controller_path_source_with_params_raises(self, tmp_path):
+        """A controller-path source combined with params raises DataSourceError."""
+        controller_path = _write_dummy_controller(tmp_path)
+        config = DataSourceConfig(
+            source=f"{controller_path}:totals",
+            params=DataSourceParams(columns=["Budget"]),
+        )
+        with pytest.raises(DataSourceError, match="not supported for controller sources"):
+            DataResolver.resolve(config)
+
+    def test_controller_module_source_with_params_raises(self):
+        """A controller-module source combined with params raises DataSourceError."""
+        config = DataSourceConfig(
+            source="nasa_budget_chart.nasa_major_programs_by_year",
+            params=DataSourceParams(cast={"Fiscal Year": "int"}),
+        )
+        with pytest.raises(DataSourceError, match="not supported for controller sources"):
+            DataResolver.resolve(config)
+
+
+class TestCSVUrlSourcesWithParams:
+    """csv/url sources must continue to accept and apply params."""
+
+    def test_csv_source_with_params_applies(self, tmp_path):
+        """A csv source with params still loads and applies column selection."""
+        csv_file = tmp_path / "data.csv"
+        csv_file.write_text("Year,Budget,Extra\n2020,100.0,x\n2021,200.0,y\n")
+
+        config = DataSourceConfig(
+            source=f"csv:{csv_file}",
+            params=DataSourceParams(columns=["Year", "Budget"]),
+        )
+        result = DataResolver.resolve(config)
+
+        assert list(result["data"].columns) == ["Year", "Budget"]
+        assert "Extra" not in result["data"].columns
 
 
 class TestCSVControllerWithParams:

@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from tpsplots.data_sources.fiscal_year_mixin import FiscalYearMixin
+
 # Registry maps calculation name -> function
 CALCULATION_REGISTRY: dict[str, Callable[[pd.Series, pd.Series], pd.Series]] = {}
 
@@ -178,7 +180,7 @@ class CalculatedColumnProcessor:
             DataFrame with new calculated columns added
         """
         df = df.copy()
-        df = df.sort_values(self.config.fiscal_year_column).reset_index(drop=True)
+        df = FiscalYearMixin._sort_by_fiscal_year(df, self.config.fiscal_year_column)
 
         for calc in self.config.calculations:
             df = self._apply_calculation(df, calc)

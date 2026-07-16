@@ -206,14 +206,16 @@ class TestNanRowFiltering:
         assert list(result["Value"]) == [1.5, 2.5]
 
     def test_dropped_rows_logged(self, caplog):
-        """Dropped rows are logged at INFO level."""
-        caplog.set_level(logging.INFO)
+        """Rows dropped by an explicit user cast are logged at WARNING level."""
+        caplog.set_level(logging.WARNING)
         df = pd.DataFrame({"Year": ["2020", "Totals"]})
         source = InMemorySource(df, cast={"Year": "int"}, fiscal_year_column=False)
         source.data()
 
-        info_messages = [record.message for record in caplog.records if record.levelname == "INFO"]
-        assert any("Dropped" in message and "Year" in message for message in info_messages)
+        warning_messages = [
+            record.message for record in caplog.records if record.levelname == "WARNING"
+        ]
+        assert any("Dropped" in message and "Year" in message for message in warning_messages)
 
 
 # ---------------------------------------------------------------------------

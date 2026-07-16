@@ -47,6 +47,37 @@ TPS_COLORS: dict[str, str] = {
 }
 
 
+# Unified name -> hex lookup. TPS_COLORS is added first so COLORS keys take
+# precedence when the two dicts share a normalized name (accessibility-first).
+_COLOR_LOOKUP: dict[str, str] = {**TPS_COLORS, **COLORS}
+_NORMALIZED_COLOR_LOOKUP: dict[str, str] = {
+    key.strip().casefold(): value for key, value in _COLOR_LOOKUP.items()
+}
+
+
+def resolve_color(name: str) -> str:
+    """Resolve a TPS brand/named color to its hex code.
+
+    Case-insensitive after an exact-match attempt. Values that are not known
+    color names pass through unchanged, including hex codes (``#RRGGBB``) and
+    unresolved template references (``{{colors}}``). Non-string values are
+    returned as-is.
+    """
+    if not isinstance(name, str):
+        return name
+
+    # Skip template references like {{colors}} and hex codes.
+    if name.startswith("{{") and name.endswith("}}"):
+        return name
+    if name.startswith("#"):
+        return name
+
+    if name in _COLOR_LOOKUP:
+        return _COLOR_LOOKUP[name]
+
+    return _NORMALIZED_COLOR_LOOKUP.get(name.strip().casefold(), name)
+
+
 def lighten_color(color: str, factor: float = 0.4) -> str:
     """Lighten a hex color by blending it with white.
 

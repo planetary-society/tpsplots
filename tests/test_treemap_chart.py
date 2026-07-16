@@ -60,7 +60,9 @@ def test_treemap_config_exposes_responsive_label_and_tile_defaults():
     assert config.linewidth == 2.0
     assert config.alpha == 1.0
     assert config.show_labels is True
+    assert config.show_values is False
     assert config.show_percentages is True
+    assert config.value_format == "float"
     assert config.label_min_area_pct == 1.0
     assert config.label_wrap_length is None
     assert config.label_fontsize is None
@@ -202,14 +204,25 @@ def test_layout_items_fills_requested_aspect_ratio_with_proportional_areas(tmp_p
     )
 
 
-def test_format_tile_text_wraps_label_and_independently_controls_percentage(tmp_path):
+def test_format_tile_text_independently_controls_label_value_and_percentage(tmp_path):
     view = TreemapChartView(outdir=tmp_path)
-    item = view._normalize_items(["Lander Spacecraft"], [451.7])[0]
+    item = view._normalize_items(["Lander Spacecraft"], [451_700_000])[0]
 
-    assert view._format_tile_text(item, 1057.9, True, True, 10) == ("Lander\nSpacecraft\n42.7%")
-    assert view._format_tile_text(item, 1057.9, True, False, 10) == "Lander\nSpacecraft"
-    assert view._format_tile_text(item, 1057.9, False, True, 10) == "42.7%"
-    assert view._format_tile_text(item, 1057.9, False, False, 10) == ""
+    assert (
+        view._format_tile_text(item, 1_057_900_000, True, True, True, "monetary", 10)
+        == "Lander\nSpacecraft\n$452M\n42.7%"
+    )
+    assert (
+        view._format_tile_text(item, 1_057_900_000, True, False, False, "monetary", 10)
+        == "Lander\nSpacecraft"
+    )
+    assert (
+        view._format_tile_text(item, 1_057_900_000, False, True, False, "monetary", 10) == "$452M"
+    )
+    assert (
+        view._format_tile_text(item, 1_057_900_000, False, False, True, "monetary", 10) == "42.7%"
+    )
+    assert view._format_tile_text(item, 1_057_900_000, False, False, False, "monetary", 10) == ""
 
 
 def test_contrast_text_color_uses_composited_tile_color(tmp_path):
@@ -366,9 +379,10 @@ def test_viking_example_resolves_seven_nonoverlapping_nominal_cost_components():
 def test_viking_example_generates_all_responsive_outputs(tmp_path):
     from tpsplots.processors.yaml_chart_processor import YAMLChartProcessor
 
-    result = YAMLChartProcessor(VIKING_EXAMPLE, outdir=tmp_path).generate_chart()
+    processor = YAMLChartProcessor(VIKING_EXAMPLE, outdir=tmp_path)
+    result = processor.generate_chart()
 
-    assert {"desktop", "mobile", "social", "files"}.issubset(result)
+    assert "files" in result
     assert {path.name for path in tmp_path.iterdir()} == {
         "viking_cost_breakdown_treemap_desktop.svg",
         "viking_cost_breakdown_treemap_desktop.png",
@@ -378,14 +392,27 @@ def test_viking_example_generates_all_responsive_outputs(tmp_path):
         "viking_cost_breakdown_treemap_social.png",
     }
 
+    # generate_chart no longer returns the device figures (they are saved and
+    # closed internally). Re-render each device to inspect the drawn labels.
+    from tpsplots.processors.render_pipeline import build_render_context
+
+    ctx = build_render_context(processor.config, processor.data, log_conflicts=False)
+    view = VIEW_REGISTRY[ctx.chart_type_v1](outdir=tmp_path)
     expected_largest_labels = {"Lander Spacecraft", "Orbiter Spacecraft", "Lander Science"}
     for device in ("desktop", "mobile", "social"):
-        visible_labels = {
-            text.get_text().replace("\n", " ").rsplit(" ", 1)[0]
-            for text in result[device].axes[0].texts
-            if text.get_visible()
-        }
-        assert expected_largest_labels.issubset(visible_labels)
+        fig = view.create_figure(
+            metadata=ctx.resolved_metadata, device=device, **ctx.resolved_params
+        )
+        try:
+            fig.canvas.draw()
+            visible_labels = {
+                text.get_text().replace("\n", " ").rsplit(" ", 1)[0]
+                for text in fig.axes[0].texts
+                if text.get_visible()
+            }
+            assert expected_largest_labels.issubset(visible_labels)
+        finally:
+            plt.close(fig)
 
     desktop_png = tmp_path / "viking_cost_breakdown_treemap_desktop.png"
     mobile_png = tmp_path / "viking_cost_breakdown_treemap_mobile.png"

@@ -156,13 +156,13 @@ class USMapPieChartConfig(ChartConfigBase):
         None, description="Show percentage values on pie segments"
     )
     legend_location: str | None = Field(
-        None, description="Location for legend (currently unused by view)"
+        None, description="Matplotlib legend location (loc). Default: 'lower left'"
     )
     pie_edge_color: str | None = Field(
-        None, description="Edge color for pie charts (currently unused by view)"
+        None, description="Edge color for pie wedges. Default: 'white'"
     )
     pie_edge_width: float | None = Field(
-        None, description="Edge width for pie charts (currently unused by view)"
+        None, description="Edge line width for pie wedges. Default: 0.5"
     )
 
     # --- Offset line styling ---

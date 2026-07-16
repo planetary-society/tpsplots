@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import ipaddress
+import logging
 import socket
 import threading
 import webbrowser
@@ -9,6 +11,18 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+
+logger = logging.getLogger(__name__)
+
+
+def _is_loopback_host(host: str) -> bool:
+    """Return True if ``host`` refers to the local loopback interface."""
+    if host.strip().lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 def _pick_available_port(host: str, preferred_port: int) -> int:
@@ -35,6 +49,13 @@ def start_editor_server(
 
     from tpsplots.editor.app import create_editor_app
     from tpsplots.editor.session import EditorSession
+
+    if not _is_loopback_host(host):
+        logger.warning(
+            "Editor bound to non-loopback host %s: it can read files and execute "
+            "controller code on behalf of anyone who can reach this address.",
+            host,
+        )
 
     session = EditorSession(yaml_dir=yaml_dir, outdir=outdir)
     selected_port = _pick_available_port(host, port)

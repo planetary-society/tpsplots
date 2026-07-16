@@ -10,6 +10,8 @@ import matplotlib.transforms
 import numpy as np
 from matplotlib.transforms import Bbox
 
+from .param_utils import broadcast_param
+
 logger = logging.getLogger(__name__)
 
 
@@ -202,19 +204,12 @@ class DirectLineLabelsMixin:
             except (TypeError, ValueError):
                 return default_markersize_points
 
-        def _normalize_markersizes(value, count):
-            if count <= 0:
-                return []
-            if isinstance(value, (list, tuple)):
-                if len(value) == 0:
-                    return [default_markersize_points] * count
-                normalized = list(value[:count])
-                if len(normalized) < count:
-                    normalized.extend([normalized[-1]] * (count - len(normalized)))
-                return [_coerce_markersize(item) for item in normalized]
-            return [_coerce_markersize(value)] * count
-
-        series_markersize_points = _normalize_markersizes(markersize_config, len(y_data))
+        series_markersize_points = [
+            _coerce_markersize(item)
+            for item in broadcast_param(
+                markersize_config, len(y_data), default=default_markersize_points
+            )
+        ]
 
         # Parse end_point config - can be:
         # - False: no endpoints

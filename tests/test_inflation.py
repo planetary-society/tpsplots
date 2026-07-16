@@ -194,3 +194,30 @@ def test_gdp_q4_rolls_into_next_fiscal_year():
     gdp = DummyGDP(year="2025", df=df)
     assert gdp.calc("2024", 1.0) == pytest.approx(2.0)
     assert gdp.calc("2025", 1.0) == pytest.approx(1.0)
+
+
+def test_nnsi_float_year_adjusts_identically_to_int(nnsi_2025: NNSI):
+    # A float FY (e.g. from df.apply upcasting int rows) must key the same
+    # multiplier as the equivalent int, not become a "2015.0" no-op.
+    import numpy as np
+
+    expected = nnsi_2025.calc(2015, 100)
+    assert expected != pytest.approx(100.0)  # sanity: a real adjustment happened
+    assert nnsi_2025.calc(2015.0, 100) == pytest.approx(expected)
+    assert nnsi_2025.calc(np.float64(2015.0), 100) == pytest.approx(expected)
+
+
+def test_nnsi_missing_from_year_warns_once(nnsi_fixture_path: Path, caplog):
+    # A from-year absent from the table stays unadjusted but must warn once
+    # (not silently multiply by 1.0), and not spam on repeated row-wise calls.
+    # Use a fresh instance so the module-scoped fixture's warned-key set (which
+    # other tests may have populated) doesn't affect the count.
+    nnsi = NNSI(year="2025", source=nnsi_fixture_path)
+    with caplog.at_level(logging.WARNING, logger="tpsplots.data_sources.inflation"):
+        assert nnsi.calc(1899, 100) == pytest.approx(100.0)
+        assert nnsi.calc(1899, 200) == pytest.approx(200.0)
+
+    missing_warnings = [
+        r for r in caplog.records if r.levelname == "WARNING" and "1899" in r.getMessage()
+    ]
+    assert len(missing_warnings) == 1

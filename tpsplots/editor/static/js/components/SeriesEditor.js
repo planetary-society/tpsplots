@@ -47,9 +47,19 @@ export function SeriesEditor({
 
   const handleFieldChange = useCallback(
     (seriesIndex, fieldName, newValue) => {
-      const currentArray = Array.isArray(formData[fieldName])
-        ? [...formData[fieldName]]
-        : [];
+      const existing = formData[fieldName];
+      let currentArray;
+      if (Array.isArray(existing)) {
+        currentArray = [...existing];
+      } else if (existing !== undefined && existing !== null) {
+        // Scalar applies to every series (e.g. YAML `markersize: 12`). Seed
+        // the working array with that scalar repeated for ALL series so
+        // untouched rows keep their value instead of being backfilled from
+        // NUMERIC_DEFAULTS or truncated when we write a single edit.
+        currentArray = Array(series.length).fill(existing);
+      } else {
+        currentArray = [];
+      }
       // Pad array to match series length
       while (currentArray.length < series.length) {
         currentArray.push(undefined);

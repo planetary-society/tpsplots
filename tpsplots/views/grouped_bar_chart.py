@@ -9,7 +9,7 @@ from tpsplots.colors import lighten_color
 from tpsplots.models.charts.grouped_bar import GroupedBarChartConfig
 
 from .chart_view import ChartView
-from .mixins import BarChartMixin, CategoricalBarMixin, GridAxisMixin
+from .mixins import BarChartMixin, CategoricalBarMixin, GridAxisMixin, legend_config_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -365,11 +365,9 @@ class GroupedBarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, Cha
 
         # Add legend
         if legend_config:
-            legend_kwargs = {"fontsize": style.get("tick_size", 14) * 0.8, "loc": "best"}
-            if isinstance(legend_config, dict):
-                legend_kwargs.update(legend_config)
-            elif isinstance(legend_config, str):
-                legend_kwargs["loc"] = legend_config
+            legend_kwargs = legend_config_kwargs(
+                legend_config, loc="best", fontsize=style.get("tick_size", 14) * 0.8
+            )
             ax.legend(legend_handles, legend_labels, **legend_kwargs)
 
         # Adjust layout for header and footer

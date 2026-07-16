@@ -6,7 +6,11 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
-from tpsplots.data_sources.fiscal_year_mixin import FY_COLUMN_PATTERN, FiscalYearMixin
+from tpsplots.data_sources.fiscal_year_mixin import (
+    FY_COLUMN_PATTERN,
+    TQ_LABEL_PATTERN,
+    FiscalYearMixin,
+)
 
 
 class TestFYColumnPattern:
@@ -133,6 +137,38 @@ class TestNormalizeFYColumn:
         assert len(result) == 2
         assert result["Year"].iloc[0] == datetime(2020, 1, 1)
         assert result["Year"].iloc[1] == datetime(2022, 1, 1)
+
+
+class TestTQMask:
+    """Anchored transition-quarter detection."""
+
+    @pytest.mark.parametrize(
+        "label",
+        ["TQ", "1976TQ", "1976 TQ", "FY1976 TQ", "FY76 TQ", "  1976 TQ  ", "tq"],
+    )
+    def test_mask_accepts_transition_quarter_labels(self, label):
+        assert TQ_LABEL_PATTERN.match(label)
+        mask = FiscalYearMixin._tq_mask(pd.Series([label]))
+        assert bool(mask.iloc[0]) is True
+
+    @pytest.mark.parametrize(
+        "label",
+        ["not-tq-related", "Totals-TQE", "2020", "Totals", ""],
+    )
+    def test_mask_rejects_stray_tq_substrings(self, label):
+        assert not TQ_LABEL_PATTERN.match(label)
+        mask = FiscalYearMixin._tq_mask(pd.Series([label]))
+        assert bool(mask.iloc[0]) is False
+
+    def test_stray_tq_substring_row_is_dropped_not_relabeled(self):
+        """A column with a stray "tq" substring still becomes a datetime axis;
+        the invalid row is dropped, never mislabeled "1976 TQ"."""
+        df = pd.DataFrame({"Year": ["2020", "2021", "not-tq-related"]})
+        result = FiscalYearMixin._normalize_fy_column(df, "Year")
+
+        assert pd.api.types.is_datetime64_any_dtype(result["Year"])
+        assert len(result) == 2
+        assert result["Year"].tolist() == [datetime(2020, 1, 1), datetime(2021, 1, 1)]
 
 
 class TestApplyFiscalYearConversion:

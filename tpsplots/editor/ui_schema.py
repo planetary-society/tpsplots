@@ -45,7 +45,7 @@ _IDENTITY_FIELDS = {"type", "output", "title", "subtitle", "source"}
 # These are TPS brand constants (figsize, dpi) or pipeline internals
 # (export_data, matplotlib_config, line.data DataFrame reference) that are not user-configurable in the
 # editor. Stripping them from the JSON schema (not just hiding) prevents
-# RJSF from creating form elements or injecting empty defaults.
+# the editor form from creating inputs or injecting empty defaults.
 _EXCLUDED_FIELDS = {"figsize", "dpi", "export_data", "matplotlib_config", "data"}
 _CHART_EXCLUDED_FIELDS: dict[str, set[str]] = {
     # Scatter inherits line options, but these line-connector controls should not
@@ -74,15 +74,6 @@ def _get_excluded_fields(config_cls: type, chart_type: str | None = None) -> set
         excluded.update(_CHART_EXCLUDED_FIELDS.get(resolved_type, set()))
     return excluded
 
-
-# Build flat lookup: field_name → group_name
-FIELD_TO_GROUP: dict[str, str] = {}
-for _group_name, _mixin_cls in _MIXIN_GROUPS:
-    for _field_name in _mixin_cls.model_fields:
-        FIELD_TO_GROUP[_field_name] = _group_name
-
-for _field_name in _IDENTITY_FIELDS:
-    FIELD_TO_GROUP[_field_name] = "Identity"
 
 # ---------------------------------------------------------------------------
 # Per-chart-type field → group mapping for non-mixin fields.
@@ -121,7 +112,9 @@ _CHART_FIELD_GROUPS: dict[str, dict[str, str]] = {
         "linewidth": "Treemap Tiles",
         "alpha": "Treemap Tiles",
         "show_labels": "Labels",
+        "show_values": "Labels",
         "show_percentages": "Labels",
+        "value_format": "Labels",
         "label_min_area_pct": "Labels",
         "label_wrap_length": "Labels",
         "label_fontsize": "Labels",
@@ -471,8 +464,8 @@ FIELD_TIERS: dict[str, dict[str, list[str]]] = {
         "common": ["center_text", "center_color", "label_distance"],
     },
     "treemap": {
-        "essential": ["colors", "show_labels", "show_percentages"],
-        "common": ["label_min_area_pct", "edgecolor", "linewidth", "alpha"],
+        "essential": ["colors", "show_labels", "show_values", "show_percentages"],
+        "common": ["value_format", "label_min_area_pct", "edgecolor", "linewidth", "alpha"],
     },
     "waffle": {
         "essential": ["colors", "labels"],
@@ -480,7 +473,7 @@ FIELD_TIERS: dict[str, dict[str, list[str]]] = {
     },
     "us_map_pie": {
         "essential": ["show_pie_labels", "show_percentages", "base_pie_size"],
-        "common": ["show_state_boundaries", "legend"],
+        "common": ["show_state_boundaries"],
     },
 }
 
@@ -690,7 +683,7 @@ def get_chart_type_schema(chart_type: str) -> dict[str, Any]:
 def get_ui_schema(chart_type: str) -> dict[str, Any]:
     """Generate a uiSchema for the given chart type.
 
-    The uiSchema controls RJSF rendering: field order, grouping,
+    The uiSchema controls the editor form rendering: field order, grouping,
     widget selection, help text, and inline row hints.
     """
     config_cls = CONFIG_REGISTRY.get(chart_type)
@@ -749,7 +742,7 @@ def get_ui_schema(chart_type: str) -> dict[str, Any]:
 
     ui["ui:order"] = ordered_fields
 
-    # Group metadata for the ObjectFieldTemplate
+    # Group metadata for the form's grouped section rendering
     ui_groups = []
     for group_name in GROUP_ORDER:
         group_fields = groups.get(group_name, [])
@@ -796,12 +789,6 @@ def get_editor_hints(chart_type: str) -> dict[str, Any]:
     annotation = [f for f in ("title", "subtitle", "source", "output") if f in fields]
 
     visual = [f for f in fields if f not in set(primary) | set(annotation) | {"type"}]
-    advanced = [
-        f
-        for f in visual
-        if _get_field_group(f, config_cls, chart_type) in {"Advanced", "Axis", "Grid"}
-    ]
-    suggested = [*primary, *[f for f in fields if f not in set(primary)]]
 
     # 3-tier field prioritisation
     tiers = FIELD_TIERS.get(chart_type, {})
@@ -822,8 +809,6 @@ def get_editor_hints(chart_type: str) -> dict[str, Any]:
             "visual_design": visual,
             "annotation_output": annotation,
         },
-        "advanced_fields": advanced,
-        "suggested_field_order": suggested,
         "field_tiers": {
             "essential": essential,
             "common": common,

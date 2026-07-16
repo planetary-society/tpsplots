@@ -85,9 +85,15 @@ class WaffleChartView(ChartView):
             kwargs["dpi"] = style["dpi"]
 
         # Adjust legend positioning per device style
-        # Mobile: taller figure needs legend nudged up; social: shorter figure needs it down
-        bbox_y_offsets = {id(self.MOBILE): 0.02, id(self.SOCIAL): -0.06}
-        y_offset = bbox_y_offsets.get(id(style))
+        # Mobile: taller figure needs legend nudged up; social: shorter figure needs it down.
+        # Match by value (consistent with the ``style == self.MOBILE`` check below) so a
+        # cloned style dict still resolves the offset, unlike identity (id()) matching.
+        if style == self.MOBILE:
+            y_offset = 0.02
+        elif style == self.SOCIAL:
+            y_offset = -0.06
+        else:
+            y_offset = None
 
         if y_offset is not None and "legend" in kwargs and isinstance(kwargs["legend"], dict):
             legend = kwargs["legend"]

@@ -48,6 +48,12 @@ class DataResolver:
         kind, target, method = DataResolver._parse_source(source)
         params = data_source.params
 
+        if kind in ("controller_module", "controller_path") and params is not None:
+            raise DataSourceError(
+                "data.params is not supported for controller sources; apply "
+                "column/cast/rename logic inside the controller method instead"
+            )
+
         if kind == "url":
             result = DataResolver._resolve_url(target, params)
         elif kind == "csv":

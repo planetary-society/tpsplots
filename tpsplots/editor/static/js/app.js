@@ -17,9 +17,6 @@ import { EditorLayout } from "./components/EditorLayout.js";
 import { useHotkeys } from "./hooks/useHotkeys.js";
 import { html } from "./lib/html.js";
 
-// Re-export html for use by all components
-export { html };
-
 const FIELD_REMAPS = [
   ["x", "categories"],
   ["categories", "x"],

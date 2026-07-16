@@ -103,75 +103,6 @@ class ChartController:
             return fiscal_year_column
         return FiscalYearMixin._detect_fy_column(df)
 
-    def _get_rounded_axis_limit_y(
-        self, max_value: float, multiple: float = 5000000000, always_extend: bool = True
-    ) -> float:
-        """
-        Returns a reasonable upper boundary for the y-axis based on the maximum value in the data.
-
-        This method rounds up the maximum value to the next multiple of the specified value,
-        ensuring clean and consistent y-axis limits for charts, particularly for financial data.
-
-        Example: For a maximum value of $23.7 billion and a multiple of $5 billion,
-        this returns $25 billion.
-
-        Args:
-            max_value (float): The maximum value in the dataset
-            multiple (float): The value to round up to. Defaults to 5 billion ($5,000,000,000)
-            always_extend (bool): When True, ensures the limit is at least one multiple
-                                higher than the max_value. When False, only extends if needed.
-                                Defaults to True to provide headroom in charts.
-
-        Returns:
-            float: The rounded upper limit suitable for y-axis plotting
-        """
-        # If max_value is less than multiple, just return multiple for a cleaner chart
-        if max_value < multiple:
-            return multiple
-
-        # Calculate how many whole multiples fit into max_value
-        whole_multiples = max_value // multiple
-
-        # Check if max_value is exactly at a multiple boundary
-        if max_value % multiple == 0:
-            # If always_extend is True or we're exactly at a boundary, add a full multiple
-            return (whole_multiples + 1) * multiple if always_extend else max_value
-
-        # Otherwise, round up to the next multiple
-        return (whole_multiples + 1) * multiple
-
-    def _get_rounded_axis_limit_x(
-        self, upper_value: int, multiple: int = 10, always_extend: bool = False
-    ) -> int:
-        """Returns the next highest integer divisible by the multiple given a
-        beyond the given upper_value
-
-        Example: If we have data through FY 2026, and we want the next highest year that is
-        divisible by 10, the method will return 2030.
-
-        This is helpful for ensuring clean and consistent x-axes for charts.
-
-        Args:
-            upper_value (int): End point for fiscal year with actual data
-            multiple (int): The multiplier. Defaults to 10.
-            always_extend (bool): When True, always adds at least one multiple beyond upper_value,
-                                even if upper_value already falls on a multiple boundary.
-                                When False, only extends if needed.
-
-        Returns:
-            int: The next year after upper_value where % multiple == 0
-        """
-        # Find the remainder
-        remainder = upper_value % multiple
-
-        # If the remainder is 0, upper_value is already at a multiple boundary
-        if remainder == 0:
-            # If always_extend is True or we're on a boundary, add a full multiple
-            return upper_value + multiple if always_extend else upper_value
-
-        # Otherwise, add the difference needed to reach the next multiple boundary
-        return upper_value + (multiple - remainder)
-
     # TODO: Consolidate _export_helper logic (FY formatting, per-column rounding)
     # into DataFrameToYAMLProcessor so controllers don't need to build export_df
     # separately. Currently used by NASABudgetChart and ApolloController.
@@ -265,15 +196,9 @@ class ChartController:
         # 1. Extract FY ranges from DataFrame (if column exists)
         fy_years = None
         if fiscal_year_col is not None and fiscal_year_col in df.columns:
-            fy_series = df[fiscal_year_col]
-            if pd.api.types.is_integer_dtype(fy_series):
-                fy_years = pd.to_numeric(fy_series, errors="coerce")
-            elif pd.api.types.is_datetime64_any_dtype(fy_series):
-                fy_years = fy_series.dt.year
-            else:
-                # Fiscal-period labels can include NASA's 1976 transition
-                # quarter. Extract their year without forcing a datetime.
-                fy_years = FiscalYearMixin._fy_labels_to_years(fy_series)
+            # Handles datetime, integer, and fiscal-period label columns
+            # (including NASA's 1976 transition quarter).
+            fy_years = FiscalYearMixin._fy_years(df[fiscal_year_col])
 
             valid_fy_years = fy_years.dropna()
             if not valid_fy_years.empty:

@@ -30,7 +30,7 @@ class ChinaComparisonCharts(ChartController):
         data = source.data()
 
         # Filter for U.S. missions
-        data = data[data["Nation"].str.startswith("United States", na=False)]
+        data = data[data["Nation"].str.startswith("United States", na=False)].copy()
 
         # Parse dates to get launch year and month
         data["launch_datetime"] = pd.to_datetime(data["Mission Launch Date"], errors="coerce")

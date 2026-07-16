@@ -15,6 +15,8 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from tpsplots.data_sources.fiscal_year_mixin import FiscalYearMixin
+
 
 def to_snake_case(name: str) -> str:
     """Convert column name to snake_case key.
@@ -80,21 +82,6 @@ class DataFrameToYAMLConfig:
     clear_projection_before_fy: bool = True  # Clear projection for FY <= current FY
 
 
-@dataclass
-class ExportConfig:
-    """Configuration for building export DataFrame.
-
-    Attributes:
-        columns: Columns to include in export (None = use parent config)
-        clear_projection_column: Column to clear for FY <= current
-        fiscal_year_column: Column containing fiscal year
-    """
-
-    columns: list[str] | None = None
-    clear_projection_column: str = "White House Budget Projection"
-    fiscal_year_column: str = "Fiscal Year"
-
-
 class DataFrameToYAMLProcessor:
     """Converts DataFrame to dict for YAML template consumption.
 
@@ -156,12 +143,9 @@ class DataFrameToYAMLProcessor:
 
         # Add computed metadata
         if self.config.fiscal_year_column in df.columns:
-            max_fy = df[self.config.fiscal_year_column].max()
-            if pd.notna(max_fy):
-                if hasattr(max_fy, "strftime"):
-                    result["max_fiscal_year"] = int(max_fy.strftime("%Y"))
-                else:
-                    result["max_fiscal_year"] = int(max_fy)
+            fy_years = FiscalYearMixin._fy_years(df[self.config.fiscal_year_column]).dropna()
+            if not fy_years.empty:
+                result["max_fiscal_year"] = int(fy_years.max())
 
         return result
 
@@ -189,10 +173,9 @@ class DataFrameToYAMLProcessor:
             and "White House Budget Projection" in export_df.columns
             and self.config.fiscal_year_column in export_df.columns
         ):
-            fiscal_years = export_df[self.config.fiscal_year_column].apply(
-                lambda x: x.year if hasattr(x, "year") else (int(x) if pd.notna(x) else pd.NA)
-            )
-            export_df.loc[fiscal_years < fy, "White House Budget Projection"] = pd.NA
+            fiscal_years = FiscalYearMixin._fy_years(export_df[self.config.fiscal_year_column])
+            historical_mask = fiscal_years.lt(fy)
+            export_df.loc[historical_mask, "White House Budget Projection"] = pd.NA
 
         # Build export note
         export_note = self._build_export_note(df)
@@ -234,10 +217,9 @@ class DataFrameToYAMLProcessor:
 
                 # Try to find prior year appropriation
                 if approx_col in df.columns and self.config.fiscal_year_column in df.columns:
-                    from datetime import datetime
-
-                    prior_fy_dt = datetime(fy - 1, 1, 1)
-                    prior_mask = df[self.config.fiscal_year_column] == prior_fy_dt
+                    prior_mask = FiscalYearMixin._fy_year_mask(
+                        df[self.config.fiscal_year_column], fy - 1
+                    )
                     if prior_mask.any():
                         prior_approp = df.loc[prior_mask, approx_col].values[0]
                         if pd.notna(prior_approp) and prior_approp != 0:

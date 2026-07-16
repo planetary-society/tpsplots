@@ -305,7 +305,8 @@ class TabularDataSource(TruncateRowsMixin, FiscalYearMixin, ABC):
             df = df.dropna(subset=columns_to_dropna)
             dropped = original_len - len(df)
             if dropped > 0:
-                logger.info(
+                # Row loss from an explicit user cast is a data-quality signal.
+                logger.warning(
                     f"Dropped {dropped} rows with invalid values in columns: {columns_to_dropna}"
                 )
 

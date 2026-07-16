@@ -439,7 +439,6 @@ tpsplots generate [OPTIONS] INPUTS...
 | Option | Description |
 |--------|-------------|
 | `-o, --outdir PATH` | Output directory (default: `charts/`) |
-| `--strict` | Error on unresolved data references |
 | `-q, --quiet` | Suppress progress output |
 | `--verbose` | Enable verbose/debug logging |
 
@@ -451,7 +450,6 @@ tpsplots validate [OPTIONS] INPUTS...
 
 | Option | Description |
 |--------|-------------|
-| `--strict` | Error on unresolved data references |
 | `-q, --quiet` | Suppress progress output |
 | `--verbose` | Enable verbose/debug logging |
 
@@ -526,7 +524,6 @@ result = tpsplots.generate("yaml/", outdir="output/")
 result = tpsplots.generate(
     "chart.yaml",
     outdir="custom_output/",
-    strict=True,   # Error on unresolved references
     quiet=True     # Suppress logging
 )
 

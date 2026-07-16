@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter
 
+from .param_utils import legend_config_kwargs
+
 
 class BarChartMixin:
     """
@@ -185,11 +187,11 @@ class BarChartMixin:
             legend_labels.append("Negative")
 
         if legend_elements:
-            legend_kwargs = {"loc": "best", "fontsize": style.get("legend_size", 12)}
-            if isinstance(legend_config, dict):
-                legend_kwargs.update(legend_config)
-            elif isinstance(legend_config, str):
-                legend_kwargs["loc"] = legend_config
+            # Reached only when the caller passed a truthy ``legend_config`` (see
+            # BarChartView), so ``legend_config_kwargs`` always returns a dict here.
+            legend_kwargs = legend_config_kwargs(
+                legend_config, loc="best", fontsize=style.get("legend_size", 12)
+            )
             ax.legend(legend_elements, legend_labels, **legend_kwargs)
 
     def _apply_percentage_tick_formatter(self, ax, orientation):

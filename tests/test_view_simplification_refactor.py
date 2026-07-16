@@ -844,14 +844,10 @@ def test_generate_chart_preserves_xlim_for_stringified_numeric_x_data(tmp_path):
         }
     )
 
-    def _skip_save(fig, filename, metadata, create_pptx=False, create_svg=True):
-        return []
-
-    view._save_chart = _skip_save  # type: ignore[method-assign]
-
-    result = view.generate_chart(
-        metadata={"title": "Numeric XLim"},
-        stem="numeric_xlim",
+    # generate_chart no longer returns the device figures (it saves and closes
+    # them). Render each device via create_figure, which produces the same
+    # figure per device but leaves it open for inspection.
+    kwargs = dict(
         data=data,
         x="Years from Start",
         y=["Apollo (2025 $)", "STS (2025 $)"],
@@ -860,13 +856,20 @@ def test_generate_chart_preserves_xlim_for_stringified_numeric_x_data(tmp_path):
         scale="billions",
         legend=False,
     )
+    figures = {
+        device: view.create_figure(metadata={"title": "Numeric XLim"}, device=device, **kwargs)
+        for device in ("desktop", "mobile", "social")
+    }
 
     for device in ("desktop", "mobile", "social"):
-        ax = result[device].axes[0]
+        ax = figures[device].axes[0]
         assert tuple(ax.get_xlim()) == (0.0, 14.0)
 
-    social_ticks = result["social"].axes[0].get_xticks()
+    social_ticks = figures["social"].axes[0].get_xticks()
     assert max(social_ticks) <= 14.0
+
+    for fig in figures.values():
+        plt.close(fig)
 
 
 def test_line_subplots_shared_legend_and_shared_axes(tmp_path):
@@ -927,7 +930,20 @@ def test_us_map_helpers_fallback_to_base_size_when_pie_size_missing(tmp_path):
     _fig, ax = plt.subplots()
     captured_sizes = []
 
-    def fake_draw(values, xpos, ypos, size, colors, axis, show_percentages, figsize, dpi, style):
+    def fake_draw(
+        values,
+        xpos,
+        ypos,
+        size,
+        colors,
+        axis,
+        show_percentages,
+        figsize,
+        dpi,
+        style,
+        pie_edge_color,
+        pie_edge_width,
+    ):
         captured_sizes.append(size)
         return axis
 
@@ -978,3 +994,39 @@ def test_us_map_offsets_generated_for_key_centers(tmp_path):
 
     for center in ("JSC", "ARC", "SSC"):
         assert center in offsets
+
+
+def test_us_map_threads_legend_location_and_pie_edge_styling(tmp_path):
+    """legend_location and pie_edge_color/width must reach the rendered figure."""
+    import matplotlib.colors as mcolors
+    import matplotlib.legend as mlegend
+
+    view = USMapPieChartView(outdir=tmp_path, style_file=None)
+    pie_data = {
+        "KSC": {"values": [30, 70], "labels": ["A", "B"], "colors": ["#037CC2", "#FF5D47"]},
+    }
+    fig = view._create_chart(
+        metadata={"title": "Edge styling"},
+        style=view.DESKTOP,
+        pie_data=pie_data,
+        legend_location="upper right",
+        pie_edge_color="red",
+        pie_edge_width=3.5,
+        show_pie_labels=False,
+    )
+    ax = fig.axes[0]
+
+    # Legend uses the requested location rather than the hardcoded 'lower left'.
+    assert ax.get_legend()._loc == mlegend.Legend.codes["upper right"]
+
+    # At least one wedge collection carries the requested edge width and color.
+    # (scatter alpha bleeds into the edge alpha, so compare RGB only.)
+    red_rgb = mcolors.to_rgba("red")[:3]
+    wedge_matches = [
+        c
+        for c in ax.collections
+        if len(c.get_linewidth())
+        and abs(c.get_linewidth()[0] - 3.5) < 1e-9
+        and tuple(c.get_edgecolor()[0][:3]) == red_rgb
+    ]
+    assert wedge_matches

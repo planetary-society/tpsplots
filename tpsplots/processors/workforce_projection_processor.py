@@ -6,6 +6,8 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
+from tpsplots.data_sources.fiscal_year_mixin import FiscalYearMixin
+
 
 @dataclass
 class WorkforceProjectionConfig:
@@ -59,12 +61,11 @@ class WorkforceProjectionProcessor:
         """
         df = df.copy()
         fy = self.config.fiscal_year
-        fy_datetime = datetime(fy, 1, 1)
-        prior_fy_datetime = datetime(fy - 1, 1, 1)
         source_col = self.config.source_column
 
         # Step 1: Filter to fiscal years through target FY
-        df = df[df["Fiscal Year"] <= fy_datetime].copy()
+        fy_years = FiscalYearMixin._fy_years(df["Fiscal Year"])
+        df = df[fy_years.le(fy)].copy()
 
         # Store base metadata
         df.attrs["fiscal_year"] = fy
@@ -76,7 +77,7 @@ class WorkforceProjectionProcessor:
             return df
 
         # Step 2: Clear source column at target FY (projection overrides actual)
-        fy_mask = df["Fiscal Year"] == fy_datetime
+        fy_mask = FiscalYearMixin._fy_year_mask(df["Fiscal Year"], fy)
         if fy_mask.any() and source_col in df.columns:
             df.loc[fy_mask, source_col] = np.nan
 
@@ -89,7 +90,7 @@ class WorkforceProjectionProcessor:
             df.loc[fy_mask, projection_col] = self.config.projection_value
 
         # Step 5: Connect to FY-1 actual (for clean line plotting)
-        prior_fy_mask = df["Fiscal Year"] == prior_fy_datetime
+        prior_fy_mask = FiscalYearMixin._fy_year_mask(df["Fiscal Year"], fy - 1)
         if prior_fy_mask.any() and source_col in df.columns:
             prior_value = df.loc[prior_fy_mask, source_col].values[0]
             df.loc[prior_fy_mask, projection_col] = prior_value

@@ -38,7 +38,15 @@ class TreemapChartConfig(ChartConfigBase):
     alpha: float = Field(1.0, ge=0, le=1, description="Tile opacity")
 
     show_labels: bool = Field(True, description="Show category labels inside fitting tiles")
+    show_values: bool = Field(False, description="Show formatted values inside fitting tiles")
     show_percentages: bool = Field(True, description="Show each category's percentage of the total")
+    value_format: str = Field(
+        "float",
+        description=(
+            "Format for displayed values: preset ('monetary', 'percentage', 'integer', "
+            "'float') or Python format spec"
+        ),
+    )
     label_min_area_pct: float = Field(
         1.0,
         ge=0,

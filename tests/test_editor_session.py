@@ -1,5 +1,7 @@
 """Tests for EditorSession: validation, path security, file I/O."""
 
+import os
+
 import pytest
 import yaml
 
@@ -79,6 +81,25 @@ class TestValidation:
         assert "/chart/output" in paths
         assert "/chart/title" in paths
 
+    def test_broken_data_source_with_refs_fails_validation(self, session):
+        """A config full of {{refs}} whose data source is missing must fail
+        validation and surface the real data error (not false-pass)."""
+        config = {
+            "data": {"source": "csv:/definitely/missing/does_not_exist_xyz.csv"},
+            "chart": {
+                "type": "line",
+                "output": "broken",
+                "title": "Broken",
+                "x": "{{Year}}",
+                "y": "{{Value}}",
+            },
+        }
+        errors = session.validate_config(config)
+        assert errors, "expected validation to fail for a broken data source"
+        data_errors = [e for e in errors if e["path"] == "/data/source"]
+        assert data_errors, f"expected a /data/source error, got: {errors}"
+        assert "does_not_exist_xyz.csv" in data_errors[0]["message"]
+
 
 class TestFileIO:
     def test_load_yaml(self, session):
@@ -122,7 +143,7 @@ class TestFileIO:
             session.save_yaml("invalid.yaml", config)
         assert not (yaml_dir / "invalid.yaml").exists()
 
-    def test_save_yaml_strips_empty_rjsf_values(self, session, yaml_dir):
+    def test_save_yaml_strips_empty_form_values(self, session, yaml_dir):
         config = {
             "data": {"source": "data/updated.csv"},
             "chart": {
@@ -185,9 +206,52 @@ class TestDataCache:
         session.invalidate_data_cache()
         assert len(session._data_cache) == 0
 
+    def test_invalidate_clears_profile_cache(self, session):
+        session._profile_cache["test_key"] = {"some": "profile"}
+        session.invalidate_data_cache()
+        assert len(session._profile_cache) == 0
+
+    def test_cache_key_mixes_local_file_mtime(self, session, yaml_dir):
+        csv_path = yaml_dir / "keyed.csv"
+        csv_path.write_text("Year,Value\n2024,10\n", encoding="utf-8")
+        config = {"source": f"csv:{csv_path}"}
+
+        key_before = session._data_cache_key(config)
+        assert session._hash_payload(config) in key_before
+        assert key_before != session._hash_payload(config)  # mtime suffix present
+
+        os.utime(
+            csv_path, ns=(csv_path.stat().st_atime_ns, csv_path.stat().st_mtime_ns + 1_000_000_000)
+        )
+        assert session._data_cache_key(config) != key_before
+
+    def test_cache_key_unchanged_for_non_file_sources(self, session):
+        # URLs and controllers have no mtime — key is the plain payload hash.
+        for source in ("https://example.com/data.csv", "nasa_budget_chart.nasa_budget_by_year"):
+            config = {"source": source}
+            assert session._data_cache_key(config) == session._hash_payload(config)
+
+    def test_profile_picks_up_local_file_mtime_change(self, session, yaml_dir):
+        csv_path = yaml_dir / "mtime.csv"
+        csv_path.write_text("Year,Value\n2024,10\n2025,20\n", encoding="utf-8")
+        config = {"source": f"csv:{csv_path}"}
+
+        first = session.profile_data(config)
+        assert first["row_count"] == 2
+
+        # Modify the underlying file; force a strictly newer mtime so the cache
+        # key changes even on filesystems with coarse mtime resolution.
+        csv_path.write_text("Year,Value\n2024,10\n2025,20\n2026,30\n", encoding="utf-8")
+        os.utime(
+            csv_path, ns=(csv_path.stat().st_atime_ns, csv_path.stat().st_mtime_ns + 1_000_000_000)
+        )
+
+        second = session.profile_data(config)
+        assert second["row_count"] == 3
+
 
 class TestCleanFormData:
-    """Verify RJSF empty-value cleanup."""
+    """Verify editor-form empty-value cleanup."""
 
     def test_strips_empty_strings(self):
         from tpsplots.editor.session import _clean_form_data

@@ -449,3 +449,74 @@ class TestDivisionLevelConfig:
         assert config.budget_detail_row_name == "Astrophysics"
         assert config.appropriation_column == "Astrophysics"
         assert config.pbr_column == "Astrophysics Proposed"
+
+
+class TestTransitionQuarterTimeline:
+    """A TQ-containing FY column is categorical strings, not datetimes.
+
+    Regression tests: masks and sorting must work on label columns like
+    ["1975", "1976", "1976 TQ", "1977", ...] produced by
+    FiscalYearMixin._normalize_fy_column.
+    """
+
+    @pytest.fixture
+    def tq_historical_df(self):
+        """Historical frame whose FY column contains the 1976 transition quarter."""
+        return pd.DataFrame(
+            {
+                "Fiscal Year": ["1975", "1976", "1976 TQ", "1977", "2024", "2025"],
+                "Appropriation": [3.2, 3.5, 0.9, 3.8, 24.9, 24.8],
+                "PBR": [3.1, 3.4, 0.9, 3.7, 27.2, 25.4],
+            }
+        )
+
+    @pytest.fixture
+    def tq_budget_detail_df(self):
+        return pd.DataFrame(
+            {
+                "Account": ["Total"],
+                "FY 2026 Request": [25.4],
+                "FY 2027": [26.0],
+                "FY 2028": [26.5],
+            }
+        )
+
+    def test_process_preserves_tq_label_ordering(self, tq_historical_df, tq_budget_detail_df):
+        """Appended PBR/runout rows sort as labels with TQ kept after its year."""
+        config = BudgetProjectionConfig(fiscal_year=2026, runout_years=2)
+        result = BudgetProjectionProcessor(config).process(tq_historical_df, tq_budget_detail_df)
+
+        assert result["Fiscal Year"].tolist() == [
+            "1975",
+            "1976",
+            "1976 TQ",
+            "1977",
+            "2024",
+            "2025",
+            "2026",
+            "2027",
+            "2028",
+        ]
+
+    def test_pbr_grafted_and_future_cleared_on_tq_timeline(
+        self, tq_historical_df, tq_budget_detail_df
+    ):
+        """Year-based masks must match label rows for graft and clearing."""
+        config = BudgetProjectionConfig(fiscal_year=2026, runout_years=2)
+        result = BudgetProjectionProcessor(config).process(tq_historical_df, tq_budget_detail_df)
+        by_fy = result.set_index("Fiscal Year")
+
+        assert by_fy.loc["2026", "PBR"] == 25.4
+        assert pd.isna(by_fy.loc["2026", "Appropriation"])
+        assert by_fy.loc["2025", "Appropriation"] == 24.8
+
+    def test_projection_series_built_on_tq_timeline(self, tq_historical_df, tq_budget_detail_df):
+        """Projection connects at FY-1, shows PBR, and extends through runout."""
+        config = BudgetProjectionConfig(fiscal_year=2026, runout_years=2)
+        result = BudgetProjectionProcessor(config).process(tq_historical_df, tq_budget_detail_df)
+        projection = result.set_index("Fiscal Year")["White House Budget Projection"]
+
+        assert projection["2025"] == 24.8
+        assert projection["2026"] == 25.4
+        assert projection["2027"] == 26.0
+        assert projection["2028"] == 26.5

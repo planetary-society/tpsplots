@@ -56,6 +56,7 @@ If you see: "BarChartView pops kwargs not on BarChartConfig: {'new_param'}"
 
 import ast
 import inspect
+from pathlib import Path
 
 from tpsplots.models.chart_config import CHART_TYPES
 from tpsplots.models.charts import CONFIG_REGISTRY
@@ -82,6 +83,17 @@ INTERNAL_KEYS = {
     "ax2",
     "right_colors",
     "right_labels",
+}
+
+# Keys whose ``kwargs.pop(...)`` result is intentionally discarded (popped only
+# to remove them from the kwargs dict, not to consume the value). Everything
+# else that is popped as a bare expression statement is almost certainly a
+# silently-dropped user parameter — see
+# ``test_view_kwargs_pop_results_are_not_silently_discarded``.
+DISCARDED_POP_ALLOWLIST = {
+    # ChartView.create_figure() strips export_data so it is not forwarded into
+    # the render kwargs; the CSV export path reads it separately in generate_chart().
+    "export_data",
 }
 
 
@@ -143,6 +155,65 @@ def test_view_kwargs_match_config_fields():
             f"  -> Add these as fields to the config model, or if they are "
             f"internal/framework-only, add them to INTERNAL_KEYS in this test."
         )
+
+
+def _extract_bare_kwargs_pop_calls(source: str) -> list[tuple[str, int]]:
+    """Find ``kwargs.pop("key", ...)`` calls used as bare expression statements.
+
+    A pop whose result is not assigned to a name (or otherwise consumed) is an
+    expression statement — ``ast.Expr`` wrapping the ``ast.Call`` directly. That
+    pattern removes the key from kwargs but throws the value away, which is the
+    "silently discarded parameter" bug class (a user sets ``foo:`` in YAML, the
+    view pops it, and nothing ever reads the popped value).
+
+    This deliberately only flags the bare-statement form. It does NOT try to
+    prove that an assigned name is actually used downstream — that would produce
+    too many false positives. Returns ``(key, lineno)`` for each bare pop.
+    """
+    tree = ast.parse(source)
+    bare: list[tuple[str, int]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Expr):
+            continue
+        call = node.value
+        if (
+            isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Attribute)
+            and call.func.attr == "pop"
+            and isinstance(call.func.value, ast.Name)
+            and call.func.value.id == "kwargs"
+            and call.args
+            and isinstance(call.args[0], ast.Constant)
+            and isinstance(call.args[0].value, str)
+        ):
+            bare.append((call.args[0].value, node.lineno))
+    return bare
+
+
+def test_view_kwargs_pop_results_are_not_silently_discarded():
+    """A ``kwargs.pop("key", ...)`` must assign its result, not discard it.
+
+    Scans every module in the view layer (base ``ChartView``, styling mixins,
+    and concrete views). A bare ``kwargs.pop("x", default)`` expression statement
+    strips the key from kwargs but drops the value — so the user-supplied
+    parameter silently does nothing. Genuinely intentional discards are listed
+    in ``DISCARDED_POP_ALLOWLIST``.
+    """
+    views_dir = Path(__file__).resolve().parent.parent / "tpsplots" / "views"
+    offenders: list[str] = []
+    for path in sorted(views_dir.rglob("*.py")):
+        source = path.read_text(encoding="utf-8")
+        for key, lineno in _extract_bare_kwargs_pop_calls(source):
+            if key in DISCARDED_POP_ALLOWLIST:
+                continue
+            rel = path.relative_to(views_dir.parent.parent)
+            offenders.append(f"{rel}:{lineno} — bare kwargs.pop({key!r})")
+
+    assert not offenders, (
+        "Found kwargs.pop() calls whose result is silently discarded. Assign the "
+        "popped value to a name and use it, or (if the discard is intentional) add "
+        "the key to DISCARDED_POP_ALLOWLIST in this test:\n  " + "\n  ".join(offenders)
+    )
 
 
 def test_chart_type_registries_expose_the_same_dispatch_contract():

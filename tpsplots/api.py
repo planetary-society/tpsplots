@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 def generate(
     *sources: str | Path,
     outdir: str | Path | None = None,
-    strict: bool = False,
     quiet: bool = False,
 ) -> dict[str, Any]:
     """
@@ -27,8 +26,6 @@ def generate(
                  that directory (non-recursive) will be processed.
         outdir: Output directory for generated charts. Defaults to 'charts/'
                 relative to the current working directory.
-        strict: If True, raise an error on any unresolved data references.
-                If False (default), unresolved references are passed through as-is.
         quiet: If True, suppress progress logging. Errors are still logged.
 
     Returns:
@@ -51,9 +48,6 @@ def generate(
 
         >>> # Process all YAML files in a directory
         >>> result = tpsplots.generate("yaml/", outdir="output/")
-
-        >>> # Strict mode - fail on unresolved references
-        >>> result = tpsplots.generate("config.yaml", strict=True)
     """
     if not quiet:
         logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -112,7 +106,7 @@ def generate(
             if not quiet:
                 logger.info(f"Processing {yaml_file.name}...")
 
-            processor = YAMLChartProcessor(yaml_file, outdir=output_path, strict=strict)
+            processor = YAMLChartProcessor(yaml_file, outdir=output_path)
             chart_result = processor.generate_chart()
 
             result["succeeded"] += 1

@@ -8,10 +8,17 @@ import numpy as np
 import pandas as pd
 from pandas.api.extensions import ExtensionArray
 
+from tpsplots.colors import resolve_color
 from tpsplots.models.charts.line import LineChartConfig
 
 from .chart_view import ChartView
-from .mixins import DirectLineLabelsMixin, GridAxisMixin, LineSeriesMixin
+from .mixins import (
+    DirectLineLabelsMixin,
+    GridAxisMixin,
+    LineSeriesMixin,
+    broadcast_param,
+    legend_config_kwargs,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -75,12 +82,13 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
     }
 
     def _resolve_series_type_color(self, color_name: str) -> str:
-        """Resolve a color name to its actual value from COLORS or TPS_COLORS."""
-        if color_name in self.COLORS:
-            return self.COLORS[color_name]
-        if color_name in self.TPS_COLORS:
-            return self.TPS_COLORS[color_name]
-        return color_name  # Return as-is if not found (might be a hex code)
+        """Resolve a color name to its actual value from COLORS or TPS_COLORS.
+
+        The inputs are the exact keys declared in ``SERIES_TYPE_STYLES``
+        ("medium_gray", "blue", "Rocket Flame"), so the shared resolver's
+        exact-match branch reproduces the previous COLORS→TPS_COLORS lookup.
+        """
+        return resolve_color(color_name)
 
     def _get_series_type_styles(
         self, series_types: list[str] | None, num_series: int
@@ -964,9 +972,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             return
 
         if opts["legend"]:
-            legend_kwargs = {"fontsize": style["legend_size"]}
-            if isinstance(opts["legend"], dict):
-                legend_kwargs.update(opts["legend"])
+            legend_kwargs = legend_config_kwargs(opts["legend"], fontsize=style["legend_size"])
 
             # Combine handles from both axes for a unified legend
             handles, labels = ax.get_legend_handles_labels()
@@ -1095,19 +1101,12 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         hline_alpha = kwargs.pop("hline_alpha", [0.7] * len(hlines))
 
         # Ensure all styling parameters are lists of correct length
-        def ensure_list(param, length):
-            if not isinstance(param, (list, tuple)):
-                return [param] * length
-            elif len(param) < length:
-                return list(param) + [param[-1]] * (length - len(param))
-            return param[:length]
-
         num_lines = len(hlines)
-        hline_colors = ensure_list(hline_colors, num_lines)
-        hline_styles = ensure_list(hline_styles, num_lines)
-        hline_widths = ensure_list(hline_widths, num_lines)
-        hline_alpha = ensure_list(hline_alpha, num_lines)
-        hline_labels = ensure_list(hline_labels, num_lines)
+        hline_colors = broadcast_param(hline_colors, num_lines)
+        hline_styles = broadcast_param(hline_styles, num_lines)
+        hline_widths = broadcast_param(hline_widths, num_lines)
+        hline_alpha = broadcast_param(hline_alpha, num_lines)
+        hline_labels = broadcast_param(hline_labels, num_lines)
 
         # Add each horizontal line (without legend labels)
         for i, y_value in enumerate(hlines):

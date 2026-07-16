@@ -35,9 +35,12 @@ logger = logging.getLogger(__name__)
 class EditorSession:
     """Manages chart editor state: validation, preview rendering, file I/O.
 
-    Security: all file operations are restricted to ``yaml_dir`` via
-    ``_resolve_path`` which uses ``Path.resolve()`` + ``relative_to()``
-    for symlink-safe containment.
+    Security: only YAML *load and save* are restricted to ``yaml_dir`` via
+    ``_resolve_path`` (``Path.resolve()`` + ``relative_to()`` for symlink-safe
+    containment). Data sources are intentionally NOT contained: CSV paths and
+    controller modules referenced by a config are loaded from anywhere on disk,
+    exactly like the ``tpsplots`` CLI, which also imports arbitrary controllers.
+    Treat the editor as trusted-input only (see ``_resolve_data``).
     """
 
     def __init__(self, yaml_dir: Path, outdir: Path | None = None) -> None:
@@ -76,8 +79,13 @@ class EditorSession:
         - ``message``: Human-readable description
         """
         errors: list[dict[str, Any]] = []
+        resolved, data_error = self._resolve_chart_templates(config)
+        if data_error is not None:
+            # A config full of unresolved {{refs}} whose data source is broken
+            # would otherwise pass Pydantic validation (the refs are valid
+            # strings). Surface the real data error so validation fails.
+            errors.append({"path": "/data/source", "message": str(data_error)})
         try:
-            resolved = self._resolve_chart_templates(config)
             YAMLChartConfig(**resolved)
         except Exception as exc:
             for err in _extract_pydantic_errors(exc):
@@ -93,24 +101,78 @@ class EditorSession:
         serialized = json.dumps(payload, sort_keys=True, default=str)
         return hashlib.sha256(serialized.encode()).hexdigest()[:16]
 
+    def _local_source_mtime_ns(self, data_config: dict[str, Any]) -> int | None:
+        """Return the mtime (ns) of a local file data source, or ``None``.
+
+        Only local CSV file sources have a meaningful mtime; URLs and
+        controllers return ``None`` so their cache behavior is unchanged.
+        Mixing the mtime into the cache key means edits to a local CSV are
+        picked up automatically instead of being served stale until restart.
+        """
+        source = data_config.get("source")
+        if not isinstance(source, str) or not source.strip():
+            return None
+        try:
+            kind, target, _ = DataResolver._parse_source(source)
+        except Exception:
+            return None
+        if kind != "csv":
+            return None
+
+        # Stat the same path the CSV loader reads (cwd-relative when relative).
+        path = Path(target).expanduser()
+        try:
+            return path.stat().st_mtime_ns if path.is_file() else None
+        except OSError:
+            return None
+
+    def _data_cache_key(self, data_config: dict[str, Any]) -> str:
+        """Build a cache key from the data config plus any local file mtime."""
+        base = self._hash_payload(data_config)
+        mtime = self._local_source_mtime_ns(data_config)
+        return base if mtime is None else f"{base}:{mtime}"
+
+    @staticmethod
+    def _evict_stale_variants(cache: dict[str, Any], cache_key: str) -> None:
+        """Drop entries for older mtimes of the same config from a cache."""
+        base = cache_key.split(":", 1)[0]
+        for key in [k for k in cache if k != cache_key and k.split(":", 1)[0] == base]:
+            del cache[key]
+
     def _resolve_data(self, data_config: dict[str, Any]) -> dict[str, Any]:
-        """Resolve data source, caching by content hash."""
-        cache_key = self._hash_payload(data_config)
+        """Resolve data source, caching by content hash (+ local file mtime).
+
+        Note: data sources are intentionally NOT path-restricted to
+        ``yaml_dir``. CSV paths and controller modules are resolved from
+        anywhere on disk (and controllers execute arbitrary code), matching
+        the CLI's behavior. The editor is a trusted-input tool.
+        """
+        cache_key = self._data_cache_key(data_config)
 
         if cache_key in self._data_cache:
             return self._data_cache[cache_key]
 
         data_source = DataSourceConfig(**data_config)
         resolved = DataResolver.resolve(data_source)
+        self._evict_stale_variants(self._data_cache, cache_key)
         self._data_cache[cache_key] = resolved
         return resolved
 
-    def _resolve_chart_templates(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _resolve_chart_templates(
+        self, config: dict[str, Any]
+    ) -> tuple[dict[str, Any], Exception | None]:
         """Resolve {{...}} refs in the chart section before validation.
 
-        Uses the editor's cached data resolution.  Returns original config
-        unchanged if no ``{{...}}`` refs are found or if data loading fails
-        (letting downstream validation surface the error in the UI).
+        Uses the editor's cached data resolution.  Returns
+        ``(config, data_error)`` where ``data_error`` is the exception raised
+        while loading the data source, or ``None`` on success / when there is
+        nothing to resolve.
+
+        The original config is returned unchanged (with ``data_error`` set) if
+        data loading fails, so ``validate_config`` can surface the real error
+        while ``render_preview`` / ``preflight`` (which ignore ``data_error``)
+        re-encounter the same failure downstream, keeping their behavior
+        unchanged.
         """
         from tpsplots.processors.resolvers.reference_resolver import ReferenceResolver
 
@@ -118,22 +180,22 @@ class EditorSession:
         chart_section = config.get("chart")
 
         if not data_section or not chart_section:
-            return config
+            return config, None
 
         if not ReferenceResolver.contains_references(chart_section):
-            return config
+            return config, None
 
         try:
             data = self._resolve_data(data_section)
-        except Exception:
-            return config
+        except Exception as exc:
+            return config, exc
 
         resolved_chart = ReferenceResolver.resolve(dict(chart_section), data)
-        return {**config, "chart": resolved_chart}
+        return {**config, "chart": resolved_chart}, None
 
     def profile_data(self, data_config: dict[str, Any]) -> dict[str, Any]:
         """Return data profile details for a source configuration."""
-        cache_key = self._hash_payload(data_config)
+        cache_key = self._data_cache_key(data_config)
         if cache_key in self._profile_cache:
             return self._profile_cache[cache_key]
 
@@ -172,6 +234,7 @@ class EditorSession:
             "warnings": warnings,
             "context_keys": context_keys,
         }
+        self._evict_stale_variants(self._profile_cache, cache_key)
         self._profile_cache[cache_key] = profile
         return profile
 
@@ -213,12 +276,18 @@ class EditorSession:
 
         if data_ready and not blocking_errors and not missing_paths:
             try:
-                resolved = self._resolve_chart_templates(cleaned)
+                resolved, _ = self._resolve_chart_templates(cleaned)
                 validated = YAMLChartConfig(**resolved)
                 data = self._resolve_data(cleaned["data"])
                 build_render_context(validated, data, log_conflicts=False)
             except Exception as exc:
                 blocking_errors.append({"path": "/chart", "message": str(exc)})
+
+        # validate_config and profile_data can both report the same broken
+        # data source; collapse duplicates (keeping first position) via dict keying.
+        blocking_errors = list(
+            {(err["path"], err["message"]): err for err in blocking_errors}.values()
+        )
 
         missing_paths = sorted(set(missing_paths))
         ready = len(blocking_errors) == 0 and len(missing_paths) == 0
@@ -270,11 +339,12 @@ class EditorSession:
         if device not in {"desktop", "mobile"}:
             raise ValueError(f"Unsupported device: {device}")
 
-        # Clean empty values injected by RJSF (empty strings, empty arrays, etc.)
+        # Drop empty values (empty strings, empty arrays, etc.) the editor form
+        # emits for unset fields, so the pipeline sees them as absent.
         config = _clean_form_data(config)
 
         # Resolve {{...}} template refs, then validate
-        config = self._resolve_chart_templates(config)
+        config, _ = self._resolve_chart_templates(config)
         validated = YAMLChartConfig(**config)
 
         # Resolve data
@@ -411,11 +481,11 @@ def _deep_replace(target: MutableMapping[str, Any], source: Mapping[str, Any]) -
 
 
 def _clean_form_data(config: dict[str, Any]) -> dict[str, Any]:
-    """Remove empty values that RJSF injects for unset fields.
+    """Remove empty values the editor form emits for unset fields.
 
-    RJSF sets empty strings, empty arrays, and empty objects for
-    fields that have no user-supplied value. The chart pipeline expects
-    these to be absent (Pydantic defaults them to None).
+    The custom SchemaForm sends empty strings, empty arrays, and empty
+    objects for fields that have no user-supplied value. The chart pipeline
+    expects these to be absent (Pydantic defaults them to None).
 
     Also recovers ``datetime.date`` objects from ISO date strings.
     YAML auto-parses ``1958-01-01`` as ``datetime.date``, but the

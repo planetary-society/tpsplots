@@ -6,6 +6,7 @@ import logging
 import re
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -15,6 +16,11 @@ FY_COLUMN_PATTERN = re.compile(r"^(fiscal\s*year|fy\d{0,4}|year)$", re.IGNORECAS
 
 # Year embedded in a fiscal-period label, e.g. "1976 TQ" or "FY2024"
 FY_YEAR_PATTERN = re.compile(r"(\d{4})")
+
+# Anchored transition-quarter label: "TQ", "1976TQ", "1976 TQ", "FY1976 TQ",
+# "FY76 TQ" (with optional surrounding whitespace). Anchored so a stray "tq"
+# substring (e.g. "not-tq-related", "Totals-TQE") never flips the whole column.
+TQ_LABEL_PATTERN = re.compile(r"^\s*(?:FY)?\s*\d{0,4}\s*TQ\s*$", re.IGNORECASE)
 
 
 class FiscalYearMixin:
@@ -42,6 +48,56 @@ class FiscalYearMixin:
         )
 
     @staticmethod
+    def _tq_mask(series: pd.Series) -> pd.Series:
+        """Boolean mask of transition-quarter labels (e.g. "1976 TQ")."""
+        return series.astype("string").str.contains(TQ_LABEL_PATTERN, na=False)
+
+    @staticmethod
+    def _fy_years(series: pd.Series) -> pd.Series:
+        """
+        Numeric year for each fiscal-period value.
+
+        Handles datetime64 columns as well as integer and transition-quarter
+        label columns (e.g. "1976", "1976 TQ"). Unparseable values become NaN
+        (never pd.NA), so comparisons yield plain boolean masks.
+        """
+        if pd.api.types.is_datetime64_any_dtype(series):
+            return series.dt.year
+        return FiscalYearMixin._fy_labels_to_years(series).astype("float64")
+
+    @staticmethod
+    def _fy_year_mask(series: pd.Series, year: int) -> pd.Series:
+        """
+        Boolean mask of fiscal periods that fall in ``year``.
+
+        Note: an annual row and a transition-quarter row of the same year
+        (e.g. "1976" and "1976 TQ") both match.
+        """
+        return FiscalYearMixin._fy_years(series).eq(year)
+
+    @staticmethod
+    def _fy_cell(df: pd.DataFrame, year: int, col: str = "Fiscal Year") -> datetime | str:
+        """
+        New fiscal-year cell value matching the column's dtype.
+
+        Datetime columns get ``datetime(year, 1, 1)``; transition-quarter
+        label columns stay categorical and get ``str(year)``.
+        """
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            return datetime(year, 1, 1)
+        return str(year)
+
+    @staticmethod
+    def _sort_by_fiscal_year(df: pd.DataFrame, col: str = "Fiscal Year") -> pd.DataFrame:
+        """Sort by fiscal year, keeping a transition quarter after its year."""
+        series = df[col]
+        if pd.api.types.is_datetime64_any_dtype(series):
+            return df.sort_values(col).reset_index(drop=True)
+        years = FiscalYearMixin._fy_years(series).to_numpy(dtype=float)
+        is_tq = FiscalYearMixin._tq_mask(series).to_numpy(dtype=bool)
+        return df.iloc[np.lexsort((is_tq, years))].reset_index(drop=True)
+
+    @staticmethod
     def _normalize_fy_column(df: pd.DataFrame, col: str) -> pd.DataFrame:
         """
         Normalize FY column values for plotting and inflation adjustment.
@@ -52,9 +108,7 @@ class FiscalYearMixin:
         3. Filter out invalid values (non-numeric, non-TQ strings like "Totals")
         """
         df = df.copy()
-        contains_transition_quarter = (
-            df[col].astype("string").str.contains("TQ", case=False, na=False).any()
-        )
+        contains_transition_quarter = FiscalYearMixin._tq_mask(df[col]).any()
 
         def norm(x):
             if pd.isna(x):
@@ -63,7 +117,7 @@ class FiscalYearMixin:
             # A transition quarter cannot share a datetime64 column with annual
             # fiscal years without either losing its label or inventing a date.
             # Keep the entire mixed-period axis categorical instead.
-            if "TQ" in s.upper():
+            if TQ_LABEL_PATTERN.match(s):
                 match = FY_YEAR_PATTERN.search(s)
                 return f"{match.group()} TQ" if match else "1976 TQ"
             # Try to extract a 4-digit year from the value

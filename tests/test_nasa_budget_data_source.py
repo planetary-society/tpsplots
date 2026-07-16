@@ -1,8 +1,7 @@
 """Tests for NASABudget data source module.
 
 Tests focus on:
-- Bug 1: FY column detection should work regardless of column position
-- Bug 2: M/B suffix handling - billions should be 1000x millions
+- M/B suffix handling - billions should be 1000x millions
 """
 
 from typing import ClassVar
@@ -53,74 +52,21 @@ def get_nasa_budget_class():
         return NASABudget
 
 
-class TestDetectFY:
-    """Tests for _detect_fy() static method - Bug 1 fix."""
+def get_workforce_class():
+    """Import Workforce with mocked dependencies."""
+    with (
+        patch(
+            "tpsplots.data_sources.inflation.NNSI._load_table",
+            return_value={"2024": 1.0, "2025": 1.1},
+        ),
+        patch(
+            "tpsplots.data_sources.inflation.GDP._load_table",
+            return_value={"2024": 1.0, "2025": 1.05},
+        ),
+    ):
+        from tpsplots.data_sources.nasa_budget_data_source import Workforce
 
-    @pytest.fixture(autouse=True)
-    def setup_nasa_budget(self):
-        """Get NASABudget class with mocked dependencies."""
-        self.NASABudget = get_nasa_budget_class()
-
-    def test_detect_fy_first_column(self):
-        """FY column in first position should be detected."""
-        df = pd.DataFrame(
-            {
-                "Fiscal Year": [2020, 2021, 2022],
-                "Budget": [1.0, 2.0, 3.0],
-            }
-        )
-        assert self.NASABudget._detect_fy(df) == "Fiscal Year"
-
-    def test_detect_fy_second_column(self):
-        """FY column in second position should be detected (Bug 1 regression)."""
-        df = pd.DataFrame(
-            {
-                "Budget": [1.0, 2.0, 3.0],
-                "Fiscal Year": [2020, 2021, 2022],
-            }
-        )
-        assert self.NASABudget._detect_fy(df) == "Fiscal Year"
-
-    def test_detect_fy_last_column(self):
-        """FY column in last position should be detected."""
-        df = pd.DataFrame(
-            {
-                "Budget": [1.0, 2.0, 3.0],
-                "Notes": ["a", "b", "c"],
-                "year": [2020, 2021, 2022],
-            }
-        )
-        assert self.NASABudget._detect_fy(df) == "year"
-
-    def test_detect_fy_pattern_FY2024(self):
-        """Column named 'FY2024' should be detected."""
-        df = pd.DataFrame(
-            {
-                "Category": ["A", "B"],
-                "FY2024": [100, 200],
-            }
-        )
-        assert self.NASABudget._detect_fy(df) == "FY2024"
-
-    def test_detect_fy_pattern_fy(self):
-        """Column named 'fy' (lowercase) should be detected."""
-        df = pd.DataFrame(
-            {
-                "Amount": [100, 200],
-                "fy": [2020, 2021],
-            }
-        )
-        assert self.NASABudget._detect_fy(df) == "fy"
-
-    def test_detect_fy_no_match_returns_none(self):
-        """When no FY column exists, should return None."""
-        df = pd.DataFrame(
-            {
-                "Budget": [1.0, 2.0, 3.0],
-                "Notes": ["a", "b", "c"],
-            }
-        )
-        assert self.NASABudget._detect_fy(df) is None
+        return Workforce
 
 
 class TestCleanCurrencyColumn:
@@ -250,3 +196,41 @@ class TestReadCsv:
         assert result is expected
         mock_fetch.assert_called_once_with("https://example.com/nasa-budget.csv")
         assert mock_read_csv.call_count == 1
+
+
+class TestWorkforceNumericCleaningCharacterization:
+    """Characterization tests for Workforce._clean comma-stripping.
+
+    Workforce._clean converts its NUMERIC_COLUMNS via
+    ``astype(str).str.replace(",", "").pipe(pd.to_numeric, errors="coerce").astype("Int64")``.
+    This is intentionally NOT consolidated onto
+    TabularDataSource._normalize_numeric_strings, which lives on a different class
+    hierarchy (Workforce is a FiscalYearMixin, not a TabularDataSource) and only
+    strips commas for object/string dtype, returning numeric-dtype input unchanged
+    instead of forcing str + Int64. These tests lock in the current behavior.
+    """
+
+    @pytest.fixture(autouse=True)
+    def setup_workforce(self):
+        self.Workforce = get_workforce_class()
+
+    def test_comma_separated_values_become_int64(self):
+        wf = self.Workforce()  # __init__ is lazy; no network access
+        df = pd.DataFrame(
+            {
+                "Fiscal Year": ["2020", "2021", "2022"],
+                "Full-time Permanent (FTP)": ["1,234", "5,678", "9012"],
+                "Full-time Equivalent (FTE)": ["2,000", "2,100", ""],
+            }
+        )
+        out = wf._clean(df)
+
+        ftp = out["Full-time Permanent (FTP)"]
+        assert ftp.tolist() == [1234, 5678, 9012]
+        assert str(ftp.dtype) == "Int64"
+
+        fte = out["Full-time Equivalent (FTE)"]
+        assert fte.iloc[0] == 2000
+        assert fte.iloc[1] == 2100
+        assert pd.isna(fte.iloc[2])  # empty string coerces to <NA>
+        assert str(fte.dtype) == "Int64"

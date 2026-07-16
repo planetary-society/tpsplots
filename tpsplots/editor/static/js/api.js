@@ -61,6 +61,10 @@ export async function fetchPreflight(config) {
   });
 }
 
+export async function refreshData() {
+  return request("/api/refresh-data", { method: "POST" });
+}
+
 export async function loadYaml(path) {
   return request(`/api/load?path=${encodeURIComponent(path)}`);
 }

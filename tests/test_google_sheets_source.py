@@ -169,7 +169,9 @@ class TestGoogleSheetsSourceCasting:
 
         result = source._cast_columns(df)
 
-        warning_messages = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        warning_messages = [
+            record.message for record in caplog.records if record.levelname == "WARNING"
+        ]
         assert any("NonExistent" in message for message in warning_messages)
         assert len(result) == 3  # No rows dropped
 
@@ -206,10 +208,10 @@ class TestGoogleSheetsSourceCasting:
         assert result["Value"].dtype == "float64"
 
     def test_cast_logs_dropped_rows(self, caplog):
-        """Test that dropped rows are logged."""
+        """Test that rows dropped by an explicit cast are logged at WARNING."""
         import logging
 
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.WARNING)
 
         source = GoogleSheetsSource.__new__(GoogleSheetsSource)
         source._cast = {"Year": "int"}
@@ -222,8 +224,10 @@ class TestGoogleSheetsSourceCasting:
 
         source._cast_columns(df)
 
-        info_messages = [record.message for record in caplog.records if record.levelname == "INFO"]
-        assert any("Dropped" in message and "Year" in message for message in info_messages)
+        warning_messages = [
+            record.message for record in caplog.records if record.levelname == "WARNING"
+        ]
+        assert any("Dropped" in message and "Year" in message for message in warning_messages)
 
 
 class TestGoogleSheetsSourceClassAttribute:

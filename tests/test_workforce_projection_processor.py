@@ -418,3 +418,41 @@ class TestWorkforceProjectionEdgeCases:
 
         assert "Custom Projection" in result.columns
         assert "Workforce Projection" not in result.columns
+
+
+class TestTransitionQuarterTimeline:
+    """Year-based masks must work on TQ label columns (categorical strings)."""
+
+    @pytest.fixture
+    def tq_workforce_df(self):
+        """Workforce frame whose FY column contains the 1976 transition quarter."""
+        return pd.DataFrame(
+            {
+                "Fiscal Year": ["1975", "1976", "1976 TQ", "1977", "2025", "2026", "2027"],
+                "Full-time Equivalent (FTE)": [24000, 24500, 24400, 24300, 17500, 17000, 16500],
+            }
+        )
+
+    def test_filters_through_target_fy_keeping_tq(self, tq_workforce_df):
+        """The <= filter must keep the TQ row and drop years past the target."""
+        config = WorkforceProjectionConfig(fiscal_year=2026, projection_value=15000)
+        result = WorkforceProjectionProcessor(config).process(tq_workforce_df)
+
+        assert result["Fiscal Year"].tolist() == [
+            "1975",
+            "1976",
+            "1976 TQ",
+            "1977",
+            "2025",
+            "2026",
+        ]
+
+    def test_projection_masks_match_label_rows(self, tq_workforce_df):
+        """Target-FY clearing and FY-1 connection must hit the label rows."""
+        config = WorkforceProjectionConfig(fiscal_year=2026, projection_value=15000)
+        result = WorkforceProjectionProcessor(config).process(tq_workforce_df)
+        by_fy = result.set_index("Fiscal Year")
+
+        assert pd.isna(by_fy.loc["2026", "Full-time Equivalent (FTE)"])
+        assert by_fy.loc["2026", "Workforce Projection"] == 15000
+        assert by_fy.loc["2025", "Workforce Projection"] == 17500

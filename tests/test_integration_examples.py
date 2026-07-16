@@ -25,10 +25,14 @@ def test_example_chart_generates(yaml_file, tmp_path):
     processor = YAMLChartProcessor(yaml_file, outdir=tmp_path)
     result = processor.generate_chart()
 
-    # Verify all three device variants were created
-    assert "desktop" in result, f"Missing desktop figure for {yaml_file.name}"
-    assert "mobile" in result, f"Missing mobile figure for {yaml_file.name}"
-    assert "social" in result, f"Missing social figure for {yaml_file.name}"
+    # Verify all three device variants were generated. generate_chart returns
+    # only the file list (figures are saved and closed internally).
+    assert "files" in result, f"Missing files list for {yaml_file.name}"
+    files = result["files"]
+    for variant in ("_desktop", "_mobile", "_social"):
+        assert any(variant in f for f in files), (
+            f"Missing {variant} output for {yaml_file.name}: {files}"
+        )
 
     # Verify output files were actually written to disk
     output_files = list(tmp_path.iterdir())

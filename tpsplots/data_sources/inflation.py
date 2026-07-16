@@ -56,6 +56,8 @@ class Inflation(ABC):
     def __init__(self, *, year: str, source: str | Path | None = None) -> None:
         self.year: str = year
         self.source: str | Path | None = source
+        # Track missing-key warnings so row-wise ``calc`` doesn't spam the log.
+        self._warned_keys: set[str] = set()
         self._table: Mapping[str, float] = self._load_table()
         if not self._table:
             raise DataSourceError(
@@ -100,8 +102,22 @@ class Inflation(ABC):
         Returns:
             float: The inflation-adjusted value.
         """
-        key = self._convert_year_to_key(from_year)
-        mult = self._table.get(self._normalise_key(key), 1.0)
+        key = self._normalise_key(self._convert_year_to_key(from_year))
+        if key in self._table:
+            mult = self._table[key]
+        else:
+            # Partial coverage is legitimate (e.g. projection years beyond the
+            # table). Leave the value unadjusted but warn once per key so a
+            # silent whole-series no-op can't slip by unnoticed.
+            mult = 1.0
+            if key not in self._warned_keys:
+                self._warned_keys.add(key)
+                logger.warning(
+                    "%s has no inflation entry for FY '%s'; leaving value "
+                    "unadjusted (multiplier 1.0)",
+                    self.__class__.__name__,
+                    key,
+                )
         return value * mult
 
     def _convert_year_to_key(self, year_input: str | datetime | int) -> str:
@@ -116,8 +132,13 @@ class Inflation(ABC):
         """
         if isinstance(year_input, datetime):
             return str(year_input.year)
-        if isinstance(year_input, int):
-            return str(year_input)
+        # Numeric years must normalise to "2015", never "2015.0". df.apply
+        # upcasts int rows to float, and numpy scalars are not Python ints, so
+        # cover both float and numpy numeric types here.
+        if isinstance(year_input, (int, float, np.integer, np.floating)):
+            if isinstance(year_input, (float, np.floating)) and np.isnan(year_input):
+                return str(year_input)
+            return str(int(year_input))
         if isinstance(year_input, str) and "TQ" in year_input.upper():
             return year_input
         return str(year_input)
@@ -295,7 +316,7 @@ class GDP(Inflation):
 
         num_col = "GDPDEF"
 
-        df = df[~df[num_col].isin([".", ""])]  # remove blanks
+        df = df[~df[num_col].isin([".", ""])].copy()  # remove blanks
         df[num_col] = df[num_col].astype(float)
         annual, quarter_counts = self._annualize_quarters(
             df,

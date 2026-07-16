@@ -9,7 +9,13 @@ import pandas as pd
 from tpsplots.models.charts.stacked_bar import StackedBarChartConfig
 
 from .chart_view import ChartView
-from .mixins import BarChartMixin, CategoricalBarMixin, ColorCycleMixin, GridAxisMixin
+from .mixins import (
+    BarChartMixin,
+    CategoricalBarMixin,
+    ColorCycleMixin,
+    GridAxisMixin,
+    legend_config_kwargs,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -174,8 +180,6 @@ class StackedBarChartView(
                 value_fontsize,
                 value_color,
                 value_weight,
-                width,
-                height,
             )
 
         # Add stack total labels if requested
@@ -189,8 +193,6 @@ class StackedBarChartView(
                 stack_label_suffix,
                 value_fontsize,
                 value_color,
-                width,
-                height,
             )
 
         # Apply styling
@@ -205,12 +207,7 @@ class StackedBarChartView(
                 for color in colors[: len(labels)]
             ]
 
-            legend_kwargs = {"fontsize": style["legend_size"], "loc": "best"}
-            if isinstance(legend, dict):
-                legend_kwargs.update(legend)
-            elif isinstance(legend, str):
-                legend_kwargs["loc"] = legend
-
+            legend_kwargs = legend_config_kwargs(legend, loc="best", fontsize=style["legend_size"])
             ax.legend(legend_patches, labels, **legend_kwargs)
 
         # Adjust layout for header and footer
@@ -282,8 +279,6 @@ class StackedBarChartView(
         fontsize,
         color,
         weight,
-        width,
-        height,
     ):
         """Add value labels within each stack segment."""
         positions = np.arange(len(df.index))
@@ -359,8 +354,6 @@ class StackedBarChartView(
         label_suffix,
         fontsize,
         color,
-        width,
-        height,
     ):
         """Add total value labels at the end of each stacked bar."""
         positions = np.arange(len(df.index))

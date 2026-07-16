@@ -293,6 +293,37 @@ def test_discover_controllers_excludes_base_classes():
     assert "NASAFYChartsController" not in class_names
 
 
+def test_discover_controllers_logs_import_failures(caplog, monkeypatch):
+    """A controller module that fails to import is skipped with a WARNING,
+    and discovery continues for the remaining modules."""
+    import importlib
+    import logging
+
+    from tpsplots.docs_generator import discover_controllers
+
+    real_import = importlib.import_module
+    failing = "tpsplots.controllers.apollo_controller"
+
+    def fake_import(name, *args, **kwargs):
+        if name == failing:
+            raise ImportError("simulated import failure")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib, "import_module", fake_import)
+
+    with caplog.at_level(logging.WARNING, logger="tpsplots.docs_generator"):
+        controllers = discover_controllers()
+
+    # Discovery still returns the other controllers.
+    assert controllers
+    assert "apollo_controller" not in {c.module_name for c in controllers}
+    # The failure was logged.
+    assert any(
+        "apollo_controller" in r.getMessage() and "import failed" in r.getMessage()
+        for r in caplog.records
+    )
+
+
 def test_all_controller_methods_have_docstrings():
     """Every public controller method should have a non-empty docstring."""
     from tpsplots.docs_generator import discover_controllers

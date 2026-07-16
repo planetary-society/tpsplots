@@ -107,7 +107,7 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
             - show_percentages: bool or list(bool) - Whether to show percentage values on pie segments, or which ones to display
             - legend_location: str - Location for legend (default: 'lower left')
             - pie_edge_color: str - Edge color for pie charts (default: 'white')
-            - pie_edge_width: float - Edge width for pie charts (default: 2)
+            - pie_edge_width: float - Edge width for pie charts (default: 0.5)
             - offset_line_color: str - Color for connecting lines (default: 'gray')
             - offset_line_style: str - Style for connecting lines (default: '--')
             - offset_line_width: float - Width for connecting lines (default: 1.5)
@@ -200,6 +200,8 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
         dpi,
         style,
         base_pie_size,
+        pie_edge_color="white",
+        pie_edge_width=0.5,
     ):
         """Draw pie charts for all centers and collect unique legend entries."""
         legend_elements = []
@@ -238,7 +240,18 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
 
             pie_size = pie_sizes.get(location_name, base_pie_size)
             self._draw_pie_improved(
-                values, lon, lat, pie_size, colors, ax, show_percentages, figsize, dpi, style
+                values,
+                lon,
+                lat,
+                pie_size,
+                colors,
+                ax,
+                show_percentages,
+                figsize,
+                dpi,
+                style,
+                pie_edge_color,
+                pie_edge_width,
             )
 
             font_size = 12 if style and style.get("type") == "desktop" else 10.5
@@ -265,7 +278,9 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
 
         return legend_elements, legend_labels
 
-    def _add_map_legend(self, ax, legend_elements, legend_labels, style):
+    def _add_map_legend(
+        self, ax, legend_elements, legend_labels, style, legend_location="lower left"
+    ):
         """Render collected legend entries onto the map axes."""
         if legend_elements:
             legend_labels_list = list(legend_labels)
@@ -273,7 +288,7 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
             ax.legend(
                 legend_elements,
                 legend_labels_list,
-                loc="lower left",
+                loc=legend_location,
                 fontsize=style.get("legend_size", 12),
                 frameon=True,
                 fancybox=True,
@@ -412,9 +427,9 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
         show_state_boundaries = kwargs.pop("show_state_boundaries", True)
         show_pie_labels = kwargs.pop("show_pie_labels", True)
         show_percentages = kwargs.pop("show_percentages", False)
-        kwargs.pop("legend_location", "lower left")
-        kwargs.pop("pie_edge_color", "white")
-        kwargs.pop("pie_edge_width", 2)
+        legend_location = kwargs.pop("legend_location", "lower left")
+        pie_edge_color = kwargs.pop("pie_edge_color", "white")
+        pie_edge_width = kwargs.pop("pie_edge_width", 0.5)
         offset_line_color = kwargs.pop("offset_line_color", "gray")
         offset_line_style = kwargs.pop("offset_line_style", "--")
         offset_line_width = kwargs.pop("offset_line_width", 1.5)
@@ -487,8 +502,10 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
             dpi,
             style,
             scaled_base_pie_size,
+            pie_edge_color,
+            pie_edge_width,
         )
-        self._add_map_legend(ax, legend_elements, legend_labels, style)
+        self._add_map_legend(ax, legend_elements, legend_labels, style, legend_location)
         self._finalize_map_axes(ax)
 
         # Apply layout adjustments
@@ -517,9 +534,7 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
         # Calculate the maximum radius in data coordinates
         for lon, lat, pie_size in pie_positions_and_sizes:
             # Estimate pie radius in data coordinates using the same method as the drawing function
-            estimated_radius = self._calculate_consistent_pie_radius(
-                pie_size, figsize=None, dpi=None, style=None
-            )
+            estimated_radius = self._calculate_consistent_pie_radius(pie_size, figsize=None)
             padding = estimated_radius * padding_factor
 
             # Check if pie extends beyond current bounds
@@ -547,21 +562,6 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
             ax.set_xlim(min_x, max_x)
             ax.set_ylim(min_y, max_y)
 
-    def _calculate_position_independent_radius(self, scatter_size):
-        """
-        Calculate pie radius in data coordinates independent of chart position.
-
-        This method provides consistent radius calculation regardless of where
-        the pie chart is positioned (original location vs offset location).
-
-        Args:
-            scatter_size: The scatter plot size parameter
-
-        Returns:
-            float: Pie radius in data coordinates
-        """
-        return self._calculate_pie_radius_data(scatter_size)
-
     @staticmethod
     def _calculate_pie_radius_data(scatter_size):
         """Canonical scatter-size to map-data radius conversion."""
@@ -581,6 +581,8 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
         figsize=None,
         dpi=None,
         style=None,
+        pie_edge_color="white",
+        pie_edge_width=0.5,
     ):
         """
         Draw a pie chart using scatter plots with improved percentage positioning.
@@ -597,6 +599,8 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
             figsize: Figure size tuple for consistent radius calculation
             dpi: Figure DPI for consistent radius calculation
             style: Style dictionary to determine if desktop or mobile
+            pie_edge_color: Edge color for pie wedges (default: 'white')
+            pie_edge_width: Edge line width for pie wedges (default: 0.5)
         """
         # Normalize values for pie slices
         total = sum(values)
@@ -629,7 +633,7 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
 
         # Calculate consistent pie radius in data coordinates
         # Use a simpler, position-independent approach
-        pie_radius_data = self._calculate_position_independent_radius(size)
+        pie_radius_data = self._calculate_pie_radius_data(size)
 
         # Draw each pie segment
         for i, (r1, r2) in enumerate(itertools.pairwise(pie)):
@@ -656,8 +660,8 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
                 s=size,
                 color=color,
                 alpha=0.85,
-                edgecolors="white",
-                linewidths=0.5,
+                edgecolors=pie_edge_color,
+                linewidths=pie_edge_width,
                 zorder=10,
             )
 
@@ -716,21 +720,17 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
 
         return ax
 
-    def _calculate_consistent_pie_radius(self, scatter_size, figsize=None, dpi=None, style=None):
+    def _calculate_consistent_pie_radius(self, scatter_size, figsize=None):
         """
         Calculate a consistent pie radius in data coordinates that works across different figure sizes and DPI.
 
         Args:
             scatter_size: The scatter plot size parameter (already scaled for desktop/mobile)
             figsize: Figure size tuple (width, height)
-            dpi: Figure DPI
-            style: Style dictionary to determine scaling factors
 
         Returns:
             float: Pie radius in data coordinates
         """
-        del dpi, style
-
         # Base formula for converting scatter size to approximate radius:
         # scatter size is in points^2, so sqrt gives radius in points.
         radius_points = np.sqrt(scatter_size)

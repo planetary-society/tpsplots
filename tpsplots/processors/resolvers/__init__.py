@@ -4,10 +4,7 @@ from tpsplots.processors.resolvers.color_resolver import ColorResolver
 from tpsplots.processors.resolvers.data_resolver import DataResolver
 from tpsplots.processors.resolvers.metadata_resolver import MetadataResolver
 from tpsplots.processors.resolvers.parameter_resolver import ParameterResolver
-from tpsplots.processors.resolvers.reference_resolver import (
-    ReferenceResolver,
-    resolve_references,
-)
+from tpsplots.processors.resolvers.reference_resolver import ReferenceResolver
 
 __all__ = [
     "ColorResolver",
@@ -15,5 +12,4 @@ __all__ = [
     "MetadataResolver",
     "ParameterResolver",
     "ReferenceResolver",
-    "resolve_references",
 ]

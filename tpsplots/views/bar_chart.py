@@ -195,7 +195,9 @@ class BarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, ChartView)
             )
 
         # Apply styling (now includes percentage formatting)
-        self._apply_bar_styling(ax, style, orientation, value_format=value_format, **kwargs)
+        self._apply_bar_styling(
+            ax, style, orientation, value_format=value_format, baseline=baseline, **kwargs
+        )
 
         # Add legend if multiple colors are used and labels are provided
         legend = kwargs.pop("legend", False)

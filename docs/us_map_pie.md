@@ -46,9 +46,9 @@ chart:
 |-------|------|---------|-------------|
 | `show_pie_labels` | bool | — | Show labels on pie charts |
 | `show_percentages` | bool or list[bool] | — | Show percentage values on pie segments |
-| `legend_location` | str | — | Location for legend (currently unused by view) |
-| `pie_edge_color` | str | — | Edge color for pie charts (currently unused by view) |
-| `pie_edge_width` | float | — | Edge width for pie charts (currently unused by view) |
+| `legend_location` | str | — | Matplotlib legend location (loc). Default: 'lower left' |
+| `pie_edge_color` | str | — | Edge color for pie wedges. Default: 'white' |
+| `pie_edge_width` | float | — | Edge line width for pie wedges. Default: 0.5 |
 
 ## Map Settings
 

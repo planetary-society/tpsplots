@@ -4,6 +4,7 @@ from typing import ClassVar
 import pandas as pd
 
 from tpsplots.controllers.chart_controller import ChartController
+from tpsplots.data_sources.fiscal_year_mixin import FiscalYearMixin
 from tpsplots.data_sources.nasa_budget_data_source import (
     Directorates,
     Historical,
@@ -483,7 +484,7 @@ class NASAFYChartsController(ChartController):
                 columns={self._WH_PROJECTION_COL: f"{display_name} {self._WH_PROJECTION_COL}"}
             )
 
-        df = df.sort_values("Fiscal Year").reset_index(drop=True)
+        df = FiscalYearMixin._sort_by_fiscal_year(df)
         df.attrs["fiscal_year"] = self.FISCAL_YEAR
 
         return df
@@ -560,7 +561,7 @@ class NASAFYChartsController(ChartController):
             df = InflationAdjustmentProcessor(inflation_config).process(df)
 
         # Ensure sorted by fiscal year
-        df = df.sort_values("Fiscal Year").reset_index(drop=True)
+        df = FiscalYearMixin._sort_by_fiscal_year(df)
 
         # Store metadata
         df.attrs["fiscal_year"] = self.FISCAL_YEAR

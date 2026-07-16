@@ -13,6 +13,7 @@ Skips trivial tests:
 """
 
 import numpy as np
+import pytest
 
 from tests.conftest import SAMPLE_POSITIVE
 
@@ -227,3 +228,34 @@ class TestMixinIntegration:
         # Test color cycling
         colors = view._determine_bar_colors([1, 2, 3], ["#A", "#B"], None, None)
         assert colors == ["#A", "#B", "#A"]
+
+
+class TestBaselineReferenceLine:
+    """Tests for the baseline reference line drawn by BarChartView."""
+
+    @staticmethod
+    def _horizontal_lines_at(ax, baseline):
+        """Return axes lines that are horizontal at the given y value.
+
+        An ``axhline`` spans the axes horizontally (x from 0 to 1 in axes
+        fraction) at a constant y, so a constant y-array is the discriminator.
+        """
+        return [line for line in ax.lines if list(line.get_ydata()) == [baseline, baseline]]
+
+    @pytest.mark.parametrize("baseline, expect_line", [(5, True), (0, False)])
+    def test_baseline_reference_line(self, tmp_path, baseline, expect_line):
+        """A nonzero baseline draws a horizontal reference line; zero draws none."""
+        from tpsplots.views.bar_chart import BarChartView
+
+        view = BarChartView(outdir=tmp_path, style_file=None)
+        fig = view._create_chart(
+            metadata={"title": "Baseline"},
+            style=view.DESKTOP,
+            categories=["A", "B"],
+            values=[10, 20],
+            baseline=baseline,
+            legend=False,
+        )
+        ax = fig.axes[0]
+
+        assert bool(self._horizontal_lines_at(ax, baseline)) == expect_line

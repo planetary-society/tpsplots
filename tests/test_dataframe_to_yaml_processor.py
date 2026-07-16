@@ -268,3 +268,35 @@ class TestEdgeCases:
         # Column data should take precedence
         assert isinstance(result["Value"], pd.Series)
         assert result["Value"].iloc[0] == 100
+
+
+class TestTransitionQuarterTimeline:
+    """max_fiscal_year and export masks must handle TQ label columns."""
+
+    @pytest.fixture
+    def tq_df(self):
+        """Frame whose FY column contains the 1976 transition quarter."""
+        df = pd.DataFrame(
+            {
+                "Fiscal Year": ["1975", "1976", "1976 TQ", "1977", "2025", "2026"],
+                "Appropriation": [3.2, 3.5, 0.9, 3.8, 24.8, None],
+                "White House Budget Projection": [None, None, None, None, 24.8, 25.4],
+            }
+        )
+        df.attrs["fiscal_year"] = 2026
+        return df
+
+    def test_max_fiscal_year_from_tq_labels(self, tq_df):
+        """max_fiscal_year must come from extracted years, not int(label)."""
+        result = DataFrameToYAMLProcessor().process(tq_df)
+
+        assert result["max_fiscal_year"] == 2026
+
+    def test_export_clears_projection_for_historical_label_years(self, tq_df):
+        """The historical-years export mask must match label rows."""
+        tq_df.loc[0, "White House Budget Projection"] = 99.0  # stray historical value
+        result = DataFrameToYAMLProcessor().process(tq_df)
+        export_df = result["export_df"].set_index("Fiscal Year")
+
+        assert pd.isna(export_df.loc["1975", "White House Budget Projection"])
+        assert export_df.loc["2026", "White House Budget Projection"] == 25.4

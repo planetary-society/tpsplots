@@ -7,6 +7,7 @@ from .color_cycle_mixin import ColorCycleMixin
 from .direct_line_labels_mixin import DirectLineLabelsMixin
 from .grid_axis_mixin import GridAxisMixin
 from .line_series_mixin import LineSeriesMixin
+from .param_utils import broadcast_param, legend_config_kwargs
 
 __all__ = [
     "AxisTickFormatMixin",
@@ -16,4 +17,6 @@ __all__ = [
     "DirectLineLabelsMixin",
     "GridAxisMixin",
     "LineSeriesMixin",
+    "broadcast_param",
+    "legend_config_kwargs",
 ]

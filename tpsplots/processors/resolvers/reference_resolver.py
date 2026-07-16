@@ -294,9 +294,3 @@ class ReferenceResolver:
             return str(resolved)
 
         return TEMPLATE_PATTERN.sub(replace_match, template)
-
-
-# Convenience function for external use
-def resolve_references(value: Any, data: dict[str, Any]) -> Any:
-    """Resolve all {{...}} references in a value against the data context."""
-    return ReferenceResolver.resolve(value, data)

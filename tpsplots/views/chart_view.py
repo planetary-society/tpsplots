@@ -212,7 +212,8 @@ class ChartView(AxisTickFormatMixin):
             **kwargs: Additional parameters for chart creation
 
         Returns:
-            dict: Dictionary with desktop/mobile/social figure objects and generated files
+            dict: ``{"files": [...]}`` — paths of every generated output file.
+            The per-device figures are saved and closed internally.
         """
 
         export_data = kwargs.pop("export_data", None)
@@ -254,18 +255,17 @@ class ChartView(AxisTickFormatMixin):
 
         logger.info(f"✓ generated charts for {stem}")
 
-        return {
-            "desktop": desktop_fig,
-            "mobile": mobile_fig,
-            "social": social_fig,
-            "files": generated_files,
-        }
+        # The desktop/mobile/social figures are already saved and closed by
+        # ``_save_chart``; no caller consumes them, so only report the files.
+        return {"files": generated_files}
 
     @staticmethod
     def _clone_chart_kwargs(kwargs: dict) -> dict:
         """Clone nested container kwargs so desktop/mobile renders cannot mutate shared state."""
         return {
-            key: deepcopy(value) if isinstance(value, (dict, list, tuple, set)) else value
+            key: deepcopy(value)
+            if isinstance(value, (pd.DataFrame, pd.Series, dict, list, tuple, set))
+            else value
             for key, value in kwargs.items()
         }
 
@@ -580,7 +580,7 @@ class ChartView(AxisTickFormatMixin):
         # A transition-quarter timeline is an ordered set of fiscal-period
         # labels, not a datetime axis. Checking only its first value (usually a
         # four-digit year) would incorrectly apply matplotlib date locators.
-        if isinstance(first_elem, str) and any("TQ" in str(value).upper() for value in x_data):
+        if any("TQ" in str(value).upper() for value in x_data):
             return False
 
         # Check for datetime-like objects (Python datetime, pandas Timestamp)
@@ -794,7 +794,7 @@ class ChartView(AxisTickFormatMixin):
 
         return "\n".join(wrapped_lines)
 
-    def _calculate_header_height(self, fig, metadata, style) -> tuple[float, float]:
+    def _calculate_header_height(self, fig, metadata, style) -> float:
         """
         Calculate header height based on actual content dimensions.
 
@@ -802,15 +802,13 @@ class ChartView(AxisTickFormatMixin):
         header space needed, avoiding both wasted space and text overlap.
 
         Returns:
-            (header_height, title_height) — both in figure-fraction coordinates.
-            ``title_height`` is passed to ``_add_header`` so it can position
-            the subtitle without re-measuring.
+            header_height in figure-fraction coordinates.
         """
         title = metadata.get("title")
         subtitle = metadata.get("subtitle")
 
         if not title and not subtitle:
-            return 0.0, 0.0
+            return 0.0
 
         # Measure title height
         title_height = self._measure_text_height(fig, title, style["title_size"])
@@ -841,9 +839,9 @@ class ChartView(AxisTickFormatMixin):
 
         # Calculate total height and constrain to bounds
         total_height = title_height + subtitle_height + padding
-        return max(min_height, min(max_height, total_height)), title_height
+        return max(min_height, min(max_height, total_height))
 
-    def _add_header(self, fig, metadata, style, top_margin=0.2, title_height=None):
+    def _add_header(self, fig, metadata, style):
         """
         Add header elements to the figure: title and subtitle with left alignment.
 
@@ -854,8 +852,6 @@ class ChartView(AxisTickFormatMixin):
             fig: The matplotlib Figure object
             metadata: Chart metadata dictionary
             style: Style dictionary (DESKTOP or MOBILE)
-            top_margin: Top margin to reserve for the header
-            title_height: Unused, kept for API compatibility.
         """
         title = metadata.get("title")
         subtitle = metadata.get("subtitle")
@@ -959,10 +955,9 @@ class ChartView(AxisTickFormatMixin):
         show_footer = style.get("footer") or metadata.get("footer")
 
         # Calculate dynamic header height based on actual content
-        title_height = None
         if show_header:
             # Use dynamic calculation, falling back to style default
-            header_height, title_height = self._calculate_header_height(fig, metadata, style)
+            header_height = self._calculate_header_height(fig, metadata, style)
             # Ensure we don't go below the style minimum
             style_min = style.get("header_height", 0.1)
             header_height = max(header_height, style_min)
@@ -974,7 +969,7 @@ class ChartView(AxisTickFormatMixin):
 
         # Add header if enabled (after calculating height so it knows space available)
         if show_header:
-            self._add_header(fig, metadata, style, header_height, title_height=title_height)
+            self._add_header(fig, metadata, style)
 
         # Add footer if enabled
         if show_footer:

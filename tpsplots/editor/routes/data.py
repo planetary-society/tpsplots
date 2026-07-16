@@ -53,4 +53,13 @@ def create_data_router(session: EditorSession) -> APIRouter:
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
+    @router.post("/refresh-data")
+    def refresh_data() -> dict:
+        """Clear cached data/profiles so changed sources are re-read."""
+        try:
+            session.invalidate_data_cache()
+            return {"status": "ok"}
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
     return router

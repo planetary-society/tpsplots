@@ -551,11 +551,9 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
         ax.yaxis.set_minor_locator(plt.NullLocator())
         ax.tick_params(axis="y", which="minor", left=False, right=False)
 
-        # Handle custom y-axis tick markers
-        kwargs.pop("y_tick_marker", None)
-        kwargs.pop("y_tick_color", None)
-
-        # Note: Custom tick markers are handled after axis positioning
+        # Note: y_tick_marker/y_tick_color are consumed via kwargs.get() in
+        # _create_chart after axis positioning, so they are intentionally not
+        # popped here (this method receives a **kwargs copy).
 
         scaled_x = False
 

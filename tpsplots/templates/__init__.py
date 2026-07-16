@@ -29,15 +29,15 @@ chart:
 
   # === Multi-Series (use lists for multiple lines) ===
   # y: ["{{series1}}", "{{series2}}"]
-  # color: [NeptuneBlue, RocketFlame]
+  # color: [Neptune Blue, Rocket Flame]
   # linestyle: [solid, dashed]
   # labels: ["Series 1", "Series 2"]
 
   # === Colors ===
-  # color: NeptuneBlue               # Single color or list for multi-series
-  # Colors: NeptuneBlue, RocketFlame, PlasmaPurple, MediumNeptune,
-  #         LightNeptune, MediumPlasma, LightPlasma, CraterShadow,
-  #         LunarSoil, CometDust, SlushyBrine
+  # color: Neptune Blue               # Single color or list for multi-series
+  # Colors: Neptune Blue, Rocket Flame, Plasma Purple, Medium Neptune,
+  #         Light Neptune, Medium Plasma, Light Plasma, Crater Shadow,
+  #         Lunar Soil, Comet Dust, Slushy Brine
 
   # === Line Styling ===
   # linestyle: solid                 # solid, dashed, dotted, dashdot
@@ -53,10 +53,7 @@ chart:
   # axis_scale: y                    # x, y, or both
 
   # === Typography ===
-  # xlabel_size: 14
-  # ylabel_size: 14
   # tick_size: 12
-  # legend_size: 12
   # label_size: 14
 
   # === Display Options ===
@@ -93,7 +90,7 @@ chart:
   # === Multi-Series ===
   # y: ["{{series1}}", "{{series2}}"]
   # labels: ["Series 1", "Series 2"]
-  # color: [NeptuneBlue, RocketFlame]
+  # color: [Neptune Blue, Rocket Flame]
 
   # === Scatter Styling ===
   # marker: o                        # o, s, ^, D, v, <, >, p, h, +, x
@@ -146,8 +143,8 @@ chart:
   # === Bar Styling ===
   # height: 0.8                      # Bar height (horizontal) or width (vertical)
   # colors:                          # Per-bar colors
-  #   - NeptuneBlue
-  #   - RocketFlame
+  #   - Neptune Blue
+  #   - Rocket Flame
 
   # === Value Labels ===
   # show_values: true
@@ -163,9 +160,8 @@ chart:
   # scale: billions
 
   # === Typography ===
-  # xlabel_size: 14
-  # ylabel_size: 14
   # tick_size: 12
+  # label_size: 14
 
   # === Display Options ===
   # grid: true
@@ -197,9 +193,9 @@ chart:
 
   # === Colors ===
   # colors:
-  #   - NeptuneBlue
-  #   - RocketFlame
-  #   - PlasmaPurple
+  #   - Neptune Blue
+  #   - Rocket Flame
+  #   - Plasma Purple
 
   # === Data Export ===
   # export_data: "{{data}}"
@@ -230,8 +226,8 @@ chart:
   # marker_size: 5
   # line_width: 5
   # colors:
-  #   - NeptuneBlue
-  #   - RocketFlame
+  #   - Neptune Blue
+  #   - Rocket Flame
   # linestyle:
   #   - solid
   #   - dashed
@@ -278,7 +274,7 @@ chart:
     "Series 1": "{{series1_column}}"
     "Series 2": "{{series2_column}}"
   # labels: ["Series 1", "Series 2"]
-  # colors: [NeptuneBlue, RocketFlame]
+  # colors: [Neptune Blue, Rocket Flame]
 
   # === Orientation ===
   # orientation: vertical            # vertical or horizontal
@@ -294,7 +290,70 @@ chart:
 
   # === Typography ===
   # tick_size: 12
-  # legend_size: 10
+  # label_size: 14
+
+  # === Data Export ===
+  # export_data: "{{data}}"
+""",
+    "grouped_bar": """# Grouped Bar Chart Template (v2.0)
+# Generate with: tpsplots --new grouped_bar
+
+data:
+  source: data/your_data.csv
+
+chart:
+  type: grouped_bar
+  output: my_grouped_bar_chart
+  title: "Your Grouped Bar Chart Title"
+  # subtitle: "Optional subtitle"
+  # source: "Data source"
+
+  # === Data References (required) ===
+  categories: "{{category_column}}"  # Category labels (x-axis groups)
+
+  # === Groups (required) ===
+  # Each group draws one bar per category; add more groups as needed.
+  groups:
+    - label: "Series 1"
+      values: "{{series1_column}}"
+      # color: Neptune Blue
+    - label: "Series 2"
+      values: "{{series2_column}}"
+      # color: Rocket Flame
+
+  # === Colors / Labels ===
+  # colors: [Neptune Blue, Rocket Flame]   # Override group colors
+  # labels: ["Series 1", "Series 2"]     # Override group labels (legend)
+
+  # === Bar Styling ===
+  # width: 0.8                       # Total width of each category's bar group
+  # alpha: 1.0
+  # edgecolor: none
+  # linewidth: 0
+
+  # === Value Labels ===
+  # show_values: true
+  # value_format: ".1f"              # Python format spec
+  # value_prefix: "$"
+  # value_suffix: " units"
+  # value_fontsize: 10
+
+  # === Axis Configuration ===
+  # xlabel: "X-Axis Label"
+  # ylabel: "Y-Axis Label"
+  # xlim: [0, 100]
+  # ylim: [0, 100]
+  # scale: billions
+
+  # === Typography ===
+  # tick_size: 12
+  # label_size: 14
+  # tick_rotation: 0
+
+  # === Display Options ===
+  # grid: true
+  # grid_axis: y                     # x, y, or both
+  # legend: true
 
   # === Data Export ===
   # export_data: "{{data}}"
@@ -323,8 +382,8 @@ chart:
 
   # === Colors ===
   # colors:
-  #   - NeptuneBlue
-  #   - RocketFlame
+  #   - Neptune Blue
+  #   - Rocket Flame
 
   # === Data Export ===
   # export_data: "{{data}}"
@@ -354,14 +413,19 @@ chart:
 
   # === Labels ===
   # show_labels: true
+  # show_values: false
   # show_percentages: true
+  # value_format: monetary
   # label_min_area_pct: 1
 """,
     "us_map_pie": """# US Map Pie Chart Template (v2.0)
 # Generate with: tpsplots --new us_map_pie
+#
+# Provide EITHER pie_data (Pathway 1, below) OR the CSV columns (Pathway 2) - not both.
 
 data:
-  source: your_controller.get_state_data
+  source: controller:your_controller.get_state_data
+  # source: data/your_data.csv       # for the column-oriented pathway below
 
 chart:
   type: us_map_pie
@@ -370,9 +434,34 @@ chart:
   # subtitle: "Optional subtitle"
   # source: "Data source"
 
-  # === Data References (required) ===
-  state_data: "{{state_df}}"         # DataFrame with state data
-  pie_values: "{{category_values}}"  # Pie chart category values
+  # === Pathway 1: Controller-built pie_data (required) ===
+  # Dict mapping location names to {values, labels, colors} pie dicts,
+  # typically emitted by a controller method.
+  pie_data: "{{pie_data}}"
+
+  # === Pathway 2: CSV columns (use instead of pie_data) ===
+  # Build pies from a DataFrame; all four fields are required together.
+  # data: "{{data}}"                       # DataFrame template ref
+  # location_column: State                 # column matching state names/abbrevs
+  # value_columns: [Segment1, Segment2]    # one column per pie segment
+  # labels: ["Segment 1", "Segment 2"]     # legend label per segment
+  # colors: [Neptune Blue, Rocket Flame]   # color per segment
+
+  # === Pie Sizing ===
+  # pie_size_column: total           # key in pie_data for proportional sizing
+  # base_pie_size: 800
+  # min_pie_size: 400
+  # max_pie_size: 1500
+
+  # === Map Options ===
+  # show_state_boundaries: true
+
+  # === Display Options ===
+  # show_pie_labels: true
+  # show_percentages: true
+  # legend_location: "lower left"
+  # pie_edge_color: white
+  # pie_edge_width: 0.5
 
   # === Data Export ===
   # export_data: "{{data}}"
@@ -395,11 +484,11 @@ chart:
     - x: "{{x_column}}"
       y: "{{y1_column}}"
       title: "Panel 1"
-      color: NeptuneBlue
+      color: Neptune Blue
     - x: "{{x_column}}"
       y: "{{y2_column}}"
       title: "Panel 2"
-      color: RocketFlame
+      color: Rocket Flame
 
   # === Shared Axis Options ===
   # shared_x: true

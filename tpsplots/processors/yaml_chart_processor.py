@@ -23,18 +23,16 @@ class YAMLChartProcessor:
     # Use the centralized registry from views module
     VIEW_REGISTRY: ClassVar[dict[str, type]] = VIEW_REGISTRY
 
-    def __init__(self, yaml_path: str | Path, outdir: Path | None = None, *, strict: bool = False):
+    def __init__(self, yaml_path: str | Path, outdir: Path | None = None):
         """
         Initialize the YAML chart processor.
 
         Args:
             yaml_path: Path to YAML configuration file
             outdir: Output directory for charts (default: charts/)
-            strict: If True, fail on unresolved references (default: True in v2.0)
         """
         self.yaml_path = Path(yaml_path)
         self.outdir = outdir or Path("charts")
-        self.strict = strict
 
         # Load YAML, resolve any {{...}} template references, then validate
         raw_config = self._load_yaml()
@@ -144,24 +142,3 @@ class YAMLChartProcessor:
 
         logger.info(f"Successfully generated chart: {ctx.output_name}")
         return result
-
-
-def create_yaml_directories():
-    """Create necessary directories for YAML chart system."""
-    yaml_dir = Path("yaml")
-    yaml_dir.mkdir(exist_ok=True)
-
-    charts_dir = Path("charts")
-    charts_dir.mkdir(exist_ok=True)
-
-
-if __name__ == "__main__":
-    # Simple command-line test
-    import sys
-
-    if len(sys.argv) > 1:
-        yaml_path = sys.argv[1]
-        processor = YAMLChartProcessor(yaml_path)
-        processor.generate_chart()
-    else:
-        print("Usage: python yaml_chart_processor.py <yaml_file>")

@@ -47,7 +47,9 @@ chart:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `show_labels` | bool | `true` | Show category labels inside fitting tiles |
+| `show_values` | bool | `false` | Show formatted values inside fitting tiles |
 | `show_percentages` | bool | `true` | Show each category's percentage of the total |
+| `value_format` | str | `"float"` | Format for displayed values: preset ('monetary', 'percentage', 'integer', 'float') or Python format spec |
 | `label_min_area_pct` | float | `1.0` | Minimum total-area percentage eligible for an internal label |
 | `label_wrap_length` | int | — | Maximum characters per line; defaults to the device style |
 | `label_fontsize` | float | — | Label size in points; defaults to the device style |

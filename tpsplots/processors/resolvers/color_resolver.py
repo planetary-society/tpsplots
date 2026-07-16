@@ -2,7 +2,7 @@
 
 from typing import Any, ClassVar
 
-from tpsplots.colors import COLORS, TPS_COLORS
+from tpsplots.colors import resolve_color
 
 
 class ColorResolver:
@@ -15,12 +15,9 @@ class ColorResolver:
     - List handling: ["blue", "Neptune Blue"] → ["#037CC2", "#037CC2"]
     - Deep resolution: Recursively resolves colors in nested structures
 
-    COLORS takes precedence over TPS_COLORS when keys conflict.
+    COLORS takes precedence over TPS_COLORS when keys conflict. The single-value
+    lookup is delegated to :func:`tpsplots.colors.resolve_color`.
     """
-
-    # Build unified lookup map (COLORS takes precedence for accessibility)
-    _COLOR_MAP: ClassVar[dict[str, str]] = {}
-    _NORMALIZED_COLOR_MAP: ClassVar[dict[str, str]] = {}
 
     # Color field names that should be resolved when encountered in dicts
     COLOR_FIELDS: ClassVar[set[str]] = {
@@ -43,29 +40,6 @@ class ColorResolver:
     }
 
     @classmethod
-    def _build_color_map(cls) -> dict[str, str]:
-        """Build color lookup maps with exact and normalized keys."""
-        if cls._COLOR_MAP:
-            return cls._COLOR_MAP
-
-        # Add TPS_COLORS first (lower precedence)
-        cls._COLOR_MAP.update(TPS_COLORS)
-
-        # Add COLORS second (higher precedence, overwrites conflicts)
-        cls._COLOR_MAP.update(COLORS)
-
-        cls._NORMALIZED_COLOR_MAP = {
-            cls._normalize_color_name(key): value for key, value in cls._COLOR_MAP.items()
-        }
-
-        return cls._COLOR_MAP
-
-    @staticmethod
-    def _normalize_color_name(value: str) -> str:
-        """Normalize color names for case-insensitive lookup."""
-        return value.strip().casefold()
-
-    @classmethod
     def resolve(cls, value):
         """Resolve color value(s) to hex code(s).
 
@@ -85,25 +59,8 @@ class ColorResolver:
 
     @classmethod
     def _resolve_single(cls, value: str) -> str:
-        """Resolve a single color value."""
-        if not isinstance(value, str):
-            return value
-
-        # Skip template references like {{colors}}
-        if value.startswith("{{") and value.endswith("}}"):
-            return value
-
-        # Skip hex codes
-        if value.startswith("#"):
-            return value
-
-        # Exact match lookup in color map
-        color_map = cls._build_color_map()
-        if value in color_map:
-            return color_map[value]
-
-        normalized_value = cls._normalize_color_name(value)
-        return cls._NORMALIZED_COLOR_MAP.get(normalized_value, value)
+        """Resolve a single color value (delegates to ``colors.resolve_color``)."""
+        return resolve_color(value)
 
     @classmethod
     def resolve_deep(cls, value: Any) -> Any:

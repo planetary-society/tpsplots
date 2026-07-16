@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import logging
 import types
 import typing
 from collections import OrderedDict
@@ -27,6 +28,8 @@ from tpsplots.models.data_sources import (
     InflationConfig,
 )
 from tpsplots.models.mixins.base import ChartConfigBase
+
+logger = logging.getLogger(__name__)
 
 # Fields excluded from per-chart docs (type is already the page heading)
 _EXCLUDED_FIELDS = {"type"}
@@ -427,11 +430,11 @@ chart:
     - x: "{{Fiscal Year}}"
       y: "{{Astrophysics}}"
       title: "Astrophysics"
-      color: NeptuneBlue
+      color: Neptune Blue
     - x: "{{Fiscal Year}}"
       y: "{{Planetary}}"
       title: "Planetary Science"
-      color: RocketFlame\
+      color: Rocket Flame\
 """,
 }
 
@@ -642,7 +645,8 @@ def discover_controllers() -> list[ControllerInfo]:
     ):
         try:
             mod = importlib.import_module(f"tpsplots.controllers.{modname}")
-        except Exception:
+        except Exception as exc:
+            logger.warning("Skipping controller module %s: import failed (%s)", modname, exc)
             continue
 
         for cls_name, cls in inspect.getmembers(mod, inspect.isclass):

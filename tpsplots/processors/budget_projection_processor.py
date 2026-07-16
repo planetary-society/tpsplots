@@ -1,10 +1,11 @@
 """Processor for budget data with PBR and runout projections."""
 
 from dataclasses import dataclass
-from datetime import datetime
 
 import numpy as np
 import pandas as pd
+
+from tpsplots.data_sources.fiscal_year_mixin import FiscalYearMixin
 
 # Aliases for budget detail row names (all keys/values must be lowercase).
 # "total" also matches "nasa total" to handle alternate sheet formats.
@@ -105,19 +106,18 @@ class BudgetProjectionProcessor:
         """
         df = historical_df.copy()
         fy = self.config.fiscal_year
-        fy_datetime = datetime(fy, 1, 1)
 
         # Step 1: Extract PBR and runout from budget detail
         pbr_value, runout_dict = self._extract_budget_detail(budget_detail_df)
 
         # Step 2: Graft PBR value onto current FY
-        df = self._graft_pbr_value(df, pbr_value, fy_datetime)
+        df = self._graft_pbr_value(df, pbr_value, fy)
 
         # Step 3: Clear future appropriations
-        df = self._clear_future_appropriations(df, fy_datetime)
+        df = self._clear_future_appropriations(df, fy)
 
         # Step 4: Build projection series
-        df = self._build_projection_series(df, pbr_value, runout_dict, fy_datetime)
+        df = self._build_projection_series(df, pbr_value, runout_dict, fy)
 
         # Store config metadata in DataFrame attrs for downstream processors
         df.attrs["fiscal_year"] = fy
@@ -190,15 +190,13 @@ class BudgetProjectionProcessor:
 
         return detail_row
 
-    def _graft_pbr_value(
-        self, df: pd.DataFrame, pbr_value: float, fy_datetime: datetime
-    ) -> pd.DataFrame:
+    def _graft_pbr_value(self, df: pd.DataFrame, pbr_value: float, fy: int) -> pd.DataFrame:
         """Update or insert PBR value for current fiscal year.
 
         Args:
             df: DataFrame with fiscal year and PBR column
             pbr_value: The PBR value to graft
-            fy_datetime: Current fiscal year as datetime
+            fy: Current fiscal year
 
         Returns:
             DataFrame with grafted PBR value
@@ -208,22 +206,24 @@ class BudgetProjectionProcessor:
         if pbr_col not in df.columns:
             df[pbr_col] = np.nan
 
-        fy_mask = df["Fiscal Year"] == fy_datetime
+        fy_mask = FiscalYearMixin._fy_year_mask(df["Fiscal Year"], fy)
         if fy_mask.any():
             df.loc[fy_mask, pbr_col] = pbr_value
         else:
-            new_row = pd.DataFrame({"Fiscal Year": [fy_datetime], pbr_col: [pbr_value]})
+            new_row = pd.DataFrame(
+                {"Fiscal Year": [FiscalYearMixin._fy_cell(df, fy)], pbr_col: [pbr_value]}
+            )
             df = pd.concat([df, new_row], ignore_index=True)
-            df = df.sort_values("Fiscal Year").reset_index(drop=True)
+            df = FiscalYearMixin._sort_by_fiscal_year(df)
 
         return df
 
-    def _clear_future_appropriations(self, df: pd.DataFrame, fy_datetime: datetime) -> pd.DataFrame:
+    def _clear_future_appropriations(self, df: pd.DataFrame, fy: int) -> pd.DataFrame:
         """Set appropriation to NaN for current and future fiscal years.
 
         Args:
             df: DataFrame with fiscal year and appropriation column
-            fy_datetime: Current fiscal year as datetime
+            fy: Current fiscal year
 
         Returns:
             DataFrame with cleared future appropriations
@@ -233,7 +233,7 @@ class BudgetProjectionProcessor:
         if appropriation_col not in df.columns:
             return df
 
-        future_mask = df["Fiscal Year"] >= fy_datetime
+        future_mask = FiscalYearMixin._fy_years(df["Fiscal Year"]).ge(fy)
         df.loc[future_mask, appropriation_col] = np.nan
 
         return df
@@ -243,7 +243,7 @@ class BudgetProjectionProcessor:
         df: pd.DataFrame,
         pbr_value: float,
         runout_dict: dict[int, float],
-        fy_datetime: datetime,
+        fy: int,
     ) -> pd.DataFrame:
         """Build White House Budget Projection series.
 
@@ -256,44 +256,41 @@ class BudgetProjectionProcessor:
             df: DataFrame with fiscal year data
             pbr_value: Current FY PBR request value
             runout_dict: Mapping of future FY -> projected value
-            fy_datetime: Current fiscal year as datetime
+            fy: Current fiscal year
 
         Returns:
             DataFrame with White House Budget Projection column
         """
-        fy = self.config.fiscal_year
         appropriation_col = self.config.appropriation_column
 
         # Initialize projection column
         df["White House Budget Projection"] = np.nan
 
         # Set FY-1 projection to its appropriation (connection point)
-        prior_fy_datetime = datetime(fy - 1, 1, 1)
-        prior_fy_mask = df["Fiscal Year"] == prior_fy_datetime
+        prior_fy_mask = FiscalYearMixin._fy_year_mask(df["Fiscal Year"], fy - 1)
         if prior_fy_mask.any() and appropriation_col in df.columns:
             prior_appropriation = df.loc[prior_fy_mask, appropriation_col].values[0]
             df.loc[prior_fy_mask, "White House Budget Projection"] = prior_appropriation
 
         # Set current FY projection to PBR value
-        fy_mask = df["Fiscal Year"] == fy_datetime
+        fy_mask = FiscalYearMixin._fy_year_mask(df["Fiscal Year"], fy)
         if fy_mask.any():
             df.loc[fy_mask, "White House Budget Projection"] = pbr_value
 
         # Set future FYs to runout values
         for runout_fy, runout_value in runout_dict.items():
-            runout_datetime = datetime(runout_fy, 1, 1)
-            runout_mask = df["Fiscal Year"] == runout_datetime
+            runout_mask = FiscalYearMixin._fy_year_mask(df["Fiscal Year"], runout_fy)
 
             if runout_mask.any():
                 df.loc[runout_mask, "White House Budget Projection"] = runout_value
             else:
                 new_row = pd.DataFrame(
                     {
-                        "Fiscal Year": [runout_datetime],
+                        "Fiscal Year": [FiscalYearMixin._fy_cell(df, runout_fy)],
                         "White House Budget Projection": [runout_value],
                     }
                 )
                 df = pd.concat([df, new_row], ignore_index=True)
 
-        df = df.sort_values("Fiscal Year").reset_index(drop=True)
+        df = FiscalYearMixin._sort_by_fiscal_year(df)
         return df

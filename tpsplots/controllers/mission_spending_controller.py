@@ -1,4 +1,8 @@
-"""CSV file data controller for YAML-driven chart generation."""
+"""CSV file data controller for mission outlay/obligations charts.
+
+Legacy: not wired to YAML/CLI; candidate for removal. Retained because it may
+still be referenced by private YAML configs outside this repository.
+"""
 
 import logging
 from datetime import datetime

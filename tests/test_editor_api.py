@@ -44,8 +44,7 @@ class TestSchemaEndpoint:
         hints = data["editor_hints"]
         assert "primary_binding_fields" in hints
         assert "step_field_map" in hints
-        assert "advanced_fields" in hints
-        assert "suggested_field_order" in hints
+        assert "field_tiers" in hints
 
     def test_get_schema_all_types(self, client):
         types_resp = client.get("/api/chart-types")
@@ -87,6 +86,13 @@ class TestFilesEndpoint:
     def test_load_nonexistent_returns_404(self, client):
         resp = client.get("/api/load?path=nope.yaml")
         assert resp.status_code == 404
+
+    def test_load_malformed_yaml_returns_400(self, client, yaml_dir):
+        (yaml_dir / "broken.yaml").write_text("key: [unclosed", encoding="utf-8")
+        resp = client.get("/api/load?path=broken.yaml")
+        assert resp.status_code == 400
+        detail = resp.json()["detail"]
+        assert "Malformed YAML" in detail
 
     def test_save_file(self, client, yaml_dir):
         config = {
@@ -137,9 +143,11 @@ class TestValidateEndpoint:
         assert "/chart/output" in paths
         assert "/chart/title" in paths
 
-    def test_valid_line_config_accepts_markersize_list(self, client):
+    def test_valid_line_config_accepts_markersize_list(self, client, yaml_dir):
+        csv_path = yaml_dir / "markersize.csv"
+        csv_path.write_text("Year,SeriesA,SeriesB\n2024,10,20\n2025,15,25\n", encoding="utf-8")
         config = {
-            "data": {"source": "data/test.csv"},
+            "data": {"source": f"csv:{csv_path}"},
             "chart": {
                 "type": "line",
                 "output": "line_markersize_list",
@@ -227,6 +235,25 @@ class TestDataEndpoints:
         payload = resp.json()
         missing = set(payload["missing_paths"])
         assert "/chart/pie_data" in missing
+
+
+class TestRefreshDataEndpoint:
+    def test_refresh_data_returns_ok(self, client):
+        resp = client.post("/api/refresh-data")
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "ok"}
+
+    def test_refresh_data_invalidates_cache(self, yaml_dir):
+        session = EditorSession(yaml_dir=yaml_dir)
+        client = TestClient(create_editor_app(session))
+        session._data_cache["k"] = {"some": "data"}
+        session._profile_cache["k"] = {"some": "profile"}
+
+        resp = client.post("/api/refresh-data")
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "ok"}
+        assert session._data_cache == {}
+        assert session._profile_cache == {}
 
 
 class TestPreviewEndpoint:

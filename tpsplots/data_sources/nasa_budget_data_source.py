@@ -58,7 +58,6 @@ import io
 import logging
 import re
 from collections.abc import Callable
-from datetime import date
 from functools import cached_property
 from pathlib import Path
 from typing import Any, ClassVar
@@ -349,81 +348,6 @@ class NASABudget(FiscalYearMixin):
 
         return df
 
-    # ── misc helpers ───────────────────────────────────────────────
-    @staticmethod
-    def _detect_fy(df: pd.DataFrame) -> str:
-        """
-        Detects the fiscal year column name in a DataFrame.
-
-        Searches for columns matching patterns like 'FY####' or names like
-        'fiscal year', 'fy', or 'year' (case-insensitive).
-
-        Args:
-            df: The pandas DataFrame to inspect.
-
-        Returns:
-            The name of the detected fiscal year column.
-
-        Raises:
-            ValueError: If no fiscal year column is detected.
-        """
-        for c in df.columns:
-            if re.fullmatch(r"FY\d{2,4}", str(c), flags=re.I) or str(c).lower() in {
-                "fiscal year",
-                "fy",
-                "year",
-            }:
-                return c
-        logger.warning("No fiscal-year column detected.")
-        return None
-
-    def _fy_col(self) -> str:
-        """
-        Returns the detected fiscal year column name for this instance.
-
-        The detection is performed only on the first call and the result is
-        cached per instance.
-
-        Returns:
-            The name of the fiscal year column.
-        """
-        # Check if the fiscal year column name is already cached in the instance's dictionary
-        if "_fy_name" not in self.__dict__:
-            # If not cached, detect it from the processed DataFrame (_df)
-            self.__dict__["_fy_name"] = self._detect_fy(self._df)
-        # Return the cached name
-        return self.__dict__["_fy_name"]
-
-    @staticmethod
-    def _current_fy() -> int:
-        """
-        Calculates the current fiscal year based on the current date.
-
-        The fiscal year starts in October.
-
-        Returns:
-            The current fiscal year as an integer.
-        """
-        today = date.today()
-        # If the current month is October or later (>= 10), the FY is the next calendar year.
-        # Otherwise, it's the current calendar year.
-        return today.year + (today.month >= 10)
-
-    @staticmethod
-    def _prior_fy() -> int:
-        """
-        Calculates the prior fiscal year based on the current date.
-
-        This is typically the target year for inflation adjustments.
-
-        Returns:
-            The prior fiscal year as an integer.
-        """
-        # Calculate the date one year ago
-        last_year_date = date.today() - pd.DateOffset(years=1)
-        # Determine the fiscal year for that date
-        return last_year_date.year + (last_year_date.month >= 10)
-
 
 # ────────────────────────── concrete sheets ─────────────────────────
 class Historical(NASABudget):
@@ -479,8 +403,7 @@ class ScienceDivisions(NASABudget):
         "1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/export"
         "?format=csv&gid=36975677"
     )
-    # define COLUMNS / RENAMES / MONETARY_COLUMNS when ready
-    # Example placeholders:
+    # Science-division columns kept from the source sheet; all but Fiscal Year are monetary.
     COLUMNS: ClassVar[list[str]] = [
         "Fiscal Year",
         "Astrophysics",
@@ -515,8 +438,8 @@ class Directorates(NASABudget):
         "1NMRYCCRWXwpn3pZU57-Bb0P1Zp3yg2lTTVUzvc5GkIs/export"
         "?format=csv&gid=1870113890"
     )
-    # define COLUMNS / RENAMES / MONETARY_COLUMNS when ready
-    # Example placeholders:
+    # Directorate columns kept from the source sheet; renamed to canonical account
+    # names via RENAMES, with all but Fiscal Year treated as monetary.
     COLUMNS: ClassVar[list[str]] = [
         "Fiscal Year",
         "Exploration",
