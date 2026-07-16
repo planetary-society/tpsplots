@@ -263,34 +263,34 @@ class ChartController:
         metadata: dict = {}
 
         # 1. Extract FY ranges from DataFrame (if column exists)
-        fy_series = None
+        fy_years = None
         if fiscal_year_col is not None and fiscal_year_col in df.columns:
             fy_series = df[fiscal_year_col]
             if pd.api.types.is_integer_dtype(fy_series):
-                metadata["max_fiscal_year"] = int(fy_series.max())
-                metadata["min_fiscal_year"] = int(fy_series.min())
+                fy_years = pd.to_numeric(fy_series, errors="coerce")
             elif pd.api.types.is_datetime64_any_dtype(fy_series):
-                metadata["max_fiscal_year"] = int(fy_series.max().strftime("%Y"))
-                metadata["min_fiscal_year"] = int(fy_series.min().strftime("%Y"))
+                fy_years = fy_series.dt.year
             else:
-                fy_series = pd.to_datetime(fy_series)
-                metadata["max_fiscal_year"] = int(fy_series.max().strftime("%Y"))
-                metadata["min_fiscal_year"] = int(fy_series.min().strftime("%Y"))
+                # Fiscal-period labels can include NASA's 1976 transition
+                # quarter. Extract their year without forcing a datetime.
+                fy_years = FiscalYearMixin._fy_labels_to_years(fy_series)
+
+            valid_fy_years = fy_years.dropna()
+            if not valid_fy_years.empty:
+                metadata["max_fiscal_year"] = int(valid_fy_years.max())
+                metadata["min_fiscal_year"] = int(valid_fy_years.min())
 
         # 2. Per-column fiscal year ranges and value statistics
-        if value_columns and fy_series is not None:
+        if value_columns and fy_years is not None:
             for name, col in value_columns.items():
                 if col in df.columns:
                     mask = df[col].notna()
                     if mask.any():
                         col_values = df.loc[mask, col]
-                        col_fy = fy_series[mask]
-                        if pd.api.types.is_integer_dtype(df[fiscal_year_col]):
+                        col_fy = fy_years[mask].dropna()
+                        if not col_fy.empty:
                             metadata[f"max_{name}_fiscal_year"] = int(col_fy.max())
                             metadata[f"min_{name}_fiscal_year"] = int(col_fy.min())
-                        else:
-                            metadata[f"max_{name}_fiscal_year"] = int(col_fy.max().strftime("%Y"))
-                            metadata[f"min_{name}_fiscal_year"] = int(col_fy.min().strftime("%Y"))
                         metadata[f"max_{name}"] = float(col_values.max())
                         metadata[f"min_{name}"] = float(col_values.min())
                         metadata[f"first_{name}"] = float(col_values.iloc[0])

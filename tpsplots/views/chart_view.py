@@ -577,6 +577,12 @@ class ChartView(AxisTickFormatMixin):
             logger.warning(f"Cannot read first element in array to check date objects: {x_data}")
             return False
 
+        # A transition-quarter timeline is an ordered set of fiscal-period
+        # labels, not a datetime axis. Checking only its first value (usually a
+        # four-digit year) would incorrectly apply matplotlib date locators.
+        if isinstance(first_elem, str) and any("TQ" in str(value).upper() for value in x_data):
+            return False
+
         # Check for datetime-like objects (Python datetime, pandas Timestamp)
         if hasattr(first_elem, "year") and hasattr(first_elem, "month"):
             return True

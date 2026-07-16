@@ -106,14 +106,13 @@ class TestNormalizeFYColumn:
         assert result["Year"].iloc[2] == datetime(2022, 1, 1)
 
     def test_preserves_1976_tq(self):
-        """Should preserve '1976 TQ' as a string."""
-        df = pd.DataFrame({"Year": ["1976 TQ", 1977, 1978]})
+        """A TQ timeline should preserve every fiscal period as a label."""
+        df = pd.DataFrame({"Year": [1976, "1976TQ", 1977, 1978]})
         mixin = ConcreteClass()
         result = mixin._normalize_fy_column(df, "Year")
 
-        assert result["Year"].iloc[0] == "1976 TQ"
-        assert result["Year"].iloc[1] == datetime(1977, 1, 1)
-        assert result["Year"].iloc[2] == datetime(1978, 1, 1)
+        assert result["Year"].tolist() == ["1976", "1976 TQ", "1977", "1978"]
+        assert result["Year"].dtype == object
 
     def test_filters_non_numeric_values(self):
         """Should filter out non-numeric values like 'Totals'."""
@@ -187,7 +186,9 @@ class TestApplyFiscalYearConversion:
         # Should return unchanged DataFrame
         assert result["Year"].iloc[0] == 2020
         assert result["Year"].iloc[1] == 2021
-        warning_messages = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        warning_messages = [
+            record.message for record in caplog.records if record.levelname == "WARNING"
+        ]
         assert any("NonExistent" in message for message in warning_messages)
 
 

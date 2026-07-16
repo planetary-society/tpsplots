@@ -39,6 +39,12 @@ class TestBuildMetadataFYExtraction:
         assert metadata["max_fiscal_year"] == 2017
         assert metadata["min_fiscal_year"] == 2015
 
+    def test_transition_quarter_fy_column(self, controller):
+        df = pd.DataFrame({"Fiscal Year": ["1975", "1976", "1976 TQ", "1977"]})
+        metadata = controller._build_metadata(df)
+        assert metadata["max_fiscal_year"] == 1977
+        assert metadata["min_fiscal_year"] == 1975
+
     def test_fiscal_year_col_none_skips_fy(self, controller):
         df = pd.DataFrame({"Amount": [100, 200]})
         metadata = controller._build_metadata(df, fiscal_year_col=None)

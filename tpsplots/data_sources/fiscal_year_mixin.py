@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 # Pattern matches: "Fiscal Year", "FY", "FY2024", "Year" (case-insensitive)
 FY_COLUMN_PATTERN = re.compile(r"^(fiscal\s*year|fy\d{0,4}|year)$", re.IGNORECASE)
 
+# Year embedded in a fiscal-period label, e.g. "1976 TQ" or "FY2024"
+FY_YEAR_PATTERN = re.compile(r"(\d{4})")
+
 
 class FiscalYearMixin:
     """
@@ -31,28 +34,45 @@ class FiscalYearMixin:
         return None
 
     @staticmethod
+    def _fy_labels_to_years(series: pd.Series) -> pd.Series:
+        """Extract numeric years from fiscal-period labels (e.g. "1976 TQ" -> 1976)."""
+        return pd.to_numeric(
+            series.astype("string").str.extract(FY_YEAR_PATTERN, expand=False),
+            errors="coerce",
+        )
+
+    @staticmethod
     def _normalize_fy_column(df: pd.DataFrame, col: str) -> pd.DataFrame:
         """
-        Convert FY column values to datetime objects.
+        Normalize FY column values for plotting and inflation adjustment.
 
         Process:
-        1. Convert values to datetime, preserving "1976 TQ" as string
-        2. Filter out invalid values (non-numeric, non-TQ strings like "Totals")
+        1. Convert an all-year series to datetimes
+        2. Keep a series containing a transition quarter as ordered labels
+        3. Filter out invalid values (non-numeric, non-TQ strings like "Totals")
         """
         df = df.copy()
+        contains_transition_quarter = (
+            df[col].astype("string").str.contains("TQ", case=False, na=False).any()
+        )
 
         def norm(x):
             if pd.isna(x):
                 return pd.NA
             s = str(x).strip()
-            # Preserve NASA's transition quarter
+            # A transition quarter cannot share a datetime64 column with annual
+            # fiscal years without either losing its label or inventing a date.
+            # Keep the entire mixed-period axis categorical instead.
             if "TQ" in s.upper():
-                return "1976 TQ"
+                match = FY_YEAR_PATTERN.search(s)
+                return f"{match.group()} TQ" if match else "1976 TQ"
             # Try to extract a 4-digit year from the value
             # Handle both integer (2020) and float (2020.0) formats
             try:
                 year_val = int(float(s))
                 if 1900 <= year_val <= 2100:
+                    if contains_transition_quarter:
+                        return str(year_val)
                     return datetime(year_val, 1, 1)
             except (ValueError, TypeError):
                 pass
@@ -68,13 +88,10 @@ class FiscalYearMixin:
         if dropped > 0:
             logger.info(f"Dropped {dropped} rows with invalid FY values in '{col}'")
 
-        # Ensure column is datetime64[ns] dtype for proper matplotlib handling
-        # (.apply() with datetime returns may leave dtype as 'object' depending on input dtype)
-        if df[col].dtype == object and len(df) > 0:
-            # Check if values are datetime objects (not "1976 TQ" strings)
-            first_val = df[col].iloc[0]
-            if isinstance(first_val, datetime):
-                df[col] = pd.to_datetime(df[col])
+        # Ensure ordinary all-year columns are datetime64[ns] for matplotlib.
+        # Mixed annual/TQ columns intentionally remain categorical strings.
+        if not contains_transition_quarter and len(df) > 0:
+            df[col] = pd.to_datetime(df[col])
 
         return df
 

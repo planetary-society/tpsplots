@@ -121,6 +121,18 @@ def test_create_figure_ignores_export_data(tmp_path):
     assert len(view.create_calls) == 1
 
 
+def test_transition_quarter_timeline_is_not_a_datetime_axis(tmp_path):
+    view = ChartView(outdir=tmp_path, style_file=None)
+
+    assert view._contains_dates(["1975", "1976", "1976 TQ", "1977"]) is False
+
+
+def test_ordinary_fiscal_year_labels_are_a_datetime_axis(tmp_path):
+    view = ChartView(outdir=tmp_path, style_file=None)
+
+    assert view._contains_dates(["1975", "1976", "1977"]) is True
+
+
 def test_save_chart_uses_figure_dpi_for_svg_and_png(tmp_path, monkeypatch):
     """_save_chart should rely on figure DPI as the single source of truth."""
     view = ChartView(outdir=tmp_path, style_file=None)
