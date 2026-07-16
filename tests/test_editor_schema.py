@@ -166,6 +166,18 @@ class TestGetAvailableChartTypes:
 
 
 class TestEditorHints:
+    def test_treemap_editor_exposes_bindings_guidance_and_visual_tiers(self):
+        hints = get_editor_hints("treemap")
+        assert hints["primary_binding_fields"] == ["labels", "values"]
+        assert hints["guidance"]["description"].startswith("Space-filling")
+        assert {"colors", "show_labels", "show_percentages"}.issubset(
+            hints["field_tiers"]["essential"]
+        )
+
+        ui = get_ui_schema("treemap")
+        tile_group = next(group for group in ui["ui:groups"] if group["name"] == "Treemap Tiles")
+        assert {"edgecolor", "linewidth", "alpha"}.issubset(tile_group["fields"])
+
     def test_us_map_pie_primary_binding_is_pie_data(self):
         hints = get_editor_hints("us_map_pie")
         assert hints["primary_binding_fields"] == ["pie_data"]

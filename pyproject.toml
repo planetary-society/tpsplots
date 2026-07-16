@@ -37,6 +37,7 @@ dependencies = [
     "jinja2>=3.1.6",
     "watchfiles>=1.1.1",
     "ruamel.yaml>=0.18.0",
+    "squarify>=0.4.4",
 ]
 
 [project.optional-dependencies]

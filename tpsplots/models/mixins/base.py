@@ -48,7 +48,7 @@ class ChartConfigBase(BaseModel):
         None,
         description=(
             "Figure size as [width, height] in inches. "
-            "Default: [16, 10] desktop, [9, 16] mobile. "
+            "Default: [16, 10] desktop, [8, 9] mobile, [8, 4.2] social. "
             "Affects layout of titles, axes, and label positioning calculations"
         ),
     )
@@ -73,9 +73,9 @@ class ChartConfigBase(BaseModel):
     matplotlib_config: dict[str, Any] | None = Field(
         default=None,
         description=(
-            "Raw matplotlib kwargs merged into the plot call after standard field processing. "
+            "Raw matplotlib artist kwargs merged after standard field processing. "
             "Keys that overlap with typed fields will override them with a logged warning. "
-            "Donut: passed to ax.pie(); line/scatter: passed to ax.plot(); bar: passed to ax.bar()"
+            "The receiving chart renderer documents which matplotlib artist consumes them"
         ),
     )
 

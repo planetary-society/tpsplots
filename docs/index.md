@@ -18,5 +18,6 @@
 - [Lollipop](lollipop.md) — Range charts showing start-to-end values per category.
 - [Scatter](scatter.md) — Scatter plots for comparing two variables.
 - [Stacked Bar](stacked_bar.md) — Stacked bars for showing composition within categories.
+- [Treemap](treemap.md) — Space-filling proportional charts for showing a flat composition.
 - [Us Map Pie](us_map_pie.md) — Geographic pie charts overlaid on a U.S. state map.
 - [Waffle](waffle.md) — Waffle charts for part-of-whole visualisation.

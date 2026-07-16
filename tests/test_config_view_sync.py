@@ -57,6 +57,8 @@ If you see: "BarChartView pops kwargs not on BarChartConfig: {'new_param'}"
 import ast
 import inspect
 
+from tpsplots.models.chart_config import CHART_TYPES
+from tpsplots.models.charts import CONFIG_REGISTRY
 from tpsplots.views import VIEW_REGISTRY
 from tpsplots.views.bar_chart import BarChartView
 from tpsplots.views.grouped_bar_chart import GroupedBarChartView
@@ -141,6 +143,18 @@ def test_view_kwargs_match_config_fields():
             f"  -> Add these as fields to the config model, or if they are "
             f"internal/framework-only, add them to INTERNAL_KEYS in this test."
         )
+
+
+def test_chart_type_registries_expose_the_same_dispatch_contract():
+    """Every public chart type must have exactly one config and view mapping."""
+    assert set(CHART_TYPES) == set(CONFIG_REGISTRY)
+    assert set(CHART_TYPES.values()) == set(VIEW_REGISTRY)
+
+    for chart_type, method_name in CHART_TYPES.items():
+        config_class = CONFIG_REGISTRY[chart_type]
+        view_class = VIEW_REGISTRY[method_name]
+        assert view_class.CONFIG_CLASS is config_class
+        assert config_class(output="test", title="Test").get_view_method_name() == method_name
 
 
 def test_bar_family_config_surface_matches_supported_renderer_contract():

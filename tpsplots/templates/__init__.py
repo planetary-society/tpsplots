@@ -329,6 +329,34 @@ chart:
   # === Data Export ===
   # export_data: "{{data}}"
 """,
+    "treemap": """# Treemap Chart Template (v2.0)
+# Generate with: tpsplots --new treemap
+
+data:
+  source: data/your_data.csv
+
+chart:
+  type: treemap
+  output: my_treemap_chart
+  title: "Your Treemap Chart Title"
+  # subtitle: "Optional subtitle"
+  # source: "Data source"
+
+  # === Data References (required) ===
+  labels: "{{category_column}}"
+  values: "{{value_column}}"
+
+  # === Tile Styling ===
+  # colors: ["Neptune Blue", "Plasma Purple", "Rocket Flame"]
+  # edgecolor: "Polar White"
+  # linewidth: 2
+  # alpha: 1
+
+  # === Labels ===
+  # show_labels: true
+  # show_percentages: true
+  # label_min_area_pct: 1
+""",
     "us_map_pie": """# US Map Pie Chart Template (v2.0)
 # Generate with: tpsplots --new us_map_pie
 

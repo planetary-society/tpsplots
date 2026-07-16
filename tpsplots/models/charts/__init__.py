@@ -17,6 +17,7 @@ from tpsplots.models.charts.line_subplots import LineSubplotsChartConfig
 from tpsplots.models.charts.lollipop import LollipopChartConfig
 from tpsplots.models.charts.scatter import ScatterChartConfig
 from tpsplots.models.charts.stacked_bar import StackedBarChartConfig
+from tpsplots.models.charts.treemap import TreemapChartConfig
 from tpsplots.models.charts.us_map_pie import USMapPieChartConfig
 from tpsplots.models.charts.waffle import WaffleChartConfig
 
@@ -28,6 +29,7 @@ CONFIG_REGISTRY: dict[str, type] = {
     "donut": DonutChartConfig,
     "lollipop": LollipopChartConfig,
     "stacked_bar": StackedBarChartConfig,
+    "treemap": TreemapChartConfig,
     "waffle": WaffleChartConfig,
     "grouped_bar": GroupedBarChartConfig,
     "us_map_pie": USMapPieChartConfig,
@@ -50,6 +52,7 @@ __all__ = [
     "ScatterChartConfig",
     "SeriesConfig",
     "StackedBarChartConfig",
+    "TreemapChartConfig",
     "USMapPieChartConfig",
     "WaffleChartConfig",
 ]

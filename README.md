@@ -6,7 +6,7 @@ A data visualization framework for The Planetary Society that creates consistent
 
 - **YAML-Driven Chart Generation** - Define charts declaratively without writing Python code
 - **Interactive Chart Editor** - Browser-based GUI for creating and editing charts with live preview
-- **Multiple Chart Types** - Line, scatter, bar, donut, lollipop, stacked bar, waffle, grouped bar, US map pie, and line subplots
+- **Multiple Chart Types** - Line, scatter, bar, donut, treemap, lollipop, stacked bar, waffle, grouped bar, US map pie, and line subplots
 - **Automatic Responsive Output** - Generates desktop (16:10), mobile (8:9), and social card (1200x630) versions
 - **Multi-Format Export** - SVG, PNG, PPTX, and CSV data export
 - **Flexible Data Sources** - Google Sheets, CSV files, or custom controller methods
@@ -293,6 +293,7 @@ chart:
 | `scatter` | Scatter plots (line chart variant) | `x`, `y`, `color`, `marker`, `labels` |
 | `bar` | Vertical or horizontal bars | `categories`, `values`, `orientation`, `colors` |
 | `donut` | Donut/pie charts | `values`, `labels`, `hole_size`, `center_text` |
+| `treemap` | Space-filling composition charts | `labels`, `values`, `colors`, `show_percentages` |
 | `lollipop` | Timeline/range visualization | `categories`, `start_values`, `end_values`, `colors` |
 | `stacked_bar` | Stacked bar charts | `categories`, `values`, `colors` |
 | `waffle` | Waffle/grid charts | `values`, `labels`, `rows`, `columns` |

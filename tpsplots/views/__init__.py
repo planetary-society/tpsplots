@@ -10,6 +10,7 @@ from .lollipop_chart import LollipopChartView
 from .mixins import BarChartMixin
 from .scatter_chart import ScatterChartView
 from .stacked_bar_chart import StackedBarChartView
+from .treemap_chart import TreemapChartView
 from .us_map_pie_charts import USMapPieChartView
 from .waffle_chart import WaffleChartView
 
@@ -22,6 +23,7 @@ VIEW_REGISTRY: dict[str, type[ChartView]] = {
     "donut_plot": DonutChartView,
     "lollipop_plot": LollipopChartView,
     "stacked_bar_plot": StackedBarChartView,
+    "treemap_plot": TreemapChartView,
     "waffle_plot": WaffleChartView,
     "us_map_pie_plot": USMapPieChartView,
     "line_subplots_plot": LineSubplotsView,
@@ -44,6 +46,7 @@ __all__ = [
     "LollipopChartView",
     "ScatterChartView",
     "StackedBarChartView",
+    "TreemapChartView",
     "USMapPieChartView",
     "WaffleChartView",
 ]

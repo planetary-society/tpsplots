@@ -19,6 +19,7 @@ from tpsplots.models.charts.line_subplots import LineSubplotsChartConfig
 from tpsplots.models.charts.lollipop import LollipopChartConfig
 from tpsplots.models.charts.scatter import ScatterChartConfig
 from tpsplots.models.charts.stacked_bar import StackedBarChartConfig
+from tpsplots.models.charts.treemap import TreemapChartConfig
 from tpsplots.models.charts.us_map_pie import USMapPieChartConfig
 from tpsplots.models.charts.waffle import WaffleChartConfig
 
@@ -32,6 +33,7 @@ CHART_TYPES = {
     "donut": "donut_plot",
     "lollipop": "lollipop_plot",
     "stacked_bar": "stacked_bar_plot",
+    "treemap": "treemap_plot",
     "waffle": "waffle_plot",
     "us_map_pie": "us_map_pie_plot",
     "line_subplots": "line_subplots_plot",
@@ -45,6 +47,7 @@ ChartType = Literal[
     "donut",
     "lollipop",
     "stacked_bar",
+    "treemap",
     "waffle",
     "us_map_pie",
     "line_subplots",
@@ -61,6 +64,7 @@ ChartConfig = Annotated[
     | Annotated[DonutChartConfig, Tag("donut")]
     | Annotated[LollipopChartConfig, Tag("lollipop")]
     | Annotated[StackedBarChartConfig, Tag("stacked_bar")]
+    | Annotated[TreemapChartConfig, Tag("treemap")]
     | Annotated[WaffleChartConfig, Tag("waffle")]
     | Annotated[GroupedBarChartConfig, Tag("grouped_bar")]
     | Annotated[USMapPieChartConfig, Tag("us_map_pie")]

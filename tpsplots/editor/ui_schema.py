@@ -113,6 +113,19 @@ _CHART_FIELD_GROUPS: dict[str, dict[str, str]] = {
         "label_wrap_length": "Labels",
         "label_distance": "Labels",
     },
+    "treemap": {
+        "labels": "Data Bindings",
+        "values": "Data Bindings",
+        "colors": "Colors",
+        "edgecolor": "Treemap Tiles",
+        "linewidth": "Treemap Tiles",
+        "alpha": "Treemap Tiles",
+        "show_labels": "Labels",
+        "show_percentages": "Labels",
+        "label_min_area_pct": "Labels",
+        "label_wrap_length": "Labels",
+        "label_fontsize": "Labels",
+    },
     "grouped_bar": {
         "categories": "Data Bindings",
         "groups": "Data Bindings",
@@ -313,6 +326,7 @@ GROUP_ORDER = [
     "Stem Styling",
     "Endpoint Markers",
     "Donut Shape",
+    "Treemap Tiles",
     "Waffle Grid",
     "Pie Sizing",
     "Pie Display",
@@ -375,6 +389,7 @@ PRIMARY_BINDING_FIELDS: dict[str, list[str]] = {
     "stacked_bar": ["categories", "values"],
     "lollipop": ["categories", "start_values", "end_values"],
     "donut": ["labels", "values"],
+    "treemap": ["labels", "values"],
     "waffle": ["values"],
     "us_map_pie": ["pie_data"],
     "line_subplots": ["subplot_data"],
@@ -455,6 +470,10 @@ FIELD_TIERS: dict[str, dict[str, list[str]]] = {
         "essential": ["colors", "show_percentages", "hole_size"],
         "common": ["center_text", "center_color", "label_distance"],
     },
+    "treemap": {
+        "essential": ["colors", "show_labels", "show_percentages"],
+        "common": ["label_min_area_pct", "edgecolor", "linewidth", "alpha"],
+    },
     "waffle": {
         "essential": ["colors", "labels"],
         "common": ["vertical", "starting_location", "interval_ratio_x", "interval_ratio_y"],
@@ -532,6 +551,16 @@ CHART_TYPE_GUIDANCE: dict[str, dict[str, Any]] = {
             "Set colors and toggle show_percentages",
             "Configure hole_size, center_text, and center_color",
         ],
+    },
+    "treemap": {
+        "description": "Space-filling proportional charts for showing a flat composition.",
+        "workflow": [
+            "Bind labels and strictly positive values",
+            "Set colors or use the responsive TPS brand cycle",
+            "Configure percentage display and the minimum label area",
+            "Review desktop, mobile, and social label fitting",
+        ],
+        "tip": "Small labels are hidden when their rendered text cannot fit inside a tile.",
     },
     "waffle": {
         "description": "Waffle charts for part-of-whole visualisation.",

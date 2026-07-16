@@ -394,6 +394,17 @@ chart:
     "Science": "{{Science}}"
     "Exploration": "{{Exploration}}"\
 """,
+    "treemap": """\
+data:
+  source: data/composition.csv
+
+chart:
+  type: treemap
+  output: budget_treemap
+  title: "Budget Composition"
+  labels: "{{Category}}"
+  values: "{{Amount}}"\
+""",
     "us_map_pie": """\
 data:
   source: controller:your_controller.get_state_data

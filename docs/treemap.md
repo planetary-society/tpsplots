@@ -1,55 +1,56 @@
-# Donut Chart
+# Treemap Chart
 
 > Auto-generated from Pydantic models. Do not edit manually.
 > Regenerate with: `tpsplots docs`
 
 See also: [Data Configuration](data.md) | [All Chart Types](index.md)
 
-Proportional donut charts for showing composition.
+Space-filling proportional charts for showing a flat composition.
 
 ## Example
 
 ```yaml
 data:
-  source: data/directorates.csv
+  source: data/composition.csv
 
 chart:
-  type: donut
-  output: budget_donut
-  title: "NASA Budget Composition"
-  labels: "{{Directorate}}"
-  values: "{{Budget}}"
+  type: treemap
+  output: budget_treemap
+  title: "Budget Composition"
+  labels: "{{Category}}"
+  values: "{{Amount}}"
 ```
 
 ## Data Bindings
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `values` | any (template ref) | — | Values for each donut segment |
-| `labels` | any (template ref) | — | Labels for each segment |
+| `labels` | any (template ref) | — | Labels for each treemap tile |
+| `values` | any (template ref) | — | Positive values determining treemap tile areas |
 
 ## Colors
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `colors` | list[str] | — | Colors for each segment |
+| `colors` | str or list[str] | — | Tile color or colors, using matplotlib or TPS brand names |
 
-## Donut Shape
+## Treemap Tiles
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `hole_size` | float | — | Relative size of donut hole as fraction of pie radius (0.0-1.0). Default: 0.7. Set to 0 for a solid pie chart, 1.0 for a thin ring |
-| `center_text` | str | — | Text displayed in the center of the donut hole. Rendered at title_size with bold weight. Typically used for totals or key metrics |
-| `center_color` | str | — | Fill color of the center circle (donut hole). Default: light_gray (#D3D3D3). Accepts any matplotlib color or TPS brand name |
-| `wedgeprops` | dict[str, any (template ref)] | — | Properties for pie wedges (linewidth, edgecolor, etc.) |
+| `edgecolor` | str | `"Polar White"` | Tile border color |
+| `linewidth` | float | `2.0` | Tile border width in points |
+| `alpha` | float | `1.0` | Tile opacity |
 
 ## Labels
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `show_percentages` | bool | — | Show percentage values alongside each segment label (e.g., 'Science\n(25.0%)'). Default: True. Percentages are auto-calculated from values |
-| `label_wrap_length` | int | — | Maximum characters per line for segment labels before word-wrapping. Default: from style (typically 15). Labels wrap on word boundaries |
-| `label_distance` | float | — | Distance of segment labels from chart center in plot units. Default: 1.4 (placed outside the pie radius). Increase to push labels further out if they overlap segments |
+| `show_labels` | bool | `true` | Show category labels inside fitting tiles |
+| `show_percentages` | bool | `true` | Show each category's percentage of the total |
+| `label_min_area_pct` | float | `1.0` | Minimum total-area percentage eligible for an internal label |
+| `label_wrap_length` | int | — | Maximum characters per line; defaults to the device style |
+| `label_fontsize` | float | — | Label size in points; defaults to the device style |
 
 ## Common
 
