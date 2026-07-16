@@ -6,7 +6,7 @@ authors = [
     {name = "Casey Dreier", email = "casey.dreier@planetary.org"}
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {file = "LICENSE"}
 keywords = ["charts", "visualization", "matplotlib", "yaml", "planetary-society"]
 classifiers = [
@@ -21,7 +21,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "matplotlib>=3.7",
+    "matplotlib>=3.11",
     "pandas>=2.0",
     "numpy>=1.24",
     "pydantic>=2.0",
