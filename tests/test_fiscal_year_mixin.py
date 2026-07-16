@@ -116,7 +116,10 @@ class TestNormalizeFYColumn:
         result = mixin._normalize_fy_column(df, "Year")
 
         assert result["Year"].tolist() == ["1976", "1976 TQ", "1977", "1978"]
-        assert result["Year"].dtype == object
+        # A mixed annual/TQ axis stays a string column (not datetime64). Pandas 3
+        # infers the "str" StringDtype for text; pandas 2 uses "object". Assert the
+        # string-ness rather than a version-specific dtype.
+        assert pd.api.types.is_string_dtype(result["Year"])
 
     def test_filters_non_numeric_values(self):
         """Should filter out non-numeric values like 'Totals'."""
