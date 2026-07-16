@@ -426,7 +426,14 @@ class EditorSession:
         if not isinstance(existing, dict):
             raise ValueError("Invalid YAML structure: expected a top-level mapping")
 
-        _deep_replace(existing, config)
+        # The editor only manages the keys it round-trips (see
+        # _EDITOR_MANAGED_KEYS). Everything else at the top level (notably an
+        # `animation:` block) is unmanaged — protect it from the deletion pass
+        # so saving does not silently drop it. Derived from the declared
+        # managed set, NOT from this save's payload: a payload-derived set
+        # would resurrect deleted blocks if the editor ever manages them.
+        protected_keys = set(existing) - _EDITOR_MANAGED_KEYS
+        _deep_replace(existing, config, protected_keys=protected_keys)
 
         with path.open("w", encoding="utf-8") as f:
             rt.dump(existing, f)
@@ -449,6 +456,11 @@ class EditorSession:
 # Helpers
 # ------------------------------------------------------------------
 
+# Top-level YAML keys the editor UI actually round-trips. When the editor
+# grows a UI for another section (e.g. `animation`), add it here so deleting
+# the section in the editor deletes it from the file.
+_EDITOR_MANAGED_KEYS = frozenset({"data", "chart"})
+
 
 def _prepare_config_for_save(config: dict[str, Any]) -> dict[str, Any]:
     """Clean and validate editor config before persisting it to YAML."""
@@ -466,10 +478,20 @@ def _prepare_config_for_save(config: dict[str, Any]) -> dict[str, Any]:
     return validated.model_dump(exclude_none=True)
 
 
-def _deep_replace(target: MutableMapping[str, Any], source: Mapping[str, Any]) -> None:
-    """Recursively replace mapping content to mirror source exactly."""
+def _deep_replace(
+    target: MutableMapping[str, Any],
+    source: Mapping[str, Any],
+    protected_keys: frozenset[str] | set[str] = frozenset(),
+) -> None:
+    """Recursively replace mapping content to mirror source exactly.
+
+    ``protected_keys`` exempts top-level keys from deletion when they are absent
+    from ``source`` (used to preserve editor-unmanaged blocks like ``animation``).
+    It applies only to this call's deletion pass; nested recursion mirrors its
+    source exactly, so fields removed inside ``data``/``chart`` are still dropped.
+    """
     for key in list(target.keys()):
-        if key not in source:
+        if key not in source and key not in protected_keys:
             del target[key]
 
     for key, value in source.items():

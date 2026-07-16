@@ -305,6 +305,48 @@ List all available types: `tpsplots --list-types`
 
 ---
 
+## Animated Charts (`tpsplots animate`)
+
+Turn a static chart into a short MP4 of it building itself out — lines drawing left-to-right with smooth easing, bars growing from the baseline in a staggered cascade, labels settling into place. These are made for Instagram and YouTube, where a chart that animates on autoplay stops the scroll.
+
+The line and bar families animate today: `line`, `scatter`, `bar`, `grouped_bar`, `stacked_bar`, and `lollipop`. Other chart types report a clear "not animatable" message and the batch continues. Each run writes `{output}_{format}.mp4` plus a poster PNG of the final frame. The default output is a **square 1080×1080** video; use `--format` for landscape (1920×1080), portrait (1080×1920), or `all` for every aspect at once.
+
+**The video is the chart panel only** — no title, subtitle, source line, or logo. Titles and branding are composited in your video editor, which is what lets the same chart work cropped to square, landscape, and portrait.
+
+```bash
+# Square 1080×1080 (default)
+tpsplots animate yaml/chart.yaml
+
+# Every aspect ratio at once
+tpsplots animate --format all yaml/chart.yaml
+
+# 4K landscape for YouTube (super-samples the encode)
+tpsplots animate --scale 2 --format landscape yaml/chart.yaml
+```
+
+Tune the motion per chart with an optional top-level `animation:` block. Any value here is overridden by the matching CLI flag when it is passed, and falls back to a built-in default when it is not:
+
+```yaml
+animation:
+  formats: [square, landscape]   # square | landscape | portrait | all
+  fps: 60                        # draft quality caps this at 30
+  duration: 2.0                  # draw-phase length in seconds
+  easing: cubic_in_out           # e.g. cubic_in_out (default), quint_out, glide_pop
+  end_hold: 3.0                  # seconds to hold on the final frame
+```
+
+### Installation
+
+Encoding needs an ffmpeg binary. Install the optional extra to bundle a private one:
+
+```bash
+uv sync --extra animate          # or: pip install 'tpsplots[animate]'
+```
+
+The bundled `imageio-ffmpeg` binary is GPL-licensed; tpsplots only invokes it as a subprocess, so it carries no licensing impact for tpsplots itself. A system ffmpeg (`brew install ffmpeg`) works too.
+
+---
+
 ## Data Sources
 
 Use a single `data.source` string. Optional prefixes (`csv:`, `url:`, `controller:`) can make intent explicit.

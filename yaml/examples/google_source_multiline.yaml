@@ -43,3 +43,7 @@ chart:
     loc: upper right
 
   export_data: "{{data}}"
+
+animation:
+  easing: glide_pop
+  duration: 4

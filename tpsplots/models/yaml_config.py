@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel, Field
 
+from tpsplots.models.animation import AnimationConfig
 from tpsplots.models.chart_config import ChartConfig
 from tpsplots.models.data_sources import DataSourceConfig
 
@@ -33,4 +34,11 @@ class YAMLChartConfig(BaseModel):
     data: DataSourceConfig = Field(..., description="Data source configuration")
     chart: ChartConfig = Field(
         ..., description="Chart configuration including type, metadata, and parameters"
+    )
+    animation: AnimationConfig | None = Field(
+        None,
+        description=(
+            "Optional animated-video settings used by `tpsplots animate`; "
+            "ignored by static generation"
+        ),
     )

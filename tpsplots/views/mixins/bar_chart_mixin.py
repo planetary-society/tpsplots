@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter
 
+from ..anim_tags import Roles, tag_artist
 from .param_utils import legend_config_kwargs
 
 
@@ -110,7 +111,7 @@ class BarChartMixin:
                 value_range = ax.get_xlim()[1] - ax.get_xlim()[0]
                 value_offset = value_range * 0.02
 
-        for bar, value in zip(bars, values, strict=False):
+        for j, (bar, value) in enumerate(zip(bars, values, strict=False)):
             formatted_value = self._format_value_label(
                 value, value_format, prefix=value_prefix, suffix=value_suffix
             )
@@ -124,7 +125,7 @@ class BarChartMixin:
                     label_y = bar.get_height() - value_offset
                     va = "top"
 
-                ax.text(
+                txt = ax.text(
                     bar.get_x() + bar.get_width() / 2,
                     label_y,
                     formatted_value,
@@ -143,7 +144,7 @@ class BarChartMixin:
                     label_x = bar.get_width() - value_offset
                     ha = "right"
 
-                ax.text(
+                txt = ax.text(
                     label_x,
                     bar.get_y() + bar.get_height() / 2,
                     formatted_value,
@@ -153,6 +154,7 @@ class BarChartMixin:
                     color=color,
                     weight=weight,
                 )
+            tag_artist(txt, Roles.VALUE_LABEL, j)
 
     def _add_value_based_legend(
         self, ax, values, positive_color, negative_color, style, legend_config=True

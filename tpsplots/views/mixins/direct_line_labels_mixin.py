@@ -10,6 +10,7 @@ import matplotlib.transforms
 import numpy as np
 from matplotlib.transforms import Bbox
 
+from ..anim_tags import Roles, tag_artist
 from .param_utils import broadcast_param
 
 logger = logging.getLogger(__name__)
@@ -181,10 +182,15 @@ class DirectLineLabelsMixin:
         return bbox
 
     def _add_direct_line_endpoint_labels(
-        self, ax, x_data, y_data, labels, colors, style, fig=None, **kwargs
+        self, ax, x_data, y_data, labels, colors, style, fig=None, series_offset=0, **kwargs
     ):
         """
         Add labels directly on chart near line endpoints. Uses display coordinates for robust placement.
+
+        Args:
+            series_offset: Global index offset for animation tagging. Left-axis
+                series start at 0; right-axis (twinx) series continue at the
+                number of left-axis series so endpoint tags stay contiguous.
         """
         # Extract configuration options
         config = kwargs.get("direct_line_labels", {})
@@ -346,7 +352,7 @@ class DirectLineLabelsMixin:
                         linewidth=1,
                     )
 
-                ax.text(
+                label_artist = ax.text(
                     optimal_pos["x_data"],
                     optimal_pos["y_data"],
                     label_text,
@@ -358,6 +364,7 @@ class DirectLineLabelsMixin:
                     bbox=bbox_props,
                     zorder=10,
                 )
+                tag_artist(label_artist, Roles.SERIES_LABEL, series_offset + _i)
                 if optimal_pos["bbox_display"] is not None:
                     existing_labels_bboxes.append(optimal_pos["bbox_display"])
 
@@ -384,7 +391,7 @@ class DirectLineLabelsMixin:
                     ep_edgewidth = this_endpoint_opts.get("edgewidth", 1.5)
                     ep_zorder = this_endpoint_opts.get("zorder", 9)
 
-                    ax.plot(
+                    [marker] = ax.plot(
                         last_x,
                         last_y,
                         marker=ep_marker,
@@ -396,6 +403,7 @@ class DirectLineLabelsMixin:
                         linestyle="None",
                         zorder=ep_zorder,
                     )
+                    tag_artist(marker, Roles.ENDPOINT, series_offset + _i)
 
     def _get_simple_label_position(
         self, x_data, y_data, text_bbox, position_mode, ax, markersize_points

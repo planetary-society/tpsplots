@@ -8,6 +8,7 @@ import pandas as pd
 
 from tpsplots.models.charts.stacked_bar import StackedBarChartConfig
 
+from .anim_tags import Roles, tag_artist
 from .chart_view import ChartView
 from .mixins import (
     BarChartMixin,
@@ -228,7 +229,7 @@ class StackedBarChartView(
 
         for i, column in enumerate(df.columns):
             values = df[column].values
-            ax.bar(
+            bars = ax.bar(
                 x_positions,
                 values,
                 width,
@@ -239,6 +240,8 @@ class StackedBarChartView(
                 linewidth=linewidth,
                 label=column,
             )
+            for j, rect in enumerate(bars):
+                tag_artist(rect, Roles.BAR_SEGMENT, index=j, layer=i, orient="v")
             bottom_values += values
 
     def _create_horizontal_stacked_bars(
@@ -254,7 +257,7 @@ class StackedBarChartView(
 
         for i, column in enumerate(df.columns):
             values = df[column].values
-            ax.barh(
+            bars = ax.barh(
                 y_positions,
                 values,
                 height,
@@ -265,6 +268,8 @@ class StackedBarChartView(
                 linewidth=linewidth,
                 label=column,
             )
+            for j, rect in enumerate(bars):
+                tag_artist(rect, Roles.BAR_SEGMENT, index=j, layer=i, orient="h")
             bottom_values += values
 
     def _add_value_labels(
@@ -302,7 +307,7 @@ class StackedBarChartView(
                             value, value_format, prefix=value_prefix, suffix=value_suffix
                         )
 
-                        ax.text(
+                        txt = ax.text(
                             positions[j],
                             y_pos,
                             formatted_value,
@@ -312,6 +317,7 @@ class StackedBarChartView(
                             color=color,
                             weight=weight,
                         )
+                        tag_artist(txt, Roles.SEGMENT_LABEL, index=j, layer=_i)
 
                 bottom_values += values
 
@@ -331,7 +337,7 @@ class StackedBarChartView(
                             value, value_format, prefix=value_prefix, suffix=value_suffix
                         )
 
-                        ax.text(
+                        txt = ax.text(
                             x_pos,
                             positions[j],
                             formatted_value,
@@ -341,6 +347,7 @@ class StackedBarChartView(
                             color=color,
                             weight=weight,
                         )
+                        tag_artist(txt, Roles.SEGMENT_LABEL, index=j, layer=_i)
 
                 left_values += values
 
@@ -364,7 +371,7 @@ class StackedBarChartView(
                 formatted_total = self._format_value_label(
                     total, label_format, prefix=label_prefix, suffix=label_suffix
                 )
-                ax.text(
+                txt = ax.text(
                     positions[i],
                     total,
                     formatted_total,
@@ -374,12 +381,13 @@ class StackedBarChartView(
                     color=self.COLORS["dark_gray"],
                     weight="bold",
                 )
+                tag_artist(txt, Roles.STACK_LABEL, index=i)
         else:  # horizontal
             for i, total in enumerate(totals):
                 formatted_total = self._format_value_label(
                     total, label_format, prefix=label_prefix, suffix=label_suffix
                 )
-                ax.text(
+                txt = ax.text(
                     total,
                     positions[i],
                     formatted_total,
@@ -389,6 +397,7 @@ class StackedBarChartView(
                     color=self.COLORS["dark_gray"],
                     weight="bold",
                 )
+                tag_artist(txt, Roles.STACK_LABEL, index=i)
 
     def _format_value(self, value, format_type):
         """

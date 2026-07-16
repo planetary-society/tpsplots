@@ -23,3 +23,8 @@ chart:
   grid: true
   grid_axis: y
   legend: false
+
+animation:
+  easing: quint_in_out
+  duration: 6
+  formats: [landscape]

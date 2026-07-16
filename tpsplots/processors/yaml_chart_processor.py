@@ -101,9 +101,23 @@ class YAMLChartProcessor:
         try:
             config = YAMLChartConfig(**raw_config)
             logger.info("YAML configuration validated successfully")
-            return config
         except Exception as e:  # Boundary: wrap as ConfigurationError
             raise ConfigurationError(f"YAML configuration validation failed: {e}") from e
+
+        # YAMLChartConfig uses Pydantic's default extra="ignore", so a typo'd
+        # top-level key (e.g. "animaton:") is silently dropped. Warn so it is
+        # not lost without a trace.
+        known_keys = set(YAMLChartConfig.model_fields)
+        unknown_keys = [key for key in raw_config if key not in known_keys]
+        if unknown_keys:
+            logger.warning(
+                "Ignoring unknown top-level YAML key(s) in %s: %s. Known keys: %s.",
+                self.yaml_path,
+                ", ".join(str(key) for key in unknown_keys),
+                ", ".join(sorted(known_keys)),
+            )
+
+        return config
 
     def _get_view(self, chart_type: str):
         """Get the appropriate view instance for the chart type.
@@ -119,21 +133,35 @@ class YAMLChartProcessor:
             )
         return view_class(outdir=self.outdir)
 
-    def generate_chart(self) -> dict[str, Any]:
-        """Generate the chart based on the YAML configuration."""
-        # Step 1: Resolve data source (skip if already loaded during template resolution)
+    def prepare_render(self):
+        """Resolve data, build the render context, and instantiate the view.
+
+        Shared by static generation (:meth:`generate_chart`) and animated
+        rendering (``tpsplots.animation.renderer.animate_yaml``). Sets
+        ``self.view`` and returns it alongside the render context.
+
+        Returns:
+            tuple: ``(RenderContext, ChartView)`` — the render context and the
+            instantiated view for ``ctx.chart_type_v1``.
+        """
+        # Resolve data source (skip if already loaded during template resolution)
         if self.data is None:
             logger.info("Resolving data source...")
             self.data = DataResolver.resolve(self.config.data)
 
-        # Step 2: Build render context (shared with editor preview)
+        # Build render context (shared with editor preview)
         ctx = build_render_context(self.config, self.data, log_conflicts=True)
 
-        # Step 3: Get view and generate chart
-        logger.info(f"Generating chart: {ctx.output_name}")
+        # Get view for the resolved chart type
         self.view = self._get_view(ctx.chart_type_v1)
+        return ctx, self.view
 
-        plot_method = getattr(self.view, ctx.chart_type_v1)
+    def generate_chart(self) -> dict[str, Any]:
+        """Generate the chart based on the YAML configuration."""
+        ctx, view = self.prepare_render()
+
+        logger.info(f"Generating chart: {ctx.output_name}")
+        plot_method = getattr(view, ctx.chart_type_v1)
         result = plot_method(
             metadata=ctx.resolved_metadata,
             stem=ctx.output_name,

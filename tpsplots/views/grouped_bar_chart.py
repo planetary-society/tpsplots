@@ -8,6 +8,7 @@ import numpy as np
 from tpsplots.colors import lighten_color
 from tpsplots.models.charts.grouped_bar import GroupedBarChartConfig
 
+from .anim_tags import Roles, tag_artist
 from .chart_view import ChartView
 from .mixins import BarChartMixin, CategoricalBarMixin, GridAxisMixin, legend_config_kwargs
 
@@ -220,7 +221,7 @@ class GroupedBarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, Cha
 
                 if simple_count > 0:
                     # Plot simple bars (no stacking)
-                    ax.bar(
+                    simple_bars = ax.bar(
                         pos[:simple_count],
                         values[:simple_count],
                         width,
@@ -229,6 +230,8 @@ class GroupedBarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, Cha
                         edgecolor=edgecolor,
                         linewidth=linewidth,
                     )
+                    for j, rect in enumerate(simple_bars):
+                        tag_artist(rect, Roles.BAR, index=j, group=i, layer=0)
 
                 # Plot stacked bars
                 stacked_start = simple_count
@@ -237,7 +240,7 @@ class GroupedBarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, Cha
                 ):
                     idx = stacked_start + j
                     # Base bar
-                    ax.bar(
+                    base_bars = ax.bar(
                         pos[idx],
                         base_val,
                         width,
@@ -247,8 +250,9 @@ class GroupedBarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, Cha
                         linewidth=linewidth,
                         label=label if idx == stacked_start else None,
                     )
+                    tag_artist(base_bars[0], Roles.BAR, index=idx, group=i, layer=0)
                     # Stacked portion
-                    ax.bar(
+                    stacked_bars = ax.bar(
                         pos[idx],
                         stack_val,
                         width,
@@ -258,6 +262,7 @@ class GroupedBarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, Cha
                         edgecolor=edgecolor,
                         linewidth=linewidth,
                     )
+                    tag_artist(stacked_bars[0], Roles.BAR, index=idx, group=i, layer=1)
 
                 # Add value labels
                 if show_values:
@@ -266,7 +271,7 @@ class GroupedBarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, Cha
                         formatted_value = self._format_value_label(
                             values[j], value_format, prefix=value_prefix, suffix=value_suffix
                         )
-                        ax.text(
+                        txt = ax.text(
                             pos[j],
                             values[j] + value_offset,
                             formatted_value,
@@ -276,6 +281,7 @@ class GroupedBarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, Cha
                             color=value_color,
                             weight=value_weight,
                         )
+                        tag_artist(txt, Roles.VALUE_LABEL, index=j, group=i)
                     # Stacked bars (show total)
                     for j, (base_val, stack_val) in enumerate(
                         zip(values[stacked_start:], stacked_values, strict=False)
@@ -285,7 +291,7 @@ class GroupedBarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, Cha
                         formatted_value = self._format_value_label(
                             total, value_format, prefix=value_prefix, suffix=value_suffix
                         )
-                        ax.text(
+                        txt = ax.text(
                             pos[idx],
                             total + value_offset,
                             formatted_value,
@@ -295,9 +301,10 @@ class GroupedBarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, Cha
                             color=value_color,
                             weight=value_weight,
                         )
+                        tag_artist(txt, Roles.VALUE_LABEL, index=idx, group=i)
             else:
                 # Simple bars for all categories
-                ax.bar(
+                simple_bars = ax.bar(
                     pos,
                     values,
                     width,
@@ -307,13 +314,15 @@ class GroupedBarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, Cha
                     linewidth=linewidth,
                     label=label,
                 )
+                for j, rect in enumerate(simple_bars):
+                    tag_artist(rect, Roles.BAR, index=j, group=i, layer=0)
 
                 if show_values:
                     for j, val in enumerate(values):
                         formatted_value = self._format_value_label(
                             val, value_format, prefix=value_prefix, suffix=value_suffix
                         )
-                        ax.text(
+                        txt = ax.text(
                             pos[j],
                             val + value_offset,
                             formatted_value,
@@ -323,6 +332,7 @@ class GroupedBarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, Cha
                             color=value_color,
                             weight=value_weight,
                         )
+                        tag_artist(txt, Roles.VALUE_LABEL, index=j, group=i)
 
             # Track for legend
             legend_handles.append(plt.Rectangle((0, 0), 1, 1, facecolor=color, edgecolor=edgecolor))

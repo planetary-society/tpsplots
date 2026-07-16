@@ -11,7 +11,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from tpsplots.models.chart_config import CHART_TYPES
+from tpsplots.models.chart_config import chart_type_v1 as to_v1
 from tpsplots.models.yaml_config import YAMLChartConfig
 from tpsplots.processors.resolvers import (
     ColorResolver,
@@ -62,7 +62,7 @@ def build_render_context(
     # Extract control fields
     chart_type_v2 = chart_dict.pop("type")
     output_name = chart_dict.pop("output")
-    chart_type_v1 = CHART_TYPES.get(chart_type_v2, f"{chart_type_v2}_plot")
+    chart_type_v1 = to_v1(chart_type_v2)
 
     parameters = chart_dict
 

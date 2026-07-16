@@ -40,6 +40,17 @@ CHART_TYPES = {
     "grouped_bar": "grouped_bar_plot",
 }
 
+
+def chart_type_v1(chart_type_v2: str) -> str:
+    """Map a v2.0 chart type name to its v1.0 view method name.
+
+    The ``f"{v2}_plot"`` fallback keeps unregistered types working by
+    convention; the single shared helper keeps that fallback rule from
+    drifting across call sites.
+    """
+    return CHART_TYPES.get(chart_type_v2, f"{chart_type_v2}_plot")
+
+
 ChartType = Literal[
     "line",
     "scatter",

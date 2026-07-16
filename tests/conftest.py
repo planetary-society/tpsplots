@@ -59,6 +59,39 @@ def mixin_with_color_cycle():
 
 
 @pytest.fixture
+def make_video_figure(tmp_path):
+    """Factory building in-memory chart figures for animation/video tests.
+
+    Builds via ``create_figure`` (no files written) with minimal line-chart
+    defaults; pass ``view_cls`` and chart kwargs to build other chart types.
+    Every created figure is closed at teardown.
+    """
+    figs = []
+
+    def _make(device="video_square", title="T", view_cls=None, **kwargs):
+        from tpsplots.views.line_chart import LineChartView
+
+        cls = view_cls or LineChartView
+        params = {}
+        if issubclass(cls, LineChartView):
+            params = {
+                "x": [1, 2, 3],
+                "y": [[1, 2, 3]],
+                "legend": False,
+                "fiscal_year_ticks": False,
+            }
+        params.update(kwargs)
+        view = cls(outdir=tmp_path, style_file=None)
+        fig = view.create_figure(metadata={"title": title}, device=device, **params)
+        figs.append(fig)
+        return fig
+
+    yield _make
+    for fig in figs:
+        plt.close(fig)
+
+
+@pytest.fixture
 def ax():
     """
     Provide fresh matplotlib axes for each test.

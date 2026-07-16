@@ -165,6 +165,97 @@ class ChartView(AxisTickFormatMixin):
         "source_y": 0.01,
     }
 
+    # Video style variants render the chart panel ONLY (no header/title/subtitle,
+    # no footer/logo/source) — titles and branding are composited in the video
+    # editor, which is what lets the chart fill a 1:1 / 16:9 / 9:16 frame edge to
+    # edge. header/footer/add_logo are all False (same mechanism as SOCIAL, which
+    # already exercises header: False). Key parity with DESKTOP is required (views
+    # read many of these keys) so header_*/title_size etc. are kept even though the
+    # chrome they configure is never drawn. Consumed by ``tpsplots animate``.
+    # The three video variants are ONE style at three aspect ratios, so shared
+    # values live in _VIDEO_BASE and each variant lists only its real deltas.
+    _VIDEO_BASE: ClassVar[dict[str, object]] = {
+        "dpi": 150,
+        "title_size": 20,
+        "label_size": 16,
+        "legend_size": 15,
+        "marker_size": 9,
+        "grid": True,
+        "grid_axis": "y",
+        "tick_rotation": 0,
+        "add_logo": False,
+        "decade_tick_threshold": 50,
+        "minor_tick_length": 0,  # sub-pixel minors become yuv420p chroma mush
+        "minor_tick_color": "gray",
+        "minor_tick_width": 0,
+        "major_tick_length": 8,
+        "major_tick_width": 1.2,
+        "footer": False,
+        "footer_height": 0,
+        "footer_color": "#545454",
+        "footer_line_width": 1,
+        "footer_extent": (0.01, 0.99),
+        "header": False,
+        "header_height": 0,
+        "header_min_height": 0,
+        "header_max_height": 0,
+        "header_x": 0.01,
+        "header_y": 0.98,
+        "header_padding": 0.03,
+        "subtitle_size_ratio": 0.7,
+        "title_subtitle_gap": 0.005,
+        "logo_zoom": 0.05,
+        "logo_x": 0.009,
+        "logo_y": 0.005,
+        "source_size": 10,
+        "source_y": 0.01,
+    }
+
+    VIDEO_SQUARE: ClassVar[dict[str, object]] = {
+        **_VIDEO_BASE,
+        "type": "video_square",
+        "figsize": (7.2, 7.2),  # 7.2*150=1080px, 7.2*150=1080px
+        "tick_size": 15,
+        "line_width": 4.5,
+        "max_ticks": 8,
+        "subtitle_wrap_length": 60,
+        "label_wrap_length": 18,
+    }
+
+    VIDEO_LANDSCAPE: ClassVar[dict[str, object]] = {
+        **_VIDEO_BASE,
+        "type": "video_landscape",
+        "figsize": (12.8, 7.2),  # 12.8*150=1920px, 7.2*150=1080px
+        "tick_size": 16,
+        "line_width": 5,
+        "max_ticks": 12,
+        "subtitle_wrap_length": 96,
+        "label_wrap_length": 30,
+    }
+
+    VIDEO_PORTRAIT: ClassVar[dict[str, object]] = {
+        **_VIDEO_BASE,
+        "type": "video_portrait",
+        "figsize": (7.2, 12.8),  # 7.2*150=1080px, 12.8*150=1920px
+        "tick_size": 15,
+        "line_width": 4.5,
+        "max_ticks": 8,
+        "subtitle_wrap_length": 60,
+        "label_wrap_length": 14,
+    }
+
+    # Device name -> style-dict attribute, resolved via getattr so subclass
+    # overrides of DESKTOP/MOBILE/etc. keep working. Unknown devices fall back
+    # to DESKTOP (existing behavior).
+    _DEVICE_STYLES: ClassVar[dict[str, str]] = {
+        "desktop": "DESKTOP",
+        "mobile": "MOBILE",
+        "social": "SOCIAL",
+        "video_square": "VIDEO_SQUARE",
+        "video_landscape": "VIDEO_LANDSCAPE",
+        "video_portrait": "VIDEO_PORTRAIT",
+    }
+
     def __init__(self, outdir: Path = Path("charts"), style_file=TPS_STYLE_FILE):
         """
         Initialize the chart view with output directory and style.
@@ -180,6 +271,19 @@ class ChartView(AxisTickFormatMixin):
         if style_file:
             plt.style.use(style_file)
 
+    def device_style(self, device: str) -> dict:
+        """The style dict for ``device``, raising on unknown names.
+
+        The strict counterpart to ``create_figure``'s silent DESKTOP fallback —
+        callers that must guarantee exact output dimensions (the animate
+        renderer) use this instead of reaching into ``_DEVICE_STYLES``.
+        """
+        attr = self._DEVICE_STYLES.get(device)
+        if attr is None:
+            valid = ", ".join(sorted(self._DEVICE_STYLES))
+            raise ValueError(f"Unknown device {device!r}. Valid devices: {valid}.")
+        return getattr(self, attr)
+
     def create_figure(self, metadata, device="desktop", **kwargs):
         """Create a single chart figure for the given device.
 
@@ -189,15 +293,15 @@ class ChartView(AxisTickFormatMixin):
 
         Args:
             metadata: Chart metadata dictionary
-            device: ``"desktop"``, ``"mobile"``, or ``"social"``
+            device: ``"desktop"``, ``"mobile"``, ``"social"``,
+                ``"video_square"``, ``"video_landscape"``, or ``"video_portrait"``
             **kwargs: Additional parameters for chart creation
 
         Returns:
             matplotlib.figure.Figure: The created figure
         """
         kwargs.pop("export_data", None)
-        style_map = {"desktop": self.DESKTOP, "mobile": self.MOBILE, "social": self.SOCIAL}
-        style = style_map.get(device, self.DESKTOP)
+        style = getattr(self, self._DEVICE_STYLES.get(device, "DESKTOP"))
         chart_kwargs = self._clone_chart_kwargs(kwargs)
         chart_kwargs["style"] = style
         return self._create_chart(metadata, **chart_kwargs)

@@ -6,6 +6,7 @@ import numpy as np
 
 from tpsplots.models.charts.bar import BarChartConfig
 
+from .anim_tags import Roles, tag_artist
 from .chart_view import ChartView
 from .mixins import BarChartMixin, CategoricalBarMixin, GridAxisMixin
 
@@ -168,6 +169,10 @@ class BarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, ChartView)
                 edgecolor=edgecolor,
                 linewidth=linewidth,
             )
+
+        orient = "v" if orientation == "vertical" else "h"
+        for j, rect in enumerate(bars):
+            tag_artist(rect, Roles.BAR, j, orient=orient, baseline=baseline)
 
         self._apply_category_axis(
             ax,

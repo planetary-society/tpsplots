@@ -7,6 +7,7 @@ import numpy as np
 
 from tpsplots.models.charts.lollipop import LollipopChartConfig
 
+from .anim_tags import Roles, tag_artist
 from .chart_view import ChartView
 from .mixins import ColorCycleMixin, GridAxisMixin
 
@@ -193,7 +194,7 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
             )
 
             # Draw the stem line from start to end (with per-item line style)
-            ax.plot(
+            [stem] = ax.plot(
                 [start_val, end_val],
                 [y_pos, y_pos],
                 color=stem_color,
@@ -201,6 +202,7 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
                 linestyle=line_styles[i],
                 alpha=alpha,
             )
+            tag_artist(stem, Roles.STEM, i, start=float(start_val), end=float(end_val))
 
             # Draw start marker
             ax.scatter(
@@ -216,7 +218,7 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
             )
 
             # Draw end marker
-            ax.scatter(
+            end_marker = ax.scatter(
                 [end_val],
                 [y_pos],
                 color=end_colors[i] if end_colors else stem_color,
@@ -227,6 +229,7 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
                 edgecolors=end_edge_colors[i] if end_edge_colors else "white",
                 linewidth=end_marker_edgewidth,
             )
+            tag_artist(end_marker, Roles.END_MARKER, i)
 
         # Apply category labels and formatting
         self._format_lollipop_chart(
@@ -453,7 +456,7 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
             # Legacy value_labels parameter (shows both start and end)
             if show_values:
                 # Add start value label
-                ax.text(
+                start_txt = ax.text(
                     start_val,
                     y_pos,
                     self._format_value(start_val, value_format) + value_suffix,
@@ -462,9 +465,10 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
                     fontsize=category_label_size * 0.8,
                     bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.7),
                 )
+                tag_artist(start_txt, Roles.VALUE_LABEL, _i, side="start")
 
                 # Add end value label
-                ax.text(
+                end_txt = ax.text(
                     end_val,
                     y_pos,
                     self._format_value(end_val, value_format) + value_suffix,
@@ -473,11 +477,12 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
                     fontsize=category_label_size * 0.8,
                     bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.7),
                 )
+                tag_artist(end_txt, Roles.VALUE_LABEL, _i, side="end")
 
             # Individual start value labels (clean style)
             if show_start_labels:
                 # Position to the left of the start marker by marker size + 30%
-                ax.text(
+                start_label_txt = ax.text(
                     start_val - marker_offset,
                     y_pos,
                     self._format_value(start_val, value_format) + value_suffix,
@@ -487,11 +492,12 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
                     color=style.get("tick_color", self.COLORS["dark_gray"]),
                     transform=ax.transData,
                 )
+                tag_artist(start_label_txt, Roles.VALUE_LABEL, _i, side="start")
 
             # Individual end value labels (clean style)
             if show_end_labels:
                 # Position to the right of the end marker by marker size + 30%
-                ax.text(
+                end_label_txt = ax.text(
                     end_val + marker_offset,
                     y_pos,
                     self._format_value(end_val, value_format) + value_suffix,
@@ -501,13 +507,14 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
                     color=style.get("tick_color", self.COLORS["dark_gray"]),
                     transform=ax.transData,
                 )
+                tag_artist(end_label_txt, Roles.VALUE_LABEL, _i, side="end")
 
             # Range duration labels
             if show_ranges:
                 # Add range duration label at midpoint
                 mid_point = (start_val + end_val) / 2
                 range_val = end_val - start_val
-                ax.text(
+                range_txt = ax.text(
                     mid_point,
                     y_pos + 0.1,
                     self._format_value(range_val, range_format) + range_suffix,
@@ -517,6 +524,7 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
                     style="italic",
                     alpha=0.8,
                 )
+                tag_artist(range_txt, Roles.VALUE_LABEL, _i, side="range")
 
     # NOTE: _format_value and _format_monetary are inherited from ChartView base class
 

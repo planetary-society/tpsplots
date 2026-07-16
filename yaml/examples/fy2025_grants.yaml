@@ -29,3 +29,7 @@ chart:
 
   # Export configuration
   export_data: "{{export_df}}"
+
+animation:
+  easing: cubic_in_out
+  duration: 2

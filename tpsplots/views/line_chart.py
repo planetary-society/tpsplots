@@ -11,6 +11,7 @@ from pandas.api.extensions import ExtensionArray
 from tpsplots.colors import resolve_color
 from tpsplots.models.charts.line import LineChartConfig
 
+from .anim_tags import Roles, tag_artist
 from .chart_view import ChartView
 from .mixins import (
     DirectLineLabelsMixin,
@@ -346,7 +347,8 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             if series_key in kwargs:
                 plot_kwargs.update(kwargs.pop(series_key))
 
-            ax.plot(x_data, y_series, **plot_kwargs)
+            [line] = ax.plot(x_data, y_series, **plot_kwargs)
+            tag_artist(line, Roles.SERIES, series_offset + i)
 
         return line_colors, line_labels
 
@@ -949,6 +951,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
                 fig=fig,
                 direct_line_labels=opts["direct_line_labels"],
                 markersize=opts["markersize"],
+                series_offset=0,
                 **kwargs,
             )
 
@@ -967,6 +970,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
                         fig=fig,
                         direct_line_labels=opts["direct_line_labels"],
                         markersize=opts["markersize"],
+                        series_offset=num_left,
                         **kwargs,
                     )
             return

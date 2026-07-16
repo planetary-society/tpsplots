@@ -7,10 +7,7 @@ __pycache__/
 *$py.class
 
 .DS_Store
-charts/*.png
-charts/*.svg
-charts/*.pptx
-charts/*.csv
+charts/
 
 # C extensions
 *.so

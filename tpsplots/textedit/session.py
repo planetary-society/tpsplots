@@ -17,7 +17,7 @@ except ImportError:
     YAML = None
     DoubleQuotedScalarString = None
 
-from tpsplots.models.chart_config import CHART_TYPES
+from tpsplots.models.chart_config import chart_type_v1 as to_v1
 from tpsplots.processors.resolvers import (
     ColorResolver,
     DataResolver,
@@ -55,7 +55,7 @@ class TextEditSession:
 
         chart_type_v2 = chart_dict.pop("type")
         self.output_name = chart_dict.pop("output")
-        chart_type_v1 = CHART_TYPES.get(chart_type_v2, f"{chart_type_v2}_plot")
+        chart_type_v1 = to_v1(chart_type_v2)
 
         self.parameters = ParameterResolver.resolve(chart_dict, self.data)
         self.parameters = ColorResolver.resolve_deep(self.parameters)

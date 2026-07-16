@@ -185,6 +185,44 @@ class TestFileIO:
         loaded = yaml.safe_load((yaml_dir / "with_subtitle.yaml").read_text(encoding="utf-8"))
         assert "subtitle" not in loaded["chart"]
 
+    def test_save_preserves_unmanaged_animation_block(self, session, yaml_dir):
+        """Regression: the editor manages only data/chart, but saving must not
+        delete a top-level `animation:` block it does not surface."""
+        yaml_dir_file = yaml_dir / "animated.yaml"
+        yaml_dir_file.write_text(
+            yaml.dump(
+                {
+                    "data": {"source": "data/test.csv"},
+                    "chart": {
+                        "type": "bar",
+                        "output": "animated",
+                        "title": "Animated",
+                        "subtitle": "keep me too",
+                    },
+                    "animation": {"fps": 30, "formats": ["square", "landscape"]},
+                },
+                default_flow_style=False,
+                sort_keys=False,
+            ),
+            encoding="utf-8",
+        )
+
+        # Editor-managed state carries data + chart only (no animation), as the
+        # editor UI does not surface the animation block.
+        session.save_yaml(
+            "animated.yaml",
+            {
+                "data": {"source": "data/test.csv"},
+                "chart": {"type": "bar", "output": "animated", "title": "Animated"},
+            },
+        )
+
+        loaded = yaml.safe_load(yaml_dir_file.read_text(encoding="utf-8"))
+        # The unmanaged animation block survived intact.
+        assert loaded["animation"] == {"fps": 30, "formats": ["square", "landscape"]}
+        # Managed edits still applied: subtitle removed from chart.
+        assert "subtitle" not in loaded["chart"]
+
     def test_list_yaml_files(self, session):
         files = session.list_yaml_files()
         assert "sample.yaml" in files

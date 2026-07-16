@@ -9,6 +9,7 @@ from typing import Annotated
 import typer
 
 from tpsplots import __version__
+from tpsplots.commands.animate import animate
 from tpsplots.commands.docs import docs
 from tpsplots.commands.editor import editor
 from tpsplots.commands.s3_sync import s3_sync
@@ -468,7 +469,8 @@ def validate_cmd(
     raise typer.Exit(code=0 if invalid_count == 0 else 2)
 
 
-# Register s3-sync subcommand
+# Register subcommands implemented in tpsplots/commands/
+app.command("animate")(animate)
 app.command("docs")(docs)
 app.command("s3-sync")(s3_sync)
 app.command("textedit")(textedit)
