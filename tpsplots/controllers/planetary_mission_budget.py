@@ -101,8 +101,16 @@ class PlanetaryMissionBudgetController(ChartController):
 
         result = self._build_result_dict(df)
 
+        # Re-run the data source's canonical value-column annotation now that
+        # inflation adjustment has added the ``_adjusted_nnsi`` columns. This
+        # reuses the shared logic (fiscal-year exclusion + snake_case collision
+        # handling) rather than re-deriving it here, and writes the result to
+        # ``df.attrs["value_columns"]``.
+        source._annotate_value_columns_metadata(df)
+
         metadata = self._build_metadata(
             df,
+            value_columns=df.attrs.get("value_columns"),
             source="The Planetary Society, Planetary Exploration Budget Dataset",
         )
         metadata["tab_name"] = source.tab_name

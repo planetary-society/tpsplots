@@ -204,6 +204,15 @@ class TestInflationAdjustment:
         result = controller.cassini()
         assert result["metadata"]["inflation_adjusted_year"] == 2025
 
+    def test_metadata_includes_adjusted_column_statistics(self, mock_fetch_csv, mock_inflation):
+        """Adjusted numeric columns should expose snake-case min/max metadata."""
+        controller = PlanetaryMissionBudgetController()
+        result = controller.cassini()
+        adjusted = result["data"]["Total Cost_adjusted_nnsi"]
+
+        assert result["metadata"]["max_total_cost_adjusted_nnsi"] == adjusted.max()
+        assert result["metadata"]["min_total_cost_adjusted_nnsi"] == adjusted.min()
+
     def test_non_monetary_columns_not_adjusted(self, mock_fetch_csv, mock_inflation):
         """Fiscal Year, Notes, Official LCC should not get _adjusted_nnsi columns."""
         controller = PlanetaryMissionBudgetController()
