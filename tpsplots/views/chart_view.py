@@ -69,6 +69,8 @@ class ChartView(AxisTickFormatMixin):
         "header_padding": 0.03,
         "subtitle_size_ratio": 0.7,
         "subtitle_line_spacing": 1.05,
+        "subtitle_vertical_padding_scale": 0.5,
+        "subtitle_top_padding_share": 0.15,
         "title_subtitle_gap": 0.005,
         "subtitle_wrap_length": 120,
         "label_wrap_length": 30,
@@ -113,6 +115,8 @@ class ChartView(AxisTickFormatMixin):
         "header_padding": 0.03,
         "subtitle_size_ratio": 0.7,
         "subtitle_line_spacing": 1.05,
+        "subtitle_vertical_padding_scale": 0.5,
+        "subtitle_top_padding_share": 0.15,
         "title_subtitle_gap": 0.005,
         "subtitle_wrap_length": 64,
         "label_wrap_length": 15,
@@ -158,6 +162,8 @@ class ChartView(AxisTickFormatMixin):
         "header_padding": 0.03,
         "subtitle_size_ratio": 0.7,
         "subtitle_line_spacing": 1.05,
+        "subtitle_vertical_padding_scale": 0.5,
+        "subtitle_top_padding_share": 0.15,
         "title_subtitle_gap": 0.005,
         "subtitle_wrap_length": 80,
         "label_wrap_length": 25,
@@ -207,6 +213,8 @@ class ChartView(AxisTickFormatMixin):
         "header_padding": 0.03,
         "subtitle_size_ratio": 0.7,
         "subtitle_line_spacing": 1.05,
+        "subtitle_vertical_padding_scale": 0.5,
+        "subtitle_top_padding_share": 0.15,
         "title_subtitle_gap": 0.005,
         "logo_zoom": 0.05,
         "logo_x": 0.009,
@@ -835,7 +843,7 @@ class ChartView(AxisTickFormatMixin):
             text,
             fontsize=fontsize,
             linespacing=linespacing,
-            visible=False,
+            alpha=0.0,
         )
 
         renderer = fig.canvas.get_renderer()
@@ -986,6 +994,7 @@ class ChartView(AxisTickFormatMixin):
 
         # Track vertical position (starts at top of figure)
         title_bottom_y = header_y  # Default if no title
+        title_text = subtitle_text = None
 
         # Add title if provided
         if title:
@@ -1016,7 +1025,7 @@ class ChartView(AxisTickFormatMixin):
                 right_margin=1 - header_x,
                 fallback_wrap_length=style.get("subtitle_wrap_length", 65),
             )
-            fig.text(
+            subtitle_text = fig.text(
                 header_x,
                 title_bottom_y,
                 wrapped_subtitle,
@@ -1025,6 +1034,44 @@ class ChartView(AxisTickFormatMixin):
                 ha="left",
                 va="top",
             )
+
+        return title_text, subtitle_text
+
+    def _center_subtitle_vertically(self, fig, title_text, subtitle_text, style, header_height):
+        """Center the subtitle with scaled padding above and below it."""
+        if title_text is None or subtitle_text is None:
+            return
+
+        visible_axes = self._visible_axes(fig)
+        if not visible_axes:
+            return
+
+        # A full render already ran in the preceding layout passes
+        # (_center_axes_vertically / _align_axes_horizontally), so the cached
+        # renderer is valid for the text extents measured here.
+        renderer = fig.canvas.get_renderer()
+        fig_height_px = fig.get_figheight() * fig.dpi
+        title_bottom_y = title_text.get_window_extent(renderer).y0 / fig_height_px
+        subtitle_height = subtitle_text.get_window_extent(renderer).height / fig_height_px
+        chart_top_y = max(ax.get_position().y1 for ax in visible_axes)
+        available_spacing = title_bottom_y - chart_top_y - subtitle_height
+        if available_spacing <= 0:
+            return
+
+        padding_scale = style.get("subtitle_vertical_padding_scale", 1.0)
+        target_spacing = available_spacing * padding_scale
+        requested_shift = available_spacing - target_spacing
+        header_boundary_y = 1.0 - header_height
+        available_upward_shift = max(0.0, header_boundary_y - chart_top_y)
+        axes_shift = min(requested_shift, available_upward_shift)
+
+        for ax in visible_axes:
+            pos = ax.get_position()
+            ax.set_position([pos.x0, pos.y0 + axes_shift, pos.width, pos.height])
+
+        remaining_spacing = available_spacing - axes_shift
+        top_padding_share = style.get("subtitle_top_padding_share", 0.5)
+        subtitle_text.set_y(title_bottom_y - remaining_spacing * top_padding_share)
 
     def _add_footer(self, fig, metadata, style, bottom_margin):
         """
@@ -1092,8 +1139,9 @@ class ChartView(AxisTickFormatMixin):
         footer_height = style.get("footer_height", 0) if show_footer else 0
 
         # Add header if enabled (after calculating height so it knows space available)
+        title_text = subtitle_text = None
         if show_header:
-            self._add_header(fig, metadata, style)
+            title_text, subtitle_text = self._add_header(fig, metadata, style)
 
         # Add footer if enabled
         if show_footer:
@@ -1104,31 +1152,75 @@ class ChartView(AxisTickFormatMixin):
         fig.tight_layout(rect=[0, footer_height, 1, 1 - header_height])
 
         self._center_axes_vertically(fig, header_height, footer_height)
+        if show_header or show_footer:
+            self._align_axes_horizontally(fig, style)
+        self._center_subtitle_vertically(fig, title_text, subtitle_text, style, header_height)
 
         return fig
 
+    def _visible_axes(self, fig):
+        """Return the figure's visible axes."""
+        return [ax for ax in fig.get_axes() if ax.get_visible()]
+
+    def _visible_axes_fig_bboxes(self, fig, visible_axes, renderer):
+        """Tight bboxes of the given axes (incl. labels) in figure-fraction coords."""
+        fig_bboxes = []
+        for ax in visible_axes:
+            bbox = ax.get_tightbbox(renderer)
+            if bbox is not None:
+                fig_bboxes.append(bbox.transformed(fig.transFigure.inverted()))
+        return fig_bboxes
+
+    def _align_axes_horizontally(self, fig, style):
+        """Align rendered chart edges with the header and footer text extent."""
+        visible_axes = self._visible_axes(fig)
+        if not visible_axes:
+            return
+
+        target_left, target_right = style.get("footer_extent", (0.01, 0.99))
+
+        for _ in range(2):
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            visual_bounds = self._visible_axes_fig_bboxes(fig, visible_axes, renderer)
+            if not visual_bounds:
+                return
+
+            visual_left = min(bounds.x0 for bounds in visual_bounds)
+            visual_right = max(bounds.x1 for bounds in visual_bounds)
+            axes_left = min(ax.get_position().x0 for ax in visible_axes)
+            axes_right = max(ax.get_position().x1 for ax in visible_axes)
+            axes_width = axes_right - axes_left
+            if axes_width <= 0:
+                return
+
+            aligned_left = axes_left + target_left - visual_left
+            aligned_right = axes_right + target_right - visual_right
+            aligned_width = aligned_right - aligned_left
+
+            for ax in visible_axes:
+                pos = ax.get_position()
+                relative_left = (pos.x0 - axes_left) / axes_width
+                relative_right = (pos.x1 - axes_left) / axes_width
+                new_x0 = aligned_left + relative_left * aligned_width
+                new_x1 = aligned_left + relative_right * aligned_width
+                ax.set_position([new_x0, pos.y0, new_x1 - new_x0, pos.height])
+
     def _center_axes_vertically(self, fig, header_height, footer_height):
         """Shift axes to equalize spacing between header content and footer content."""
-        visible_axes = [ax for ax in fig.get_axes() if ax.get_visible()]
+        visible_axes = self._visible_axes(fig)
         if not visible_axes:
             return
 
         renderer = fig.canvas.get_renderer()
 
         # Measure visual extent using get_tightbbox (includes tick labels, axis labels)
-        y_mins, y_maxes = [], []
-        for ax in visible_axes:
-            bbox = ax.get_tightbbox(renderer)
-            if bbox is not None:
-                fig_bbox = bbox.transformed(fig.transFigure.inverted())
-                y_mins.append(fig_bbox.y0)
-                y_maxes.append(fig_bbox.y1)
-
-        if not y_mins:
+        fig_bboxes = self._visible_axes_fig_bboxes(fig, visible_axes, renderer)
+        if not fig_bboxes:
             return
 
-        visual_top = max(y_maxes)
-        visual_bottom = min(y_mins)
+        visual_top = max(bbox.y1 for bbox in fig_bboxes)
+        visual_bottom = min(bbox.y0 for bbox in fig_bboxes)
 
         # Reference boundaries for visual centering:
         # - Top: header zone bottom (subtitle bottom edge)

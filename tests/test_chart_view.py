@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import pytest
 
 from tpsplots.views.chart_view import ChartView
 
@@ -228,6 +229,81 @@ def test_add_header_uses_tighter_subtitle_line_spacing(tmp_path):
     )
 
     assert fig.texts[1].get_linespacing() == 1.05
+    plt.close(fig)
+
+
+def test_add_header_nestles_subtitle_slightly_closer_to_title(tmp_path):
+    """Subtitle padding should be compact and slightly biased toward the title."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    style = dict(view.MOBILE)
+    fig, ax = plt.subplots(figsize=style["figsize"], dpi=style["dpi"])
+    metadata = {
+        "title": "The cost of NASA's Viking missions to Mars",
+        "subtitle": "First subtitle line\nSecond subtitle line\nThird subtitle line",
+    }
+    ax.set_position([0.1, 0.1, 0.8, 0.7])
+
+    title_text, subtitle_text = view._add_header(fig, metadata, style)
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    fig_height_px = fig.get_figheight() * fig.dpi
+    title_bbox = title_text.get_window_extent(renderer)
+    subtitle_bbox = subtitle_text.get_window_extent(renderer)
+    original_spacing = (title_bbox.y0 - subtitle_bbox.height) / fig_height_px - ax.get_position().y1
+
+    view._center_subtitle_vertically(fig, title_text, subtitle_text, style, 0.1)
+    fig.canvas.draw()
+
+    renderer = fig.canvas.get_renderer()
+    title_bbox = title_text.get_window_extent(renderer)
+    subtitle_bbox = subtitle_text.get_window_extent(renderer)
+    upper_gap = (title_bbox.y0 - subtitle_bbox.y1) / fig_height_px
+    lower_gap = subtitle_bbox.y0 / fig_height_px - ax.get_position().y1
+
+    compact_spacing = original_spacing * style["subtitle_vertical_padding_scale"]
+    assert upper_gap == pytest.approx(
+        compact_spacing * style["subtitle_top_padding_share"],
+        abs=1 / fig_height_px,
+    )
+    assert lower_gap == pytest.approx(
+        compact_spacing * (1.0 - style["subtitle_top_padding_share"]),
+        abs=1 / fig_height_px,
+    )
+    assert upper_gap < lower_gap
+    plt.close(fig)
+
+
+def test_calculate_header_height_measures_multiline_subtitle(tmp_path):
+    """Wrapped subtitle lines must contribute their rendered height to the header."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    style = dict(view.MOBILE)
+    fig = plt.figure(figsize=style["figsize"], dpi=style["dpi"])
+    metadata = {
+        "title": "The cost of NASA's Viking missions to Mars",
+        "subtitle": "First subtitle line\nSecond subtitle line\nThird subtitle line",
+    }
+
+    header_height = view._calculate_header_height(fig, metadata, style)
+
+    assert header_height > style["header_height"]
+    plt.close(fig)
+
+
+def test_layout_aligns_decoration_free_chart_with_header_and_footer(tmp_path):
+    """A chart without ticks should share the header/footer horizontal extent."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    style = dict(view.MOBILE)
+    fig, ax = plt.subplots(figsize=style["figsize"], dpi=style["dpi"])
+    ax.set_axis_off()
+    metadata = {"title": "Aligned title", "source": "Aligned source"}
+
+    view._adjust_layout_for_header_footer(fig, metadata, style)
+
+    target_left, target_right = style["footer_extent"]
+    position = ax.get_position()
+    tolerance = 1 / (fig.get_figwidth() * fig.dpi)
+    assert position.x0 == pytest.approx(target_left, abs=tolerance)
+    assert position.x1 == pytest.approx(target_right, abs=tolerance)
     plt.close(fig)
 
 
