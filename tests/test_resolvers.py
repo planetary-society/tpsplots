@@ -46,6 +46,33 @@ class TestReferenceResolver:
         with pytest.raises(ConfigurationError):
             ReferenceResolver.resolve("{{missing}}", data)
 
+    def test_error_shows_available_keys_by_default(self):
+        """A missing key lists the available keys of the container it missed."""
+        data = {"metadata": {"max_cost": 1, "min_cost": 2}}
+        with pytest.raises(ConfigurationError) as exc:
+            ReferenceResolver.resolve("{{metadata.mux_cost}}", data)
+        message = str(exc.value)
+        assert "Available keys:" in message
+        assert "max_cost" in message and "min_cost" in message
+
+    def test_error_shows_the_actual_reference(self):
+        """The error names the real reference, not a literal '{{path}}'."""
+        data = {"metadata": {"max_cost": 1}}
+        with pytest.raises(ConfigurationError) as exc:
+            ReferenceResolver.resolve("{{metadata.mux_cost}}", data)
+        message = str(exc.value)
+        assert "{{metadata.mux_cost}}" in message
+        assert "{{path}}" not in message
+
+    def test_error_hint_for_non_mapping_container(self):
+        """Attribute access on a scalar reports no referenceable keys."""
+        data = {"metadata": {"source": "TPS"}}
+        with pytest.raises(ConfigurationError) as exc:
+            ReferenceResolver.resolve("{{metadata.source.foo}}", data)
+        message = str(exc.value)
+        assert "No referenceable keys on str value" in message
+        assert "{{metadata.source.foo}}" in message
+
     def test_list_resolution(self):
         """Test that lists are recursively resolved."""
         data = {"a": 1, "b": 2}

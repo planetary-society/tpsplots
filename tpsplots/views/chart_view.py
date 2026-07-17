@@ -68,6 +68,7 @@ class ChartView(AxisTickFormatMixin):
         "header_y": 0.98,
         "header_padding": 0.03,
         "subtitle_size_ratio": 0.7,
+        "subtitle_line_spacing": 1.05,
         "title_subtitle_gap": 0.005,
         "subtitle_wrap_length": 120,
         "label_wrap_length": 30,
@@ -111,6 +112,7 @@ class ChartView(AxisTickFormatMixin):
         "header_y": 0.98,
         "header_padding": 0.03,
         "subtitle_size_ratio": 0.7,
+        "subtitle_line_spacing": 1.05,
         "title_subtitle_gap": 0.005,
         "subtitle_wrap_length": 64,
         "label_wrap_length": 15,
@@ -155,6 +157,7 @@ class ChartView(AxisTickFormatMixin):
         "header_y": 0.98,
         "header_padding": 0.03,
         "subtitle_size_ratio": 0.7,
+        "subtitle_line_spacing": 1.05,
         "title_subtitle_gap": 0.005,
         "subtitle_wrap_length": 80,
         "label_wrap_length": 25,
@@ -203,6 +206,7 @@ class ChartView(AxisTickFormatMixin):
         "header_y": 0.98,
         "header_padding": 0.03,
         "subtitle_size_ratio": 0.7,
+        "subtitle_line_spacing": 1.05,
         "title_subtitle_gap": 0.005,
         "logo_zoom": 0.05,
         "logo_x": 0.009,
@@ -805,7 +809,7 @@ class ChartView(AxisTickFormatMixin):
         if axis in ("x", "both"):
             ax.xaxis.set_major_formatter(FuncFormatter(formatter))
 
-    def _measure_text_height(self, fig, text, fontsize) -> float:
+    def _measure_text_height(self, fig, text, fontsize, *, linespacing=1.2) -> float:
         """
         Measure text height in figure-fraction coordinates.
 
@@ -816,6 +820,7 @@ class ChartView(AxisTickFormatMixin):
             fig: The matplotlib Figure object
             text: The text string to measure
             fontsize: Font size for the text
+            linespacing: Spacing between lines as a multiple of the font size
 
         Returns:
             float: Height of the text in figure-fraction coordinates (0.0-1.0)
@@ -824,7 +829,14 @@ class ChartView(AxisTickFormatMixin):
             return 0.0
 
         # Create temporary invisible text element to measure
-        temp_text = fig.text(0, 0, text, fontsize=fontsize, visible=False)
+        temp_text = fig.text(
+            0,
+            0,
+            text,
+            fontsize=fontsize,
+            linespacing=linespacing,
+            visible=False,
+        )
 
         renderer = fig.canvas.get_renderer()
 
@@ -920,6 +932,7 @@ class ChartView(AxisTickFormatMixin):
         # Measure subtitle height (with wrapping applied)
         subtitle_ratio = style.get("subtitle_size_ratio", 0.7)
         subtitle_size = style["title_size"] * subtitle_ratio
+        subtitle_line_spacing = style.get("subtitle_line_spacing", 1.05)
         header_x = style.get("header_x", 0.01)
         if subtitle:
             wrapped = self._wrap_header_text(
@@ -930,7 +943,12 @@ class ChartView(AxisTickFormatMixin):
                 right_margin=1 - header_x,
                 fallback_wrap_length=style.get("subtitle_wrap_length", 65),
             )
-            subtitle_height = self._measure_text_height(fig, wrapped, subtitle_size)
+            subtitle_height = self._measure_text_height(
+                fig,
+                wrapped,
+                subtitle_size,
+                linespacing=subtitle_line_spacing,
+            )
         else:
             subtitle_height = 0.0
 
@@ -963,6 +981,7 @@ class ChartView(AxisTickFormatMixin):
         header_x = style.get("header_x", 0.01)
         header_y = style.get("header_y", 0.98)
         subtitle_ratio = style.get("subtitle_size_ratio", 0.7)
+        subtitle_line_spacing = style.get("subtitle_line_spacing", 1.05)
         gap = style.get("title_subtitle_gap", 0.005)
 
         # Track vertical position (starts at top of figure)
@@ -1002,6 +1021,7 @@ class ChartView(AxisTickFormatMixin):
                 title_bottom_y,
                 wrapped_subtitle,
                 fontsize=subtitle_size,
+                linespacing=subtitle_line_spacing,
                 ha="left",
                 va="top",
             )

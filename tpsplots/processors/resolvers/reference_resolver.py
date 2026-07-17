@@ -262,23 +262,55 @@ class ReferenceResolver:
         for i, part in enumerate(parts):
             if isinstance(current, dict):
                 if part not in current:
-                    traversed = ".".join(parts[:i]) if i > 0 else "(root)"
                     raise ConfigurationError(
-                        f"Reference '{{{{path}}}}' not found: key '{part}' does not exist. "
-                        f"Traversed: {traversed}. Available keys: {list(current.keys())}"
+                        ReferenceResolver._not_found_message(
+                            path, parts, i, current, f"key '{part}' does not exist"
+                        )
                     )
                 current = current[part]
             elif hasattr(current, part):
                 # Support attribute access for objects
                 current = getattr(current, part)
             else:
-                traversed = ".".join(parts[:i]) if i > 0 else "(root)"
                 raise ConfigurationError(
-                    f"Reference '{{{{path}}}}' not found: cannot access '{part}' "
-                    f"on {type(current).__name__}. Traversed: {traversed}"
+                    ReferenceResolver._not_found_message(
+                        path,
+                        parts,
+                        i,
+                        current,
+                        f"cannot access '{part}' on {type(current).__name__}",
+                    )
                 )
 
         return current
+
+    @staticmethod
+    def _not_found_message(
+        path: str,
+        parts: list[str],
+        index: int,
+        container: Any,
+        reason: str,
+    ) -> str:
+        """Build a reference-resolution error that lists what is available.
+
+        The keys reachable on the container traversed so far are always shown so
+        a typo'd reference surfaces the valid options without extra digging.
+        """
+        reference = "{{" + path + "}}"
+        traversed = ".".join(parts[:index]) if index > 0 else "(root)"
+        return (
+            f"Reference '{reference}' not found: {reason}. "
+            f"Traversed: {traversed}. {ReferenceResolver._available_hint(container)}"
+        )
+
+    @staticmethod
+    def _available_hint(container: Any) -> str:
+        """Describe the keys that can be referenced on ``container``."""
+        if isinstance(container, dict):
+            keys = list(container.keys())
+            return f"Available keys: {keys}" if keys else "Available keys: (none)"
+        return f"No referenceable keys on {type(container).__name__} value"
 
     @staticmethod
     def _resolve_template(template: str, data: dict[str, Any]) -> str:

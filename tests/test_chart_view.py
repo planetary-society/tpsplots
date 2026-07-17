@@ -215,6 +215,22 @@ def test_add_header_wraps_subtitle_within_figure_width(tmp_path):
     plt.close(fig)
 
 
+def test_add_header_uses_tighter_subtitle_line_spacing(tmp_path):
+    """Multiline subtitles should use the subtitle-specific line spacing."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    style = dict(view.DESKTOP)
+    fig = plt.figure(figsize=style["figsize"], dpi=style["dpi"])
+
+    view._add_header(
+        fig,
+        {"title": "Test title", "subtitle": "First subtitle line\nSecond subtitle line"},
+        style,
+    )
+
+    assert fig.texts[1].get_linespacing() == 1.05
+    plt.close(fig)
+
+
 # ── _center_axes_vertically tests ──────────────────────────────────
 
 
