@@ -7,9 +7,22 @@ chart:
   title: NASA's budget is subdivided by mission area
   subtitle: "Directorates are responsible for distinct activities - from science to facilities - and they don't share funding."
   source: "{{source}}"
+  eyebrow: "NASA BUDGET STRUCTURE"
+  note: "Shares of NASA's total budget authority by directorate."
 
   values: "{{Budget}}"
   labels: "{{Directorate}}"
+  # No-red palette: red is reserved and must not read as a neutral category in
+  # composition charts. Slice order matches the controller's directorate order
+  # (Science, Aeronautics, Deep Space Exploration Systems, Space Operations,
+  # Space Technology, Facilities); adjacent slices stay distinguishable.
+  colors:
+    - Neptune Blue
+    - Plasma Purple
+    - Medium Neptune
+    - Medium Plasma
+    - Lunar Soil
+    - Crater Shadow
   show_percentages: true
   label_distance: 1.1
   hole_size: 0.6

@@ -7,6 +7,8 @@ chart:
   title: "NASA's shrinking share of the U.S. budget"
   subtitle: "NASA's budget has not kept pace with overall U.S. spending."
   source: "Congressional Budget Justifications, {{metadata.min_fiscal_year}}-{{metadata.max_fiscal_year}}"
+  eyebrow: "U.S. FEDERAL SPENDING"
+  note: "Left axis inflation-adjusted to 2025 dollars (NASA New Start Index); right axis is NASA's share of total U.S. spending."
 
   x: "{{Fiscal Year}}"
   y: "{{Appropriation_adjusted_nnsi}}"

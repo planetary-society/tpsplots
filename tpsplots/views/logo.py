@@ -12,6 +12,7 @@ from matplotlib.path import Path as MplPath
 from matplotlib.transforms import Affine2D
 
 from tpsplots import IMAGES_DIR
+from tpsplots.views.style import tokens
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,6 @@ _EPS_BOTTOM = 0.0
 _EPS_RIGHT = 2104.2413
 _EPS_HEIGHT = 193.0806
 _EPS_WIDTH = _EPS_RIGHT - _EPS_LEFT  # ≈ 2041.09
-
-_LOGO_COLOR = "#545454"
 
 # Module-level cache — parsed once, reused across all renders.
 _cached_path: MplPath | None = None
@@ -115,7 +114,7 @@ def get_cached_path() -> MplPath | None:
 
 
 # ── Draw into a figure ─────────────────────────────────────────────
-def draw_logo(fig, zoom, x, y, color=_LOGO_COLOR) -> bool:
+def draw_logo(fig, zoom, x, y, color=None) -> bool:
     """Add the vector logo to *fig* as a ``PathPatch``.
 
     Parameters
@@ -126,14 +125,18 @@ def draw_logo(fig, zoom, x, y, color=_LOGO_COLOR) -> bool:
         Width is derived automatically from the EPS aspect ratio.
     x, y : float
         Bottom-left position in figure-fraction coordinates.
-    color : str
-        Face colour for the path.
+    color : str, optional
+        Face colour for the path. Defaults to ``tokens.LOGO_COLOR`` (resolved
+        at call time so runtime mutation of the token propagates).
 
     Returns
     -------
     bool
         ``True`` if the logo was drawn, ``False`` if the EPS was missing.
     """
+    if color is None:
+        color = tokens.LOGO_COLOR
+
     path = get_cached_path()
     if path is None:
         return False

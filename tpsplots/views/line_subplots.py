@@ -10,6 +10,7 @@ from tpsplots.models.charts.line_subplots import LineSubplotsChartConfig
 from .chart_view import ChartView
 from .line_chart import _is_integer_x_data
 from .mixins import GridAxisMixin, LineSeriesMixin
+from .style import tokens
 
 logger = logging.getLogger(__name__)
 
@@ -73,10 +74,12 @@ class LineSubplotsView(LineSeriesMixin, GridAxisMixin, ChartView):
         *,
         shared_legend=False,
         is_first_subplot=False,
+        xlim=None,
     ):
         """Plot all series for one subplot and return shared legend handles/labels."""
         x = plot_data.get("x")
         y_series_list = self._coerce_series_list(plot_data.get("y"))
+        x, y_series_list, _ = self._clip_to_xlim(x, y_series_list, None, xlim)
         labels = plot_data.get("labels", None)
         colors = plot_data.get("colors", None)
         linestyles = plot_data.get("linestyles", None)
@@ -120,6 +123,21 @@ class LineSubplotsView(LineSeriesMixin, GridAxisMixin, ChartView):
                 plot_kwargs["label"] = current_label
 
             line = ax.plot(x_valid, y_valid, **plot_kwargs)
+            if marker_values[i] is not None and len(x_valid):
+                # Redraw the terminal marker unclipped: when xlim ends exactly
+                # at the last data point the marker straddles the axes edge
+                # and would otherwise render as a half circle (same treatment
+                # as endpoint markers in DirectLineLabelsMixin).
+                ax.plot(
+                    x_valid[-1],
+                    y_valid[-1],
+                    marker=marker_values[i],
+                    markersize=style.get("marker_size", 5),
+                    color=line[0].get_color(),
+                    linestyle="None",
+                    zorder=line[0].get_zorder(),
+                    clip_on=False,
+                )
             if shared_legend and is_first_subplot and current_label:
                 shared_handles.extend(line)
                 shared_labels.append(current_label)
@@ -203,6 +221,7 @@ class LineSubplotsView(LineSeriesMixin, GridAxisMixin, ChartView):
                 style,
                 shared_legend=shared_legend,
                 is_first_subplot=idx == 0,
+                xlim=global_xlim,
             )
             if subplot_handles:
                 all_handles.extend(subplot_handles)
@@ -238,7 +257,6 @@ class LineSubplotsView(LineSeriesMixin, GridAxisMixin, ChartView):
                 "loc": "center",
                 "bbox_to_anchor": legend_position,
                 "ncol": len(all_labels),  # Horizontal layout by default
-                "frameon": True,
             }
 
             # Allow customization of shared legend
@@ -293,9 +311,9 @@ class LineSubplotsView(LineSeriesMixin, GridAxisMixin, ChartView):
             tick_rotation=tick_rotation,
             grid=grid,
             grid_axis=grid_axis,
-            grid_alpha=0.3,
-            grid_linestyle="-",
-            grid_linewidth=0.8,
+            grid_alpha=tokens.GRID_ALPHA,
+            grid_linestyle=tokens.GRID_LINESTYLE,
+            grid_linewidth=tokens.GRID_LINEWIDTH,
         )
 
         # Get x-axis data for date detection

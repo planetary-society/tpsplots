@@ -12,6 +12,8 @@ chart:
   title: "Artemis vs Apollo: Annual Spending Comparison"
   subtitle: "Development costs adjusted to 2025 dollars"
   source: "NASA Budget Justifications, adjusted for inflation"
+  eyebrow: "MOON PROGRAM ECONOMICS"
+  note: "Annual outlays in constant 2025 dollars — not cumulative program totals."
 
   x: "{{Years from Start}}"
   y:

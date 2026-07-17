@@ -19,6 +19,8 @@ chart:
   title: "Viking project costs by component"
   subtitle: "Nominal costs in millions of dollars; total project cost: $1,057.9 million."
   source: "The Planetary Society, Planetary Exploration Budget Dataset."
+  eyebrow: "MISSION ECONOMICS"
+  note: "Nominal costs, not adjusted for inflation."
 
   labels:
     - Project Management
@@ -36,6 +38,18 @@ chart:
     - '{{metadata.column_sums["Lander Science"]}}'
     - '{{metadata.column_sums["Launch Vehicle"]}}'
     - '{{metadata.column_sums["Operations"]}}'
+  # No-red palette: red is reserved in composition charts and must not paint a
+  # neutral component. Colors align to the label order above; Orbiter and Lander
+  # subsystems share a hue family (blue / purple) while overhead components
+  # (management, launch, operations) use grays.
+  colors:
+    - Crater Shadow
+    - Neptune Blue
+    - Medium Neptune
+    - Plasma Purple
+    - Medium Plasma
+    - Lunar Soil
+    - Comet Dust
   show_labels: true
   label_wrap_length: 8
   show_percentages: true

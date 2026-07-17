@@ -411,4 +411,4 @@ class TestNASAFY2026ControllerMetadata:
         # Existing keys preserved
         assert "total_projects" in result
         assert "total_value" in result
-        assert "total_development_time" in result
+        assert "total_operational_years" in result

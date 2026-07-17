@@ -10,7 +10,7 @@ def _read(path: str) -> str:
 def test_color_widget_supports_schema_driven_multi_mode():
     src = _read("tpsplots/editor/static/js/widgets/ColorWidget.js")
     assert 'const supportsArray = allowedTypes.has("array");' in src
-    assert 'const [mode, setMode] = useState(initialMode);' in src
+    assert "const [mode, setMode] = useState(initialMode);" in src
     assert 'if (mode === "multi") {' in src
     assert "onChange(nextList.length > 0 ? nextList : undefined);" in src
 

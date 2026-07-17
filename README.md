@@ -7,10 +7,99 @@ A data visualization framework for The Planetary Society that creates consistent
 - **YAML-Driven Chart Generation** - Define charts declaratively without writing Python code
 - **Interactive Chart Editor** - Browser-based GUI for creating and editing charts with live preview
 - **Multiple Chart Types** - Line, scatter, bar, donut, treemap, lollipop, stacked bar, waffle, grouped bar, US map pie, and line subplots
-- **Automatic Responsive Output** - Generates desktop (16:10), mobile (8:9), and social card (1200x630) versions
+- **Automatic Responsive Output** - Generates desktop (16:10), mobile (8:9), and social card (2400x1260, 40:21 OG ratio) versions
 - **Multi-Format Export** - SVG, PNG, PPTX, and CSV data export
 - **Flexible Data Sources** - Google Sheets, CSV files, or custom controller methods
-- **TPS Brand Styling** - Consistent Planetary Society branding with Poppins fonts
+- **TPS Brand Styling** - Consistent Planetary Society branding with Poppins fonts and a house design language (see below)
+
+## Design Language
+
+Every chart shares one anatomy so TPS output is recognizable at a glance and honest by
+construction. The defaults implement all of this — a YAML file gets the house style for
+free, and the conventions below explain *when to reach for which option*.
+
+### Anatomy
+
+- **Canvas**: Slushy Brine (`#F5F5F5`) throughout, anchored by a single **2.5pt bottom
+  spine** (the "launchpad") — no top, right, or left spines.
+- **Grid**: horizontal-only hairlines (`#DBDBDB`, solid, 0.8pt). The grid marks y
+  positions, so y-axis tick stubs are suppressed; the x-axis keeps short 4pt ticks. No
+  minor ticks anywhere.
+- **Header**: optional `eyebrow:` kicker (Neptune Blue, uppercase, desktop only), a
+  near-black title, and a gray subtitle. The plot stretches to fill whatever the header
+  and footer don't use.
+- **Footer**: TPS logo plus a standardized `note:` + `source:` line. Put methodology in
+  `note:` — inflation basis, denominators, axis-zero disclosures — not in the subtitle.
+- **Legends**: frameless, and only when direct labels can't work. Prefer labeling series
+  at their endpoints.
+
+### Color grammar
+
+Hue carries *meaning*, not decoration. Assign colors by role, never by "what's next in
+the cycle looks nice":
+
+| Role | Color | When |
+|------|-------|------|
+| Enacted / actual / primary | `Neptune Blue` `#037CC2` | The series the chart is about |
+| Taken away | `Rocket Flame` `#FF5D47` | Cuts, cancellations, at-risk programs. **Reserved** — in composition charts (donut/treemap/waffle) categories stay in blue/purple/gray families so red keeps its meaning |
+| Secondary series | `Plasma Purple` `#643788` | A second entity compared against the primary |
+| Comparison / tertiary | `Medium Neptune` `#3FA9E0` | Fourth slot in the cycle |
+| Context | `Lunar Soil` `#8C8C8C`, `Crater Shadow` `#414141` | Historical background, de-emphasized series |
+
+The automatic series cycle runs in exactly that order and is validated for
+colorblind-safe adjacency on the brine canvas. More than six series should fold into a
+gray "Other" or become small multiples — never invent a seventh hue.
+
+### Certainty grammar
+
+Color carries valence; **linestyle carries certainty**:
+
+- **Solid** = enacted, appropriated, actual.
+- **Dotted** (`:`) = proposed or projected — a budget request, a projection, anything
+  not yet law. Dotted lines render as true round dots (the base style tunes
+  `lines.dotted_pattern` for this).
+- **Gray dashed** (`--`) = prior-year context via `series_types: [prior, ...]`.
+
+A solid red future asserts a proposal as fact; TPS's core subject is proposals, so the
+break between solid and dotted should land at the last enacted year.
+
+### Marks
+
+- Lines are **3pt with no per-point markers**. The featured series ends in the TPS
+  signature **orbit-ring endpoint** (a filled dot wearing an unfilled ring) with a boxed
+  direct label — on by default with direct labels, or explicit via
+  `end_point: {marker: ring}`.
+- Bars are flat-topped (no rounded ends — they ambiguate the measured value) with value
+  labels on the data (`show_values: true`).
+- Data outside a configured `xlim` window is clipped from the dataset on line, scatter,
+  and subplot charts, so edge markers render whole and the y-axis scales to what is
+  visible.
+
+### Takeaway layer
+
+The chart states the takeaway; the reader shouldn't have to derive it:
+
+```yaml
+chart:
+  eyebrow: "FY 2026 APPROPRIATIONS"        # kicker above the title
+  note: "Budget authority in current dollars; marks are not enacted law."
+  annotations:                              # callouts in the direct-label box style
+    - x: -0.28
+      y: 18809100000
+      text: "$6B (24%) below\nCongress's marks"
+      arrow: true
+```
+
+Every highlighted phrase, delta, or annotation must be literal and defensible from the
+plotted data — the credibility contract behind all advocacy output.
+
+### Output variants
+
+| Variant | Ratio | Job |
+|---------|-------|-----|
+| Desktop | 16:10 | Article embeds; full header with eyebrow |
+| Mobile | 8:9 | **The direct social-share format** — designed first; eyebrow dropped, titles wrap |
+| Social | 40:21 (2400×1260) | Open Graph link preview only — intentionally headline-free, platforms show the page title |
 
 ## Quick Start
 
@@ -59,7 +148,7 @@ print(f"Generated {result['succeeded']} charts")
 Charts are saved to `charts/` by default:
 - `my_first_chart_desktop.svg` / `my_first_chart_mobile.svg`
 - `my_first_chart_desktop.png` / `my_first_chart_mobile.png`
-- `my_first_chart_social.png` (1200x630 social card, PNG only)
+- `my_first_chart_social.png` (2400x1260 social card, 40:21 OG ratio, PNG only)
 - `my_first_chart.pptx` (desktop only)
 - `my_first_chart.csv` (if `export_data` specified)
 
@@ -440,15 +529,19 @@ data:
 
 ## Semantic Colors
 
-Use TPS brand color names instead of hex codes:
+Use TPS brand color names instead of hex codes. The automatic series cycle runs in this
+order (see [Design Language](#design-language) for when each role applies):
 
-| Name | Hex | Usage |
-|------|-----|-------|
-| `NeptuneBlue` | `#037CC2` | Primary |
-| `RocketFlame` | `#FF5D47` | Accent |
-| `PlasmaPurple` | `#643788` | Secondary |
-| `LunarSoil` | `#8C8C8C` | Gray |
-| `CraterShadow` | `#414141` | Dark |
+| Name | Hex | Role |
+|------|-----|------|
+| `NeptuneBlue` | `#037CC2` | Primary — enacted / actual |
+| `RocketFlame` | `#FF5D47` | Taken away — cuts, cancellations (reserved in composition charts) |
+| `PlasmaPurple` | `#643788` | Secondary series |
+| `MediumNeptune` | `#3FA9E0` | Comparison / tertiary |
+| `LunarSoil` | `#8C8C8C` | Context gray |
+| `CraterShadow` | `#414141` | Dark context / text ink |
+
+Full palette in `tpsplots/colors.py`.
 
 ---
 

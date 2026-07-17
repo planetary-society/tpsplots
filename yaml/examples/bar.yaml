@@ -19,6 +19,8 @@ chart:
   subtitle: "As Congress shifted from annual to irregular reauthorizations,
     NASA authorization bills grew substantially in word count."
   source: "Congress.gov"
+  eyebrow: "SPACE POLICY"
+  note: "Word counts cover the full text of each enacted NASA authorization bill."
 
   categories: "{{Year}}"
   values: "{{Word Count}}"

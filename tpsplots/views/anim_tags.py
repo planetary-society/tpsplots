@@ -39,6 +39,9 @@ class Roles:
 
     SERIES = "series"
     ENDPOINT = "endpoint"
+    # Decorative orbit ring around an endpoint. Kept distinct from ENDPOINT —
+    # the line animator's endpoint lookup is one-artist-per-series-index.
+    ENDPOINT_RING = "endpoint_ring"
     SERIES_LABEL = "series_label"
     BAR = "bar"
     VALUE_LABEL = "value_label"

@@ -9,6 +9,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from tpsplots.models.mixins import (
+    AnnotationsMixin,
     AxisMixin,
     ChartConfigBase,
     GridMixin,
@@ -19,6 +20,7 @@ from tpsplots.models.mixins import (
 
 
 class LollipopChartConfig(
+    AnnotationsMixin,
     AxisMixin,
     GridMixin,
     TickFormatMixin,

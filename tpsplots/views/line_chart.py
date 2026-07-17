@@ -20,6 +20,7 @@ from .mixins import (
     broadcast_param,
     legend_config_kwargs,
 )
+from .style import tokens
 
 logger = logging.getLogger(__name__)
 
@@ -652,6 +653,9 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
 
         x_data, y_data, data_ref = self._resolve_line_data(kwargs)
         y_right_data = self._resolve_y_right_data(kwargs, data_ref)
+        x_data, y_data, y_right_data = self._clip_to_xlim(
+            x_data, y_data, y_right_data, kwargs.get("xlim")
+        )
 
         num_left = len(y_data) if y_data else 0
         num_right = len(y_right_data) if y_right_data else 0
@@ -802,15 +806,10 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             )
             return
 
-        if grid is None:
-            effective_grid = style.get("grid")
-            effective_grid_axis = opts["grid_axis"] or style.get("grid_axis")
-        elif grid:
-            effective_grid = True
-            effective_grid_axis = opts["grid_axis"] or "both"
-        else:
-            effective_grid = False
-            effective_grid_axis = opts["grid_axis"] or style.get("grid_axis")
+        effective_grid = style.get("grid") if grid is None else bool(grid)
+        # YAML grid_axis wins; otherwise the device default (house style: "y")
+        # applies whether or not the YAML turned the grid on explicitly.
+        effective_grid_axis = opts["grid_axis"] or style.get("grid_axis")
 
         self._apply_common_axis_styling(
             ax,
@@ -822,8 +821,8 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             tick_rotation=opts["tick_rotation"],
             grid=effective_grid,
             grid_axis=effective_grid_axis,
-            grid_linestyle="-",
-            grid_linewidth=0.8,
+            grid_linestyle=tokens.GRID_LINESTYLE,
+            grid_linewidth=tokens.GRID_LINEWIDTH,
         )
 
     def _apply_line_axis_limits(self, ax, xlim, ylim, x_data):

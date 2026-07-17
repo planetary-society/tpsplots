@@ -11,6 +11,7 @@ import numpy as np
 from matplotlib.transforms import Bbox
 
 from ..anim_tags import Roles, tag_artist
+from ..style import tokens
 from .param_utils import broadcast_param
 
 logger = logging.getLogger(__name__)
@@ -92,13 +93,7 @@ class DirectLineLabelsMixin:
             # Create bbox styling if requested
             bbox_props = None
             if add_bbox:
-                bbox_props = dict(
-                    boxstyle="round,pad=0.2",
-                    facecolor="white",
-                    edgecolor=color,
-                    alpha=0.8,
-                    linewidth=1,
-                )
+                bbox_props = tokens.direct_label_bbox(color)
 
             # Add the text label
             ax.text(
@@ -162,9 +157,7 @@ class DirectLineLabelsMixin:
 
         bbox_props = None
         if add_bbox:
-            bbox_props = dict(
-                boxstyle="round,pad=0.2", facecolor="white", edgecolor=color, alpha=0.8, linewidth=1
-            )
+            bbox_props = tokens.direct_label_bbox(color)
 
         # Use alpha=0 instead of visible=False so matplotlib still computes the real bbox
         temp_text = ax.text(
@@ -320,6 +313,33 @@ class DirectLineLabelsMixin:
 
             last_x = numeric_x[last_x_idx]
 
+            # Resolve this series' endpoint config up front: the label offset
+            # must clear the endpoint's drawn extent, which for ring endpoints
+            # is ENDPOINT_RING_SCALE times the marker itself.
+            show_this_endpoint = False
+            this_endpoint_opts = {}
+            if end_point_configs == "all_same":
+                show_this_endpoint = True
+                this_endpoint_opts = end_point_default_opts
+            elif isinstance(end_point_configs, list) and _i < len(end_point_configs):
+                series_ep_config = end_point_configs[_i]
+                if isinstance(series_ep_config, dict):
+                    show_this_endpoint = True
+                    this_endpoint_opts = series_ep_config
+                elif series_ep_config:
+                    show_this_endpoint = True
+
+            label_clearance_points = markersize_points
+            if show_this_endpoint:
+                ep_size = _coerce_markersize(this_endpoint_opts.get("size", markersize_points))
+                ep_marker = this_endpoint_opts.get("marker", "o")
+                has_ring = ep_marker in ("ring", "orbit") or (
+                    tokens.ENDPOINT_RING and ep_marker == "o"
+                )
+                label_clearance_points = (
+                    ep_size * tokens.ENDPOINT_RING_SCALE if has_ring else ep_size
+                )
+
             text_bbox = self._get_text_bbox_display(
                 label_text, fontsize, color, add_bbox, renderer, ax
             )
@@ -334,23 +354,17 @@ class DirectLineLabelsMixin:
                     all_line_data_display,
                     existing_labels_bboxes,
                     ax,
-                    markersize_points,
+                    label_clearance_points,
                 )
             else:
                 optimal_pos = self._get_simple_label_position(
-                    last_x, last_y, text_bbox, position_mode, ax, markersize_points
+                    last_x, last_y, text_bbox, position_mode, ax, label_clearance_points
                 )
 
             if optimal_pos:
                 bbox_props = None
                 if add_bbox:
-                    bbox_props = dict(
-                        boxstyle="round,pad=0.2",
-                        facecolor="white",
-                        edgecolor=color,
-                        alpha=0.8,
-                        linewidth=1,
-                    )
+                    bbox_props = tokens.direct_label_bbox(color)
 
                 label_artist = ax.text(
                     optimal_pos["x_data"],
@@ -368,33 +382,29 @@ class DirectLineLabelsMixin:
                 if optimal_pos["bbox_display"] is not None:
                     existing_labels_bboxes.append(optimal_pos["bbox_display"])
 
-                # Draw endpoint marker if enabled
-                show_this_endpoint = False
-                this_endpoint_opts = {}
-
-                if end_point_configs == "all_same":
-                    show_this_endpoint = True
-                    this_endpoint_opts = end_point_default_opts
-                elif isinstance(end_point_configs, list) and _i < len(end_point_configs):
-                    series_ep_config = end_point_configs[_i]
-                    if isinstance(series_ep_config, dict):
-                        show_this_endpoint = True
-                        this_endpoint_opts = series_ep_config
-                    elif series_ep_config:
-                        show_this_endpoint = True
-
+                # Draw endpoint marker if enabled (config resolved above,
+                # before label positioning)
                 if show_this_endpoint:
-                    ep_marker = this_endpoint_opts.get("marker", "o")
-                    ep_size = this_endpoint_opts.get("size", markersize_points)
                     ep_facecolor = this_endpoint_opts.get("facecolor", color)
                     ep_edgecolor = this_endpoint_opts.get("edgecolor", "white")
                     ep_edgewidth = this_endpoint_opts.get("edgewidth", 1.5)
                     ep_zorder = this_endpoint_opts.get("zorder", 9)
 
+                    # "ring"/"orbit" is the TPS signature endpoint: a filled dot
+                    # wearing an unfilled orbit ring in the series color. It can
+                    # be requested per chart (end_point: {marker: ring}) or made
+                    # the default for plain "o" endpoints via tokens.ENDPOINT_RING.
+                    # (ep_size/ep_marker/has_ring resolved above with the label
+                    # clearance.)
+                    draw_marker = "o" if ep_marker in ("ring", "orbit") else ep_marker
+
+                    # clip_on=False: when xlim ends exactly at the last data
+                    # point, the marker straddles the axes edge and would
+                    # otherwise render as a half circle.
                     [marker] = ax.plot(
                         last_x,
                         last_y,
-                        marker=ep_marker,
+                        marker=draw_marker,
                         markersize=ep_size,
                         color=color,
                         markerfacecolor=ep_facecolor,
@@ -402,16 +412,36 @@ class DirectLineLabelsMixin:
                         markeredgewidth=ep_edgewidth,
                         linestyle="None",
                         zorder=ep_zorder,
+                        clip_on=False,
                     )
                     tag_artist(marker, Roles.ENDPOINT, series_offset + _i)
+
+                    # The ring gets its own role (not ENDPOINT — the line
+                    # animator assumes one ENDPOINT artist per series index)
+                    # so it can ride the sweep tip alongside the marker.
+                    if has_ring:
+                        [ring] = ax.plot(
+                            last_x,
+                            last_y,
+                            marker="o",
+                            markersize=ep_size * tokens.ENDPOINT_RING_SCALE,
+                            markerfacecolor="none",
+                            markeredgecolor=color,
+                            markeredgewidth=tokens.ENDPOINT_RING_WIDTH,
+                            linestyle="None",
+                            zorder=ep_zorder - 1,
+                            clip_on=False,
+                        )
+                        tag_artist(ring, Roles.ENDPOINT_RING, series_offset + _i)
 
     def _get_simple_label_position(
         self, x_data, y_data, text_bbox, position_mode, ax, markersize_points
     ):
         """Calculates position for simple modes using point offsets (DPI-aware)."""
-        gap_points = 8
-        minimum_offset_points = 12
-        offset_points = max((markersize_points / 2.0) + gap_points, minimum_offset_points)
+        offset_points = max(
+            (markersize_points / 2.0) + tokens.DIRECT_LABEL_GAP_POINTS,
+            tokens.DIRECT_LABEL_MIN_OFFSET_POINTS,
+        )
 
         if position_mode == "right":
             x_offset, y_offset = offset_points, 0
@@ -488,9 +518,10 @@ class DirectLineLabelsMixin:
 
         # Define offsets in pixels (DPI-aware)
         dpi = ax.get_figure().get_dpi()
-        gap_points = 8
-        minimum_offset_points = 12
-        offset_points = max((markersize_points / 2.0) + gap_points, minimum_offset_points)
+        offset_points = max(
+            (markersize_points / 2.0) + tokens.DIRECT_LABEL_GAP_POINTS,
+            tokens.DIRECT_LABEL_MIN_OFFSET_POINTS,
+        )
         offset_px = offset_points * (dpi / 72.0)
 
         text_width_px = text_bbox.width

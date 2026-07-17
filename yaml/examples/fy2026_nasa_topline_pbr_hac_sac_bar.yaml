@@ -9,6 +9,8 @@ chart:
   title: "NASA FY2026 Top Line: PBR vs HAC-CJS vs SAC-CJS"
   subtitle: "The White House proposed a sharp cut, while House and Senate CJS marks would keep NASA near FY2025 levels."
   source: "{{metadata.source}}"
+  eyebrow: "FY 2026 APPROPRIATIONS"
+  note: "Budget authority in current dollars; HAC-CJS and SAC-CJS are subcommittee marks, not enacted law."
 
   categories: '{{categories["NASA"].labels}}'
   values: '{{categories["NASA"].values}}'

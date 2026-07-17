@@ -36,7 +36,7 @@ TPS_COLORS: dict[str, str] = {
     "Plasma Purple": "#643788",
     "Rocket Flame": "#FF5D47",
     "Neptune Blue": "#037CC2",
-    "Medium Neptune": "#80BDE0",
+    "Medium Neptune": "#3FA9E0",
     "Light Neptune": "#BFDEF0",
     "Crater Shadow": "#414141",
     "Lunar Soil": "#8C8C8C",

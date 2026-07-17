@@ -5,6 +5,8 @@ import math
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
+from tpsplots.views.style import tokens
+
 
 class GridAxisMixin:
     """
@@ -24,9 +26,9 @@ class GridAxisMixin:
         *,
         grid=True,
         grid_axis="y",
-        alpha=0.3,
-        linestyle="--",
-        linewidth=0.5,
+        alpha=None,
+        linestyle=None,
+        linewidth=None,
     ):
         """
         Apply grid styling to axes.
@@ -35,10 +37,16 @@ class GridAxisMixin:
             ax: Matplotlib axes object
             grid: Whether to show grid (default: True)
             grid_axis: Which axis to show grid on ('x', 'y', 'both')
-            alpha: Grid line transparency (default: 0.3)
-            linestyle: Grid line style (default: '--')
-            linewidth: Grid line width (default: 0.5)
+            alpha: Grid line transparency (default: tokens.GRID_ALPHA)
+            linestyle: Grid line style (default: tokens.GRID_LINESTYLE)
+            linewidth: Grid line width (default: tokens.GRID_LINEWIDTH)
         """
+        if alpha is None:
+            alpha = tokens.GRID_ALPHA
+        if linestyle is None:
+            linestyle = tokens.GRID_LINESTYLE
+        if linewidth is None:
+            linewidth = tokens.GRID_LINEWIDTH
         if grid:
             ax.set_axisbelow(True)
             ax.grid(axis=grid_axis, alpha=alpha, linestyle=linestyle, linewidth=linewidth)
@@ -127,7 +135,7 @@ class GridAxisMixin:
         label_size=None,
         style_type="desktop",
         *,
-        italic=True,
+        italic=None,
         loc="center",
         xlabel_pad=10,
         ylabel_pad=4,
@@ -141,12 +149,14 @@ class GridAxisMixin:
             ylabel: Y-axis label text
             label_size: Font size for labels
             style_type: 'desktop' or 'mobile' for responsive sizing
-            italic: Whether to use italic style (default: True)
+            italic: Whether to use italic style (default: tokens.AXIS_LABEL_ITALIC)
             loc: Label location (default: 'center')
             xlabel_pad: Spacing in points between x-axis and label (default: 8)
             ylabel_pad: Spacing in points between y-axis and label (default: 4)
         """
 
+        if italic is None:
+            italic = tokens.AXIS_LABEL_ITALIC
         font_style = "italic" if italic else "normal"
 
         if xlabel:
@@ -175,12 +185,12 @@ class GridAxisMixin:
         tick_rotation=0,
         grid=True,
         grid_axis="y",
-        grid_alpha=0.3,
-        grid_linestyle="--",
-        grid_linewidth=0.5,
+        grid_alpha=None,
+        grid_linestyle=None,
+        grid_linewidth=None,
         xlim=None,
         ylim=None,
-        italic=True,
+        italic=None,
         loc="center",
         xlabel_pad=10,
         ylabel_pad=4,

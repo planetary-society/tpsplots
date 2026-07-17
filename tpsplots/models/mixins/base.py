@@ -42,7 +42,20 @@ class ChartConfigBase(BaseModel):
         None, description="Chart subtitle (supports {{variable}} templates)"
     )
     source: str | None = Field(None, description="Data source attribution")
-
+    eyebrow: str | None = Field(
+        None,
+        description=(
+            "Short kicker line rendered above the title (uppercased in code). "
+            "Desktop-only by default; hidden on mobile/social/video devices."
+        ),
+    )
+    note: str | None = Field(
+        None,
+        description=(
+            "Methodology note rendered right-aligned above the source line in the "
+            "footer. Single line, no wrapping."
+        ),
+    )
     # Figure-level
     figsize: list[float] | None = Field(
         None,

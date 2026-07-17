@@ -42,7 +42,8 @@ Returns:
         - xlim: tuple of x-axis limits
         - total_projects: int count of affected missions
         - total_value: str formatted total lifecycle cost
-        - total_development_time: int total development years
+        - total_operational_years: int combined operational years
+          (launch to proposed FY2026 cancellation)
         - export_df: DataFrame for CSV export
         - metadata: dict with standard keys
 

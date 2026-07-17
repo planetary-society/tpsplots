@@ -7,6 +7,8 @@ chart:
   title: "Cassini's Lifetime Cost"
   subtitle: NASA's annual spending on the Cassini-Huygens mission, adjusted for inflation to {{metadata.inflation_adjusted_year}} dollars.
   source: "Planetary Exp. Budget Dataset planet.ly/pbd"
+  eyebrow: "MISSION ECONOMICS"
+  note: "Annual costs in millions, inflation-adjusted to 2025 dollars with the NASA New Start Index."
 
   x: "{{Fiscal Year}}"
   y: "{{Total Cost_adjusted_nnsi}}"

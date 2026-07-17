@@ -705,3 +705,86 @@ class TestSeriesOverrides:
     def test_no_series_keys_means_none(self):
         config = LineChartConfig(type="line", output="test", title="T")
         assert config.series_overrides is None
+
+
+# ---------------------------------------------------------------------------
+# 10. Base header/footer/annotation optional fields (eyebrow, note, annotations)
+# ---------------------------------------------------------------------------
+class TestBaseAnnotationFields:
+    def test_eyebrow_and_note_accepted(self):
+        config = LineChartConfig(
+            type="line",
+            output="test",
+            title="T",
+            eyebrow="Mission update",
+            note="Estimates only; subject to revision.",
+        )
+        assert config.eyebrow == "Mission update"
+        assert config.note == "Estimates only; subject to revision."
+
+    def test_annotations_accepted_and_typed(self):
+        config = LineChartConfig(
+            type="line",
+            output="test",
+            title="T",
+            annotations=[
+                {
+                    "x": 2020,
+                    "y": 1.0,
+                    "text": "peak",
+                    "text_x": 2021,
+                    "text_y": 2.0,
+                    "arrow": True,
+                    "color": "Rocket Flame",
+                },
+                {"x": "2019-01-01", "y": 3.0, "text": "start"},
+            ],
+        )
+        assert config.annotations is not None
+        first, second = config.annotations
+        assert first.arrow is True
+        assert first.text == "peak"
+        assert first.color == "Rocket Flame"
+        # Unset optional coordinates default to None; arrow/color default too.
+        assert second.text_x is None
+        assert second.arrow is False
+        assert second.color is None
+        assert second.x == "2019-01-01"
+
+    def test_annotation_requires_x_y_text(self):
+        with pytest.raises(ValidationError):
+            LineChartConfig(
+                type="line",
+                output="test",
+                title="T",
+                annotations=[{"x": 1.0}],  # missing y and text
+            )
+
+    def test_annotation_rejects_unknown_key(self):
+        with pytest.raises(ValidationError):
+            LineChartConfig(
+                type="line",
+                output="test",
+                title="T",
+                annotations=[{"x": 1.0, "y": 1.0, "text": "t", "bogus": 5}],
+            )
+
+    def test_base_fields_default_none(self):
+        config = LineChartConfig(type="line", output="test", title="T")
+        assert config.eyebrow is None
+        assert config.note is None
+        assert config.annotations is None
+
+    def test_annotations_rejected_on_non_cartesian_charts(self):
+        """Donut axes aren't a data plane — annotations must fail validation."""
+        from tpsplots.models.charts.donut import DonutChartConfig
+
+        with pytest.raises(ValidationError):
+            DonutChartConfig(
+                type="donut",
+                output="test",
+                title="T",
+                values="{{v}}",
+                labels="{{l}}",
+                annotations=[{"x": 1.0, "y": 1.0, "text": "t"}],
+            )

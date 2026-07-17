@@ -9,6 +9,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, model_validator
 
 from tpsplots.models.mixins import (
+    AnnotationsMixin,
     AxisMixin,
     ChartConfigBase,
     GridMixin,
@@ -65,6 +66,7 @@ class SeriesConfig(BaseModel):
 
 
 class LineChartConfig(
+    AnnotationsMixin,
     AxisMixin,
     GridMixin,
     LegendMixin,

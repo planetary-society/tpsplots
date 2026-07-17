@@ -11,6 +11,7 @@ from tpsplots.models.charts.grouped_bar import GroupedBarChartConfig
 from .anim_tags import Roles, tag_artist
 from .chart_view import ChartView
 from .mixins import BarChartMixin, CategoricalBarMixin, GridAxisMixin, legend_config_kwargs
+from .style import tokens
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,7 @@ class GroupedBarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, Cha
         value_color = kwargs.pop("value_color", "black")
         value_weight = kwargs.pop("value_weight", "normal")
         alpha = kwargs.pop("alpha", 1.0)
-        edgecolor = kwargs.pop("edgecolor", "white")
+        edgecolor = kwargs.pop("edgecolor", tokens.BAR_EDGECOLOR)
         linewidth = kwargs.pop("linewidth", 0.5)
 
         # Axis and styling parameters

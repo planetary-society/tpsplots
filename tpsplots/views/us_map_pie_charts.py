@@ -290,8 +290,6 @@ class USMapPieChartView(ColorCycleMixin, ChartView):
                 legend_labels_list,
                 loc=legend_location,
                 fontsize=style.get("legend_size", 12),
-                frameon=True,
-                fancybox=True,
             )
 
     @staticmethod

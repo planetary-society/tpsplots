@@ -340,3 +340,79 @@ def test_duration_override_scales_sweep(make_video_figure):
     fig = make_video_figure(x=X, y=Y)
     animator = _prepared(fig, duration=1.0)
     assert animator.timeline.window(("series", 0)).duration == pytest.approx(1.0)
+
+
+# ── late-starting series (all-NaN head) + orbit ring ─────────────────
+
+
+def _nan_head_fig(make_video_figure, **kwargs):
+    """Two series sharing x; the second's data begins at x=4 (NaN head)."""
+    return make_video_figure(
+        x=X,
+        y=[[1.0, 2.0, 3.0, 4.0, 5.0], [np.nan, np.nan, np.nan, 2.0, 3.0]],
+        direct_line_labels={"end_point": True},
+        labels=["Early", "Late"],
+        **kwargs,
+    )
+
+
+def test_late_series_companions_hidden_until_data_starts(make_video_figure):
+    fig = _nan_head_fig(make_video_figure)
+    animator = _prepared(fig)
+    late = dict(animator._series)[1]
+
+    assert late.companion_delay > 0.0
+
+    # Before the sweep front reaches x=4 nothing of the late series'
+    # label/endpoint is visible.
+    animator.apply(late.companion_delay * 0.5)
+    assert (late.label.text.get_alpha() or 0.0) == 0.0
+    assert (late.endpoint.get_alpha() or 0.0) == 0.0
+
+    # Once the front passes the first finite point the companions fade in
+    # riding the tip, not sitting at the final position.
+    window = animator.timeline.window(("series", 1))
+    animator.apply(late.companion_delay + window.duration * 0.05)
+    label_alpha = late.label.text.get_alpha()  # None = restored to opaque base
+    assert label_alpha is None or label_alpha > 0.0
+    ex = float(late.endpoint.get_xdata()[0])
+    assert ex < late.endpoint_final[0]
+
+    animator.finalize()
+    assert late.label.text.get_alpha() == late.label.base
+    assert float(late.endpoint.get_xdata()[0]) == pytest.approx(late.endpoint_final[0])
+
+
+def test_early_series_fade_clock_is_unshifted(make_video_figure):
+    fig = _nan_head_fig(make_video_figure)
+    animator = _prepared(fig)
+    early = dict(animator._series)[0]
+    assert early.companion_delay == 0.0
+
+
+def test_ring_rides_tip_and_pops_with_endpoint(make_video_figure):
+    fig = make_video_figure(
+        x=X,
+        y=Y,
+        direct_line_labels={"end_point": {"marker": "ring"}},
+        labels=["S"],
+    )
+    animator = _prepared(fig)
+    _, capture = animator._series[0]
+    assert capture.ring is not None
+    assert capture.ring_size > capture.endpoint_size
+
+    # Hidden at t=0, then riding the tip in lockstep with the endpoint.
+    animator.apply(0.0)
+    assert (capture.ring.get_alpha() or 0.0) == 0.0
+
+    animator.apply(_mid_t(animator))
+    assert float(capture.ring.get_xdata()[0]) == pytest.approx(
+        float(capture.endpoint.get_xdata()[0])
+    )
+    # Pre-pop, the ring rides at the same reduced scale as the endpoint.
+    assert capture.ring.get_markersize() < capture.ring_size
+
+    animator.finalize()
+    assert capture.ring.get_markersize() == pytest.approx(capture.ring_size)
+    assert float(capture.ring.get_xdata()[0]) == pytest.approx(capture.endpoint_final[0])

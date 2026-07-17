@@ -6,6 +6,43 @@ from unittest.mock import patch
 import matplotlib.pyplot as plt
 import pytest
 
+
+@pytest.fixture
+def line_view(tmp_path):
+    from tpsplots.views.line_chart import LineChartView
+
+    return LineChartView(outdir=tmp_path, style_file=None)
+
+
+@pytest.fixture
+def scatter_view(tmp_path):
+    from tpsplots.views.scatter_chart import ScatterChartView
+
+    return ScatterChartView(outdir=tmp_path, style_file=None)
+
+
+@pytest.fixture
+def desktop_style():
+    """Minimal desktop style dict for driving _create_chart directly."""
+    return {
+        "type": "desktop",
+        "figsize": (16, 9),
+        "dpi": 100,
+        "title_size": 20,
+        "subtitle_size": 14,
+        "tick_size": 12,
+        "label_size": 14,
+        "legend_size": 12,
+        "line_width": 2,
+        "marker_size": 6,
+        "tick_rotation": 0,
+        "grid": True,
+        "grid_axis": "y",
+        "header_height": 0.15,
+        "footer_height": 0.05,
+    }
+
+
 # Path to NNSI fixture file
 NNSI_FIXTURE_PATH = Path(__file__).parent / "fixtures" / "nnsi.csv"
 

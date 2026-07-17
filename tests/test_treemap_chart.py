@@ -326,7 +326,7 @@ def test_flattened_matplotlib_escape_hatch_overrides_typed_tile_style(tmp_path):
     [
         ("desktop", (16, 10), 300),
         ("mobile", (8, 9), 300),
-        ("social", (8, 4.2), 150),
+        ("social", (8, 4.2), 300),
     ],
 )
 def test_treemap_geometry_tracks_final_axes_aspect_ratio(
@@ -421,7 +421,7 @@ def test_viking_example_generates_all_responsive_outputs(tmp_path):
     for image_path, expected_size in (
         (desktop_png, (4800, 3000)),
         (mobile_png, (2400, 2700)),
-        (social_png, (1200, 630)),
+        (social_png, (2400, 1260)),
     ):
         with Image.open(image_path) as image:
             assert image.size == expected_size

@@ -3,7 +3,7 @@
 import pytest
 
 from tpsplots.exceptions import ConfigurationError
-from tpsplots.processors.resolvers import ParameterResolver
+from tpsplots.processors.resolvers import MetadataResolver, ParameterResolver
 from tpsplots.processors.resolvers.reference_resolver import ReferenceResolver
 
 
@@ -253,3 +253,29 @@ class TestParameterResolver:
 
         assert result["direct_line_labels"]["fontsize"] == 12
         assert result["direct_line_labels"]["position"] == "right"
+
+
+class TestMetadataResolverAnnotations:
+    """MetadataResolver must cope with the list-of-models `annotations` field."""
+
+    def test_annotations_list_passes_non_strings_through(self):
+        """Numeric/bool annotation fields pass through untouched; text templates resolve."""
+        metadata = {
+            "title": "T",
+            "annotations": [
+                {"x": 2020, "y": 1.5, "text": "Peak: {{peak}}", "arrow": False},
+                {"x": "2019-01-01", "y": 3.0, "text": "start"},
+            ],
+        }
+        resolved = MetadataResolver.resolve(metadata, {"peak": 42})
+
+        first, second = resolved["annotations"]
+        # Non-string values are preserved verbatim.
+        assert first["x"] == 2020
+        assert first["y"] == 1.5
+        assert first["arrow"] is False
+        # Embedded template inside the text string is substituted.
+        assert first["text"] == "Peak: 42"
+        # A non-template string x (date literal) passes through unchanged.
+        assert second["x"] == "2019-01-01"
+        assert second["text"] == "start"

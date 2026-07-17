@@ -7,6 +7,8 @@ chart:
   title: "Every science division faced deep cuts"
   subtitle: "The 2026 proposal would have cut 30-65% from each division — some to inflation-adjusted historic lows."
   source: "NASA Presidential Budget Requests, FYs 1990-2026"
+  eyebrow: "NASA SCIENCE FUNDING"
+  note: "Inflation-adjusted to 2025 dollars (NASA New Start Index); dotted lines mark the FY 2026 White House proposal."
 
   # Subplot configuration with presentation in YAML
   subplot_data:
@@ -17,7 +19,7 @@ chart:
         - "{{Astrophysics White House Budget Projection}}"
       labels: ["Division funding", "Proposed"]
       colors: ["Neptune Blue", "Rocket Flame"]
-      linestyles: ["-", "-"]
+      linestyles: ["-", ":"]
       markers: ["", "o"]
       linewidths: [3, 3]
     - title: "Planetary Science"
@@ -27,7 +29,7 @@ chart:
         - "{{Planetary Science White House Budget Projection}}"
       labels: ["Division funding", "Proposed"]
       colors: ["Neptune Blue", "Rocket Flame"]
-      linestyles: ["-", "-"]
+      linestyles: ["-", ":"]
       markers: ["", "o"]
       linewidths: [3, 3]
     - title: "Earth Science"
@@ -37,7 +39,7 @@ chart:
         - "{{Earth Science White House Budget Projection}}"
       labels: ["Division funding", "Proposed"]
       colors: ["Neptune Blue", "Rocket Flame"]
-      linestyles: ["-", "-"]
+      linestyles: ["-", ":"]
       markers: ["", "o"]
       linewidths: [3, 3]
     - title: "Heliophysics"
@@ -47,7 +49,7 @@ chart:
         - "{{Heliophysics White House Budget Projection}}"
       labels: ["Division funding", "Proposed"]
       colors: ["Neptune Blue", "Rocket Flame"]
-      linestyles: ["-", "-"]
+      linestyles: ["-", ":"]
       markers: ["", "o"]
       linewidths: [3, 3]
 

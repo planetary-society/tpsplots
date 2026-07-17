@@ -28,13 +28,16 @@ def test_union_field_complex_values_convert_without_object_object_strings():
     assert "return JSON.stringify(value);" in src
     assert "function parseStringAsArray(value) {" in src
     assert "const parsed = JSON.parse(trimmed);" in src
-    assert "const parts = trimmed.split(\",\").map((item) => item.trim()).filter(Boolean);" in src
+    assert 'const parts = trimmed.split(",").map((item) => item.trim()).filter(Boolean);' in src
     assert "function parseStringAsObject(value) {" in src
 
 
 def test_raw_text_mode_uses_monospace_input_styling():
     string_src = _read("tpsplots/editor/static/js/components/fields/StringField.js")
     css_src = _read("tpsplots/editor/static/css/editor.css")
-    assert 'const inputClass = rawTextMode ? "field-input field-input-mono" : "field-input";' in string_src
+    assert (
+        'const inputClass = rawTextMode ? "field-input field-input-mono" : "field-input";'
+        in string_src
+    )
     assert "input.field-input-mono," in css_src
     assert "ui-monospace" in css_src

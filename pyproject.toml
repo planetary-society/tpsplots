@@ -38,6 +38,9 @@ dependencies = [
     "watchfiles>=1.1.1",
     "ruamel.yaml>=0.18.0",
     "squarify>=0.4.4",
+    "drawarrow>=0.1.0",
+    "flexitext>=0.4.0",
+    "adjusttext>=1.4.0",
 ]
 
 [project.optional-dependencies]

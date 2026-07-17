@@ -17,10 +17,10 @@ class ColorCycleMixin:
     # Default TPS brand color cycle order
     TPS_COLOR_CYCLE_KEYS: ClassVar[list[str]] = [
         "Neptune Blue",
-        "Plasma Purple",
         "Rocket Flame",
+        "Plasma Purple",
         "Medium Neptune",
-        "Medium Plasma",
+        "Lunar Soil",
         "Crater Shadow",
     ]
 
@@ -39,7 +39,7 @@ class ColorCycleMixin:
 
         Examples:
             >>> mixin._get_cycled_colors(3)
-            ['#037CC2', '#643788', '#FF5D47']  # First 3 TPS colors
+            ['#037CC2', '#FF5D47', '#643788']  # First 3 TPS colors
 
             >>> mixin._get_cycled_colors(3, colors="#FF0000")
             ['#FF0000', '#FF0000', '#FF0000']  # Single color repeated

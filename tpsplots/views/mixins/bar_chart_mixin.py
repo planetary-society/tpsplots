@@ -5,6 +5,7 @@ import numpy as np
 from matplotlib.ticker import FuncFormatter
 
 from ..anim_tags import Roles, tag_artist
+from ..style import tokens
 from .param_utils import legend_config_kwargs
 
 
@@ -178,13 +179,17 @@ class BarChartMixin:
 
         if has_positive and positive_color:
             legend_elements.append(
-                plt.Rectangle((0, 0), 1, 1, facecolor=positive_color, edgecolor="white")
+                plt.Rectangle(
+                    (0, 0), 1, 1, facecolor=positive_color, edgecolor=tokens.BAR_EDGECOLOR
+                )
             )
             legend_labels.append("Positive")
 
         if has_negative and negative_color:
             legend_elements.append(
-                plt.Rectangle((0, 0), 1, 1, facecolor=negative_color, edgecolor="white")
+                plt.Rectangle(
+                    (0, 0), 1, 1, facecolor=negative_color, edgecolor=tokens.BAR_EDGECOLOR
+                )
             )
             legend_labels.append("Negative")
 

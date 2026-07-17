@@ -2,6 +2,7 @@
 
 import csv
 import logging
+import math
 import struct
 import textwrap
 import warnings
@@ -17,9 +18,10 @@ import pandas as pd
 from matplotlib.ticker import FuncFormatter
 
 from tpsplots import TPS_STYLE_FILE
-from tpsplots.colors import COLORS, TPS_COLORS
+from tpsplots.colors import COLORS, TPS_COLORS, resolve_color
 from tpsplots.exceptions import RenderingError
 from tpsplots.views.mixins import AxisTickFormatMixin
+from tpsplots.views.style import tokens
 
 logger = logging.getLogger(__name__)
 
@@ -38,26 +40,24 @@ class ChartView(AxisTickFormatMixin):
         "type": "desktop",
         "figsize": (16, 10),
         "dpi": 300,
-        "title_size": 26,
+        "title_size": 28,
         "label_size": 16,
         "tick_size": 20,
         "legend_size": 18,
-        "line_width": 4,
+        "line_width": 3,
         "marker_size": 6,
         "grid": True,
-        "grid_axis": "both",
+        "grid_axis": "y",
         "tick_rotation": 0,
         "add_logo": True,
         "max_ticks": 25,
         "decade_tick_threshold": 50,  # Year ranges above this show decade labels only
-        "minor_tick_length": 4,
-        "minor_tick_color": "gray",
-        "minor_tick_width": 1,
-        "major_tick_length": 8,
-        "major_tick_width": 1.2,
+        "minor_tick_length": 0,
+        "minor_tick_width": 0,
+        "major_tick_length": 4,
+        "major_tick_width": 1,
         "footer": True,
         "footer_height": 0.08,
-        "footer_color": "#545454",
         "footer_line_width": 1,
         "footer_extent": (0.01, 0.99),
         "header": True,
@@ -70,9 +70,10 @@ class ChartView(AxisTickFormatMixin):
         "chart_vertical_padding": 0.01,
         "subtitle_size_ratio": 0.7,
         "subtitle_line_spacing": 1.05,
+        "title_line_spacing": 1.1,
         "subtitle_vertical_padding_scale": 0.5,
-        "subtitle_top_padding_share": 0.15,
         "title_subtitle_gap": 0.005,
+        "show_eyebrow": True,
         "subtitle_wrap_length": 120,
         "label_wrap_length": 30,
         "logo_zoom": 0.03,
@@ -90,21 +91,19 @@ class ChartView(AxisTickFormatMixin):
         "label_size": 11,
         "tick_size": 13,
         "legend_size": 15,
-        "line_width": 4,
+        "line_width": 3,
         "marker_size": 5,
         "grid": True,
         "grid_axis": "y",
-        "tick_rotation": 90,
+        "tick_rotation": 0,
         "add_logo": True,
         "decade_tick_threshold": 50,
-        "minor_tick_length": 4,
-        "minor_tick_color": "gray",
-        "minor_tick_width": 1,
-        "major_tick_length": 8,
-        "major_tick_width": 1.2,
+        "minor_tick_length": 0,
+        "minor_tick_width": 0,
+        "major_tick_length": 4,
+        "major_tick_width": 1,
         "footer": True,
         "footer_height": 0.08,
-        "footer_color": "#545454",
         "footer_line_width": 1,
         "footer_extent": (0.01, 0.99),
         "header": True,
@@ -117,9 +116,10 @@ class ChartView(AxisTickFormatMixin):
         "chart_vertical_padding": 0.01,
         "subtitle_size_ratio": 0.7,
         "subtitle_line_spacing": 1.05,
+        "title_line_spacing": 1.1,
         "subtitle_vertical_padding_scale": 0.5,
-        "subtitle_top_padding_share": 0.15,
         "title_subtitle_gap": 0.005,
+        "show_eyebrow": True,
         "subtitle_wrap_length": 64,
         "label_wrap_length": 15,
         "logo_zoom": 0.025,
@@ -131,8 +131,8 @@ class ChartView(AxisTickFormatMixin):
 
     SOCIAL: ClassVar[dict[str, object]] = {
         "type": "social",
-        "figsize": (8, 4.2),  # 8*150=1200px, 4.2*150=630px
-        "dpi": 150,
+        "figsize": (8, 4.2),  # 8*300=2400px, 4.2*300=1260px (40:21 OG ratio)
+        "dpi": 300,  # match desktop/mobile; 1200x630 at native 150dpi looked soft
         "title_size": 18,
         "label_size": 9,
         "tick_size": 10,
@@ -140,19 +140,17 @@ class ChartView(AxisTickFormatMixin):
         "line_width": 3,
         "marker_size": 5,
         "grid": True,
-        "grid_axis": "both",
+        "grid_axis": "y",
         "tick_rotation": 0,
         "add_logo": True,
         "max_ticks": 15,
         "decade_tick_threshold": 50,
-        "minor_tick_length": 4,
-        "minor_tick_color": "gray",
-        "minor_tick_width": 1,
-        "major_tick_length": 8,
-        "major_tick_width": 1.2,
+        "minor_tick_length": 0,
+        "minor_tick_width": 0,
+        "major_tick_length": 4,
+        "major_tick_width": 1,
         "footer": True,
         "footer_height": 0.12,  # Larger than desktop/mobile to compensate for no header
-        "footer_color": "#545454",
         "footer_line_width": 1,
         "footer_extent": (0.01, 0.99),
         "header": False,
@@ -165,9 +163,10 @@ class ChartView(AxisTickFormatMixin):
         "chart_vertical_padding": 0.01,
         "subtitle_size_ratio": 0.7,
         "subtitle_line_spacing": 1.05,
+        "title_line_spacing": 1.1,
         "subtitle_vertical_padding_scale": 0.5,
-        "subtitle_top_padding_share": 0.15,
         "title_subtitle_gap": 0.005,
+        "show_eyebrow": False,
         "subtitle_wrap_length": 80,
         "label_wrap_length": 25,
         "logo_zoom": 0.05,
@@ -198,13 +197,11 @@ class ChartView(AxisTickFormatMixin):
         "add_logo": False,
         "decade_tick_threshold": 50,
         "minor_tick_length": 0,  # sub-pixel minors become yuv420p chroma mush
-        "minor_tick_color": "gray",
         "minor_tick_width": 0,
-        "major_tick_length": 8,
-        "major_tick_width": 1.2,
+        "major_tick_length": 4,
+        "major_tick_width": 1,
         "footer": False,
         "footer_height": 0,
-        "footer_color": "#545454",
         "footer_line_width": 1,
         "footer_extent": (0.01, 0.99),
         "header": False,
@@ -217,9 +214,10 @@ class ChartView(AxisTickFormatMixin):
         "chart_vertical_padding": 0.01,
         "subtitle_size_ratio": 0.7,
         "subtitle_line_spacing": 1.05,
+        "title_line_spacing": 1.1,
         "subtitle_vertical_padding_scale": 0.5,
-        "subtitle_top_padding_share": 0.15,
         "title_subtitle_gap": 0.005,
+        "show_eyebrow": False,
         "logo_zoom": 0.05,
         "logo_x": 0.009,
         "logo_y": 0.005,
@@ -320,7 +318,7 @@ class ChartView(AxisTickFormatMixin):
         style = getattr(self, self._DEVICE_STYLES.get(device, "DESKTOP"))
         chart_kwargs = self._clone_chart_kwargs(kwargs)
         chart_kwargs["style"] = style
-        return self._create_chart(metadata, **chart_kwargs)
+        return self._create_chart_with_overlays(metadata, **chart_kwargs)
 
     def generate_chart(self, metadata, stem, **kwargs):
         """
@@ -343,7 +341,7 @@ class ChartView(AxisTickFormatMixin):
             # Create desktop version
             desktop_kwargs = self._clone_chart_kwargs(kwargs)
             desktop_kwargs["style"] = self.DESKTOP
-            desktop_fig = self._create_chart(metadata, **desktop_kwargs)
+            desktop_fig = self._create_chart_with_overlays(metadata, **desktop_kwargs)
             generated_files.extend(
                 self._save_chart(desktop_fig, f"{stem}_desktop", metadata, create_pptx=True)
             )
@@ -351,7 +349,7 @@ class ChartView(AxisTickFormatMixin):
             # Create mobile version
             mobile_kwargs = self._clone_chart_kwargs(kwargs)
             mobile_kwargs["style"] = self.MOBILE
-            mobile_fig = self._create_chart(metadata, **mobile_kwargs)
+            mobile_fig = self._create_chart_with_overlays(metadata, **mobile_kwargs)
             generated_files.extend(
                 self._save_chart(mobile_fig, f"{stem}_mobile", metadata, create_pptx=False)
             )
@@ -359,7 +357,7 @@ class ChartView(AxisTickFormatMixin):
             # Create social card version (PNG only, no header/footer)
             social_kwargs = self._clone_chart_kwargs(kwargs)
             social_kwargs["style"] = self.SOCIAL
-            social_fig = self._create_chart(metadata, **social_kwargs)
+            social_fig = self._create_chart_with_overlays(metadata, **social_kwargs)
             generated_files.extend(
                 self._save_chart(social_fig, f"{stem}_social", metadata, create_svg=False)
             )
@@ -405,6 +403,284 @@ class ChartView(AxisTickFormatMixin):
             NotImplementedError: This method must be implemented by subclasses
         """
         raise NotImplementedError("Subclasses must implement _create_chart")
+
+    def _create_chart_with_overlays(self, metadata, **chart_kwargs):
+        """Render a chart and apply figure-level overlays that every device shares.
+
+        The single choke point wrapping ``_create_chart`` so that data-space
+        annotations are drawn identically for desktop/mobile/social/video and
+        editor previews, right after the subclass builds the figure.
+        """
+        fig = self._create_chart(metadata, **chart_kwargs)
+        self._apply_annotations(fig, metadata, chart_kwargs.get("style"))
+        return fig
+
+    @staticmethod
+    def _coerce_annotation_x(value):
+        """Coerce a string annotation x to a Timestamp for date axes, else pass through.
+
+        Charts with date x-axes need a datetime anchor; numeric axes keep the raw
+        value. Non-string values (floats) are returned unchanged.
+        """
+        if isinstance(value, str):
+            try:
+                return pd.to_datetime(value)
+            except (ValueError, TypeError):
+                return value
+        return value
+
+    @staticmethod
+    def _annotation_unit_x(ax, value):
+        """Map a (already date-coerced) annotation x to the axis' numeric units.
+
+        Runs the x through the axis unit converter so date Timestamps become
+        matplotlib date numbers and categorical strings become their tick index,
+        which is what ``transData`` expects. Unknown values pass through.
+        """
+        try:
+            return ax.xaxis.convert_units(value)
+        except Exception:  # defensive: fall back to the raw value
+            return value
+
+    def _apply_annotations(self, fig, metadata, style):
+        """Draw editorial data-space callouts on the primary axes (``fig.axes[0]``).
+
+        No-op unless ``metadata['annotations']`` is set. Each callout is text in
+        the same white rounded box used by direct line labels
+        (``tokens.direct_label_bbox``), optionally joined to its anchor by a thin
+        curved ``drawarrow`` arrow.
+
+        CONTRACT: arrows and flexitext frames are pinned in absolute display
+        pixels (``IdentityTransform``), which is only correct because (a) all
+        axes layout (`_adjust_layout_for_header_footer` and friends) is final
+        before this runs, and (b) `_save_chart` saves with ``dpi="figure"`` and
+        never ``bbox_inches="tight"``. Re-layout or dpi-rescaling after this
+        method would silently detach every callout from its anchor.
+
+        Rendering choices
+        -----------------
+        - **Text box.** Plain strings are drawn as a matplotlib ``Text`` whose
+          built-in ``bbox`` gives the rounded frame. Strings carrying flexitext
+          style tags (``<weight:semibold>...</>``) are drawn with ``flexitext``
+          (which cannot itself draw a frame) and get a ``FancyBboxPatch`` sized to
+          the laid-out text; ``mutation_scale = fontsize * dpi / 72`` makes that
+          patch pixel-identical to a ``Text`` bbox, so both paths look the same.
+        - **Placement.** Callouts with explicit ``text_x``/``text_y`` are honoured
+          verbatim. The rest start at their anchor and are separated with
+          ``adjustText`` so they don't overlap each other or the anchor points.
+        - **Arrows.** Drawn last (after adjustment) in display coordinates so the
+          gentle arc is uniform regardless of the axis scales, from the box edge
+          to a small gap before the anchor.
+
+        Args:
+            fig: The matplotlib Figure object
+            metadata: Chart metadata dictionary
+            style: Style dictionary (for label font size); may be ``None``
+        """
+        annotations = metadata.get("annotations")
+        if not annotations:
+            return
+
+        axes = fig.axes
+        if not axes:
+            return
+        ax = axes[0]
+
+        # Optional, relatively heavy deps: imported lazily so the (common)
+        # no-annotation render never pays for them.
+        from adjustText import adjust_text
+        from drawarrow import ax_arrow
+        from flexitext import flexitext
+        from matplotlib.patches import BoxStyle, FancyBboxPatch
+        from matplotlib.transforms import Bbox, IdentityTransform
+
+        fontsize = (style or {}).get("label_size", 12)
+        # boxstyle pad (0.2) is applied in display px scaled by mutation_scale;
+        # replicate matplotlib's Text-bbox padding for the flexitext patches.
+        mutation_scale = fontsize * fig.dpi / 72.0
+        pad_frac = BoxStyle(tokens.DIRECT_LABEL_BBOX_BOXSTYLE).pad
+        pad_px = pad_frac * mutation_scale
+
+        # adjustText and the display-space patches must not rescale the view.
+        xlim0, ylim0 = ax.get_xlim(), ax.get_ylim()
+
+        records = []
+        for raw in annotations:
+            text = self._escape_svg_text(raw.get("text", "")) or ""
+            text_x = raw.get("text_x")
+            text_y = raw.get("text_y")
+            explicit = text_x is not None and text_y is not None
+            x = self._coerce_annotation_x(raw.get("x"))
+            y = raw.get("y")
+            pos = (self._coerce_annotation_x(text_x), text_y) if explicit else (x, y)
+            records.append(
+                {
+                    "text": text,
+                    "edge": resolve_color(raw.get("color")) or tokens.ANNOTATION_EDGE_COLOR,
+                    "x": x,
+                    "y": y,
+                    "pos": pos,
+                    "explicit": explicit,
+                    "tagged": "</>" in text,
+                    "arrow": bool(raw.get("arrow", False)),
+                    "artist": None,
+                    "is_flexi": False,
+                    "box_bbox": None,
+                }
+            )
+
+        # 1) Draw the text. Plain strings carry their rounded box directly; tagged
+        #    strings get a matching FancyBboxPatch once flexitext has laid out.
+        for rec in records:
+            px, py = rec["pos"]
+            if rec["tagged"]:
+                styled = f"<color:{tokens.ANNOTATION_COLOR}, size:{fontsize}>{rec['text']}</>"
+                try:
+                    ab = flexitext(
+                        px,
+                        py,
+                        styled,
+                        xycoords="data",
+                        ax=ax,
+                        ha="center",
+                        va="center",
+                        ma="center",
+                    )
+                    ab.set_zorder(tokens.ANNOTATION_TEXT_ZORDER)
+                    rec["artist"], rec["is_flexi"] = ab, True
+                except Exception:  # malformed tags: fall back to plain text
+                    rec["tagged"] = False
+            if not rec["is_flexi"]:
+                rec["artist"] = ax.text(
+                    px,
+                    py,
+                    rec["text"],
+                    fontsize=fontsize,
+                    color=tokens.ANNOTATION_COLOR,
+                    ha="center",
+                    va="center",
+                    multialignment="center",
+                    zorder=tokens.ANNOTATION_TEXT_ZORDER,
+                    bbox=tokens.direct_label_bbox(rec["edge"]),
+                )
+
+        # 2) Separate the label-less callouts; explicit coordinates stay put.
+        movable = [r for r in records if not r["explicit"] and not r["is_flexi"]]
+        if movable:
+            static_objs = [r["artist"] for r in records if r not in movable]
+            anchor_x = [self._annotation_unit_x(ax, r["x"]) for r in records]
+            anchor_y = [ax.yaxis.convert_units(r["y"]) for r in records]
+            adjust_text(
+                [r["artist"] for r in movable],
+                x=anchor_x,
+                y=anchor_y,
+                objects=static_objs or None,
+                ax=ax,
+                expand=(1.15, 1.3),
+                force_text=(0.4, 0.6),
+                only_move={"text": "xy", "static": "xy", "explode": "xy", "pull": "xy"},
+                time_lim=0.4,
+            )
+
+        # 3) One draw so bbox patches exist and every extent is final/exact.
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+
+        # 4) Boxes + final box extents (used as arrow tails).
+        for rec in records:
+            if rec["is_flexi"]:
+                ext = rec["artist"].get_window_extent(renderer)
+                patch = FancyBboxPatch(
+                    (ext.x0, ext.y0),
+                    ext.width,
+                    ext.height,
+                    mutation_scale=mutation_scale,
+                    transform=IdentityTransform(),
+                    clip_on=False,
+                    zorder=tokens.ANNOTATION_BOX_ZORDER,
+                    **tokens.direct_label_bbox(rec["edge"]),
+                )
+                ax.add_artist(patch)
+                rec["box_bbox"] = Bbox.from_extents(
+                    ext.x0 - pad_px, ext.y0 - pad_px, ext.x1 + pad_px, ext.y1 + pad_px
+                )
+            else:
+                box_patch = rec["artist"].get_bbox_patch()
+                rec["box_bbox"] = (
+                    box_patch.get_window_extent(renderer)
+                    if box_patch is not None
+                    else rec["artist"].get_window_extent(renderer)
+                )
+
+        # 5) Arrows last, so they land on the FINAL box positions.
+        for rec in records:
+            if not rec["arrow"] or rec["box_bbox"] is None:
+                continue
+            try:
+                x_num = self._annotation_unit_x(ax, rec["x"])
+                y_num = ax.yaxis.convert_units(rec["y"])
+                anchor = ax.transData.transform((x_num, y_num))
+            except Exception:  # non-numeric anchor: skip the arrow
+                continue
+            self._draw_annotation_arrow(ax, rec["box_bbox"], anchor, rec["edge"], ax_arrow)
+
+        ax.set_xlim(xlim0)
+        ax.set_ylim(ylim0)
+
+    @staticmethod
+    def _draw_annotation_arrow(ax, box_bbox, anchor, edge, ax_arrow):
+        """Draw a thin curved arrow from a callout box edge to its anchor point.
+
+        All geometry is in display pixels (so the arc reads the same regardless
+        of the axis scales); the arrow is then pinned to that display frame via
+        ``IdentityTransform``. Returns the patch, or ``None`` when the box sits so
+        close to its anchor that the shaft would be swallowed by the arrowhead.
+        """
+        from matplotlib.transforms import IdentityTransform
+
+        # Point-based geometry scaled to the figure's pixel grid, so gaps read the
+        # same at any dpi. The minimum shaft keeps a couple of head-lengths of line
+        # beyond the arrowhead; below that a box sitting on its target just reads
+        # as a bare triangle, so we skip the arrow and let proximity do the work.
+        scale = ax.figure.dpi / 72.0
+        tail_gap = 1.5 * scale
+        head_gap = 3.0 * scale
+        head_len_px = tokens.ANNOTATION_ARROW_HEAD_LENGTH * scale
+        min_len = tail_gap + 2.2 * head_len_px
+
+        cx = 0.5 * (box_bbox.x0 + box_bbox.x1)
+        cy = 0.5 * (box_bbox.y0 + box_bbox.y1)
+        dx, dy = anchor[0] - cx, anchor[1] - cy
+        dist = math.hypot(dx, dy)
+        if dist < 1e-6:
+            return None
+        ux, uy = dx / dist, dy / dist
+
+        half_w = 0.5 * (box_bbox.x1 - box_bbox.x0)
+        half_h = 0.5 * (box_bbox.y1 - box_bbox.y0)
+        sx = half_w / abs(dx) if abs(dx) > 1e-9 else math.inf
+        sy = half_h / abs(dy) if abs(dy) > 1e-9 else math.inf
+        s = min(sx, sy)  # ray/box-boundary intersection parameter along (dx, dy)
+
+        tail = (cx + s * dx + ux * tail_gap, cy + s * dy + uy * tail_gap)
+        head = (anchor[0] - ux * head_gap, anchor[1] - uy * head_gap)
+        if math.hypot(head[0] - tail[0], head[1] - tail[1]) < min_len:
+            return None
+
+        arrow = ax_arrow(
+            list(tail),
+            list(head),
+            radius=tokens.ANNOTATION_ARROW_RADIUS,
+            width=tokens.ANNOTATION_ARROW_WIDTH,
+            head_width=tokens.ANNOTATION_ARROW_HEAD_WIDTH,
+            head_length=tokens.ANNOTATION_ARROW_HEAD_LENGTH,
+            ax=ax,
+            color=edge,
+            zorder=tokens.ANNOTATION_ARROW_ZORDER,
+        )
+        arrow.set_transform(IdentityTransform())
+        arrow.set_clip_on(False)
+        return arrow
 
     def _extract_metadata_from_kwargs(self, metadata: dict, kwargs: dict) -> None:
         """
@@ -604,14 +880,18 @@ class ChartView(AxisTickFormatMixin):
             # Less than 10 years: show all years
             ax.xaxis.set_major_locator(mdates.YearLocator(1))
 
-        # Make minor ticks visible but unlabeled
+        # Minor ticks render at zero length/width by default (house style);
+        # a style dict can re-enable them by setting the length/width keys.
+        # Scoped to the x-axis: y tick marks are suppressed globally (the
+        # hairline grid does that job) and must not be resurrected here.
         ax.tick_params(
+            axis="x",
             which="minor",
             length=style.get("minor_tick_length", 4),
-            color=style.get("minor_tick_color", "gray"),
             width=style.get("minor_tick_width", 1),
         )
         ax.tick_params(
+            axis="x",
             which="major",
             length=style.get("major_tick_length", 8),
             width=style.get("major_tick_width", 1.2),
@@ -821,30 +1101,58 @@ class ChartView(AxisTickFormatMixin):
         if axis in ("x", "both"):
             ax.xaxis.set_major_formatter(FuncFormatter(formatter))
 
+    # One cap-height ascender + one descender. Every header line is measured
+    # against this FIXED reference instead of its own glyphs, so the header's
+    # vertical rhythm depends only on line count, font size, line spacing and dpi
+    # — never on which characters a title/subtitle happens to contain. Without
+    # this, a subtitle full of gerund descenders ("comparing spending") and an
+    # all-caps one ("NASA'S BUDGET") could reserve different heights, giving the
+    # inconsistent line-heights reported by users.
+    _METRIC_REFERENCE_GLYPHS: ClassVar[str] = "Ag"
+
     def _measure_text_height(self, fig, text, fontsize, *, linespacing=1.2) -> float:
         """
-        Measure text height in figure-fraction coordinates.
+        Deterministic, glyph-independent text-block height in figure fractions.
 
-        Creates a temporary invisible text element, measures its bounding box,
-        then removes it. This allows dynamic header sizing based on actual content.
+        The height is measured from a fixed reference string (:pydata:`_METRIC_REFERENCE_GLYPHS`
+        per line) that mirrors ``text``'s line count — not from ``text`` itself —
+        so descenders, all-caps, brackets or accents can never shift the header
+        geometry. Only line count, ``fontsize``, ``linespacing`` and dpi matter.
 
         Args:
             fig: The matplotlib Figure object
-            text: The text string to measure
+            text: The text whose line count drives the measurement
             fontsize: Font size for the text
             linespacing: Spacing between lines as a multiple of the font size
 
         Returns:
-            float: Height of the text in figure-fraction coordinates (0.0-1.0)
+            float: Height of the text block in figure-fraction coordinates (0.0-1.0)
         """
         if not text:
             return 0.0
+
+        # Map each real line to the fixed reference (blank lines stay blank so
+        # matplotlib's zero-height handling for empty lines is preserved). This
+        # makes the measured block height a pure function of the line pattern.
+        lines = str(text).splitlines() or [str(text)]
+        reference = "\n".join(
+            self._METRIC_REFERENCE_GLYPHS if line.strip() else "" for line in lines
+        )
+
+        # The height is a pure function of these inputs — memoize so repeated
+        # header measurement/render passes skip the throwaway probe artist.
+        cache_key = (reference, fontsize, linespacing, fig.get_figheight(), fig.dpi)
+        if not hasattr(self, "_text_height_cache"):
+            self._text_height_cache: dict = {}
+        cached = self._text_height_cache.get(cache_key)
+        if cached is not None:
+            return cached
 
         # Create temporary invisible text element to measure
         temp_text = fig.text(
             0,
             0,
-            text,
+            reference,
             fontsize=fontsize,
             linespacing=linespacing,
             alpha=0.0,
@@ -862,6 +1170,7 @@ class ChartView(AxisTickFormatMixin):
         # Clean up the temporary text
         temp_text.remove()
 
+        self._text_height_cache[cache_key] = height
         return height
 
     def _wrap_header_text(
@@ -870,6 +1179,7 @@ class ChartView(AxisTickFormatMixin):
         text: str | None,
         fontsize: float,
         *,
+        fontweight: str | int | None = None,
         left_margin: float = 0.01,
         right_margin: float = 0.99,
         fallback_wrap_length: int = 65,
@@ -879,6 +1189,10 @@ class ChartView(AxisTickFormatMixin):
 
         This avoids character-count wrapping artifacts where proportional fonts
         can overflow the right edge even when the wrapped line length looks safe.
+
+        ``fontweight`` should match how the text will actually be drawn (e.g.
+        ``"bold"`` for the title); bold glyphs are wider than the default weight,
+        so measuring with the render weight keeps wrapped lines inside the margins.
         """
         if text is None:
             return ""
@@ -893,10 +1207,23 @@ class ChartView(AxisTickFormatMixin):
                 textwrap.wrap(str(escaped_text), width=fallback_wrap_length) or [str(escaped_text)]
             )
 
+        # Wrapping is deterministic in (text, size, weight, pixel width), and both
+        # the header-measurement and header-render passes wrap the same strings —
+        # memoize so the second pass skips the full fig.canvas.draw() below.
+        cache_key = (str(escaped_text), fontsize, fontweight, round(max_width_px, 3))
+        if not hasattr(self, "_wrap_text_cache"):
+            self._wrap_text_cache: dict = {}
+        cached = self._wrap_text_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         fig.canvas.draw()
         renderer = fig.canvas.get_renderer()
         wrapped_lines: list[str] = []
-        probe = fig.text(0, 0, "", fontsize=fontsize, alpha=0.0)
+        probe_kwargs = {"fontsize": fontsize, "alpha": 0.0}
+        if fontweight is not None:
+            probe_kwargs["fontweight"] = fontweight
+        probe = fig.text(0, 0, "", **probe_kwargs)
 
         try:
             paragraphs = str(escaped_text).splitlines() or [""]
@@ -920,26 +1247,82 @@ class ChartView(AxisTickFormatMixin):
         finally:
             probe.remove()
 
-        return "\n".join(wrapped_lines)
+        wrapped = "\n".join(wrapped_lines)
+        self._wrap_text_cache[cache_key] = wrapped
+        return wrapped
+
+    def _eyebrow_text(self, metadata, style) -> str | None:
+        """Return the uppercased/escaped eyebrow string, or None when it won't render.
+
+        The eyebrow is desktop-only by doctrine: it renders only when the device
+        style enables ``show_eyebrow`` *and* an ``eyebrow`` value is present.
+        """
+        if not style.get("show_eyebrow"):
+            return None
+        eyebrow = metadata.get("eyebrow")
+        if not eyebrow:
+            return None
+        return self._escape_svg_text(str(eyebrow).upper())
+
+    @staticmethod
+    def _eyebrow_size(style) -> float:
+        """Eyebrow font size — one rule shared by measurement and rendering."""
+        return style["title_size"] * tokens.EYEBROW_SIZE_RATIO
+
+    def _wrap_title(self, fig, title: str | None, style) -> str:
+        """Wrap the bold title to the header margins (measured at bold weight).
+
+        Mirrors the subtitle wrapping so long titles (notably on the narrow
+        mobile 8:9 canvas) break onto multiple lines instead of running off the
+        right edge. For titles that already fit on one line this returns the
+        title unchanged, keeping existing output byte-identical.
+        """
+        header_x = style.get("header_x", 0.01)
+        return self._wrap_header_text(
+            fig,
+            title,
+            style["title_size"],
+            fontweight="bold",
+            left_margin=header_x,
+            right_margin=1 - header_x,
+            fallback_wrap_length=style.get("subtitle_wrap_length", 65),
+        )
 
     def _calculate_header_height(self, fig, metadata, style) -> float:
         """
         Calculate header height based on actual content dimensions.
 
-        Measures the title and wrapped subtitle to determine the exact
-        header space needed, avoiding both wasted space and text overlap.
+        Measures the (wrapped) title, wrapped subtitle, and optional eyebrow to
+        determine the exact header space needed, avoiding both wasted space and
+        text overlap.
 
         Returns:
             header_height in figure-fraction coordinates.
         """
         title = metadata.get("title")
         subtitle = metadata.get("subtitle")
+        eyebrow = self._eyebrow_text(metadata, style)
 
-        if not title and not subtitle:
+        if not title and not subtitle and not eyebrow:
             return 0.0
 
-        # Measure title height
-        title_height = self._measure_text_height(fig, title, style["title_size"])
+        # Measure eyebrow height (single line above the title). Includes the
+        # kicker gap so the reserved header height matches what _add_header
+        # draws — otherwise the eyebrow's stack eats the clearance between the
+        # subtitle and the plot.
+        eyebrow_height = 0.0
+        if eyebrow:
+            eyebrow_size = self._eyebrow_size(style)
+            eyebrow_height = (
+                self._measure_text_height(fig, eyebrow, eyebrow_size) * tokens.EYEBROW_STACK_RATIO
+            )
+
+        # Measure title height (wrapped, so multi-line titles get header room)
+        title_line_spacing = style.get("title_line_spacing", 1.1)
+        wrapped_title = self._wrap_title(fig, title, style)
+        title_height = self._measure_text_height(
+            fig, wrapped_title, style["title_size"], linespacing=title_line_spacing
+        )
 
         # Measure subtitle height (with wrapping applied)
         subtitle_ratio = style.get("subtitle_size_ratio", 0.7)
@@ -972,7 +1355,7 @@ class ChartView(AxisTickFormatMixin):
         max_height = style.get("header_max_height", 0.18)
 
         # Calculate total height and constrain to bounds
-        total_height = title_height + subtitle_height + padding
+        total_height = eyebrow_height + title_height + subtitle_height + padding
         return max(min_height, min(max_height, total_height))
 
     def _add_header(self, fig, metadata, style):
@@ -989,6 +1372,7 @@ class ChartView(AxisTickFormatMixin):
         """
         title = metadata.get("title")
         subtitle = metadata.get("subtitle")
+        eyebrow = self._eyebrow_text(metadata, style)
 
         header_x = style.get("header_x", 0.01)
         header_y = style.get("header_y", 0.98)
@@ -996,27 +1380,71 @@ class ChartView(AxisTickFormatMixin):
         subtitle_line_spacing = style.get("subtitle_line_spacing", 1.05)
         gap = style.get("title_subtitle_gap", 0.005)
 
-        # Track vertical position (starts at top of figure)
-        title_bottom_y = header_y  # Default if no title
-        title_text = subtitle_text = None
-
-        # Add title if provided
-        if title:
-            title_text = fig.text(
+        # Top of the title zone. When an eyebrow is present it renders at the very
+        # top and pushes the title (and thus the subtitle) down beneath it.
+        title_top_y = header_y
+        if eyebrow:
+            eyebrow_size = self._eyebrow_size(style)
+            # Optional signature rule just above the eyebrow, in the top margin
+            # (above header_y), so it needs no reserved header space.
+            if tokens.EYEBROW_RULE_COLOR is not None:
+                fig.add_artist(
+                    plt.Line2D(
+                        [header_x, header_x + tokens.EYEBROW_RULE_LENGTH],
+                        [header_y + 0.006, header_y + 0.006],
+                        transform=fig.transFigure,
+                        color=tokens.EYEBROW_RULE_COLOR,
+                        linewidth=tokens.EYEBROW_RULE_LINEWIDTH,
+                        solid_capstyle="butt",
+                    )
+                )
+            fig.text(
                 header_x,
                 header_y,
-                title,
-                fontsize=style["title_size"],
-                fontweight="bold",
+                eyebrow,
+                fontsize=eyebrow_size,
+                fontweight=tokens.EYEBROW_WEIGHT,
+                color=tokens.EYEBROW_COLOR,
                 ha="left",
                 va="top",
             )
+            # Deterministic: the eyebrow is top-anchored at header_y, so the
+            # title sits a glyph-independent block height below it. Only a
+            # fraction of the measured "Ag" box is reserved (EYEBROW_STACK_RATIO)
+            # so the title climbs into the kicker's unused descender whitespace
+            # and the two read as one headline block.
+            eyebrow_height = self._measure_text_height(fig, eyebrow, eyebrow_size)
+            title_top_y = header_y - eyebrow_height * tokens.EYEBROW_STACK_RATIO
 
-            # Measure the actual bold title for accurate subtitle positioning.
-            renderer = fig.canvas.get_renderer()
-            title_bbox = title_text.get_window_extent(renderer)
-            fig_height_px = fig.get_figheight() * fig.dpi
-            title_bottom_y = title_bbox.y0 / fig_height_px - gap
+        # Track vertical position (starts at top of the title zone)
+        title_bottom_y = title_top_y  # Default if no title
+        title_text = subtitle_text = None
+
+        # Add title if provided (wrapped to the header margins). The tight
+        # title line spacing keeps a wrapped multi-line title's line-height in
+        # rhythm with the rest of the header instead of matplotlib's loose 1.2.
+        if title:
+            title_line_spacing = style.get("title_line_spacing", 1.1)
+            wrapped_title = self._wrap_title(fig, title, style)
+            title_text = fig.text(
+                header_x,
+                title_top_y,
+                wrapped_title,
+                fontsize=style["title_size"],
+                fontweight="bold",
+                color=tokens.TITLE_COLOR,
+                ha="left",
+                va="top",
+                linespacing=title_line_spacing,
+            )
+
+            # Deterministic subtitle anchor: the title is top-anchored at
+            # title_top_y, so its bottom edge is that anchor minus the
+            # glyph-independent block height (no dependence on the title's ink).
+            title_height = self._measure_text_height(
+                fig, wrapped_title, style["title_size"], linespacing=title_line_spacing
+            )
+            title_bottom_y = title_top_y - title_height - gap
 
         # Add subtitle if provided, positioned relative to title
         if subtitle:
@@ -1035,6 +1463,7 @@ class ChartView(AxisTickFormatMixin):
                 wrapped_subtitle,
                 fontsize=subtitle_size,
                 linespacing=subtitle_line_spacing,
+                color=tokens.SUBTITLE_COLOR,
                 ha="left",
                 va="top",
             )
@@ -1042,7 +1471,13 @@ class ChartView(AxisTickFormatMixin):
         return title_text, subtitle_text
 
     def _center_subtitle_vertically(self, fig, title_text, subtitle_text, style, header_height):
-        """Center the subtitle with scaled padding above and below it."""
+        """Nestle the subtitle under the title, growing the plot up to fill header slack.
+
+        Places the subtitle with scaled padding under the title, then grows the
+        plot's TOP edge up into the leftover header space while keeping its
+        bottom anchored — so the plot stays filled toward the footer instead of
+        vacating a band of dead space there (the old translate-up behaviour).
+        """
         if title_text is None or subtitle_text is None:
             return
 
@@ -1050,13 +1485,24 @@ class ChartView(AxisTickFormatMixin):
         if not visible_axes:
             return
 
-        # A full render already ran in the preceding layout passes
-        # (_center_axes_vertically / _align_axes_horizontally), so the cached
-        # renderer is valid for the text extents measured here.
-        renderer = fig.canvas.get_renderer()
-        fig_height_px = fig.get_figheight() * fig.dpi
-        title_bottom_y = title_text.get_window_extent(renderer).y0 / fig_height_px
-        subtitle_height = subtitle_text.get_window_extent(renderer).height / fig_height_px
+        # Deterministic, glyph-independent geometry. The title is top-anchored,
+        # so its bottom edge is its anchor y minus a block height that depends
+        # only on line count / size / spacing; the subtitle block height is
+        # likewise glyph-independent. This keeps the subtitle's vertical rhythm
+        # identical regardless of descenders or all-caps content.
+        title_top_y = title_text.get_position()[1]
+        title_bottom_y = title_top_y - self._measure_text_height(
+            fig,
+            title_text.get_text(),
+            title_text.get_fontsize(),
+            linespacing=title_text.get_linespacing(),
+        )
+        subtitle_height = self._measure_text_height(
+            fig,
+            subtitle_text.get_text(),
+            subtitle_text.get_fontsize(),
+            linespacing=subtitle_text.get_linespacing(),
+        )
         chart_top_y = max(ax.get_position().y1 for ax in visible_axes)
         available_spacing = title_bottom_y - chart_top_y - subtitle_height
         if available_spacing <= 0:
@@ -1069,13 +1515,42 @@ class ChartView(AxisTickFormatMixin):
         available_upward_shift = max(0.0, header_boundary_y - chart_top_y)
         axes_shift = min(requested_shift, available_upward_shift)
 
-        for ax in visible_axes:
-            pos = ax.get_position()
-            ax.set_position([pos.x0, pos.y0 + axes_shift, pos.width, pos.height])
+        # Grow the plot's TOP edge up into the header slack, keeping its bottom
+        # anchored — the plot already fills the footer side after
+        # _stretch_axes_vertically, so translating the whole plot up (the old
+        # behaviour) only vacated an equal band of dead space above the footer.
+        # Bottom-anchored growth reclaims the slack while keeping the plot filled.
+        if axes_shift > 0:
+            axes_bottom = min(ax.get_position().y0 for ax in visible_axes)
+            axes_top = max(ax.get_position().y1 for ax in visible_axes)
+            axes_height = axes_top - axes_bottom
+            if axes_height > 0:
+                self._remap_axes_band(
+                    visible_axes,
+                    "y",
+                    axes_bottom,
+                    axes_height,
+                    axes_bottom,
+                    axes_height + axes_shift,
+                )
 
-        remaining_spacing = available_spacing - axes_shift
-        top_padding_share = style.get("subtitle_top_padding_share", 0.5)
-        subtitle_text.set_y(title_bottom_y - remaining_spacing * top_padding_share)
+        # Deterministic title→subtitle gap (matches the eyebrow→title rhythm).
+        # `title_bottom_y` is the title's glyph-independent box bottom — the
+        # DESCENDER line, well below the baseline where the title's body of text
+        # visually sits. Anchoring the subtitle there makes a title whose last
+        # line has a descender ("...Fundin[g]") read as a big gap. So pull the
+        # subtitle up by a fraction of the TITLE line box, reclaiming the
+        # title's descender depth so the subtitle hugs the baseline instead.
+        # Basing the reclaim on the title (not subtitle) box is what keeps this
+        # consistent: the descender being reclaimed is the title's own.
+        title_line_height = self._measure_text_height(
+            fig,
+            self._METRIC_REFERENCE_GLYPHS,
+            title_text.get_fontsize(),
+            linespacing=title_text.get_linespacing(),
+        )
+        overlap = title_line_height * tokens.TITLE_SUBTITLE_OVERLAP_RATIO
+        subtitle_text.set_y(title_bottom_y + overlap)
 
     def _add_footer(self, fig, metadata, style, bottom_margin):
         """
@@ -1092,9 +1567,24 @@ class ChartView(AxisTickFormatMixin):
         # Layout spacing is handled by tight_layout(rect=...) in _adjust_layout_for_header_footer,
         # so we do NOT call fig.subplots_adjust here to avoid conflicting layout calls.
 
+        # Optional full-width footer band behind the footer zone (theme seam;
+        # None = no band, the default).
+        if tokens.FOOTER_BAND_COLOR is not None:
+            fig.add_artist(
+                plt.Rectangle(
+                    (0, 0),
+                    1,
+                    bottom_margin,
+                    transform=fig.transFigure,
+                    facecolor=tokens.FOOTER_BAND_COLOR,
+                    edgecolor="none",
+                    zorder=1,
+                )
+            )
+
         # Add horizontal spacer line, matching header text margins
         spacer_y = bottom_margin / 2  # Place line halfway in the margin
-        footer_color = style.get("footer_color", "#545454")
+        footer_color = style.get("footer_color", tokens.FOOTER_COLOR)
         self._add_horizontal_spacer(
             fig,
             y_position=spacer_y,
@@ -1107,6 +1597,11 @@ class ChartView(AxisTickFormatMixin):
         source_text = metadata.get("source")
         if source_text:
             self._add_source(fig, source_text, style)
+
+        # Add methodology note (if provided) directly above the source line
+        note_text = metadata.get("note")
+        if note_text:
+            self._add_note(fig, note_text, style)
 
         # Add logo if enabled in the style
         if style.get("add_logo", True):
@@ -1210,13 +1705,26 @@ class ChartView(AxisTickFormatMixin):
             if aligned_height <= 0:
                 return
 
-            for ax in visible_axes:
-                pos = ax.get_position()
-                relative_bottom = (pos.y0 - axes_bottom) / axes_height
-                relative_top = (pos.y1 - axes_bottom) / axes_height
-                new_y0 = aligned_bottom + relative_bottom * aligned_height
-                new_y1 = aligned_bottom + relative_top * aligned_height
-                ax.set_position([pos.x0, new_y0, pos.width, new_y1 - new_y0])
+            self._remap_axes_band(
+                visible_axes, "y", axes_bottom, axes_height, aligned_bottom, aligned_height
+            )
+
+    @staticmethod
+    def _remap_axes_band(visible_axes, axis, old_start, old_size, new_start, new_size):
+        """Proportionally remap all axes from one figure-fraction band to another.
+
+        Each axes' start/end within the old band keeps its relative position in
+        the new band. ``axis`` is ``"y"`` (vertical remap) or ``"x"``.
+        """
+        for ax in visible_axes:
+            pos = ax.get_position()
+            lo, hi = (pos.y0, pos.y1) if axis == "y" else (pos.x0, pos.x1)
+            new_lo = new_start + (lo - old_start) / old_size * new_size
+            new_hi = new_start + (hi - old_start) / old_size * new_size
+            if axis == "y":
+                ax.set_position([pos.x0, new_lo, pos.width, new_hi - new_lo])
+            else:
+                ax.set_position([new_lo, pos.y0, new_hi - new_lo, pos.height])
 
     def _align_axes_horizontally(self, fig, style):
         """Align rendered chart edges with the header and footer text extent."""
@@ -1245,13 +1753,9 @@ class ChartView(AxisTickFormatMixin):
             aligned_right = axes_right + target_right - visual_right
             aligned_width = aligned_right - aligned_left
 
-            for ax in visible_axes:
-                pos = ax.get_position()
-                relative_left = (pos.x0 - axes_left) / axes_width
-                relative_right = (pos.x1 - axes_left) / axes_width
-                new_x0 = aligned_left + relative_left * aligned_width
-                new_x1 = aligned_left + relative_right * aligned_width
-                ax.set_position([new_x0, pos.y0, new_x1 - new_x0, pos.height])
+            self._remap_axes_band(
+                visible_axes, "x", axes_left, axes_width, aligned_left, aligned_width
+            )
 
     def _center_axes_vertically(self, fig, header_height, footer_height):
         """Shift axes to equalize spacing between header content and footer content."""
@@ -1321,7 +1825,7 @@ class ChartView(AxisTickFormatMixin):
             y_position = 0.06
 
         if color is None:
-            color = "#545454"
+            color = tokens.FOOTER_COLOR
 
         # Add the horizontal line
         fig.add_artist(
@@ -1345,6 +1849,7 @@ class ChartView(AxisTickFormatMixin):
                 zoom=style.get("logo_zoom", 0.03),
                 x=style.get("logo_x", 0.01),
                 y=style.get("logo_y", 0.01),
+                color=tokens.LOGO_COLOR,
             )
         except (FileNotFoundError, OSError, ValueError, struct.error) as e:
             logger.error(f"Warning: Could not add logo: {e}")
@@ -1368,7 +1873,40 @@ class ChartView(AxisTickFormatMixin):
             style.get("source_y", 0.01),  # y position (bottom)
             f"Source: {source_text}".upper(),
             fontsize=style.get("source_size", 11),
-            color=style.get("footer_color", "#545454"),
+            color=style.get("footer_color", tokens.FOOTER_COLOR),
+            ha="right",
+            va="bottom",
+        )
+
+    def _add_note(self, fig, note_text, style):
+        """Add a right-aligned italic methodology note above the source line.
+
+        Single line, no wrapping (by design). Positioned one source-line-height
+        above the source baseline so it clears the source attribution text.
+
+        Args:
+            fig: The matplotlib Figure object
+            note_text: Methodology note to display
+            style: Style dictionary (DESKTOP or MOBILE)
+        """
+        if not note_text:
+            return
+
+        source_size = style.get("source_size", 11)
+        note_size = source_size * 0.9
+        source_y = style.get("source_y", 0.01)
+        footer_extent = style.get("footer_extent", (0.01, 0.99))
+
+        # Reserve one source-line of vertical space so the note sits above it.
+        line_height = self._measure_text_height(fig, "Ag", source_size)
+
+        fig.text(
+            footer_extent[1],  # right edge, matching the source line
+            source_y + line_height * 1.2,
+            self._escape_svg_text(note_text),
+            fontsize=note_size,
+            color=style.get("footer_color", tokens.FOOTER_COLOR),
+            style="italic",
             ha="right",
             va="bottom",
         )

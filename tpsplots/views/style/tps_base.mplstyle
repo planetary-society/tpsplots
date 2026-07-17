@@ -4,7 +4,7 @@ font.family         : sans-serif
 font.sans-serif     : Poppins, Arial, sans-serif
 
 # --- Brand colors ---
-axes.prop_cycle     : cycler('color', ["#037CC2","#643788","#FF5D47","#80BDE0","#B19BC3","#414141"])
+axes.prop_cycle     : cycler('color', ["#037CC2","#FF5D47","#643788","#3FA9E0","#8C8C8C","#414141"])
 
 # --- Background colors ---
 axes.facecolor      : F5F5F5
@@ -22,15 +22,35 @@ axes.spines.top     : False
 axes.spines.right   : False
 axes.spines.left    : False
 axes.spines.bottom  : True
-axes.linewidth      : 2
+axes.linewidth      : 2.5
 
-grid.linewidth      : 0.6
-grid.alpha          : 0.5
+# Grid geometry (linewidth/alpha/linestyle) is owned by views/style/tokens.py
+# and applied at call time; only the color lives here.
+grid.color          : DBDBDB
 yaxis.labellocation : center
 xaxis.labellocation : center
 
+# --- Legend ---
+legend.frameon      : False
+
+# --- Line styling ---
+lines.dash_capstyle : round
+# Near-zero on-length + round caps renders ":" as true circles (the house
+# "proposed" convention); the default 1.0 on-length reads as pill dashes.
+lines.dotted_pattern : 0.01, 2.65
+
 # --- Tick direction ---
 xtick.direction     : out
-ytick.direction     : in
-xtick.minor.visible : True
-ytick.minor.visible : True
+ytick.direction     : out
+xtick.minor.visible : False
+ytick.minor.visible : False
+
+# --- Y tick marks off ---
+# The horizontal hairline grid already marks the y positions; tick stubs
+# next to the labels read as visual noise. Labels keep a small pad.
+ytick.major.size    : 0
+ytick.minor.size    : 0
+ytick.major.pad     : 6
+# Optically center labels on their gridline (the default center_baseline
+# sets digits visibly above the line).
+ytick.alignment     : center

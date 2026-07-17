@@ -93,9 +93,7 @@ class TestAccountsFilterProcessor:
         config = AccountsFilterConfig(
             accounts={"Safety, Security, & Mission Services": "SSMS"},
             aliases={
-                "Safety, Security, & Mission Services": [
-                    "Safety, Security, and Mission Services"
-                ]
+                "Safety, Security, & Mission Services": ["Safety, Security, and Mission Services"]
             },
             use_short_names=True,
         )

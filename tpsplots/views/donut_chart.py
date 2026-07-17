@@ -8,6 +8,7 @@ import numpy as np
 from tpsplots.models.charts.donut import DonutChartConfig
 
 from .chart_view import ChartView
+from .style import tokens
 
 
 class DonutChartView(ChartView):
@@ -172,13 +173,16 @@ class DonutChartView(ChartView):
             labels = self._wrap_labels(original_labels, label_wrap_length)
 
         # Handle default wedge properties or use provided ones
-        default_wedgeprops = {"linewidth": 7, "edgecolor": "white"}
+        default_wedgeprops = {
+            "linewidth": tokens.DONUT_WEDGE_LINEWIDTH,
+            "edgecolor": tokens.DONUT_WEDGE_EDGECOLOR,
+        }
         wedgeprops = kwargs.pop("wedgeprops", default_wedgeprops)
 
         # Extract other parameters
-        hole_size = kwargs.pop("hole_size", 0.7)
+        hole_size = kwargs.pop("hole_size", tokens.DONUT_HOLE_SIZE)
         center_text = kwargs.pop("center_text", None)
-        center_color = kwargs.pop("center_color", self.COLORS["light_gray"])
+        center_color = kwargs.pop("center_color", tokens.DONUT_CENTER_COLOR)
         show_percentages = kwargs.pop("show_percentages", True)
 
         total = sum(values)

@@ -9,6 +9,5 @@ def _read(path: str) -> str:
 
 def test_line_to_scatter_switch_clears_explicit_linestyle():
     src = _read("tpsplots/editor/static/js/app.js")
-    assert "if (previousType !== \"scatter\" && nextType === \"scatter\")" in src
+    assert 'if (previousType !== "scatter" && nextType === "scatter")' in src
     assert "delete next.linestyle;" in src
-

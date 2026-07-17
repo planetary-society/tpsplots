@@ -10,6 +10,8 @@ chart:
   title: "NASA awarded 25% fewer grants in FY 2025"
   subtitle: "The agency awarded the smallest number of new grants in years, despite having a stable budget provided by Congress."
   source: "USASpending.gov"
+  eyebrow: "NASA SCIENCE FUNDING"
+  note: "Cumulative new grants awarded by fiscal month, compared with the prior-year pace."
 
   # Data mapping from controller method return
   x: "{{months}}"

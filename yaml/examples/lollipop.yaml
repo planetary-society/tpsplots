@@ -5,8 +5,10 @@ chart:
   type: lollipop
   output: fy_2026_proposed_mission_cancellations
   title: "{{total_projects}} science missions faced termination in 2026"
-  subtitle: "These projects represented {{total_value}} in taxpayer investment and {{total_development_time}} combined years of work."
+  subtitle: "These projects represented {{total_value}} in taxpayer investment and {{total_operational_years}} combined years of work."
   source: "FY 2026 White House NASA Request"
+  eyebrow: "FY 2026 BUDGET REQUEST"
+  note: "Bars span each mission's launch year to its proposed FY 2026 termination."
 
   categories: "{{categories}}"
   start_values: "{{start_values}}"

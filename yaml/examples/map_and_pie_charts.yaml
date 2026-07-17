@@ -7,6 +7,8 @@ chart:
   title: "Every NASA center faced workforce cuts"
   subtitle: "The 2026 White House budget proposed slashing 20-46% of staff throughout NASA's field centers."
   source: "NASA FY 2026 Budget Request"
+  eyebrow: "NASA WORKFORCE"
+  note: "Proposed civil-servant reductions by center under the FY 2026 White House budget."
 
   pie_data: "{{pie_data}}"
   show_percentages: [false, true]

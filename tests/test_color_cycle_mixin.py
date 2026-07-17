@@ -11,10 +11,10 @@ class TestGetCycledColors:
         """Default TPS brand colors are returned when no colors specified."""
         colors = mixin_with_color_cycle._get_cycled_colors(3)
 
-        # First 3 should be Neptune Blue, Plasma Purple, Rocket Flame
+        # First 3 should be Neptune Blue, Rocket Flame, Plasma Purple
         assert colors[0] == mixin_with_color_cycle.TPS_COLORS["Neptune Blue"]
-        assert colors[1] == mixin_with_color_cycle.TPS_COLORS["Plasma Purple"]
-        assert colors[2] == mixin_with_color_cycle.TPS_COLORS["Rocket Flame"]
+        assert colors[1] == mixin_with_color_cycle.TPS_COLORS["Rocket Flame"]
+        assert colors[2] == mixin_with_color_cycle.TPS_COLORS["Plasma Purple"]
 
     def test_single_color_repeated_for_all_items(self, mixin_with_color_cycle):
         """Single color string is repeated for all items."""
@@ -58,7 +58,7 @@ class TestGetCycledColors:
 
         # Should get first two TPS colors
         assert colors[0] == mixin_with_color_cycle.TPS_COLORS["Neptune Blue"]
-        assert colors[1] == mixin_with_color_cycle.TPS_COLORS["Plasma Purple"]
+        assert colors[1] == mixin_with_color_cycle.TPS_COLORS["Rocket Flame"]
 
     def test_full_cycle_wraps_correctly(self, mixin_with_color_cycle):
         """Requesting more items than default colors cycles properly."""
@@ -67,7 +67,7 @@ class TestGetCycledColors:
 
         # 7th and 8th should wrap to 1st and 2nd
         assert colors[6] == colors[0]  # Neptune Blue
-        assert colors[7] == colors[1]  # Plasma Purple
+        assert colors[7] == colors[1]  # Rocket Flame
 
 
 class TestMixinIntegration:
@@ -112,3 +112,23 @@ class TestMixinIntegration:
 
         for key in ColorCycleMixin.TPS_COLOR_CYCLE_KEYS:
             assert key in view.TPS_COLORS, f"Missing color key: {key}"
+
+    def test_style_file_prop_cycle_matches_cycle_keys(self):
+        """The mplstyle axes.prop_cycle equals TPS_COLOR_CYCLE_KEYS resolved via TPS_COLORS.
+
+        The same palette order is encoded twice — as brand-name keys (driving
+        explicit assignment in bar/lollipop/donut charts) and as raw hex in
+        tps_base.mplstyle (driving matplotlib's automatic cycle for line
+        charts). This pins the two representations together so an edit to one
+        cannot silently diverge the other.
+        """
+        import matplotlib
+
+        from tpsplots import TPS_STYLE_FILE
+        from tpsplots.colors import TPS_COLORS
+        from tpsplots.views.mixins import ColorCycleMixin
+
+        rc = matplotlib.rc_params_from_file(TPS_STYLE_FILE, use_default_template=False)
+        style_cycle = [c["color"] for c in rc["axes.prop_cycle"]]
+        expected = [TPS_COLORS[k] for k in ColorCycleMixin.TPS_COLOR_CYCLE_KEYS]
+        assert style_cycle == expected

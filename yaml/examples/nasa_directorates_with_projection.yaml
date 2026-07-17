@@ -7,6 +7,8 @@ chart:
   title: "NASA directorate spending with FY2026 White House proposal"
   subtitle: "Historical enacted budgets and the FY2026 Presidential Budget Request by directorate."
   source: "NASA Congressional Budget Justifications, FYs 1990-2026"
+  eyebrow: "FY 2026 BUDGET REQUEST"
+  note: "Enacted budget authority by directorate; dotted lines mark the FY 2026 White House proposal."
 
   subplot_data:
     - title: "Exploration"
@@ -16,7 +18,7 @@ chart:
         - "{{Exploration White House Budget Projection}}"
       labels: ["Enacted", "Proposed"]
       colors: ["Neptune Blue", "Rocket Flame"]
-      linestyles: ["-", "-"]
+      linestyles: ["-", ":"]
       markers: ["", "o"]
       linewidths: [3, 3]
     - title: "Science"
@@ -26,7 +28,7 @@ chart:
         - "{{Science White House Budget Projection}}"
       labels: ["Enacted", "Proposed"]
       colors: ["Neptune Blue", "Rocket Flame"]
-      linestyles: ["-", "-"]
+      linestyles: ["-", ":"]
       markers: ["", "o"]
       linewidths: [3, 3]
     - title: "Space Operations"
@@ -36,7 +38,7 @@ chart:
         - "{{Space Ops White House Budget Projection}}"
       labels: ["Enacted", "Proposed"]
       colors: ["Neptune Blue", "Rocket Flame"]
-      linestyles: ["-", "-"]
+      linestyles: ["-", ":"]
       markers: ["", "o"]
       linewidths: [3, 3]
     - title: "Space Tech"
@@ -46,7 +48,7 @@ chart:
         - "{{Space Tech White House Budget Projection}}"
       labels: ["Enacted", "Proposed"]
       colors: ["Neptune Blue", "Rocket Flame"]
-      linestyles: ["-", "-"]
+      linestyles: ["-", ":"]
       markers: ["", "o"]
       linewidths: [3, 3]
     - title: "Aeronautics"
@@ -56,7 +58,7 @@ chart:
         - "{{Aero White House Budget Projection}}"
       labels: ["Enacted", "Proposed"]
       colors: ["Neptune Blue", "Rocket Flame"]
-      linestyles: ["-", "-"]
+      linestyles: ["-", ":"]
       markers: ["", "o"]
       linewidths: [3, 3]
 

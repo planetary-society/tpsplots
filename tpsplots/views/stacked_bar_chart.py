@@ -17,6 +17,7 @@ from .mixins import (
     GridAxisMixin,
     legend_config_kwargs,
 )
+from .style import tokens
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +141,7 @@ class StackedBarChartView(
         width = kwargs.pop("width", 0.8)
         height = kwargs.pop("height", 0.8)
         alpha = kwargs.pop("alpha", 1.0)
-        edgecolor = kwargs.pop("edgecolor", "white")
+        edgecolor = kwargs.pop("edgecolor", tokens.BAR_EDGECOLOR)
         linewidth = kwargs.pop("linewidth", 0.5)
 
         # Get colors (cycling through defaults if not provided or list is too short)

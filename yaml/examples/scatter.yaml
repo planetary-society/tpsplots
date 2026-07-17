@@ -21,6 +21,7 @@ chart:
     bills. This led to longer, more prescriptive bills passed on an unpredictable
     timetable."
   source: "Congress.gov"
+  eyebrow: "SPACE POLICY"
 
   x: "{{Year}}"
   y: "{{Word Count}}"

@@ -144,8 +144,8 @@ def test_line_chart_grid_dict_still_applies_custom_axis(tmp_path):
     assert not any(line.get_visible() for line in ax.get_ygridlines())
 
 
-def test_line_chart_axis_labels_are_italic_with_grid_dict(tmp_path):
-    """Line chart axis labels should remain italic in the dict-grid branch."""
+def test_line_chart_axis_labels_are_upright_with_grid_dict(tmp_path):
+    """Line chart axis labels should render upright (non-italic) in the dict-grid branch."""
     view = LineChartView(outdir=tmp_path, style_file=None)
     fig = view._create_chart(
         metadata={"title": "Italic Labels"},
@@ -160,8 +160,8 @@ def test_line_chart_axis_labels_are_italic_with_grid_dict(tmp_path):
     )
     ax = fig.axes[0]
 
-    assert ax.xaxis.label.get_fontstyle() == "italic"
-    assert ax.yaxis.label.get_fontstyle() == "italic"
+    assert ax.xaxis.label.get_fontstyle() == "normal"
+    assert ax.yaxis.label.get_fontstyle() == "normal"
 
 
 def test_line_chart_grid_axis_kwarg_controls_visible_axis(tmp_path):
@@ -288,7 +288,7 @@ def test_grouped_bar_y_axis_matches_default_chart_style(tmp_path):
         assert grouped_ax.spines["left"].get_edgecolor() == plt.matplotlib.colors.to_rgba(
             plt.rcParams["axes.edgecolor"]
         )
-    assert grouped_ax.yaxis.label.get_fontstyle() == "italic"
+    assert grouped_ax.yaxis.label.get_fontstyle() == "normal"
     assert grouped_ax.get_yticklabels()[0].get_fontsize() == grouped_view.DESKTOP["tick_size"]
     assert grouped_tick.tick1line.get_visible()
     assert grouped_tick.tick1line.get_markersize() == plt.rcParams["ytick.major.size"]
@@ -771,8 +771,8 @@ def test_stacked_bar_formats_datetime_categories_with_explicit_label_format(tmp_
     assert ax.get_xticklabels()[1].get_text() == "1960"
 
 
-def test_stacked_bar_axis_labels_are_italic(tmp_path):
-    """Stacked bar chart axis labels should render in italics."""
+def test_stacked_bar_axis_labels_are_upright(tmp_path):
+    """Stacked bar chart axis labels should render upright (non-italic)."""
     from tpsplots.views.stacked_bar_chart import StackedBarChartView
 
     view = StackedBarChartView(outdir=tmp_path, style_file=None)
@@ -787,8 +787,8 @@ def test_stacked_bar_axis_labels_are_italic(tmp_path):
     )
     ax = fig.axes[0]
 
-    assert ax.xaxis.label.get_fontstyle() == "italic"
-    assert ax.yaxis.label.get_fontstyle() == "italic"
+    assert ax.xaxis.label.get_fontstyle() == "normal"
+    assert ax.yaxis.label.get_fontstyle() == "normal"
 
 
 def test_line_chart_direct_labels_do_not_duplicate_markersize_kwarg(tmp_path):

@@ -8,6 +8,8 @@ chart:
   subtitle: Each major activity gets its own budget from Congress, and they don't
     always grow together.
   source: "{{metadata.source}}"
+  eyebrow: "NASA BUDGET HISTORY"
+  note: "Inflation-adjusted to 2025 dollars (NASA New Start Index)."
 
   # Data bindings from controller
   x: "{{Fiscal Year}}"
@@ -20,6 +22,18 @@ chart:
     - "{{Space Operations_adjusted_nnsi}}"
     - "{{Facilities, IT, & Salaries_adjusted_nnsi}}"
   ylabel: "inflation-adjusted dollars"
+  # 7 distinct non-red hues/grays (the default 6-color cycle wrapped, making two
+  # series identical Neptune Blue and painting a neutral series Rocket Flame red).
+  # Order matches the y bindings above; the most distinct hues go to the largest /
+  # most-discussed activities (Exploration, Science, Space Ops).
+  color:
+    - Neptune Blue      # Exploration
+    - Plasma Purple     # Science
+    - Medium Neptune    # Aeronautics
+    - Medium Plasma     # Space Technology
+    - Comet Dust        # STEM
+    - Crater Shadow     # Space Ops
+    - Lunar Soil        # Facilities (SSMS/CECR)
   direct_line_labels:
     position: right
     fontsize: 10

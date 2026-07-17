@@ -18,6 +18,8 @@ chart:
   title: "SLS and Orion Funding Over Time"
   subtitle: "NASA's Space Launch System and Orion spacecraft funding from 2005 to 2026."
   source: "NASA Budget Justifications 2005-2026."
+  eyebrow: "EXPLORATION SYSTEMS"
+  note: "Inflation-adjusted to 2025 dollars (NASA New Start Index)."
 
   x: "{{Fiscal Year}}"
   y:
@@ -44,9 +46,10 @@ chart:
       marker: "o"
       size: 10
   scale: billions
-  ylim: [0.01, 3000000000]
+  ylim: [0.01, 4000000000]
   xlim: [2006-01-01,2026-01-01]
   grid: true
+  grid_axis: y
   tick_size: 14
   legend: false
   export_data: "{{data}}"

@@ -15,6 +15,7 @@ from tpsplots.models.mixins.base import (
     validate_numeric_or_ref,
 )
 from tpsplots.models.mixins.shared import (
+    AnnotationsMixin,
     AxisMixin,
     GridMixin,
     LegendMixin,
@@ -25,6 +26,7 @@ from tpsplots.models.mixins.shared import (
 
 __all__ = [
     "TEMPLATE_REF_PATTERN",
+    "AnnotationsMixin",
     "AxisMixin",
     "BarStylingMixin",
     "CategoricalBarAxisMixin",

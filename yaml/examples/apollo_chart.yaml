@@ -7,6 +7,8 @@ chart:
   title: "Saturn Family Launch Vehicle Costs"
   subtitle: "NASA spent {{Saturn V_adjusted_nnsi_sum:$}} on the Saturn V, compared to {{Saturn C-I/I_adjusted_nnsi_sum:$}} for the Saturn I and {{Saturn IB_adjusted_nnsi_sum:$}} for the Saturn IB."
   source: "NASA Historical Data Book"
+  eyebrow: "MOON PROGRAM ECONOMICS"
+  note: "Inflation-adjusted to 2025 dollars (NASA New Start Index)."
 
   x: "{{Fiscal Year}}"
   y:

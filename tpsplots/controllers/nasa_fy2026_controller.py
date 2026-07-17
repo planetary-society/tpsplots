@@ -145,7 +145,8 @@ class NASAFY2026Controller(NASAFYChartsController):
                 - xlim: tuple of x-axis limits
                 - total_projects: int count of affected missions
                 - total_value: str formatted total lifecycle cost
-                - total_development_time: int total development years
+                - total_operational_years: int combined operational years
+                  (launch to proposed FY2026 cancellation)
                 - export_df: DataFrame for CSV export
                 - metadata: dict with standard keys
         """
@@ -157,18 +158,15 @@ class NASAFY2026Controller(NASAFYChartsController):
 
         df["Launch Year"] = df["Launch Date"].dt.year
         df["End Year"] = df["Cancellation Date"].dt.year
-        # Safely extract year, accounting for NaT/NaN values
-        df["Formulation Start Year"] = df["Formulation Start"].apply(
-            lambda x: pd.to_datetime(x).year if pd.notnull(x) else pd.NA
-        )
 
-        # Calculate 'Duration (years)' only for valid rows
+        # "Combined years of work" = each mission's operational lifetime, from
+        # launch to the proposed FY2026 cancellation. The source sheet's
+        # "Formulation Start" column actually holds dollar costs (e.g.
+        # "$1,242.00"), not dates, so a formulation->launch development span
+        # cannot be derived from it — operational duration is the real,
+        # available signal for how much work these missions represent.
         df["Duration (years)"] = pd.to_numeric(
             df["End Year"] - df["Launch Year"], errors="coerce"
-        ).fillna(0)
-
-        df["Development Time (years)"] = pd.to_numeric(
-            df["Launch Year"] - df["Formulation Start Year"], errors="coerce"
         ).fillna(0)
 
         # Filter by only NASA-led missions
@@ -179,7 +177,7 @@ class NASAFY2026Controller(NASAFYChartsController):
         normalized_status = df["Status"].astype(str).str.strip().str.casefold()
         df = df[normalized_status.isin(allowed_statuses)]
 
-        total_development_time = round(df["Development Time (years)"].sum())
+        total_operational_years = round(df["Duration (years)"].sum())
         total_value = self.round_to_millions(df["LCC"].sum())
         total_projects = len(df)
 
@@ -203,6 +201,6 @@ class NASAFY2026Controller(NASAFYChartsController):
             "export_df": export_df,
             "total_projects": total_projects,
             "total_value": total_value,
-            "total_development_time": total_development_time,
+            "total_operational_years": total_operational_years,
             "metadata": metadata,
         }

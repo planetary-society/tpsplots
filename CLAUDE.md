@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-TPS Plots is a YAML-driven data visualization framework for The Planetary Society. Charts are defined in YAML and rendered to SVG, PNG, and PPTX with automatic desktop (16:10), mobile (8:9), and social card (1200x630 PNG) versions.
+TPS Plots is a YAML-driven data visualization framework for The Planetary Society. Charts are defined in YAML and rendered to SVG, PNG, and PPTX with automatic desktop (16:10), mobile (8:9), and social card (2400x1260 PNG, 40:21 OG ratio) versions.
 
 ## Commands
 

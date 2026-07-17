@@ -9,6 +9,7 @@ from tpsplots.models.charts.bar import BarChartConfig
 from .anim_tags import Roles, tag_artist
 from .chart_view import ChartView
 from .mixins import BarChartMixin, CategoricalBarMixin, GridAxisMixin
+from .style import tokens
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +139,7 @@ class BarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, ChartView)
         width = kwargs.pop("width", 0.8)
         height = kwargs.pop("height", 0.8)
         alpha = kwargs.pop("alpha", 1.0)
-        edgecolor = kwargs.pop("edgecolor", "white")
+        edgecolor = kwargs.pop("edgecolor", tokens.BAR_EDGECOLOR)
         linewidth = kwargs.pop("linewidth", 0.5)
         baseline = kwargs.pop("baseline", 0)
 

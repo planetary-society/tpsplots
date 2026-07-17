@@ -102,6 +102,8 @@ chart:
 | `title` | str | **required** | Chart title |
 | `subtitle` | str | — | Chart subtitle (supports {{variable}} templates) |
 | `source` | str | — | Data source attribution |
+| `eyebrow` | str | — | Short kicker line rendered above the title (uppercased in code). Desktop-only by default; hidden on mobile/social/video devices. |
+| `note` | str | — | Methodology note rendered right-aligned above the source line in the footer. Single line, no wrapping. |
 | `figsize` | list[float] | — | Figure size as [width, height] in inches. Default: [16, 10] desktop, [8, 9] mobile, [8, 4.2] social. Affects layout of titles, axes, and label positioning calculations |
 | `dpi` | int | — | Dots per inch for output resolution. Also used in pixel-to-point conversions for label placement (1 pt = dpi/72 px) |
 | `export_data` | any (template ref) | — | Data for CSV export — either a '{{export_df}}' template reference or a resolved DataFrame after template resolution |

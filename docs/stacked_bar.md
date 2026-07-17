@@ -122,6 +122,7 @@ chart:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
+| `annotations` | list[[ChartAnnotation](#chartannotation)] | — | Data-space text callouts drawn on the primary axes after the chart is rendered. Each item anchors at (x, y) in data coordinates. |
 | `bottom_values` | list | — | Custom bottom values for stacking (advanced use) |
 
 ## Common
@@ -132,7 +133,25 @@ chart:
 | `title` | str | **required** | Chart title |
 | `subtitle` | str | — | Chart subtitle (supports {{variable}} templates) |
 | `source` | str | — | Data source attribution |
+| `eyebrow` | str | — | Short kicker line rendered above the title (uppercased in code). Desktop-only by default; hidden on mobile/social/video devices. |
+| `note` | str | — | Methodology note rendered right-aligned above the source line in the footer. Single line, no wrapping. |
 | `figsize` | list[float] | — | Figure size as [width, height] in inches. Default: [16, 10] desktop, [8, 9] mobile, [8, 4.2] social. Affects layout of titles, axes, and label positioning calculations |
 | `dpi` | int | — | Dots per inch for output resolution. Also used in pixel-to-point conversions for label placement (1 pt = dpi/72 px) |
 | `export_data` | any (template ref) | — | Data for CSV export — either a '{{export_df}}' template reference or a resolved DataFrame after template resolution |
 | `matplotlib_config` | dict[str, any (template ref)] | — | Raw matplotlib artist kwargs merged after standard field processing. Keys that overlap with typed fields will override them with a logged warning. The receiving chart renderer documents which matplotlib artist consumes them |
+
+## Sub-models
+
+### ChartAnnotation
+
+A single text callout anchored in data coordinates.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `x` | float or str | **required** | Anchor x position in data coordinates |
+| `y` | float | **required** | Anchor y position in data coordinates |
+| `text` | str | **required** | Callout text. May contain flexitext style tags to emphasise a phrase, e.g. '<weight:semibold>$43B</> peak'; plain strings render as plain text. |
+| `text_x` | float or str | — | Optional x position for the text box (defaults to the anchor) |
+| `text_y` | float | — | Optional y position for the text box (defaults to the anchor) |
+| `arrow` | bool | `false` | Draw a thin curved connector from the box to the anchor point |
+| `color` | str | — | Box border and arrow colour (hex or TPS colour name). Defaults to a quiet grey; the text ink stays the standard annotation colour. |

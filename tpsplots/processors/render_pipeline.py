@@ -21,7 +21,7 @@ from tpsplots.processors.resolvers import (
 
 logger = logging.getLogger(__name__)
 
-METADATA_FIELDS = frozenset({"title", "subtitle", "source"})
+METADATA_FIELDS = frozenset({"title", "subtitle", "source", "eyebrow", "note", "annotations"})
 
 
 @dataclass

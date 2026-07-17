@@ -16,15 +16,24 @@ Data is captured in matplotlib's converted float space
 (``get_xdata(orig=False)`` after the prepare-time draw), which makes datetime
 axes work transparently — floats pass through the units machinery unchanged.
 
-Tip-tracking labels: a series' direct label and endpoint marker ride the
-moving tip while the line draws. The captured offset ``label_final -
-endpoint_final`` already encodes the collision-detection adjustment from the
-full render, so at ``p == 1`` the label converges exactly onto its final
-position with no jump. Riding only happens when the label anchors in the
-sweep's destination half of the x range (the normal case); a label anchored
-near the sweep's origin (e.g. descending data, whose data-order "endpoint" is
-the leftmost point) is pinned at its final position and fades in on the
-normal label window (its region is the first the sweep reveals).
+Tip-tracking labels: a series' direct label, endpoint marker, and orbit ring
+(``Roles.ENDPOINT_RING``) ride the moving tip while the line draws. The
+captured offset ``label_final - endpoint_final`` already encodes the
+collision-detection adjustment from the full render, so at ``p == 1`` the
+label converges exactly onto its final position with no jump. Riding only
+happens when the label anchors in the sweep's destination half of the x range
+(the normal case); a label anchored near the sweep's origin (e.g. descending
+data, whose data-order "endpoint" is the leftmost point) is pinned at its
+final position and fades in on the normal label window (its region is the
+first the sweep reveals).
+
+Late-starting series: a series whose y values begin mid-axis (an all-NaN
+head — common when several series share one x column) has no revealed point
+until the sweep front reaches its first finite x. Its companions' fade clock
+is shifted by ``companion_delay`` (the eased-sweep time of that crossing,
+precomputed via easing inversion at capture) and additionally forced hidden
+while no anchor point exists — otherwise they would sit at their final
+positions from frame 0.
 
 Marker rules (phantom-tip guard): a marker-bearing line would render a fake
 data point gliding between real samples if the tip vertex were marked, so the
@@ -63,6 +72,36 @@ def _to_float(value: Any) -> float:
     return float(np.asarray(value, dtype=float).reshape(-1)[0])
 
 
+def _invert_easing(easing: Any, u: float) -> float:
+    """Smallest ``s`` in [0, 1] with ``easing(s) >= u``.
+
+    Used to convert a sweep-front *position* fraction into the normalized
+    *time* when the front reaches it. A coarse scan brackets the first
+    crossing (robust to overshoot easings that are briefly non-monotone),
+    then bisection refines it.
+    """
+    if u <= 0.0:
+        return 0.0
+    lo, hi = None, None
+    steps = 64
+    prev = 0.0
+    for k in range(1, steps + 1):
+        s = k / steps
+        if easing(s) >= u:
+            lo, hi = prev, s
+            break
+        prev = s
+    if hi is None:
+        return 1.0
+    for _ in range(40):
+        mid = (lo + hi) / 2.0
+        if easing(mid) >= u:
+            hi = mid
+        else:
+            lo = mid
+    return hi
+
+
 @dataclass
 class _SeriesCapture:
     """Final state of one series and its tip-tracking companions."""
@@ -85,6 +124,12 @@ class _SeriesCapture:
     endpoint_fade: AlphaFade | None = None
     endpoint_final: tuple[float, float] | None = None
     endpoint_size: float = 0.0
+    ring: Any = None
+    ring_fade: AlphaFade | None = None
+    ring_size: float = 0.0
+    # Companions stay hidden until the sweep front reaches the series' first
+    # finite point (a series whose data starts mid-axis has an all-NaN head).
+    companion_delay: float = 0.0
 
 
 class LineAnimator(BaseAnimator):
@@ -117,6 +162,7 @@ class LineAnimator(BaseAnimator):
 
     def capture(self) -> None:
         endpoints = {tag.index: artist for tag, artist in self.tagged(Roles.ENDPOINT)}
+        rings = {tag.index: artist for tag, artist in self.tagged(Roles.ENDPOINT_RING)}
         labels = {tag.index: artist for tag, artist in self.tagged(Roles.SERIES_LABEL)}
         self._series: list[tuple[int, _SeriesCapture]] = []
 
@@ -162,6 +208,26 @@ class LineAnimator(BaseAnimator):
                 capture.endpoint_fade = AlphaFade.capture(endpoint)
                 capture.endpoint_final = (ex, ey)
                 capture.endpoint_size = float(endpoint.get_markersize())
+
+            ring = rings.get(tag.index)
+            if ring is not None:
+                capture.ring = ring
+                capture.ring_fade = AlphaFade.capture(ring)
+                capture.ring_size = float(ring.get_markersize())
+
+            # Delay the companion fade until the sweep front reaches the first
+            # finite point: y-NaN heads (a series that begins mid-axis) must
+            # not show their label/endpoint at the final position from frame 0.
+            finite_xy = np.nonzero(np.isfinite(x) & np.isfinite(y))[0]
+            window = self.timeline.window(("series", tag.index))
+            if finite_xy.size == 0:
+                capture.companion_delay = math.inf
+            elif window is not None:
+                if capture.x_sorted and capture.x_hi > capture.x_lo:
+                    u = (float(x[finite_xy[0]]) - capture.x_lo) / (capture.x_hi - capture.x_lo)
+                else:
+                    u = finite_xy[0] / len(x)
+                capture.companion_delay = window.duration * _invert_easing(window.easing, u)
 
             capture.anchor_final = capture.endpoint_final or self._last_finite_point(x, y)
             # Ride the tip only when the anchor sits in the destination half of
@@ -265,11 +331,17 @@ class LineAnimator(BaseAnimator):
         anchor: tuple[float, float] | None,
         t: float,
     ) -> None:
-        """Drive the tip-tracking label and endpoint marker for one series."""
-        if capture.label is None and capture.endpoint is None:
+        """Drive the tip-tracking label, endpoint marker, and orbit ring."""
+        if capture.label is None and capture.endpoint is None and capture.ring is None:
             return
 
-        fade = self.timeline.progress(("label", index), t)
+        # The fade clock is shifted by companion_delay so a series whose data
+        # starts mid-axis fades its companions in when the sweep front reaches
+        # its first finite point, not at the sweep start. The anchor guard
+        # keeps them hidden while there is no revealed point to sit on.
+        fade = self.timeline.progress(("label", index), t - capture.companion_delay)
+        if anchor is None and progress < 1.0:
+            fade = 0.0
 
         if capture.label is not None:
             if progress >= 1.0 and capture.label_final is not None:
@@ -282,15 +354,22 @@ class LineAnimator(BaseAnimator):
                 )
             capture.label.apply(fade)
 
+        if capture.endpoint is not None or capture.ring is not None:
+            pop = self.timeline.progress(("pop", index), t)
+            scale_from = float(self.choreo["marker_pop_scale_from"])
+            pop_scale = scale_from + (1.0 - scale_from) * pop
+
         if capture.endpoint is not None:
             if anchor is not None:
                 capture.endpoint.set_data([anchor[0]], [anchor[1]])
             capture.endpoint_fade.apply(fade)
-            pop = self.timeline.progress(("pop", index), t)
-            scale_from = float(self.choreo["marker_pop_scale_from"])
-            capture.endpoint.set_markersize(
-                capture.endpoint_size * (scale_from + (1.0 - scale_from) * pop)
-            )
+            capture.endpoint.set_markersize(capture.endpoint_size * pop_scale)
+
+        if capture.ring is not None:
+            if anchor is not None:
+                capture.ring.set_data([anchor[0]], [anchor[1]])
+            capture.ring_fade.apply(fade)
+            capture.ring.set_markersize(capture.ring_size * pop_scale)
 
     @staticmethod
     def _last_finite_point(xs: np.ndarray, ys: np.ndarray) -> tuple[float, float] | None:

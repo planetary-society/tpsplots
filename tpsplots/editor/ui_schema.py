@@ -39,14 +39,24 @@ _MIXIN_GROUPS: list[tuple[str, type]] = [
 ]
 
 # Identity group uses fields from ChartConfigBase
-_IDENTITY_FIELDS = {"type", "output", "title", "subtitle", "source"}
+_IDENTITY_FIELDS = {"type", "output", "title", "subtitle", "source", "eyebrow", "note"}
 
 # System config fields excluded from the schema entirely.
 # These are TPS brand constants (figsize, dpi) or pipeline internals
 # (export_data, matplotlib_config, line.data DataFrame reference) that are not user-configurable in the
 # editor. Stripping them from the JSON schema (not just hiding) prevents
 # the editor form from creating inputs or injecting empty defaults.
-_EXCLUDED_FIELDS = {"figsize", "dpi", "export_data", "matplotlib_config", "data"}
+_EXCLUDED_FIELDS = {
+    "figsize",
+    "dpi",
+    "export_data",
+    "matplotlib_config",
+    "data",
+    # Data-space annotations are authored in YAML (list of models with data
+    # coordinates), not through the guided editor form. Stripped like other
+    # complex/pipeline fields so no form input or ui:group is generated for it.
+    "annotations",
+}
 _CHART_EXCLUDED_FIELDS: dict[str, set[str]] = {
     # Scatter inherits line options, but these line-connector controls should not
     # appear in scatter editor schema/UX.
@@ -786,7 +796,9 @@ def get_editor_hints(chart_type: str) -> dict[str, Any]:
     excluded = _get_excluded_fields(config_cls, chart_type)
     fields = [f for f in config_cls.model_fields if f not in excluded]
     primary = [f for f in get_primary_binding_fields(chart_type) if f in fields]
-    annotation = [f for f in ("title", "subtitle", "source", "output") if f in fields]
+    annotation = [
+        f for f in ("eyebrow", "title", "subtitle", "note", "source", "output") if f in fields
+    ]
 
     visual = [f for f in fields if f not in set(primary) | set(annotation) | {"type"}]
 

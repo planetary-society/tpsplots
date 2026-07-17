@@ -10,6 +10,7 @@ from tpsplots.models.charts.lollipop import LollipopChartConfig
 from .anim_tags import Roles, tag_artist
 from .chart_view import ChartView
 from .mixins import ColorCycleMixin, GridAxisMixin
+from .style import tokens
 
 logger = logging.getLogger(__name__)
 
@@ -155,8 +156,10 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
         end_marker_size = kwargs.pop("end_marker_size", marker_size)
         start_marker_color = kwargs.pop("start_marker_color", None)
         end_marker_color = kwargs.pop("end_marker_color", None)
-        start_marker_edgecolor = kwargs.pop("start_marker_edgecolor", "white")
-        end_marker_edgecolor = kwargs.pop("end_marker_edgecolor", "white")
+        start_marker_edgecolor = kwargs.pop(
+            "start_marker_edgecolor", tokens.LOLLIPOP_MARKER_EDGECOLOR
+        )
+        end_marker_edgecolor = kwargs.pop("end_marker_edgecolor", tokens.LOLLIPOP_MARKER_EDGECOLOR)
         start_marker_edgewidth = kwargs.pop("start_marker_edgewidth", 1)
         end_marker_edgewidth = kwargs.pop("end_marker_edgewidth", 1)
 
@@ -172,9 +175,11 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
 
         # Handle edge colors
         start_edge_colors = self._get_marker_colors(
-            start_marker_edgecolor, ["white"], len(categories)
+            start_marker_edgecolor, [tokens.LOLLIPOP_MARKER_EDGECOLOR], len(categories)
         )
-        end_edge_colors = self._get_marker_colors(end_marker_edgecolor, ["white"], len(categories))
+        end_edge_colors = self._get_marker_colors(
+            end_marker_edgecolor, [tokens.LOLLIPOP_MARKER_EDGECOLOR], len(categories)
+        )
 
         # Handle line styles (consistent with line_chart.py pattern)
         line_styles = self._get_line_styles(linestyle, len(categories))
@@ -213,7 +218,9 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
                 marker=start_marker_style,
                 alpha=alpha,
                 zorder=5,
-                edgecolors=start_edge_colors[i] if start_edge_colors else "white",
+                edgecolors=start_edge_colors[i]
+                if start_edge_colors
+                else tokens.LOLLIPOP_MARKER_EDGECOLOR,
                 linewidth=start_marker_edgewidth,
             )
 
@@ -226,7 +233,9 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
                 marker=end_marker_style,
                 alpha=alpha,
                 zorder=5,
-                edgecolors=end_edge_colors[i] if end_edge_colors else "white",
+                edgecolors=end_edge_colors[i]
+                if end_edge_colors
+                else tokens.LOLLIPOP_MARKER_EDGECOLOR,
                 linewidth=end_marker_edgewidth,
             )
             tag_artist(end_marker, Roles.END_MARKER, i)

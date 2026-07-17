@@ -16,20 +16,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import pytest
 
-from tpsplots.views.line_chart import LineChartView
-from tpsplots.views.scatter_chart import ScatterChartView
-
 matplotlib.use("Agg")
-
-
-@pytest.fixture
-def line_view(tmp_path):
-    return LineChartView(outdir=tmp_path, style_file=None)
-
-
-@pytest.fixture
-def scatter_view(tmp_path):
-    return ScatterChartView(outdir=tmp_path, style_file=None)
 
 
 @pytest.fixture
@@ -42,27 +29,6 @@ def sample_df():
             "GDP_Pct": [3.2, 3.5, 3.1, 3.8],
         }
     )
-
-
-@pytest.fixture
-def desktop_style():
-    return {
-        "type": "desktop",
-        "figsize": (16, 9),
-        "dpi": 100,
-        "title_size": 20,
-        "subtitle_size": 14,
-        "tick_size": 12,
-        "label_size": 14,
-        "legend_size": 12,
-        "line_width": 2,
-        "marker_size": 6,
-        "tick_rotation": 0,
-        "grid": True,
-        "grid_axis": "y",
-        "header_height": 0.15,
-        "footer_height": 0.05,
-    }
 
 
 class TestDualAxisCreation:

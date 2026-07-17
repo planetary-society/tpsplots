@@ -14,6 +14,8 @@ chart:
   title: "NASA DRP departures by center"
   subtitle: "Estimated civil servant departures and remaining population by NASA center."
   source: "NASA FY 2025 Estimate"
+  eyebrow: "NASA WORKFORCE"
+  note: "Estimated civil-servant departures under the FY 2025 Deferred Resignation Program, by center."
 
   data: "{{data}}"
   location_column: "Map Key"

@@ -8,6 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, model_validator
 
 from tpsplots.models.mixins import (
+    AnnotationsMixin,
     AxisMixin,
     BarStylingMixin,
     CategoricalBarAxisMixin,
@@ -36,6 +37,7 @@ class GroupConfig(BaseModel):
 
 
 class GroupedBarChartConfig(
+    AnnotationsMixin,
     AxisMixin,
     GridMixin,
     LegendMixin,

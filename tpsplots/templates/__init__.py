@@ -30,7 +30,7 @@ chart:
   # === Multi-Series (use lists for multiple lines) ===
   # y: ["{{series1}}", "{{series2}}"]
   # color: [Neptune Blue, Rocket Flame]
-  # linestyle: [solid, dashed]
+  # linestyle: [solid, dotted]
   # labels: ["Series 1", "Series 2"]
 
   # === Colors ===
@@ -230,7 +230,7 @@ chart:
   #   - Rocket Flame
   # linestyle:
   #   - solid
-  #   - dashed
+  #   - dotted
 
   # === Labels ===
   # start_value_labels: false

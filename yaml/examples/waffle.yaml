@@ -7,6 +7,8 @@ chart:
   title: "NASA is a fraction of U.S. spending"
   subtitle: "One small block for NASA ($25 billion), one giant expenditure for everything else ($6.8 trillion)."
   source: "Congressional Budget Office, FY {{fiscal_year}}"
+  eyebrow: "U.S. FEDERAL SPENDING"
+  note: "NASA's budget shown against total U.S. federal outlays."
 
   # Data bindings from controller
   values: "{{values}}"

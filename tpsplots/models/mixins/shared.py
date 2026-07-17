@@ -12,10 +12,32 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, BeforeValidator, Field
 
+from tpsplots.models.annotations import ChartAnnotation
 from tpsplots.models.mixins.base import validate_numeric_or_ref
 
 NumericFloatOrRef = Annotated[float | str, BeforeValidator(validate_numeric_or_ref)]
 NumericIntOrRef = Annotated[int | str, BeforeValidator(validate_numeric_or_ref)]
+
+
+class AnnotationsMixin(BaseModel):
+    """Data-space annotation callouts.
+
+    Only meaningful on charts whose primary axes are a cartesian data plane
+    (line, scatter, bar, grouped/stacked bar, lollipop). Non-cartesian charts
+    (donut, treemap, waffle, us_map_pie) and multi-axes charts (line_subplots)
+    deliberately do not include this mixin, so ``annotations`` is rejected at
+    validation time instead of rendering in a meaningless coordinate space.
+
+    Mirrors: ChartView._apply_annotations
+    """
+
+    annotations: list[ChartAnnotation] | None = Field(
+        None,
+        description=(
+            "Data-space text callouts drawn on the primary axes after the chart "
+            "is rendered. Each item anchors at (x, y) in data coordinates."
+        ),
+    )
 
 
 class AxisMixin(BaseModel):

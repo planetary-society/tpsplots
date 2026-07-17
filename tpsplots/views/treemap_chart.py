@@ -14,6 +14,7 @@ from matplotlib.patches import Rectangle
 from tpsplots.models.charts.treemap import TreemapChartConfig, raise_for_geometry_overrides
 from tpsplots.views.chart_view import ChartView
 from tpsplots.views.mixins.color_cycle_mixin import ColorCycleMixin
+from tpsplots.views.style import tokens
 
 
 @dataclass(frozen=True, slots=True)
@@ -271,7 +272,7 @@ class TreemapChartView(ColorCycleMixin, ChartView):
         colors = kwargs.pop("colors", None)
         items = self._normalize_items(labels, values, colors)
 
-        edgecolor = kwargs.pop("edgecolor", "Polar White")
+        edgecolor = kwargs.pop("edgecolor", tokens.TREEMAP_EDGECOLOR)
         linewidth = kwargs.pop("linewidth", 2.0)
         alpha = kwargs.pop("alpha", 1.0)
         show_labels = kwargs.pop("show_labels", True)

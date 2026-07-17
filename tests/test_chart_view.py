@@ -233,7 +233,16 @@ def test_add_header_uses_tighter_subtitle_line_spacing(tmp_path):
 
 
 def test_add_header_nestles_subtitle_slightly_closer_to_title(tmp_path):
-    """Subtitle padding should be compact and slightly biased toward the title."""
+    """The first subtitle line is pulled up into the title's box to hug it.
+
+    The title→subtitle gap is deterministic: the subtitle's top anchor sits a
+    fixed fraction of a SINGLE subtitle line box *above* the title's
+    glyph-independent bottom (an overlap that reclaims the subtitle's ascender
+    whitespace), matching the eyebrow→title rhythm and independent of how many
+    lines the subtitle wraps to. Leftover slack stays below the subtitle.
+    """
+    from tpsplots.views.style import tokens
+
     view = ChartView(outdir=tmp_path, style_file=None)
     style = dict(view.MOBILE)
     fig, ax = plt.subplots(figsize=style["figsize"], dpi=style["dpi"])
@@ -245,31 +254,70 @@ def test_add_header_nestles_subtitle_slightly_closer_to_title(tmp_path):
 
     title_text, subtitle_text = view._add_header(fig, metadata, style)
     fig.canvas.draw()
-    renderer = fig.canvas.get_renderer()
     fig_height_px = fig.get_figheight() * fig.dpi
-    title_bbox = title_text.get_window_extent(renderer)
-    subtitle_bbox = subtitle_text.get_window_extent(renderer)
-    original_spacing = (title_bbox.y0 - subtitle_bbox.height) / fig_height_px - ax.get_position().y1
 
     view._center_subtitle_vertically(fig, title_text, subtitle_text, style, 0.1)
     fig.canvas.draw()
 
+    # The subtitle top is pulled ABOVE the title's glyph-independent bottom (its
+    # descender line) by a fraction of a single TITLE line box, reclaiming the
+    # title's descender depth so the subtitle hugs the baseline.
+    title_bottom_y = title_text.get_position()[1] - view._measure_text_height(
+        fig,
+        title_text.get_text(),
+        title_text.get_fontsize(),
+        linespacing=title_text.get_linespacing(),
+    )
+    title_line_height = view._measure_text_height(
+        fig,
+        view._METRIC_REFERENCE_GLYPHS,
+        title_text.get_fontsize(),
+        linespacing=title_text.get_linespacing(),
+    )
+    overlap = subtitle_text.get_position()[1] - title_bottom_y
+    assert overlap == pytest.approx(
+        title_line_height * tokens.TITLE_SUBTITLE_OVERLAP_RATIO, abs=1 / fig_height_px
+    )
+    assert overlap > 0  # subtitle sits above the title box bottom (hugging it)
+
+    # The subtitle nestles toward the title: the visible gap above it is
+    # smaller than the gap below it (down to the plot).
     renderer = fig.canvas.get_renderer()
     title_bbox = title_text.get_window_extent(renderer)
     subtitle_bbox = subtitle_text.get_window_extent(renderer)
     upper_gap = (title_bbox.y0 - subtitle_bbox.y1) / fig_height_px
     lower_gap = subtitle_bbox.y0 / fig_height_px - ax.get_position().y1
-
-    compact_spacing = original_spacing * style["subtitle_vertical_padding_scale"]
-    assert upper_gap == pytest.approx(
-        compact_spacing * style["subtitle_top_padding_share"],
-        abs=1 / fig_height_px,
-    )
-    assert lower_gap == pytest.approx(
-        compact_spacing * (1.0 - style["subtitle_top_padding_share"]),
-        abs=1 / fig_height_px,
-    )
     assert upper_gap < lower_gap
+    plt.close(fig)
+
+
+def test_center_subtitle_is_bottom_anchored(tmp_path):
+    """Nestling the subtitle must grow the plot's top up, never lift its bottom.
+
+    The old behaviour translated the whole plot upward to close the subtitle
+    gap, which vacated an equal band of dead space above the footer. The plot
+    bottom must stay put (footer side stays filled) while the top rises.
+    """
+    view = ChartView(outdir=tmp_path, style_file=None)
+    style = dict(view.MOBILE)
+    fig, ax = plt.subplots(figsize=style["figsize"], dpi=style["dpi"])
+    metadata = {
+        "title": "The cost of NASA's Viking missions to Mars",
+        "subtitle": "First subtitle line\nSecond subtitle line\nThird subtitle line",
+    }
+    ax.set_position([0.1, 0.1, 0.8, 0.7])
+    bottom_before = ax.get_position().y0
+    top_before = ax.get_position().y1
+
+    title_text, subtitle_text = view._add_header(fig, metadata, style)
+    fig.canvas.draw()
+    view._center_subtitle_vertically(fig, title_text, subtitle_text, style, 0.1)
+
+    tolerance = 1 / (fig.get_figheight() * fig.dpi)
+    # Bottom is anchored (footer side stays filled)...
+    assert ax.get_position().y0 == pytest.approx(bottom_before, abs=tolerance)
+    # ...and the top grew upward to nestle under the subtitle.
+    assert ax.get_position().y1 > top_before
     plt.close(fig)
 
 
@@ -287,6 +335,62 @@ def test_calculate_header_height_measures_multiline_subtitle(tmp_path):
 
     assert header_height > style["header_height"]
     plt.close(fig)
+
+
+# ── Descender-proof header metrics ─────────────────────────────────
+# Header vertical rhythm must be identical regardless of which glyphs appear:
+# a subtitle full of gerund descenders ("comparing spending") and an all-caps
+# one ("NASA'S BUDGET") must reserve the same space and sit at the same offsets.
+
+
+def test_measure_text_height_is_glyph_independent(tmp_path):
+    """_measure_text_height depends only on line count/size/spacing, not glyphs."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    fig = plt.figure(figsize=(8, 9), dpi=300)
+
+    descenders = view._measure_text_height(fig, "comparing spending programs", 17)
+    all_caps = view._measure_text_height(fig, "NASA'S BUDGET IN CONTEXT", 17)
+    brackets = view._measure_text_height(fig, "Budget (FY2026) [±$4.1B]", 17)
+
+    assert descenders == all_caps == brackets
+    # Two lines must be taller than one, and the same regardless of glyphs.
+    two_desc = view._measure_text_height(fig, "spending gjpqy\ncomparing yjgq", 17)
+    two_caps = view._measure_text_height(fig, "NASA BUDGET\nIN CONTEXT", 17)
+    assert two_desc == two_caps
+    assert two_desc > descenders
+    plt.close(fig)
+
+
+def _header_gaps(view, style, title, subtitle):
+    """Return (title->subtitle gap, subtitle->plot gap) in px for a header."""
+    fig, ax = plt.subplots(figsize=style["figsize"], dpi=style["dpi"])
+    ax.set_position([0.1, 0.1, 0.8, 0.6])
+    metadata = {"title": title, "subtitle": subtitle}
+    header_height = view._calculate_header_height(fig, metadata, style)
+    title_text, subtitle_text = view._add_header(fig, metadata, style)
+    fig.canvas.draw()
+    view._center_subtitle_vertically(fig, title_text, subtitle_text, style, header_height)
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    height_px = fig.get_figheight() * fig.dpi
+    tb = title_text.get_window_extent(renderer)
+    sb = subtitle_text.get_window_extent(renderer)
+    plot_top_px = ax.get_position().y1 * height_px
+    plt.close(fig)
+    return (tb.y0 - sb.y1), (sb.y0 - plot_top_px), header_height
+
+
+def test_header_gaps_are_descender_independent(tmp_path):
+    """Title->subtitle and subtitle->plot gaps must match to within 1px across glyphs."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    style = dict(view.MOBILE)
+    # Same title; subtitles differ ONLY in descenders / letter case.
+    desc = _header_gaps(view, style, "NASA budget in context", "Comparing spending programs")
+    caps = _header_gaps(view, style, "NASA budget in context", "NASA'S BUDGET IN CONTEXT")
+
+    assert abs(desc[0] - caps[0]) <= 1.0  # title -> subtitle gap
+    assert abs(desc[1] - caps[1]) <= 1.0  # subtitle -> plot gap
+    assert desc[2] == caps[2]  # header height identical
 
 
 def test_layout_aligns_decoration_free_chart_with_header_and_footer(tmp_path):
@@ -461,11 +565,11 @@ def test_center_axes_respects_zone_bounds(tmp_path):
 
 
 def test_social_style_produces_correct_dimensions(tmp_path):
-    """SOCIAL style should produce a 1200x630 pixel image."""
+    """SOCIAL renders at 300 dpi -> 2400x1260 px (same 40:21 OG ratio, crisper)."""
     style = ChartView.SOCIAL
     fig = plt.figure(figsize=style["figsize"], dpi=style["dpi"])
-    assert fig.get_figwidth() * fig.dpi == 1200
-    assert fig.get_figheight() * fig.dpi == 630
+    assert fig.get_figwidth() * fig.dpi == 2400
+    assert fig.get_figheight() * fig.dpi == 1260
     plt.close(fig)
 
 
@@ -490,7 +594,7 @@ def test_social_style_disables_header_but_keeps_footer(tmp_path):
 def test_social_save_produces_png_only(tmp_path):
     """_save_chart with create_svg=False should only produce a PNG file."""
     view = ChartView(outdir=tmp_path, style_file=None)
-    fig = plt.figure(figsize=(8, 4.2), dpi=150)
+    fig = plt.figure(figsize=(8, 4.2), dpi=300)
 
     files = view._save_chart(fig, "test_social", metadata={}, create_svg=False)
 
@@ -533,3 +637,288 @@ def test_add_logo_adds_vector_path_patch(tmp_path, monkeypatch):
     fc = patches[0].get_facecolor()
     assert abs(fc[0] - 0.329) < 0.01
     plt.close(fig)
+
+
+# ---------------------------------------------------------------------------
+# Mobile title wrap (bugfix): long titles must wrap instead of overflowing
+# ---------------------------------------------------------------------------
+def test_mobile_long_title_wraps_and_grows_header(tmp_path):
+    """A long title on the narrow mobile canvas wraps within bounds and enlarges the header."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    style = dict(view.MOBILE)
+    fig = plt.figure(figsize=style["figsize"], dpi=style["dpi"])
+    long_title = "Artemis vs Apollo: Annual Spending Comparison"
+
+    # Header height must grow for a wrapped multi-line title vs a short one.
+    short_height = view._calculate_header_height(fig, {"title": "NASA"}, style)
+    long_height = view._calculate_header_height(fig, {"title": long_title}, style)
+    assert long_height > short_height
+
+    title_text, _ = view._add_header(fig, {"title": long_title}, style)
+    fig.canvas.draw()
+
+    bbox = title_text.get_window_extent(fig.canvas.get_renderer())
+    fig_fraction = bbox.transformed(fig.transFigure.inverted())
+    # Rendered title right edge stays within the figure.
+    assert fig_fraction.x1 <= 1.0
+    # The title actually wrapped onto more than one line.
+    assert "\n" in title_text.get_text()
+    plt.close(fig)
+
+
+def test_short_desktop_title_is_not_wrapped(tmp_path):
+    """A title that fits on one line is left unchanged (no spurious wrapping)."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    style = dict(view.DESKTOP)
+    fig = plt.figure(figsize=style["figsize"], dpi=style["dpi"])
+
+    title_text, _ = view._add_header(fig, {"title": "NASA budget"}, style)
+    assert title_text.get_text() == "NASA budget"
+    plt.close(fig)
+
+
+# ---------------------------------------------------------------------------
+# Eyebrow: desktop-only kicker above the title
+# ---------------------------------------------------------------------------
+def test_eyebrow_renders_uppercased_on_desktop(tmp_path):
+    """DESKTOP + eyebrow set → the uppercased eyebrow text is drawn on the figure."""
+    from tpsplots.views.style import tokens
+
+    view = ChartView(outdir=tmp_path, style_file=None)
+    style = dict(view.DESKTOP)
+    fig = plt.figure(figsize=style["figsize"], dpi=style["dpi"])
+
+    view._add_header(fig, {"title": "T", "eyebrow": "Mission update"}, style)
+
+    eyebrow = next((t for t in fig.texts if t.get_text() == "MISSION UPDATE"), None)
+    assert eyebrow is not None
+    # Colored from the token, not black.
+    assert eyebrow.get_color() == tokens.EYEBROW_COLOR
+    plt.close(fig)
+
+
+def test_eyebrow_pushes_title_down(tmp_path):
+    """With an eyebrow present the title starts below the top of the header zone."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    style = dict(view.DESKTOP)
+    fig = plt.figure(figsize=style["figsize"], dpi=style["dpi"])
+
+    without = view._calculate_header_height(fig, {"title": "T"}, style)
+    with_eyebrow = view._calculate_header_height(fig, {"title": "T", "eyebrow": "Kicker"}, style)
+    assert with_eyebrow > without
+    plt.close(fig)
+
+
+# ---------------------------------------------------------------------------
+# Note: methodology line above the source in the footer
+# ---------------------------------------------------------------------------
+def test_note_renders_above_source(tmp_path):
+    """The note is drawn italic/right-aligned above the source line."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    style = dict(view.DESKTOP)
+    fig = plt.figure(figsize=style["figsize"], dpi=style["dpi"])
+
+    view._add_footer(
+        fig,
+        {"source": "NASA", "note": "Estimates only"},
+        style,
+        style["footer_height"],
+    )
+    fig.canvas.draw()
+
+    note = next(t for t in fig.texts if t.get_text() == "Estimates only")
+    source = next(t for t in fig.texts if "SOURCE: NASA" in t.get_text())
+    renderer = fig.canvas.get_renderer()
+    assert note.get_window_extent(renderer).y0 > source.get_window_extent(renderer).y0
+    assert note.get_style() == "italic"
+    assert note.get_ha() == "right"
+    plt.close(fig)
+
+
+def test_note_absent_when_unset(tmp_path):
+    """No note metadata → only the source line is drawn (unchanged footer)."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    style = dict(view.DESKTOP)
+    fig = plt.figure(figsize=style["figsize"], dpi=style["dpi"])
+
+    view._add_footer(fig, {"source": "NASA"}, style, style["footer_height"])
+
+    texts = [t.get_text() for t in fig.texts]
+    assert texts == ["SOURCE: NASA"]
+    plt.close(fig)
+
+
+# ---------------------------------------------------------------------------
+# Annotations: data-space callouts on the primary axes
+# ---------------------------------------------------------------------------
+def test_apply_annotations_draws_text_in_rounded_box(tmp_path):
+    """metadata['annotations'] → a text artist wrapped in the rounded label box."""
+    import matplotlib.colors as mcolors
+    from matplotlib.patches import FancyBboxPatch
+
+    from tpsplots.views.style import tokens
+
+    view = ChartView(outdir=tmp_path, style_file=None)
+    fig, ax = plt.subplots()
+    ax.plot([0, 1, 2], [0, 1, 2])
+
+    view._apply_annotations(
+        fig, {"annotations": [{"x": 1.0, "y": 1.0, "text": "peak"}]}, view.DESKTOP
+    )
+
+    note = next(t for t in ax.texts if t.get_text() == "peak")
+    box = note.get_bbox_patch()
+    assert isinstance(box, FancyBboxPatch)
+    # White fill + the default (Lunar Soil) grey border, matching direct labels.
+    assert mcolors.to_hex(box.get_facecolor()) == "#ffffff"
+    assert mcolors.to_hex(box.get_edgecolor()) == tokens.ANNOTATION_EDGE_COLOR.lower()
+    plt.close(fig)
+
+
+def test_apply_annotations_draws_curved_arrow_when_requested(tmp_path):
+    """arrow=True draws a standalone curved FancyArrowPatch (not a Text connector)."""
+    from matplotlib.patches import FancyArrowPatch
+    from matplotlib.text import Annotation
+
+    view = ChartView(outdir=tmp_path, style_file=None)
+    fig, ax = plt.subplots()
+    ax.plot([0, 1, 2], [0, 1, 2])
+
+    view._apply_annotations(
+        fig,
+        {
+            "annotations": [
+                {"x": 1.0, "y": 1.0, "text": "peak", "text_x": 1.5, "text_y": 1.8, "arrow": True}
+            ]
+        },
+        view.DESKTOP,
+    )
+
+    arrows = [p for p in ax.patches if isinstance(p, FancyArrowPatch)]
+    assert len(arrows) == 1
+    # Text stays a plain Text with its own box; not an ax.annotate connector.
+    note = next(t for t in ax.texts if t.get_text() == "peak")
+    assert not isinstance(note, Annotation)
+    plt.close(fig)
+
+
+def test_apply_annotations_tagged_text_uses_flexitext_with_matching_box(tmp_path):
+    """A flexitext-tagged string renders via flexitext plus a matching bbox patch."""
+    import matplotlib.colors as mcolors
+    from matplotlib.offsetbox import AnnotationBbox
+    from matplotlib.patches import FancyBboxPatch
+
+    view = ChartView(outdir=tmp_path, style_file=None)
+    fig, ax = plt.subplots()
+    ax.plot([0, 1, 2], [0, 1, 2])
+
+    view._apply_annotations(
+        fig,
+        {
+            "annotations": [
+                {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "text": "<weight:semibold>$43B</> peak",
+                    "text_x": 1.5,
+                    "text_y": 1.8,
+                    "color": "Rocket Flame",
+                }
+            ]
+        },
+        view.DESKTOP,
+    )
+
+    # flexitext places an AnnotationBbox; the raw tag is never a literal Text.
+    assert any(isinstance(a, AnnotationBbox) for a in ax.get_children())
+    assert not any("<weight" in t.get_text() for t in ax.texts)
+    # A separate rounded box behind the flexitext, coloured by the override.
+    boxes = [p for p in ax.get_children() if isinstance(p, FancyBboxPatch)]
+    assert len(boxes) == 1
+    assert mcolors.to_hex(boxes[0].get_edgecolor()) == "#ff5d47"  # Rocket Flame
+    plt.close(fig)
+
+
+def test_apply_annotations_separates_overlapping_labelless(tmp_path):
+    """Two label-less callouts at near-identical coords are nudged apart (adjustText)."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    fig, ax = plt.subplots()
+    ax.plot([0, 1, 2, 3], [0, 1, 2, 3])
+    ax.set_xlim(0, 3)
+    ax.set_ylim(0, 3)
+
+    view._apply_annotations(
+        fig,
+        {
+            "annotations": [
+                {"x": 1.5, "y": 1.5, "text": "alpha"},
+                {"x": 1.52, "y": 1.52, "text": "beta"},
+            ]
+        },
+        view.DESKTOP,
+    )
+
+    renderer = fig.canvas.get_renderer()
+    by_text = {t.get_text(): t for t in ax.texts}
+    a_box = by_text["alpha"].get_window_extent(renderer)
+    b_box = by_text["beta"].get_window_extent(renderer)
+    assert not a_box.overlaps(b_box)
+    # The view is left untouched by the adjustment.
+    assert ax.get_xlim() == (0.0, 3.0)
+    plt.close(fig)
+
+
+def test_apply_annotations_color_field_overrides_box_and_arrow(tmp_path):
+    """The per-annotation color drives both the box border and the arrow colour."""
+    import matplotlib.colors as mcolors
+    from matplotlib.patches import FancyArrowPatch
+
+    view = ChartView(outdir=tmp_path, style_file=None)
+    fig, ax = plt.subplots()
+    ax.plot([0, 1, 2], [0, 1, 2])
+
+    view._apply_annotations(
+        fig,
+        {
+            "annotations": [
+                {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "text": "peak",
+                    "text_x": 1.5,
+                    "text_y": 1.8,
+                    "arrow": True,
+                    "color": "Neptune Blue",
+                }
+            ]
+        },
+        view.DESKTOP,
+    )
+
+    note = next(t for t in ax.texts if t.get_text() == "peak")
+    assert mcolors.to_hex(note.get_bbox_patch().get_edgecolor()) == "#037cc2"
+    arrow = next(p for p in ax.patches if isinstance(p, FancyArrowPatch))
+    assert mcolors.to_hex(arrow.get_edgecolor()) == "#037cc2"
+    plt.close(fig)
+
+
+def test_apply_annotations_noop_when_unset(tmp_path):
+    """No annotations metadata → the axes gain no text artists."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    fig, ax = plt.subplots()
+    ax.plot([0, 1, 2], [0, 1, 2])
+
+    view._apply_annotations(fig, {"title": "T"}, view.DESKTOP)
+
+    assert list(ax.texts) == []
+    plt.close(fig)
+
+
+def test_coerce_annotation_x_parses_date_strings_else_passes_through(tmp_path):
+    """String x on a date axis becomes a Timestamp; numbers/plain strings pass through."""
+    import pandas as pd
+
+    view = ChartView(outdir=tmp_path, style_file=None)
+    assert isinstance(view._coerce_annotation_x("2020-01-01"), pd.Timestamp)
+    assert view._coerce_annotation_x(5.0) == 5.0
+    assert view._coerce_annotation_x("not a date") == "not a date"
