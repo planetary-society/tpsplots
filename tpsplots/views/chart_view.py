@@ -67,6 +67,7 @@ class ChartView(AxisTickFormatMixin):
         "header_x": 0.01,
         "header_y": 0.98,
         "header_padding": 0.03,
+        "chart_vertical_padding": 0.01,
         "subtitle_size_ratio": 0.7,
         "subtitle_line_spacing": 1.05,
         "subtitle_vertical_padding_scale": 0.5,
@@ -113,6 +114,7 @@ class ChartView(AxisTickFormatMixin):
         "header_x": 0.01,
         "header_y": 0.98,
         "header_padding": 0.03,
+        "chart_vertical_padding": 0.01,
         "subtitle_size_ratio": 0.7,
         "subtitle_line_spacing": 1.05,
         "subtitle_vertical_padding_scale": 0.5,
@@ -160,6 +162,7 @@ class ChartView(AxisTickFormatMixin):
         "header_x": 0.01,
         "header_y": 0.98,
         "header_padding": 0.03,
+        "chart_vertical_padding": 0.01,
         "subtitle_size_ratio": 0.7,
         "subtitle_line_spacing": 1.05,
         "subtitle_vertical_padding_scale": 0.5,
@@ -211,6 +214,7 @@ class ChartView(AxisTickFormatMixin):
         "header_x": 0.01,
         "header_y": 0.98,
         "header_padding": 0.03,
+        "chart_vertical_padding": 0.01,
         "subtitle_size_ratio": 0.7,
         "subtitle_line_spacing": 1.05,
         "subtitle_vertical_padding_scale": 0.5,
@@ -1151,9 +1155,11 @@ class ChartView(AxisTickFormatMixin):
         # rect = [left, bottom, right, top] in figure-fraction coordinates
         fig.tight_layout(rect=[0, footer_height, 1, 1 - header_height])
 
-        self._center_axes_vertically(fig, header_height, footer_height)
         if show_header or show_footer:
+            self._stretch_axes_vertically(fig, header_height, footer_height, style)
             self._align_axes_horizontally(fig, style)
+        else:
+            self._center_axes_vertically(fig, header_height, footer_height)
         self._center_subtitle_vertically(fig, title_text, subtitle_text, style, header_height)
 
         return fig
@@ -1170,6 +1176,47 @@ class ChartView(AxisTickFormatMixin):
             if bbox is not None:
                 fig_bboxes.append(bbox.transformed(fig.transFigure.inverted()))
         return fig_bboxes
+
+    def _stretch_axes_vertically(self, fig, header_height, footer_height, style):
+        """Expand rendered chart bounds to fill the usable header/footer zone."""
+        visible_axes = self._visible_axes(fig)
+        if not visible_axes:
+            return
+
+        padding = style.get("chart_vertical_padding", 0.01)
+        target_bottom = footer_height + padding
+        target_top = 1.0 - header_height - padding
+        if target_top <= target_bottom:
+            return
+
+        for _ in range(2):
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            visual_bounds = self._visible_axes_fig_bboxes(fig, visible_axes, renderer)
+            if not visual_bounds:
+                return
+
+            visual_bottom = min(bounds.y0 for bounds in visual_bounds)
+            visual_top = max(bounds.y1 for bounds in visual_bounds)
+            axes_bottom = min(ax.get_position().y0 for ax in visible_axes)
+            axes_top = max(ax.get_position().y1 for ax in visible_axes)
+            axes_height = axes_top - axes_bottom
+            if axes_height <= 0:
+                return
+
+            aligned_bottom = axes_bottom + target_bottom - visual_bottom
+            aligned_top = axes_top + target_top - visual_top
+            aligned_height = aligned_top - aligned_bottom
+            if aligned_height <= 0:
+                return
+
+            for ax in visible_axes:
+                pos = ax.get_position()
+                relative_bottom = (pos.y0 - axes_bottom) / axes_height
+                relative_top = (pos.y1 - axes_bottom) / axes_height
+                new_y0 = aligned_bottom + relative_bottom * aligned_height
+                new_y1 = aligned_bottom + relative_top * aligned_height
+                ax.set_position([pos.x0, new_y0, pos.width, new_y1 - new_y0])
 
     def _align_axes_horizontally(self, fig, style):
         """Align rendered chart edges with the header and footer text extent."""

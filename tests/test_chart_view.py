@@ -307,6 +307,33 @@ def test_layout_aligns_decoration_free_chart_with_header_and_footer(tmp_path):
     plt.close(fig)
 
 
+def test_layout_stretches_decoration_free_chart_within_header_and_footer(tmp_path):
+    """A chart without ticks should fill the usable vertical layout zone."""
+    view = ChartView(outdir=tmp_path, style_file=None)
+    style = dict(view.MOBILE)
+    fig, ax = plt.subplots(figsize=style["figsize"], dpi=style["dpi"])
+    ax.set_axis_off()
+    metadata = {"title": "Chart title", "source": "Chart source"}
+
+    view._adjust_layout_for_header_footer(fig, metadata, style)
+
+    header_height = max(
+        view._calculate_header_height(fig, metadata, style),
+        style["header_height"],
+    )
+    position = ax.get_position()
+    tolerance = 1 / (fig.get_figheight() * fig.dpi)
+    assert position.y0 == pytest.approx(
+        style["footer_height"] + style["chart_vertical_padding"],
+        abs=tolerance,
+    )
+    assert position.y1 == pytest.approx(
+        1.0 - header_height - style["chart_vertical_padding"],
+        abs=tolerance,
+    )
+    plt.close(fig)
+
+
 # ── _center_axes_vertically tests ──────────────────────────────────
 
 
