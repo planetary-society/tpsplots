@@ -7,7 +7,7 @@ class NASAFY2027Controller(NASAFYChartsController):
     """Controller for FY 2027 NASA budget charts and analysis."""
 
     FISCAL_YEAR = 2027
-    WORKFORCE_PROJECTION = 0  # FY2027 proposed workforce level
+    WORKFORCE_PROJECTION = 12068  # FY2027 proposed workforce level
 
     # Mapping of CSV account names to short display names for charts.
     # Note: CSV uses "LEO & Space Ops" (not "Space Operations").
