@@ -397,7 +397,7 @@ class EditorSession:
         Uses ruamel.yaml round-trip editing when available and the file
         already exists. Falls back to plain yaml.dump for new files.
         """
-        config = _prepare_config_for_save(config)
+        config = self._prepare_config_for_save(config)
         path = self._resolve_path(relative_path)
         if path.suffix.lower() not in {".yaml", ".yml"}:
             raise ValueError(f"Not a YAML file: {relative_path}")
@@ -419,6 +419,12 @@ class EditorSession:
         """Merge changed fields into existing YAML preserving comments."""
         rt = YAML(typ="rt")
         rt.preserve_quotes = True
+        # ruamel re-emits every line through its serializer, so these settings
+        # decide churn on untouched keys: without a large width it re-wraps any
+        # line over 80 chars, and the indent must match the dominant hand-written
+        # style in yaml/ (indented dashes) or every block sequence re-indents.
+        rt.width = 100_000
+        rt.indent(mapping=2, sequence=4, offset=2)
 
         with path.open(encoding="utf-8") as f:
             existing = rt.load(f)
@@ -437,6 +443,34 @@ class EditorSession:
 
         with path.open("w", encoding="utf-8") as f:
             rt.dump(existing, f)
+
+    def _prepare_config_for_save(self, config: dict[str, Any]) -> dict[str, Any]:
+        """Clean and validate editor config before persisting it to YAML.
+
+        Validation is a *gate only*: the returned payload is the cleaned raw
+        input dict, never a ``model_dump`` of the validated model. Dumping the
+        model would materialize every non-None default into the file (and make
+        force-saving an invalid config impossible), whereas the raw dict keeps
+        saved YAML minimal and faithful to what the user actually set.
+
+        ``{{refs}}`` are resolved for validation when the data source loads;
+        when it does not (offline Google Sheets, broken controller), the
+        unresolved config is validated instead so saving still works — the
+        refs themselves are valid strings.
+        """
+        cleaned = _clean_form_data(config)
+        resolved, _data_error = self._resolve_chart_templates(cleaned)
+        try:
+            YAMLChartConfig(**resolved)
+        except Exception as exc:
+            details = []
+            for err in _extract_pydantic_errors(exc):
+                if err["path"]:
+                    details.append(f"{err['path']}: {err['message']}")
+                else:
+                    details.append(err["message"])
+            raise ValueError(f"Configuration validation failed: {'; '.join(details)}") from exc
+        return cleaned
 
     def list_yaml_files(self) -> list[str]:
         """List YAML files in yaml_dir recursively as relative paths."""
@@ -462,22 +496,6 @@ class EditorSession:
 _EDITOR_MANAGED_KEYS = frozenset({"data", "chart"})
 
 
-def _prepare_config_for_save(config: dict[str, Any]) -> dict[str, Any]:
-    """Clean and validate editor config before persisting it to YAML."""
-    cleaned = _clean_form_data(config)
-    try:
-        validated = YAMLChartConfig(**cleaned)
-    except Exception as exc:
-        details = []
-        for err in _extract_pydantic_errors(exc):
-            if err["path"]:
-                details.append(f"{err['path']}: {err['message']}")
-            else:
-                details.append(err["message"])
-        raise ValueError(f"Configuration validation failed: {'; '.join(details)}") from exc
-    return validated.model_dump(exclude_none=True)
-
-
 def _deep_replace(
     target: MutableMapping[str, Any],
     source: Mapping[str, Any],
@@ -498,8 +516,27 @@ def _deep_replace(
         existing = target.get(key)
         if isinstance(existing, MutableMapping) and isinstance(value, Mapping):
             _deep_replace(existing, value)
-        else:
+        elif key not in target or _values_differ(existing, value):
+            # Skip assignment when the value is unchanged: reassigning replaces
+            # ruamel nodes, which rewraps long strings, converts flow lists to
+            # block style, and re-types scalars (12 -> 12.0) even for keys the
+            # user never touched.
             target[key] = value
+
+
+def _values_differ(existing: Any, value: Any) -> bool:
+    """True when a save must overwrite ``existing`` with ``value``.
+
+    Plain ``!=`` is almost right (ruamel scalar/sequence nodes subclass their
+    builtin types), but Python's ``True == 1`` would treat a bool/int swap as
+    equal and silently keep the wrong YAML type.
+    """
+    if isinstance(existing, bool) is not isinstance(value, bool):
+        return True
+    try:
+        return bool(existing != value)
+    except Exception:
+        return True
 
 
 def _clean_form_data(config: dict[str, Any]) -> dict[str, Any]:
