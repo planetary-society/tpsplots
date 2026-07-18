@@ -450,12 +450,15 @@ class ChartView(AxisTickFormatMixin):
         (``tokens.direct_label_bbox``), optionally joined to its anchor by a thin
         curved ``drawarrow`` arrow.
 
-        CONTRACT: arrows and flexitext frames are pinned in absolute display
-        pixels (``IdentityTransform``), which is only correct because (a) all
-        axes layout (`_adjust_layout_for_header_footer` and friends) is final
-        before this runs, and (b) `_save_chart` saves with ``dpi="figure"`` and
-        never ``bbox_inches="tight"``. Re-layout or dpi-rescaling after this
-        method would silently detach every callout from its anchor.
+        CONTRACT: arrows and flexitext frames are pinned in physical inches
+        (``fig.dpi_scale_trans``), which is only correct because all axes
+        layout (`_adjust_layout_for_header_footer` and friends) is final
+        before this runs, and `_save_chart` never uses ``bbox_inches="tight"``.
+        Inches (not raw display pixels / ``IdentityTransform``) matter because
+        the SVG backend always renders at a fixed 72 dpi regardless of the
+        figure dpi — pixel-pinned artists computed at 300 dpi land ~4x
+        off-canvas in SVG output. Re-layout after this method would still
+        silently detach every callout from its anchor.
 
         Rendering choices
         -----------------
@@ -463,8 +466,9 @@ class ChartView(AxisTickFormatMixin):
           built-in ``bbox`` gives the rounded frame. Strings carrying flexitext
           style tags (``<weight:semibold>...</>``) are drawn with ``flexitext``
           (which cannot itself draw a frame) and get a ``FancyBboxPatch`` sized to
-          the laid-out text; ``mutation_scale = fontsize * dpi / 72`` makes that
-          patch pixel-identical to a ``Text`` bbox, so both paths look the same.
+          the laid-out text; ``mutation_scale = fontsize / 72`` (inches, matching
+          the patch's ``dpi_scale_trans`` space) makes that patch render-identical
+          to a ``Text`` bbox at any output dpi, so both paths look the same.
         - **Placement.** Callouts with explicit ``text_x``/``text_y`` are honoured
           verbatim. The rest start at their anchor and are separated with
           ``adjustText`` so they don't overlap each other or the anchor points.
@@ -492,7 +496,7 @@ class ChartView(AxisTickFormatMixin):
         from drawarrow import ax_arrow
         from flexitext import flexitext
         from matplotlib.patches import BoxStyle, FancyBboxPatch
-        from matplotlib.transforms import Bbox, IdentityTransform
+        from matplotlib.transforms import Bbox
 
         fontsize = (style or {}).get("label_size", 12)
         # boxstyle pad (0.2) is applied in display px scaled by mutation_scale;
@@ -587,15 +591,18 @@ class ChartView(AxisTickFormatMixin):
         renderer = fig.canvas.get_renderer()
 
         # 4) Boxes + final box extents (used as arrow tails).
+        dpi = fig.dpi
         for rec in records:
             if rec["is_flexi"]:
                 ext = rec["artist"].get_window_extent(renderer)
+                # Pin in inches, not display px: the SVG backend re-renders at a
+                # fixed 72 dpi, so px-pinned patches would land ~4x off-canvas.
                 patch = FancyBboxPatch(
-                    (ext.x0, ext.y0),
-                    ext.width,
-                    ext.height,
-                    mutation_scale=mutation_scale,
-                    transform=IdentityTransform(),
+                    (ext.x0 / dpi, ext.y0 / dpi),
+                    ext.width / dpi,
+                    ext.height / dpi,
+                    mutation_scale=fontsize / 72.0,
+                    transform=fig.dpi_scale_trans,
                     clip_on=False,
                     zorder=tokens.ANNOTATION_BOX_ZORDER,
                     **tokens.direct_label_bbox(rec["edge"]),
@@ -631,12 +638,13 @@ class ChartView(AxisTickFormatMixin):
     def _draw_annotation_arrow(ax, box_bbox, anchor, edge, ax_arrow):
         """Draw a thin curved arrow from a callout box edge to its anchor point.
 
-        All geometry is in display pixels (so the arc reads the same regardless
-        of the axis scales); the arrow is then pinned to that display frame via
-        ``IdentityTransform``. Returns the patch, or ``None`` when the box sits so
-        close to its anchor that the shaft would be swallowed by the arrowhead.
+        All geometry is computed in display pixels (so the arc reads the same
+        regardless of the axis scales), then pinned in physical inches via
+        ``fig.dpi_scale_trans`` — px-pinning breaks in SVG output, whose backend
+        always renders at 72 dpi. Returns the patch, or ``None`` when the box
+        sits so close to its anchor that the shaft would be swallowed by the
+        arrowhead.
         """
-        from matplotlib.transforms import IdentityTransform
 
         # Point-based geometry scaled to the figure's pixel grid, so gaps read the
         # same at any dpi. The minimum shaft keeps a couple of head-lengths of line
@@ -667,9 +675,10 @@ class ChartView(AxisTickFormatMixin):
         if math.hypot(head[0] - tail[0], head[1] - tail[1]) < min_len:
             return None
 
+        dpi = ax.figure.dpi
         arrow = ax_arrow(
-            list(tail),
-            list(head),
+            [tail[0] / dpi, tail[1] / dpi],
+            [head[0] / dpi, head[1] / dpi],
             radius=tokens.ANNOTATION_ARROW_RADIUS,
             width=tokens.ANNOTATION_ARROW_WIDTH,
             head_width=tokens.ANNOTATION_ARROW_HEAD_WIDTH,
@@ -678,7 +687,7 @@ class ChartView(AxisTickFormatMixin):
             color=edge,
             zorder=tokens.ANNOTATION_ARROW_ZORDER,
         )
-        arrow.set_transform(IdentityTransform())
+        arrow.set_transform(ax.figure.dpi_scale_trans)
         arrow.set_clip_on(False)
         return arrow
 
