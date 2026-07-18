@@ -66,7 +66,10 @@ class TestCLI:
         result = runner.invoke(app, ["generate", "--help"])
         assert result.exit_code == 0
         assert "generate" in result.stdout.lower()
-        assert "INPUTS" in result.stdout
+        # The positional argument is documented. Match case-insensitively:
+        # Typer's metavar rendering changed from uppercase "INPUTS" to the
+        # Rich-panel "{inputs}" / lowercase "inputs" across versions.
+        assert "inputs" in result.stdout.lower()
 
     def test_generate_missing_file(self):
         """Test that generate handles missing file with proper exit code."""
