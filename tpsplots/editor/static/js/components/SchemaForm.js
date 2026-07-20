@@ -5,8 +5,10 @@
  * handles anyOf (union types) natively via UnionField, and groups
  * fields into collapsible sections using ui:groups from the backend.
  */
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { html } from "../lib/html.js";
+// Aliased: the `revealField` prop names the field, this reveals it.
+import { revealField as revealFieldInDom } from "../lib/revealField.js";
 
 import { FIELD_COMPONENTS } from "./fields/fieldComponents.js";
 import { StringField } from "./fields/StringField.js";
@@ -53,8 +55,10 @@ export function SchemaForm({
   formData,
   onChange,
   widgets,
+  revealField,
   hiddenFields = DEFAULT_HIDDEN_FIELDS,
 }) {
+  const formRef = useRef(null);
   const properties = schema?.properties || {};
   const groups = uiSchema?.["ui:groups"] || [];
   const order = uiSchema?.["ui:order"] || Object.keys(properties);
@@ -169,8 +173,17 @@ export function SchemaForm({
     );
   }, [order, groupedFields, hiddenFields, properties]);
 
+  useEffect(() => {
+    if (!revealField || !formRef.current) return;
+    revealFieldInDom(revealField, {
+      root: formRef.current,
+      block: "nearest",
+      focus: true,
+    });
+  }, [revealField]);
+
   return html`
-    <div class="schema-form">
+    <div class="schema-form" ref=${formRef}>
       ${groups.map((group) => {
         const visibleFields = group.fields.filter((f) => !hiddenFields.has(f) && properties[f]);
         if (visibleFields.length === 0) return null;

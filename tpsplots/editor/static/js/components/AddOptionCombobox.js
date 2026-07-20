@@ -6,14 +6,13 @@
  * zero pixels until added, but every option stays discoverable by searching
  * its name or help text (add-property pattern).
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { html } from "../lib/html.js";
 import { useListboxNav } from "../hooks/useListboxNav.js";
 
 export function AddOptionCombobox({ options, onAdd }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const inputRef = useRef(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -65,7 +64,6 @@ export function AddOptionCombobox({ options, onAdd }) {
   return html`
     <div class="add-option">
       <input
-        ref=${inputRef}
         type="text"
         class="add-option-input"
         placeholder="Add option… (${options.length} available)"

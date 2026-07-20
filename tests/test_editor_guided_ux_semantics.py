@@ -83,3 +83,22 @@ def test_tiered_visual_design_scopes_advanced_to_visual_fields():
     assert "visualFields=${visualDesignFields}" in layout
     assert "visualFields," in tiered
     assert "const all = new Set(visualFields || Object.keys(schema?.properties || {}));" in tiered
+
+
+def test_newly_added_advanced_field_is_revealed_and_focused():
+    tiered = _read("tpsplots/editor/static/js/components/TieredVisualDesign.js")
+    chart_form = _read("tpsplots/editor/static/js/components/ChartForm.js")
+    schema_form = _read("tpsplots/editor/static/js/components/SchemaForm.js")
+    reveal = _read("tpsplots/editor/static/js/lib/revealField.js")
+
+    assert "setRevealField(name)" in tiered
+    assert "revealField=${revealField}" in tiered
+    assert "revealField=${revealField}" in chart_form
+    # SchemaForm delegates the DOM work to the shared helper, which StatusStrip
+    # chips also use — a collapsed advanced group must open either way.
+    assert "revealFieldInDom(revealField" in schema_form
+    assert "focus: true" in schema_form
+    assert 'field.closest("details")' in reveal
+    assert "group.open = true" in reveal
+    assert 'field.scrollIntoView({ behavior: "smooth", block })' in reveal
+    assert "?.focus({ preventScroll: true })" in reveal

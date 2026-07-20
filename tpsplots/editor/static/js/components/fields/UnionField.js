@@ -245,10 +245,7 @@ export function UnionField({ name, schema, value, onChange, uiSchema, rootSchema
 
   // bool|object handlers: checking = on (true), unchecking always = false,
   // "Customize…" switches to the object branch, "Reset to default" back to true.
-  const handleBoolObjectToggle = useCallback(
-    (e) => onChange(e.target.checked ? true : false),
-    [onChange]
-  );
+  const handleBoolObjectToggle = useCallback((e) => onChange(e.target.checked), [onChange]);
   const handleCustomize = useCallback(() => onChange({}), [onChange]);
   const handleResetToDefault = useCallback(() => onChange(true), [onChange]);
 

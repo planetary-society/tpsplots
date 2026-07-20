@@ -9,23 +9,15 @@
 import { useCallback, useMemo } from "react";
 import { html } from "../lib/html.js";
 import { fieldFromPath } from "../lib/preflightPaths.js";
+import { revealField } from "../lib/revealField.js";
+import { formatFieldLabel } from "./fields/fieldLabelUtils.js";
 
 function chipLabel(path, message) {
   const field = fieldFromPath(path);
   if (path?.startsWith("/data")) return "Data source";
-  if (field) return field.replaceAll("_", " ");
+  // Same vocabulary as the form field the chip scrolls to.
+  if (field) return formatFieldLabel(field);
   return message?.slice(0, 40) || "Issue";
-}
-
-export function scrollToField(fieldName) {
-  const el = document.querySelector(`.form-panel [data-field="${fieldName}"]`);
-  if (!el) return false;
-  el.scrollIntoView({ behavior: "smooth", block: "center" });
-  el.classList.remove("field-flash");
-  // Restart the flash animation.
-  void el.offsetWidth;
-  el.classList.add("field-flash");
-  return true;
 }
 
 export function StatusStrip({ preflight }) {
@@ -46,7 +38,7 @@ export function StatusStrip({ preflight }) {
 
   const handleChipClick = useCallback((issue) => {
     const field = fieldFromPath(issue.path);
-    if (field) scrollToField(field);
+    if (field) revealField(field, { flash: true });
   }, []);
 
   if (!preflight) {

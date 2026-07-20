@@ -101,8 +101,10 @@ export function FileMenu(props) {
     setSelected(0);
   }, [filter, setSelected]);
 
-  const renderRow = (f) => {
-    const idx = flat.indexOf(f);
+  // `idx` is the row's position in `flat` (recents first), which is what
+  // useListboxNav's keyboard selection indexes into — passed in by the caller
+  // rather than searched for, so rendering stays linear in the file count.
+  const renderRow = (f, idx) => {
     return html`
       <button
         key=${f.path}
@@ -140,13 +142,13 @@ export function FileMenu(props) {
                 ${groups.recents.length > 0 &&
                 html`
                   <div class="file-menu-group">Recent</div>
-                  ${groups.recents.map(renderRow)}
+                  ${groups.recents.map((f, i) => renderRow(f, i))}
                 `}
                 ${groups.rest.length > 0 &&
                 html`
                   ${groups.recents.length > 0 &&
                   html`<div class="file-menu-group">All files</div>`}
-                  ${groups.rest.map(renderRow)}
+                  ${groups.rest.map((f, i) => renderRow(f, groups.recents.length + i))}
                 `}
               `}
         </div>

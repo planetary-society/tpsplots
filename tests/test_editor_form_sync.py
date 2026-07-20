@@ -5,10 +5,9 @@ fields, this test ensures every config field has a uiSchema entry (either
 explicit or via ui:order).
 """
 
-from pathlib import Path
-
 import pytest
 
+from tests.conftest import read_source
 from tpsplots.editor.ui_schema import (
     _get_excluded_fields,
     get_available_chart_types,
@@ -19,15 +18,7 @@ from tpsplots.models.charts import CONFIG_REGISTRY
 
 # Source of the metadata form section, scanned for rendered annotation fields
 # (source-scan precedent: tests/test_config_view_sync.py).
-_METADATA_SECTION_JS = (
-    Path(__file__).resolve().parent.parent
-    / "tpsplots"
-    / "editor"
-    / "static"
-    / "js"
-    / "components"
-    / "MetadataSection.js"
-)
+_METADATA_SECTION_JS = "tpsplots/editor/static/js/components/MetadataSection.js"
 
 
 @pytest.mark.parametrize("chart_type", list(CONFIG_REGISTRY.keys()))
@@ -105,7 +96,7 @@ def test_annotation_fields_rendered_in_metadata_section(chart_type):
     path, present only when the input is both rendered and wired.
     """
     annotation_fields = get_editor_hints(chart_type)["step_field_map"]["annotation_output"]
-    source = _METADATA_SECTION_JS.read_text(encoding="utf-8")
+    source = read_source(_METADATA_SECTION_JS)
 
     for field_name in annotation_fields:
         needle = f'handleChange("{field_name}"'

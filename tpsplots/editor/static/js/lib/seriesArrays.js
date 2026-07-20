@@ -28,23 +28,20 @@
  * as plain functions.
  */
 
-/** String-typed correlated fields whose Pydantic model accepts `list[str | None]`. */
-const STRING_SERIES_FIELDS = new Set(["color", "labels", "linestyle", "marker"]);
-
 /**
  * Backfill defaults for numeric correlated fields. These are `list[float]` on
- * the Pydantic model and reject interior nulls, so gaps must be filled.
+ * the Pydantic model and reject interior nulls, so gaps must be filled. String
+ * fields (color/labels/linestyle/marker) are `list[str | None]` and are absent
+ * here — they keep their `null` gaps unchanged.
+ *
+ * NOTE: these constants are a client-side stand-in for a model gap. The real
+ * per-series defaults are device-dependent (ChartView's `line_width` differs
+ * between desktop and mobile), so no single literal here is correct for every
+ * output. The proper fix is to widen these three fields to `list[float | None]`
+ * on LineChartConfig — as `color`/`linestyle`/`marker` already are — and have
+ * the renderer fall back per element, at which point this table can be deleted.
  */
 const NUMERIC_SERIES_DEFAULTS = { linewidth: 1.5, markersize: 6, alpha: 1.0 };
-
-/**
- * True when `fieldName` is a numeric correlated field (`list[float]`, no nulls).
- * @param {string} fieldName
- * @returns {boolean}
- */
-export function isNumericSeriesField(fieldName) {
-  return Object.prototype.hasOwnProperty.call(NUMERIC_SERIES_DEFAULTS, fieldName);
-}
 
 /**
  * The default value used to backfill interior gaps of a numeric field, or
@@ -53,12 +50,9 @@ export function isNumericSeriesField(fieldName) {
  * @returns {number|undefined}
  */
 export function numericSeriesDefault(fieldName) {
-  return isNumericSeriesField(fieldName) ? NUMERIC_SERIES_DEFAULTS[fieldName] : undefined;
-}
-
-/** True when `fieldName` is a string correlated field (`list[str | None]`). */
-export function isStringSeriesField(fieldName) {
-  return STRING_SERIES_FIELDS.has(fieldName);
+  return Object.prototype.hasOwnProperty.call(NUMERIC_SERIES_DEFAULTS, fieldName)
+    ? NUMERIC_SERIES_DEFAULTS[fieldName]
+    : undefined;
 }
 
 /**
@@ -164,20 +158,50 @@ function concatOffset(formData, correlatedFields, axisField) {
 }
 
 /**
- * Atomically swap two series positions across EVERY correlated array present on
- * formData, so per-series styling follows its series when the binding order
- * changes.
+ * Apply `transform` to EVERY correlated array present on formData, atomically.
+ *
+ * This is the shared body of {@link permuteCorrelated} and
+ * {@link spliceCorrelated}: both walk the same field list, skip the same
+ * untouched cases, and rebuild formData the same way — only the mutation
+ * differs. Fields are left untouched when they are:
+ *   - absent from formData, or
+ *   - stored as a scalar (a scalar applies to all series, so per-index edits
+ *     are a no-op), or
+ *   - an array SHORTER than `touchedIndex` — nothing sits at that position.
+ *
+ * Returns a new formData object (never mutates the input); returns the input
+ * unchanged when no array was touched.
+ *
+ * @param {Object} formData
+ * @param {Object} correlatedFields - `series_correlated_fields` hint object
+ * @param {number} touchedIndex - highest concatenated index the transform reads
+ * @param {(arr: Array) => void} transform - mutates the CLONED array in place
+ * @returns {Object} next formData
+ */
+function mapCorrelatedArrays(formData, correlatedFields, touchedIndex, transform) {
+  const fields = correlatedFields?.correlated;
+  if (!formData || !Array.isArray(fields) || fields.length === 0) return formData;
+
+  let changed = false;
+  const next = { ...formData };
+  for (const field of fields) {
+    const value = formData[field];
+    if (!Array.isArray(value)) continue; // scalar or absent → untouched
+    if (value.length <= touchedIndex) continue; // shorter than touched index → untouched
+    const arr = [...value];
+    transform(arr);
+    next[field] = arr;
+    changed = true;
+  }
+  return changed ? next : formData;
+}
+
+/**
+ * Atomically swap two series positions across every correlated array, so
+ * per-series styling follows its series when the binding order changes.
  *
  * Indices are per-axis and translated to concatenated indices via the axis
  * offset (see the concatenated-index contract at the top of this module).
- * Fields are left untouched when they are:
- *   - absent from formData, or
- *   - stored as a scalar (a scalar applies to all series — reordering is a no-op), or
- *   - an array SHORTER than the touched (larger) concatenated index — there is
- *     nothing to move at that position.
- *
- * Returns a new formData object (never mutates); returns the input unchanged
- * when nothing was permuted.
  *
  * @param {Object} formData
  * @param {Object} correlatedFields - `series_correlated_fields` hint object
@@ -187,40 +211,22 @@ function concatOffset(formData, correlatedFields, axisField) {
  * @returns {Object} next formData
  */
 export function permuteCorrelated(formData, correlatedFields, axisField, fromIndex, toIndex) {
-  const fields = correlatedFields?.correlated;
-  if (!formData || !Array.isArray(fields) || fields.length === 0) return formData;
-
   const offset = concatOffset(formData, correlatedFields, axisField);
   const from = offset + fromIndex;
   const to = offset + toIndex;
   if (from === to) return formData;
 
-  const touched = Math.max(from, to);
-  let changed = false;
-  const next = { ...formData };
-  for (const field of fields) {
-    const value = formData[field];
-    if (!Array.isArray(value)) continue; // scalar or absent → untouched
-    if (value.length <= touched) continue; // shorter than touched index → untouched
-    const arr = [...value];
+  return mapCorrelatedArrays(formData, correlatedFields, Math.max(from, to), (arr) => {
     [arr[from], arr[to]] = [arr[to], arr[from]];
-    next[field] = arr;
-    changed = true;
-  }
-  return changed ? next : formData;
+  });
 }
 
 /**
- * Atomically remove one series position from EVERY correlated array present on
- * formData, so removing a series does not silently re-style the survivors.
+ * Atomically remove one series position from every correlated array, so
+ * removing a series does not silently re-style the survivors.
  *
  * The per-axis `index` is translated to a concatenated index via the axis
  * offset (see the concatenated-index contract at the top of this module).
- * Fields are left untouched when they are absent, stored as a scalar, or an
- * array SHORTER than the concatenated index (nothing to remove there).
- *
- * Returns a new formData object (never mutates); returns the input unchanged
- * when nothing was spliced.
  *
  * @param {Object} formData
  * @param {Object} correlatedFields - `series_correlated_fields` hint object
@@ -229,22 +235,10 @@ export function permuteCorrelated(formData, correlatedFields, axisField, fromInd
  * @returns {Object} next formData
  */
 export function spliceCorrelated(formData, correlatedFields, axisField, index) {
-  const fields = correlatedFields?.correlated;
-  if (!formData || !Array.isArray(fields) || fields.length === 0) return formData;
-
   const at = concatOffset(formData, correlatedFields, axisField) + index;
-  let changed = false;
-  const next = { ...formData };
-  for (const field of fields) {
-    const value = formData[field];
-    if (!Array.isArray(value)) continue; // scalar or absent → untouched
-    if (value.length <= at) continue; // shorter than touched index → untouched
-    const arr = [...value];
+  return mapCorrelatedArrays(formData, correlatedFields, at, (arr) => {
     arr.splice(at, 1);
-    next[field] = arr;
-    changed = true;
-  }
-  return changed ? next : formData;
+  });
 }
 
 /**
@@ -260,14 +254,15 @@ export function normalizeBindings(value) {
 
 /**
  * Collapse a binding array back to its minimal formData shape: [] → undefined
- * (field removed), [one] → the scalar, [many] → the array. Mirrors the
- * scalar/`list[str]` duality of the config models.
+ * (field removed), [one populated value] → the scalar, [many] → the
+ * array. Empty strings are intentional pending rows created by the series UI,
+ * so they remain in an array until the user removes that row explicitly.
+ * This mirrors the scalar/`list[str]` duality of the config models without
+ * making an empty editable row disappear during its own click handler.
  */
 export function bindingFieldValue(bindings) {
-  const cleaned = bindings
-    .map((item) => (typeof item === "string" ? item.trim() : ""))
-    .filter(Boolean);
-  if (cleaned.length === 0) return undefined;
-  if (cleaned.length === 1) return cleaned[0];
-  return cleaned;
+  const normalized = bindings.map((item) => (typeof item === "string" ? item.trim() : ""));
+  if (normalized.length === 0) return undefined;
+  if (normalized.length === 1 && normalized[0] !== "") return normalized[0];
+  return normalized;
 }

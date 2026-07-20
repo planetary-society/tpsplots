@@ -12,21 +12,7 @@ import { SeriesTable } from "./SeriesTable.js";
 import { TemplateChipInput } from "./fields/TemplateChipInput.js";
 import { parseTemplateReferences, stripTemplateBraces } from "./fields/templateRefUtils.js";
 import { formatFieldLabel } from "./fields/fieldLabelUtils.js";
-
-function classifyColumn(col) {
-  const name = String(col?.name || "");
-  const dtype = String(col?.dtype || "").toLowerCase();
-  const lower = name.toLowerCase();
-  return {
-    name,
-    isDate: dtype.includes("date") || dtype.includes("time") || lower.includes("year"),
-    isNumeric:
-      dtype.includes("int") ||
-      dtype.includes("float") ||
-      dtype.includes("double") ||
-      dtype.includes("number"),
-  };
-}
+import { classifyColumn } from "../lib/columnTypes.js";
 
 function suggestionsForField(fieldName, columns, contextKeys) {
   const lower = String(fieldName).toLowerCase();

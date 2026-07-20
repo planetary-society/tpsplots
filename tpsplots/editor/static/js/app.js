@@ -320,26 +320,27 @@ function App() {
     setUnsavedChanges(true);
   }, [chartType]);
 
-  const handleUndo = useCallback(() => {
-    const stack = undoStackRef.current;
+  // Undo and redo are the same move in opposite directions: pop the source
+  // stack, push the current state onto the destination stack.
+  const stepHistory = useCallback((fromStackRef, toStackRef) => {
+    const stack = fromStackRef.current;
     if (stack.length === 0) return;
     const snap = stack.pop();
-    redoStackRef.current.push(snapshotRef.current);
-    if (redoStackRef.current.length > MAX_UNDO) redoStackRef.current.shift();
+    toStackRef.current.push(snapshotRef.current);
+    if (toStackRef.current.length > MAX_UNDO) toStackRef.current.shift();
     // Prevent the next edit from coalescing onto a now-restored state.
     lastPushRef.current = { time: 0, field: null };
     restoreSnapshot(snap);
   }, [restoreSnapshot]);
 
-  const handleRedo = useCallback(() => {
-    const stack = redoStackRef.current;
-    if (stack.length === 0) return;
-    const snap = stack.pop();
-    undoStackRef.current.push(snapshotRef.current);
-    if (undoStackRef.current.length > MAX_UNDO) undoStackRef.current.shift();
-    lastPushRef.current = { time: 0, field: null };
-    restoreSnapshot(snap);
-  }, [restoreSnapshot]);
+  const handleUndo = useCallback(
+    () => stepHistory(undoStackRef, redoStackRef),
+    [stepHistory]
+  );
+  const handleRedo = useCallback(
+    () => stepHistory(redoStackRef, undoStackRef),
+    [stepHistory]
+  );
 
   // ── Save flow (POST, then handle 409 validation/conflict) ──
   const attemptSave = useCallback(async (path) => {

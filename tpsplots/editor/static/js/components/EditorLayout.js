@@ -27,6 +27,16 @@ const SECTIONS = [
   { id: "text", label: "Text & Output" },
 ];
 
+const SCROLL_BOTTOM_TOLERANCE = 2;
+
+function isScrolledToBottom(element) {
+  if (!element || element.scrollHeight <= element.clientHeight) return false;
+  return (
+    element.scrollTop + element.clientHeight >=
+    element.scrollHeight - SCROLL_BOTTOM_TOLERANCE
+  );
+}
+
 export function EditorLayout(props) {
   const {
     chartType, chartTypes, schema, uiSchema, formData, dataConfig,
@@ -47,6 +57,14 @@ export function EditorLayout(props) {
   const [activeSection, setActiveSection] = useState("data");
   const formPanelRef = useRef(null);
   const sectionRefs = useRef({});
+  // Mirrors activeSection so the scrollspy can skip redundant re-renders
+  // without going stale when a nav chip sets the section directly.
+  const activeSectionRef = useRef("data");
+  const activateSection = useCallback((id) => {
+    if (activeSectionRef.current === id) return;
+    activeSectionRef.current = id;
+    setActiveSection(id);
+  }, []);
 
   const startResizing = useCallback(() => setIsResizing(true), []);
   const stopResizing = useCallback(() => setIsResizing(false), []);
@@ -97,33 +115,87 @@ export function EditorLayout(props) {
   const dataReady = !!dataProfile && (dataProfile.columns || []).length > 0;
 
   // Scrollspy: track which section heading is nearest the top of the panel.
+  //
+  // One rule, one reader of the geometry. An IntersectionObserver was tried
+  // here but its band cannot see the final section (no content sits below it),
+  // so every callback ended up re-deriving position from getBoundingClientRect
+  // anyway — the observer had become a redundant trigger for this same
+  // function. A ResizeObserver covers the case scroll events cannot: content
+  // growing or shrinking (a details group opening) without any scroll.
   useEffect(() => {
     const rootEl = formPanelRef.current;
     if (!rootEl) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setActiveSection(visible[0].target.dataset.section);
-      },
-      { root: rootEl, rootMargin: "-10% 0px -70% 0px" }
-    );
+    const lastId = SECTIONS[SECTIONS.length - 1].id;
+
+    const nextActiveSection = () => {
+      // At the scroll limit the last section is unambiguously active, however
+      // its heading happens to sit.
+      if (isScrolledToBottom(rootEl)) return lastId;
+
+      // Compare every section against one stable line just below the sticky
+      // nav. A final section can stop short of that line even when
+      // scrollIntoView has correctly placed its heading on screen, so treat
+      // "last section is past the halfway mark" as active too.
+      const rootTop = rootEl.getBoundingClientRect().top;
+      const lastSection = sectionRefs.current[lastId];
+      if (
+        rootEl.scrollTop > SCROLL_BOTTOM_TOLERANCE &&
+        lastSection &&
+        lastSection.getBoundingClientRect().top <= rootTop + rootEl.clientHeight * 0.5
+      ) {
+        return lastId;
+      }
+
+      const activationLine = rootTop + rootEl.clientHeight * 0.1;
+      let nextSection = SECTIONS[0].id;
+      for (const section of SECTIONS) {
+        const element = sectionRefs.current[section.id];
+        if (element && element.getBoundingClientRect().top <= activationLine) {
+          nextSection = section.id;
+        }
+      }
+      return nextSection;
+    };
+
+    // Coalesce to one geometry read per frame; activateSection drops the
+    // no-op updates — a setState mid-scroll dirties layout and forces the next
+    // getBoundingClientRect to reflow.
+    let frame = 0;
+    const syncActiveSection = () => {
+      frame = 0;
+      activateSection(nextActiveSection());
+    };
+    const scheduleSync = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(syncActiveSection);
+    };
+
+    const resizeObserver = new ResizeObserver(scheduleSync);
+    resizeObserver.observe(rootEl);
     for (const section of SECTIONS) {
       const el = sectionRefs.current[section.id];
-      if (el) observer.observe(el);
+      if (el) resizeObserver.observe(el);
     }
-    return () => observer.disconnect();
-  }, []);
+    rootEl.addEventListener("scroll", scheduleSync, { passive: true });
+    syncActiveSection();
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      resizeObserver.disconnect();
+      rootEl.removeEventListener("scroll", scheduleSync);
+    };
+  }, [activateSection]);
 
-  const scrollToSection = useCallback((id) => {
-    const el = sectionRefs.current[id];
-    if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
-    // Move focus for keyboard/AT users; heading carries tabindex="-1".
-    el.querySelector("h3")?.focus?.();
-    setActiveSection(id);
-  }, []);
+  const scrollToSection = useCallback(
+    (id) => {
+      const el = sectionRefs.current[id];
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Move focus for keyboard/AT users; heading carries tabindex="-1".
+      el.querySelector("h3")?.focus?.();
+      activateSection(id);
+    },
+    [activateSection]
+  );
 
   // Alt+1..3: expose the jump function to App's hotkey layer via ref — a
   // direct call, not a number bounced through component state.

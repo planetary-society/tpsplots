@@ -73,6 +73,23 @@ def _represent_str(dumper: yaml.SafeDumper, data: str) -> yaml.ScalarNode:
 _EditorDumper.add_representer(str, _represent_str)
 
 
+def _dump_plain(config: dict[str, Any], stream: Any = None) -> str:
+    """Dump a config with the editor's plain-YAML options.
+
+    The YAML drawer promises to show byte-for-byte what a save would write, so
+    both paths must use identical dump options — hence one function rather than
+    two copies of the keyword list.
+    """
+    return yaml.dump(
+        config,
+        stream,
+        Dumper=_EditorDumper,
+        default_flow_style=False,
+        sort_keys=False,
+        allow_unicode=True,
+    )
+
+
 class ResolvedTemplates(NamedTuple):
     """Result of ``_resolve_chart_templates``: config plus stage-specific errors."""
 
@@ -100,6 +117,9 @@ class EditorSession:
         # mtime (ns) of each file at load time, keyed by relative path, so a
         # save can detect the file was changed on disk since it was loaded.
         self._loaded_mtimes: dict[str, int] = {}
+        # Open-menu listing entries keyed by relative path, each paired with the
+        # mtime (ns) they were parsed from: {rel: (mtime_ns, entry)}.
+        self._file_meta_cache: dict[str, tuple[int | None, dict[str, Any]]] = {}
 
     # ------------------------------------------------------------------
     # Path security
@@ -542,14 +562,7 @@ class EditorSession:
                 self._validate_or_raise(config, "Configuration validation failed")
             path.parent.mkdir(parents=True, exist_ok=True)
             with path.open("w", encoding="utf-8") as f:
-                yaml.dump(
-                    config,
-                    f,
-                    Dumper=_EditorDumper,
-                    default_flow_style=False,
-                    sort_keys=False,
-                    allow_unicode=True,
-                )
+                _dump_plain(config, f)
 
         # Record the freshly written mtime as the new baseline so a subsequent
         # save from this session does not falsely trip the conflict check.
@@ -634,13 +647,7 @@ class EditorSession:
                 rt.dump(existing, buf)
                 return buf.getvalue()
 
-        return yaml.dump(
-            cleaned,
-            Dumper=_EditorDumper,
-            default_flow_style=False,
-            sort_keys=False,
-            allow_unicode=True,
-        )
+        return _dump_plain(cleaned)
 
     def _validate_or_raise(self, config: dict[str, Any], prefix: str) -> None:
         """Validate a config (with {{refs}} resolved when data loads) or raise.
@@ -675,9 +682,7 @@ class EditorSession:
         tolerated: they list with ``type``/``title`` of ``None`` rather than
         failing the whole listing.
         """
-        # Lazily-initialized mtime cache: {relative_path: (mtime_ns, entry)}.
-        # Kept off __init__ so this feature touches only list_yaml_files.
-        cache = self.__dict__.setdefault("_file_meta_cache", {})
+        cache = self._file_meta_cache
 
         entries: list[dict[str, Any]] = []
         seen: set[str] = set()

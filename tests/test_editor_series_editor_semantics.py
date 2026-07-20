@@ -42,3 +42,11 @@ def test_reorder_permutes_every_correlated_array():
     src = _read("tpsplots/editor/static/js/components/SeriesTable.js")
     assert "permuteCorrelated" in src
     assert "spliceCorrelated" in src
+
+
+def test_binding_field_value_preserves_pending_rows_until_removed():
+    """An empty row added in the UI must survive the binding commit."""
+    src = _read(_LIB)
+    assert 'normalized.length === 1 && normalized[0] !== ""' in src
+    assert "return normalized;" in src
+    assert ".filter(Boolean)" not in src

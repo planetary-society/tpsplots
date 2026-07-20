@@ -22,6 +22,15 @@ import { formatFieldLabel } from "./fields/fieldLabelUtils.js";
 const EMPTY_SET = new Set();
 const EMPTY_LIST = [];
 
+/** Fields in `source` that appear in none of the `excluded` sets. */
+function difference(source, ...excluded) {
+  const result = new Set();
+  for (const field of source) {
+    if (!excluded.some((set) => set.has(field))) result.add(field);
+  }
+  return result;
+}
+
 export function TieredVisualDesign({
   schema,
   uiSchema,
@@ -37,6 +46,7 @@ export function TieredVisualDesign({
 }) {
   // Options the user explicitly added this session (renders their empty field).
   const [addedFields, setAddedFields] = useState(EMPTY_SET);
+  const [revealField, setRevealField] = useState(null);
   const essentialSet = useMemo(
     () => new Set(fieldTiers?.essential || []),
     [fieldTiers]
@@ -67,36 +77,19 @@ export function TieredVisualDesign({
   // composite-consumed, or series-excluded
   const advancedSet = useMemo(() => {
     const all = new Set(visualFields || Object.keys(schema?.properties || {}));
-    const result = new Set();
-    for (const f of all) {
-      if (
-        !essentialSet.has(f) &&
-        !commonSet.has(f) &&
-        !compositeFields.has(f) &&
-        !excludedSet.has(f)
-      ) {
-        result.add(f);
-      }
-    }
-    return result;
+    return difference(all, essentialSet, commonSet, compositeFields, excludedSet);
   }, [schema, visualFields, essentialSet, commonSet, compositeFields, excludedSet]);
 
   // Filter out excluded/composite fields from essential and common sets
-  const filteredEssential = useMemo(() => {
-    const result = new Set();
-    for (const f of essentialSet) {
-      if (!excludedSet.has(f) && !compositeFields.has(f)) result.add(f);
-    }
-    return result;
-  }, [essentialSet, excludedSet, compositeFields]);
+  const filteredEssential = useMemo(
+    () => difference(essentialSet, excludedSet, compositeFields),
+    [essentialSet, excludedSet, compositeFields]
+  );
 
-  const filteredCommon = useMemo(() => {
-    const result = new Set();
-    for (const f of commonSet) {
-      if (!excludedSet.has(f) && !compositeFields.has(f)) result.add(f);
-    }
-    return result;
-  }, [commonSet, excludedSet, compositeFields]);
+  const filteredCommon = useMemo(
+    () => difference(commonSet, excludedSet, compositeFields),
+    [commonSet, excludedSet, compositeFields]
+  );
 
   const hasRefLines = compositeWidgets?.reference_lines != null;
 
@@ -188,13 +181,17 @@ export function TieredVisualDesign({
             colors=${colors}
             onFormDataChange=${onFormDataChange}
             includeFields=${visibleAdvanced}
+            revealField=${revealField}
           />
         </div>
       `}
 
       <${AddOptionCombobox}
         options=${addableOptions}
-        onAdd=${(name) => setAddedFields((prev) => new Set([...prev, name]))}
+        onAdd=${(name) => {
+          setAddedFields((prev) => new Set([...prev, name]));
+          setRevealField(name);
+        }}
       />
 
       ${yamlOnlyFields.length > 0 &&

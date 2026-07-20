@@ -25,6 +25,7 @@ import {
   normalizeBindings,
   bindingFieldValue,
 } from "../lib/seriesArrays.js";
+import { isNumericColumn } from "../lib/columnTypes.js";
 import { decodeEscapes, encodeEscapes } from "../lib/escapedText.js";
 import { stripTemplateBraces } from "./fields/templateRefUtils.js";
 import { TemplateChipInput } from "./fields/TemplateChipInput.js";
@@ -64,16 +65,7 @@ export function SeriesTable({
   const totalCount = leftBindings.length + rightBindings.length;
 
   const numericColumns = useMemo(
-    () =>
-      (columns || []).filter((col) => {
-        const dtype = String(col?.dtype || "").toLowerCase();
-        return (
-          dtype.includes("int") ||
-          dtype.includes("float") ||
-          dtype.includes("double") ||
-          dtype.includes("number")
-        );
-      }),
+    () => (columns || []).filter(isNumericColumn),
     [columns]
   );
   const selectedColumns = useMemo(
