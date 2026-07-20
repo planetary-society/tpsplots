@@ -45,6 +45,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "playwright>=1.61",
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "ruff>=0.1.0",
@@ -126,8 +127,9 @@ docstring-code-format = true
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short -m 'not integration and not ffmpeg'"
+addopts = "-v --tb=short -m 'not integration and not ffmpeg and not browser'"
 markers = [
+    "browser: real-browser editor tests (requires Playwright Chromium and CDN access)",
     "integration: end-to-end chart generation from example YAMLs (requires network)",
     "ffmpeg: requires an ffmpeg binary (deselected by default)",
 ]
