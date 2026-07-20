@@ -10,7 +10,7 @@ from collections.abc import Mapping, MutableMapping
 from copy import deepcopy
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -22,6 +22,7 @@ except ImportError:
 
 import yaml
 
+from tpsplots.exceptions import TPSPlotsError
 from tpsplots.models.chart_config import CHART_TYPES
 from tpsplots.models.data_sources import DataSourceConfig
 from tpsplots.models.yaml_config import YAMLChartConfig
@@ -30,6 +31,54 @@ from tpsplots.processors.resolvers import DataResolver
 from tpsplots.views import VIEW_REGISTRY
 
 logger = logging.getLogger(__name__)
+
+
+class SaveConflict(Exception):
+    """Raised when a save target changed on disk since it was loaded.
+
+    The editor records each loaded file's mtime; if the file is newer on disk
+    at save time (someone edited it out-of-band), the save is refused unless
+    forced, so concurrent edits are not silently clobbered.
+    """
+
+
+class SaveValidationError(ValueError):
+    """Raised when a save is blocked because the config fails validation.
+
+    Subclasses ``ValueError`` (so existing ``except ValueError`` save guards
+    still catch it) but also carries the structured ``errors`` list so the API
+    can return field-level messages to the client.
+    """
+
+    def __init__(self, message: str, errors: list[dict[str, Any]] | None = None) -> None:
+        super().__init__(message)
+        self.errors: list[dict[str, Any]] = errors or []
+
+
+class _EditorDumper(yaml.SafeDumper):
+    """SafeDumper that spells embedded newlines as ``\\n`` in double quotes.
+
+    Chart text uses real newlines for line breaks (``"Enacted\\n(2025 $)"``).
+    PyYAML's default is a single-quoted scalar with a blank line, which is
+    valid but unreadable and unlike the hand-written files in ``yaml/`` — and
+    ruamel already emits the double-quoted form on the round-trip save path.
+    """
+
+
+def _represent_str(dumper: yaml.SafeDumper, data: str) -> yaml.ScalarNode:
+    style = '"' if "\n" in data else None
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
+
+
+_EditorDumper.add_representer(str, _represent_str)
+
+
+class ResolvedTemplates(NamedTuple):
+    """Result of ``_resolve_chart_templates``: config plus stage-specific errors."""
+
+    config: dict[str, Any]
+    data_error: Exception | None = None
+    template_error: TPSPlotsError | None = None
 
 
 class EditorSession:
@@ -48,6 +97,9 @@ class EditorSession:
         self._outdir = outdir or Path("charts")
         self._data_cache: dict[str, Any] = {}
         self._profile_cache: dict[str, dict[str, Any]] = {}
+        # mtime (ns) of each file at load time, keyed by relative path, so a
+        # save can detect the file was changed on disk since it was loaded.
+        self._loaded_mtimes: dict[str, int] = {}
 
     # ------------------------------------------------------------------
     # Path security
@@ -79,12 +131,17 @@ class EditorSession:
         - ``message``: Human-readable description
         """
         errors: list[dict[str, Any]] = []
-        resolved, data_error = self._resolve_chart_templates(config)
+        resolved, data_error, template_error = self._resolve_chart_templates(config)
         if data_error is not None:
             # A config full of unresolved {{refs}} whose data source is broken
             # would otherwise pass Pydantic validation (the refs are valid
             # strings). Surface the real data error so validation fails.
             errors.append({"path": "/data/source", "message": str(data_error)})
+        if template_error is not None:
+            # A typo'd {{ref}} against a working data source. Surface the
+            # resolver's message (it lists "Available keys: [...]") verbatim as
+            # a structured /chart error rather than escaping as a 500.
+            errors.append({"path": "/chart", "message": str(template_error)})
         try:
             YAMLChartConfig(**resolved)
         except Exception as exc:
@@ -158,21 +215,23 @@ class EditorSession:
         self._data_cache[cache_key] = resolved
         return resolved
 
-    def _resolve_chart_templates(
-        self, config: dict[str, Any]
-    ) -> tuple[dict[str, Any], Exception | None]:
+    def _resolve_chart_templates(self, config: dict[str, Any]) -> ResolvedTemplates:
         """Resolve {{...}} refs in the chart section before validation.
 
-        Uses the editor's cached data resolution.  Returns
-        ``(config, data_error)`` where ``data_error`` is the exception raised
-        while loading the data source, or ``None`` on success / when there is
-        nothing to resolve.
+        Uses the editor's cached data resolution.  ``data_error`` is the
+        exception raised while loading the data source and ``template_error`` is
+        raised while resolving the ``{{refs}}`` themselves (e.g. a typo'd key).
+        Both are ``None`` on success / when there is nothing to resolve.
 
-        The original config is returned unchanged (with ``data_error`` set) if
-        data loading fails, so ``validate_config`` can surface the real error
-        while ``render_preview`` / ``preflight`` (which ignore ``data_error``)
-        re-encounter the same failure downstream, keeping their behavior
-        unchanged.
+        The original config is returned unchanged (with the relevant error set)
+        when either stage fails, so ``validate_config`` can surface the real
+        error while ``render_preview`` / ``preflight`` re-encounter or re-raise
+        the same failure downstream, keeping their behavior unchanged.
+
+        The resolve call is wrapped: a typo'd ``{{ref}}`` raises
+        ``ConfigurationError`` (a ``TPSPlotsError``) even when the data source
+        loads fine. Returning it here instead of letting it propagate keeps
+        ``/api/validate`` and ``/api/preflight`` from turning it into a 500.
         """
         from tpsplots.processors.resolvers.reference_resolver import ReferenceResolver
 
@@ -180,18 +239,21 @@ class EditorSession:
         chart_section = config.get("chart")
 
         if not data_section or not chart_section:
-            return config, None
+            return ResolvedTemplates(config)
 
         if not ReferenceResolver.contains_references(chart_section):
-            return config, None
+            return ResolvedTemplates(config)
 
         try:
             data = self._resolve_data(data_section)
         except Exception as exc:
-            return config, exc
+            return ResolvedTemplates(config, data_error=exc)
 
-        resolved_chart = ReferenceResolver.resolve(dict(chart_section), data)
-        return {**config, "chart": resolved_chart}, None
+        try:
+            resolved_chart = ReferenceResolver.resolve(dict(chart_section), data)
+        except TPSPlotsError as exc:
+            return ResolvedTemplates(config, template_error=exc)
+        return ResolvedTemplates({**config, "chart": resolved_chart})
 
     def profile_data(self, data_config: dict[str, Any]) -> dict[str, Any]:
         """Return data profile details for a source configuration."""
@@ -276,12 +338,20 @@ class EditorSession:
 
         if data_ready and not blocking_errors and not missing_paths:
             try:
-                resolved, _ = self._resolve_chart_templates(cleaned)
+                resolved = self._resolve_chart_templates(cleaned).config
                 validated = YAMLChartConfig(**resolved)
                 data = self._resolve_data(cleaned["data"])
                 build_render_context(validated, data, log_conflicts=False)
             except Exception as exc:
                 blocking_errors.append({"path": "/chart", "message": str(exc)})
+
+        # (a) A fresh editor with no data source yet emits a spurious
+        # "/data: Field required" from Pydantic (the empty data section was
+        # dropped by _clean_form_data). The missing source is already reported
+        # via missing_paths, so drop that whole-section blocking error and let
+        # the editor guide the user to pick a source instead.
+        if not source:
+            blocking_errors = [e for e in blocking_errors if e["path"] != "/data"]
 
         # validate_config and profile_data can both report the same broken
         # data source; collapse duplicates (keeping first position) via dict keying.
@@ -292,24 +362,39 @@ class EditorSession:
         missing_paths = sorted(set(missing_paths))
         ready = len(blocking_errors) == 0 and len(missing_paths) == 0
 
+        # Honest binding-step status: "not_started" until there is a working
+        # data source or at least one binding value; "complete" only when every
+        # required binding is set AND the data source actually loads (a broken
+        # source must never read as complete); otherwise "error".
+        required_bindings = [f for f in primary_bindings if f not in OPTIONAL_BINDING_FIELDS]
+        any_binding_value = any(
+            chart_cfg.get(f) not in (None, "", [], {}) for f in primary_bindings
+        )
+        all_required_bound = bool(required_bindings) and all(
+            f"/chart/{f}" not in missing_paths for f in required_bindings
+        )
+        if not primary_bindings:
+            data_bindings_status = "not_started"
+        elif all_required_bound and data_ready:
+            data_bindings_status = "complete"
+        elif not data_ready and not any_binding_value:
+            data_bindings_status = "not_started"
+        else:
+            data_bindings_status = "error"
+
         step_status = {
             "data_source_and_preparation": (
                 "complete" if data_ready else ("error" if source else "not_started")
             ),
-            "data_bindings": (
-                "complete"
-                if primary_bindings
-                and all(
-                    f"/chart/{f}" not in missing_paths
-                    for f in primary_bindings
-                    if f not in OPTIONAL_BINDING_FIELDS
-                )
-                else ("error" if primary_bindings else "not_started")
-            ),
+            "data_bindings": data_bindings_status,
             "visual_design": "in_progress" if source else "not_started",
             "annotation_output": "in_progress" if source else "not_started",
         }
 
+        # Section badge counts are deliberately NOT computed here: the frontend
+        # already receives blocking_errors + missing_paths (with paths) and the
+        # step field map in editor_hints, so it can bucket per-section counts
+        # itself without a second server-side copy of the field taxonomy.
         return {
             "ready_for_preview": ready,
             "missing_paths": missing_paths,
@@ -331,12 +416,14 @@ class EditorSession:
 
         Args:
             config: Full ``{data: {...}, chart: {...}}`` config dict.
-            device: ``"desktop"`` or ``"mobile"``.
+            device: ``"desktop"``, ``"mobile"``, or ``"social"``.
 
         Returns:
             PNG image bytes.
         """
-        if device not in {"desktop", "mobile"}:
+        # Keep this strict: create_figure silently falls back to DESKTOP for
+        # unknown device names, which would mask typos as wrong-looking charts.
+        if device not in {"desktop", "mobile", "social"}:
             raise ValueError(f"Unsupported device: {device}")
 
         # Drop empty values (empty strings, empty arrays, etc.) the editor form
@@ -344,7 +431,12 @@ class EditorSession:
         config = _clean_form_data(config)
 
         # Resolve {{...}} template refs, then validate
-        config, _ = self._resolve_chart_templates(config)
+        resolution = self._resolve_chart_templates(config)
+        if resolution.template_error is not None:
+            # A typo'd {{ref}} — raise as ValueError so the route returns 400
+            # with the resolver's message instead of a 500.
+            raise ValueError(str(resolution.template_error))
+        config = resolution.config
         validated = YAMLChartConfig(**config)
 
         # Resolve data
@@ -359,11 +451,16 @@ class EditorSession:
             raise ValueError(f"Unknown chart type: {ctx.chart_type_v1}")
 
         view = view_class(outdir=self._outdir)
+        params = deepcopy(ctx.resolved_params)
+        # Previews are always rendered at 150 dpi for speed; a config's own `dpi`
+        # applies only on `generate`. Pop it so an explicit dpi can't collide
+        # with the dpi=150 kwarg below (duplicate-kwarg TypeError).
+        params.pop("dpi", None)
         fig = view.create_figure(
             metadata=ctx.resolved_metadata,
             device=device,
             dpi=150,
-            **deepcopy(ctx.resolved_params),
+            **params,
         )
         try:
             buf = io.BytesIO()
@@ -389,43 +486,103 @@ class EditorSession:
 
         if not isinstance(data, dict):
             raise ValueError(f"Invalid YAML structure in {relative_path}")
+
+        # Record the on-disk mtime so a later save can detect out-of-band edits.
+        self._record_mtime(relative_path, path)
         return data
 
-    def save_yaml(self, relative_path: str, config: dict[str, Any]) -> None:
+    def save_yaml(
+        self,
+        relative_path: str,
+        config: dict[str, Any],
+        *,
+        override_conflict: bool = False,
+        override_validation: bool = False,
+    ) -> None:
         """Save config to YAML, preserving comments for existing files.
 
         Uses ruamel.yaml round-trip editing when available and the file
         already exists. Falls back to plain yaml.dump for new files.
+
+        The two overrides are separable intents matching the API's two 409
+        kinds: overriding a disk conflict must not also disable validation.
+
+        Args:
+            override_conflict: Skip the changed-on-disk check (deliberately
+                overwrite a file edited out-of-band since load).
+            override_validation: Skip config validation ("save anyway") — the
+                cleaned raw config is dumped regardless. Cleaning still runs.
+
+        Raises:
+            ValueError: Invalid path/suffix (plain ``ValueError``).
+            SaveValidationError: Config failed validation (unless overridden).
+            SaveConflict: File changed on disk since load (unless overridden).
         """
-        config = self._prepare_config_for_save(config)
+        # Path/suffix errors first, independent of overrides — always plain ValueError.
         path = self._resolve_path(relative_path)
         if path.suffix.lower() not in {".yaml", ".yml"}:
             raise ValueError(f"Not a YAML file: {relative_path}")
 
+        # Conflict check: refuse to clobber a file edited on disk since we
+        # loaded it, unless the caller explicitly overrides.
+        if not override_conflict and path.exists() and relative_path in self._loaded_mtimes:
+            current_mtime = _safe_mtime_ns(path)
+            if current_mtime is not None and current_mtime > self._loaded_mtimes[relative_path]:
+                raise SaveConflict(f"File changed on disk since it was loaded: {relative_path}")
+
+        # Cleaning always runs; validation gates each output path exactly once
+        # (the round-trip branch validates the *merged* document, a superset of
+        # this payload, so a payload-level pre-check would be redundant).
+        config = _clean_form_data(config)
+
         if path.exists() and YAML is not None:
-            self._save_roundtrip(path, config)
+            self._save_roundtrip(path, config, validate=not override_validation)
         else:
+            if not override_validation:
+                self._validate_or_raise(config, "Configuration validation failed")
             path.parent.mkdir(parents=True, exist_ok=True)
             with path.open("w", encoding="utf-8") as f:
                 yaml.dump(
                     config,
                     f,
+                    Dumper=_EditorDumper,
                     default_flow_style=False,
                     sort_keys=False,
                     allow_unicode=True,
                 )
 
-    def _save_roundtrip(self, path: Path, config: dict[str, Any]) -> None:
-        """Merge changed fields into existing YAML preserving comments."""
+        # Record the freshly written mtime as the new baseline so a subsequent
+        # save from this session does not falsely trip the conflict check.
+        self._record_mtime(relative_path, path)
+
+    def _record_mtime(self, relative_path: str, path: Path) -> None:
+        """Store the file's current mtime as the conflict-check baseline."""
+        mtime = _safe_mtime_ns(path)
+        if mtime is not None:
+            self._loaded_mtimes[relative_path] = mtime
+
+    @staticmethod
+    def _build_roundtrip_yaml() -> Any:
+        """ruamel instance with the editor's churn-minimizing dump settings.
+
+        ruamel re-emits every line through its serializer, so these settings
+        decide churn on untouched keys: without a large width it re-wraps any
+        line over 80 chars, and the indent must match the dominant hand-written
+        style in yaml/ (indented dashes) or every block sequence re-indents.
+        """
         rt = YAML(typ="rt")
         rt.preserve_quotes = True
-        # ruamel re-emits every line through its serializer, so these settings
-        # decide churn on untouched keys: without a large width it re-wraps any
-        # line over 80 chars, and the indent must match the dominant hand-written
-        # style in yaml/ (indented dashes) or every block sequence re-indents.
         rt.width = 100_000
         rt.indent(mapping=2, sequence=4, offset=2)
+        return rt
 
+    def _merge_into_existing(self, path: Path, config: dict[str, Any]) -> tuple[Any, Any]:
+        """Load an existing file and merge the payload into it (no write).
+
+        Shared by the save path and the YAML-preview pane so the pane shows
+        exactly what a save would write, comments and protected keys included.
+        """
+        rt = self._build_roundtrip_yaml()
         with path.open(encoding="utf-8") as f:
             existing = rt.load(f)
 
@@ -439,46 +596,126 @@ class EditorSession:
         # managed set, NOT from this save's payload: a payload-derived set
         # would resurrect deleted blocks if the editor ever manages them.
         protected_keys = set(existing) - _EDITOR_MANAGED_KEYS
+        config = _graft_protected_chart_keys(existing, config)
         _deep_replace(existing, config, protected_keys=protected_keys)
+        return rt, existing
+
+    def _save_roundtrip(self, path: Path, config: dict[str, Any], validate: bool = True) -> None:
+        """Merge changed fields into existing YAML preserving comments."""
+        rt, existing = self._merge_into_existing(path, config)
+
+        # The graft can preserve keys the payload's chart type does not allow
+        # (and hand-edits since load can too), so gate on the merged document
+        # — never write a file the CLI would reject. Skipped on force saves.
+        if validate:
+            self._validate_or_raise(
+                _to_plain(existing), "Save aborted — merged file would be invalid"
+            )
 
         with path.open("w", encoding="utf-8") as f:
             rt.dump(existing, f)
 
-    def _prepare_config_for_save(self, config: dict[str, Any]) -> dict[str, Any]:
-        """Clean and validate editor config before persisting it to YAML.
+    def render_save_output(self, config: dict[str, Any], relative_path: str | None = None) -> str:
+        """Render the YAML a save would write, without writing anything.
 
-        Validation is a *gate only*: the returned payload is the cleaned raw
-        input dict, never a ``model_dump`` of the validated model. Dumping the
-        model would materialize every non-None default into the file (and make
-        force-saving an invalid config impossible), whereas the raw dict keeps
-        saved YAML minimal and faithful to what the user actually set.
-
-        ``{{refs}}`` are resolved for validation when the data source loads;
-        when it does not (offline Google Sheets, broken controller), the
-        unresolved config is validated instead so saving still works — the
-        refs themselves are valid strings.
+        Backs the editor's YAML pane. With a ``relative_path`` to an existing
+        file, the output is the comment-preserving ruamel merge — byte-for-byte
+        what ``save_yaml`` would produce. Without one (never-saved config), a
+        plain dump of the cleaned config. Never validates: the pane must show
+        work-in-progress configs too.
         """
         cleaned = _clean_form_data(config)
-        resolved, _data_error = self._resolve_chart_templates(cleaned)
+
+        if relative_path:
+            path = self._resolve_path(relative_path)
+            if path.exists() and YAML is not None:
+                rt, existing = self._merge_into_existing(path, cleaned)
+                buf = io.StringIO()
+                rt.dump(existing, buf)
+                return buf.getvalue()
+
+        return yaml.dump(
+            cleaned,
+            Dumper=_EditorDumper,
+            default_flow_style=False,
+            sort_keys=False,
+            allow_unicode=True,
+        )
+
+    def _validate_or_raise(self, config: dict[str, Any], prefix: str) -> None:
+        """Validate a config (with {{refs}} resolved when data loads) or raise.
+
+        Validation is a *gate only*: the saved payload is always the cleaned
+        raw input dict, never a ``model_dump`` of the validated model. Dumping
+        the model would materialize every non-None default into the file (and
+        make save-anyway impossible for invalid configs), whereas the raw dict
+        keeps saved YAML minimal and faithful to what the user actually set.
+
+        On data-load failure the unresolved config is validated instead — the
+        refs are valid strings, so offline sources stay saveable. Raises
+        ``SaveValidationError`` carrying the structured error list so the API
+        can surface field-level messages.
+        """
+        resolved = self._resolve_chart_templates(config).config
         try:
             YAMLChartConfig(**resolved)
         except Exception as exc:
-            details = []
-            for err in _extract_pydantic_errors(exc):
-                if err["path"]:
-                    details.append(f"{err['path']}: {err['message']}")
-                else:
-                    details.append(err["message"])
-            raise ValueError(f"Configuration validation failed: {'; '.join(details)}") from exc
-        return cleaned
+            raise SaveValidationError(
+                f"{prefix}: {_format_pydantic_errors(exc)}",
+                errors=_extract_pydantic_errors(exc),
+            ) from exc
 
-    def list_yaml_files(self) -> list[str]:
-        """List YAML files in yaml_dir recursively as relative paths."""
-        files: set[str] = set()
+    def list_yaml_files(self) -> list[dict[str, Any]]:
+        """List YAML files in yaml_dir recursively, enriched with chart metadata.
+
+        Each entry is ``{"path": <relative path>, "type": <chart type or None>,
+        "title": <chart title or None>}``. The chart type/title are read with a
+        lightweight ``yaml.safe_load`` cached per file mtime, so repeated Open-menu
+        listings do not re-parse unchanged files. Unreadable or malformed files are
+        tolerated: they list with ``type``/``title`` of ``None`` rather than
+        failing the whole listing.
+        """
+        # Lazily-initialized mtime cache: {relative_path: (mtime_ns, entry)}.
+        # Kept off __init__ so this feature touches only list_yaml_files.
+        cache = self.__dict__.setdefault("_file_meta_cache", {})
+
+        entries: list[dict[str, Any]] = []
+        seen: set[str] = set()
         for ext in ("*.yaml", "*.yml"):
             for path in self._root.rglob(ext):
-                files.add(str(path.relative_to(self._root)))
-        return sorted(files)
+                rel = str(path.relative_to(self._root))
+                if rel in seen:
+                    continue
+                seen.add(rel)
+
+                mtime = _safe_mtime_ns(path)
+                cached = cache.get(rel)
+                if cached is not None and cached[0] == mtime:
+                    entries.append(cached[1])
+                    continue
+
+                chart_type: str | None = None
+                title: str | None = None
+                try:
+                    with path.open(encoding="utf-8") as f:
+                        data = yaml.safe_load(f)
+                    if isinstance(data, dict) and isinstance(data.get("chart"), dict):
+                        chart = data["chart"]
+                        raw_type = chart.get("type")
+                        chart_type = str(raw_type) if raw_type is not None else None
+                        raw_title = chart.get("title")
+                        title = str(raw_title) if raw_title is not None else None
+                except Exception:
+                    # Malformed / unreadable file: list it with null metadata.
+                    chart_type = None
+                    title = None
+
+                entry = {"path": rel, "type": chart_type, "title": title}
+                cache[rel] = (mtime, entry)
+                entries.append(entry)
+
+        entries.sort(key=lambda e: e["path"])
+        return entries
 
     def invalidate_data_cache(self) -> None:
         """Clear the data cache (e.g. after data source changes)."""
@@ -494,6 +731,51 @@ class EditorSession:
 # grows a UI for another section (e.g. `animation`), add it here so deleting
 # the section in the editor deletes it from the file.
 _EDITOR_MANAGED_KEYS = frozenset({"data", "chart"})
+
+
+def _safe_mtime_ns(path: Path) -> int | None:
+    """Return the file's mtime in nanoseconds, or ``None`` when unreadable."""
+    try:
+        return path.stat().st_mtime_ns
+    except OSError:
+        return None
+
+
+def _graft_protected_chart_keys(
+    existing: Mapping[str, Any], config: dict[str, Any]
+) -> dict[str, Any]:
+    """Copy protected chart-section nodes from the file into the save payload.
+
+    The editor strips base excluded fields (``annotations``, ``figsize``,
+    ``matplotlib_config``, ...) from its schema, so its payload never carries
+    them — mirroring the payload would delete hand-authored blocks from disk.
+    Grafting the existing ruamel nodes into the payload preserves them (the
+    equality skip in ``_deep_replace`` then leaves the original nodes, and
+    their comments, untouched). Keys are filtered to the payload type's model
+    fields so a type switch never smuggles a field into a type that forbids it.
+    """
+    from tpsplots.editor.ui_schema import get_protected_chart_keys
+
+    existing_chart = existing.get("chart")
+    payload_chart = config.get("chart")
+    if not isinstance(existing_chart, Mapping) or not isinstance(payload_chart, Mapping):
+        return config
+
+    chart_type = str(payload_chart.get("type", ""))
+    grafted = dict(payload_chart)
+    for key in get_protected_chart_keys(chart_type):
+        if key in existing_chart and key not in grafted:
+            grafted[key] = existing_chart[key]
+    return {**config, "chart": grafted}
+
+
+def _to_plain(obj: Any) -> Any:
+    """Convert ruamel containers to plain dicts/lists for validation."""
+    if isinstance(obj, Mapping):
+        return {str(k): _to_plain(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_to_plain(v) for v in obj]
+    return obj
 
 
 def _deep_replace(
@@ -562,10 +844,22 @@ def _clean_form_data(config: dict[str, Any]) -> dict[str, Any]:
         elif isinstance(value, str) and value == "":
             continue  # drop empty strings
         elif isinstance(value, list):
-            cleaned[key] = [_coerce_date(v) if isinstance(v, str) else v for v in value]
+            # Only ISO-date-coerce list items for axis-range fields. Coercing
+            # every list would rewrite literal date-like strings elsewhere
+            # (e.g. labels: ["2026-01-01"], bar categories) into date objects.
+            if key in _DATE_COERCED_FIELDS:
+                cleaned[key] = [_coerce_date(v) if isinstance(v, str) else v for v in value]
+            else:
+                cleaned[key] = value
         else:
             cleaned[key] = value
     return cleaned
+
+
+# Fields whose list items may be real ISO dates the frontend stringified back.
+# Restricted to axis-range/tick fields — field names are unique across the
+# schema, so a plain key check works at any nesting depth.
+_DATE_COERCED_FIELDS = frozenset({"xlim", "ylim", "xticks"})
 
 
 # Matches exactly YYYY-MM-DD (ISO 8601 date, no time component).
@@ -586,6 +880,14 @@ def _coerce_date(value: str) -> str | date:
         except ValueError:
             pass
     return value
+
+
+def _format_pydantic_errors(exc: Exception) -> str:
+    """Render extracted validation errors as one ``path: message; ...`` string."""
+    return "; ".join(
+        f"{err['path']}: {err['message']}" if err["path"] else err["message"]
+        for err in _extract_pydantic_errors(exc)
+    )
 
 
 def _extract_pydantic_errors(exc: Exception) -> list[dict[str, Any]]:

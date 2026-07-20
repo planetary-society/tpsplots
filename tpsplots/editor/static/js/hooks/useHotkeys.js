@@ -47,22 +47,40 @@ export function useHotkeys(handlers) {
         return;
       }
 
-      if (!editable && e.altKey && ["1", "2", "3", "4"].includes(e.key)) {
+      if (mod && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        ref.current.onToggleYaml?.();
+        return;
+      }
+
+      // Session undo/redo. Skipped inside editable elements so text inputs
+      // keep their native undo stack.
+      if (mod && !editable && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          ref.current.onRedo?.();
+        } else {
+          ref.current.onUndo?.();
+        }
+        return;
+      }
+
+      if (!editable && e.altKey && ["1", "2", "3"].includes(e.key)) {
         e.preventDefault();
         ref.current.onSetStep?.(Number(e.key));
         return;
       }
 
-      if (!editable && !mod && !e.altKey && !e.shiftKey) {
-        const key = e.key.toLowerCase();
-        if (key === "d") {
-          ref.current.onSetDevice?.("desktop");
-          return;
-        }
-        if (key === "m") {
-          ref.current.onSetDevice?.("mobile");
-          return;
-        }
+      // "?" (shift + /) toggles the keyboard-shortcut sheet.
+      if (!editable && !mod && e.key === "?") {
+        e.preventDefault();
+        ref.current.onToggleHelp?.();
+        return;
+      }
+
+      if (e.key === "Escape") {
+        ref.current.onEscape?.();
+        return;
       }
     };
 

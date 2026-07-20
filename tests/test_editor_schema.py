@@ -245,6 +245,48 @@ class TestFieldToGroupMapping:
                 )
 
 
+class TestTierAndGroupIntegrity:
+    """Guard against tier/group entries that reference excluded or nonexistent fields.
+
+    Catches two classes of drift permanently:
+    (a) FIELD_TIERS naming a field that is excluded for its type (so
+        get_editor_hints silently drops it) or missing from the model.
+    (b) _CHART_FIELD_GROUPS naming an excluded field (a dead entry that can
+        never render because the field is stripped from the served schema).
+    """
+
+    @pytest.mark.parametrize("chart_type", list(CONFIG_REGISTRY.keys()))
+    def test_field_tiers_reference_live_model_fields(self, chart_type):
+        from tpsplots.editor.ui_schema import FIELD_TIERS, _get_excluded_fields
+
+        config_cls = CONFIG_REGISTRY[chart_type]
+        model_fields = set(config_cls.model_fields)
+        excluded = _get_excluded_fields(config_cls, chart_type)
+        tiers = FIELD_TIERS.get(chart_type, {})
+        for tier_name, field_names in tiers.items():
+            for field_name in field_names:
+                assert field_name in model_fields, (
+                    f"FIELD_TIERS[{chart_type!r}][{tier_name!r}] names {field_name!r}, "
+                    "which is not a field on the model"
+                )
+                assert field_name not in excluded, (
+                    f"FIELD_TIERS[{chart_type!r}][{tier_name!r}] names {field_name!r}, "
+                    "which is excluded for this type and would be silently dropped"
+                )
+
+    @pytest.mark.parametrize("chart_type", list(CONFIG_REGISTRY.keys()))
+    def test_chart_field_groups_have_no_excluded_entries(self, chart_type):
+        from tpsplots.editor.ui_schema import _CHART_FIELD_GROUPS, _get_excluded_fields
+
+        config_cls = CONFIG_REGISTRY[chart_type]
+        excluded = _get_excluded_fields(config_cls, chart_type)
+        for field_name in _CHART_FIELD_GROUPS.get(chart_type, {}):
+            assert field_name not in excluded, (
+                f"_CHART_FIELD_GROUPS[{chart_type!r}] maps {field_name!r}, which is "
+                "excluded for this type and can never render (dead entry)"
+            )
+
+
 class TestDualYAxisEditorSupport:
     """Tests for dual y-axis field registration in the editor."""
 

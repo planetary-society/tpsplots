@@ -270,6 +270,8 @@ class TreemapChartView(ColorCycleMixin, ChartView):
         labels = kwargs.pop("labels", None)
         values = kwargs.pop("values", None)
         colors = kwargs.pop("colors", None)
+        if values is not None:
+            values = self._coerce_numeric_values(values)
         items = self._normalize_items(labels, values, colors)
 
         edgecolor = kwargs.pop("edgecolor", tokens.TREEMAP_EDGECOLOR)

@@ -34,8 +34,6 @@ chart:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `color` | str or list[str] | — | Line color(s) |
-| `linestyle` | str or list[str] | — | Line style(s) |
-| `linewidth` | float or list[float] | — | Line width(s) |
 | `marker` | str or list[str] | — | Marker style(s) |
 | `markersize` | float or list[float] | — | Marker size(s): single value or per-series list |
 | `alpha` | float or list[float] | — | Line transparency (0.0 = fully transparent, 1.0 = fully opaque). Single value applies to all lines; list sets per-series transparency |
@@ -46,7 +44,6 @@ chart:
 |-------|------|---------|-------------|
 | `labels` | str or list[str] | — | Legend label(s) |
 | `series_types` | list[str] or str | — | Semantic series types that apply default styling per series. Values: 'prior' (gray dashed, 1.5pt), 'average' (blue solid, 4pt, circle markers), 'current' (Rocket Flame solid, 4pt, circle markers). List length must match number of y series. May also be a template ref like '{{series_types}}'. Overridden by explicit color/linestyle/etc. |
-| `direct_line_labels` | bool or [DirectLineLabelsConfig](#directlinelabelsconfig) or dict | — | Place labels near line endpoints instead of a legend box. Default: False (use legend). True: enable with auto-positioning. Dict config keys: position ('right'\|'left'\|'top'\|'bottom'\|'auto', default 'auto'), bbox (background box, default True), fontsize (default from style legend_size), end_point (True for default circle marker, dict for custom {marker, size, facecolor, edgecolor, edgewidth, zorder}, or list for per-series config) |
 
 ## Reference Lines
 
@@ -127,6 +124,9 @@ chart:
 |-------|------|---------|-------------|
 | `annotations` | list[[ChartAnnotation](#chartannotation)] | — | Data-space text callouts drawn on the primary axes after the chart is rendered. Each item anchors at (x, y) in data coordinates. |
 | `data` | any (template ref) | — | DataFrame reference |
+| `linestyle` | str or list[str] | — | Line style(s) |
+| `linewidth` | float or list[float] | — | Line width(s) |
+| `direct_line_labels` | bool or [DirectLineLabelsConfig](#directlinelabelsconfig) or dict | — | Place labels near line endpoints instead of a legend box. Default: False (use legend). True: enable with auto-positioning. Dict config keys: position ('right'\|'left'\|'top'\|'bottom'\|'auto', default 'auto'), bbox (background box, default True), fontsize (default from style legend_size), end_point (True for default circle marker, dict for custom {marker, size, facecolor, edgecolor, edgewidth, zorder}, or list for per-series config) |
 | `series_overrides` | dict[int, dict or [SeriesConfig](#seriesconfig)] | — | Per-series override configs (auto-collected from series_N keys) |
 
 ## Common

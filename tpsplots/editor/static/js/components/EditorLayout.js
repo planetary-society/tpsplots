@@ -1,208 +1,149 @@
 /**
- * Main editor layout: header + split pane (form | preview).
+ * Main editor layout: header + split pane (form | preview) + YAML drawer.
+ *
+ * The form panel is three always-visible sections — Data / Chart / Text —
+ * with a sticky scrollspy chip-nav. No gating: sections never lock; before
+ * data is loaded the Chart section explains what loading unlocks instead of
+ * disabling inputs. Preflight state lives in ONE place (the StatusStrip in
+ * the preview header), with per-section issue badges on the nav chips.
  */
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { html } from "../lib/html.js";
+import { sectionForPath } from "../lib/preflightPaths.js";
+import { useDragResize } from "../hooks/useDragResize.js";
 
 import { Header } from "./Header.js";
-import { ChartForm } from "./ChartForm.js";
+import { YamlPane } from "./YamlPane.js";
 import { TieredVisualDesign } from "./TieredVisualDesign.js";
 import { MetadataSection } from "./MetadataSection.js";
 import { PreviewPanel } from "./PreviewPanel.js";
-import { ValidationSummary } from "./ValidationSummary.js";
 import { DataSourceStep } from "./DataSourceStep.js";
 import { BindingStep } from "./BindingStep.js";
-import { SeriesEditor } from "./SeriesEditor.js";
 import { Toast } from "./Toast.js";
 
-const STEPS = [
-  { id: 1, key: "data_source_and_preparation", label: "1. Data Source & Prep" },
-  { id: 2, key: "data_bindings", label: "2. Data Bindings" },
-  { id: 3, key: "visual_design", label: "3. Visual Design" },
-  { id: 4, key: "annotation_output", label: "4. Annotation & Output" },
+const SECTIONS = [
+  { id: "data", label: "Data" },
+  { id: "chart", label: "Chart" },
+  { id: "text", label: "Text & Output" },
 ];
-
-function statusLabel(status) {
-  if (status === "complete") return "Complete";
-  if (status === "error") return "Needs attention";
-  if (status === "in_progress") return "In progress";
-  return "Not started";
-}
 
 export function EditorLayout(props) {
   const {
     chartType, chartTypes, schema, uiSchema, formData, dataConfig,
     currentFile, colors, toast,
-    editorHints, preflight, stepStatus, activeStep,
+    editorHints, preflight, sectionJumpRef,
     dataSchema, dataUiSchema, dataProfile, dataProfileStatus,
     previewDevice, renderTick, unsavedChanges,
+    yamlOpen, lastEditedField, onYamlClose, onYamlToggle, onReloadFromDisk,
     onChartTypeChange, onFormDataChange, onDataConfigChange,
-    onFileChange, onStepChange, onPreviewDeviceChange,
-    onRunDataProfile, onSaved, buildFullConfig, showToast,
+    onPreviewDeviceChange,
+    onRunDataProfile, buildFullConfig, showToast,
+    saving, onSave, onSaveAs, onOpen, onNew, onToggleHelp,
   } = props;
 
   // Resize state
-  const [formWidth, setFormWidth] = useState(380);
+  const [formWidth, setFormWidth] = useState(460);
   const [isResizing, setIsResizing] = useState(false);
+  const [activeSection, setActiveSection] = useState("data");
+  const formPanelRef = useRef(null);
+  const sectionRefs = useRef({});
 
-  const handleResizeStart = useCallback((e) => {
-    e.preventDefault();
-    setIsResizing(true);
-    const startX = e.clientX;
-    const startWidth = formWidth;
-
-    const onMove = (moveEvent) => {
-      const delta = moveEvent.clientX - startX;
-      const newWidth = Math.max(280, Math.min(600, startWidth + delta));
-      setFormWidth(newWidth);
-    };
-
-    const onUp = () => {
-      setIsResizing(false);
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-    };
-
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  }, [formWidth]);
+  const startResizing = useCallback(() => setIsResizing(true), []);
+  const stopResizing = useCallback(() => setIsResizing(false), []);
+  const handleResizeStart = useDragResize({
+    axis: "x",
+    min: 320,
+    max: 680,
+    value: formWidth,
+    onChange: setFormWidth,
+    onStart: startResizing,
+    onEnd: stopResizing,
+  });
 
   const visualDesignFields = useMemo(
     () => new Set(editorHints?.step_field_map?.visual_design || []),
     [editorHints]
   );
 
-  // Detect multi-series mode: when trigger field (y) is an array with 2+ items,
-  // the SeriesEditor in Step 3 handles correlated fields — exclude them from tiered fields.
-  const seriesCorrelated = editorHints?.series_correlated_fields;
-  const isMultiSeries = useMemo(() => {
-    if (!seriesCorrelated) return false;
-    const trigger = formData?.[seriesCorrelated.trigger_field];
-    const leftCount = Array.isArray(trigger) ? trigger.length : trigger ? 1 : 0;
-    const secondaryField = seriesCorrelated.secondary_trigger_field;
-    const secondary = secondaryField ? formData?.[secondaryField] : null;
-    const rightCount = Array.isArray(secondary) ? secondary.length : secondary ? 1 : 0;
-    return leftCount + rightCount >= 2;
-  }, [seriesCorrelated, formData]);
+  const textFields = useMemo(
+    () => new Set(editorHints?.step_field_map?.annotation_output || []),
+    [editorHints]
+  );
 
-  const seriesExcludedFields = useMemo(() => {
-    if (!isMultiSeries || !seriesCorrelated?.correlated) return null;
-    return seriesCorrelated.correlated;
-  }, [isMultiSeries, seriesCorrelated]);
+  // Per-section issue badges, derived client-side from the paths the strip
+  // already renders (no second server-side taxonomy).
+  const sectionIssues = useMemo(() => {
+    const counts = { data: 0, chart: 0, text: 0 };
+    if (!preflight) return counts;
+    const paths = [
+      ...(preflight.blocking_errors || []).map((e) => e.path),
+      ...(preflight.missing_paths || []),
+    ];
+    for (const path of paths) {
+      counts[sectionForPath(path, textFields)] += 1;
+    }
+    return counts;
+  }, [preflight, textFields]);
+
+  // The SeriesTable owns per-series styling on line/scatter — its correlated
+  // fields are excluded from the tiered form unconditionally so a value is
+  // never editable in two places (even with a single series).
+  const seriesCorrelated = editorHints?.series_correlated_fields;
+  const seriesExcludedFields = seriesCorrelated?.correlated || null;
 
   const fieldTiers = editorHints?.field_tiers;
   const compositeWidgets = editorHints?.composite_widgets;
-  const hasTiers = fieldTiers && (fieldTiers.essential?.length > 0 || fieldTiers.common?.length > 0);
 
-  const dataReady = stepStatus?.data_source_and_preparation === "complete";
-  const toggleStep = useCallback(
-    (stepId, isOpen) => {
-      onStepChange(isOpen ? null : stepId);
+  const dataReady = !!dataProfile && (dataProfile.columns || []).length > 0;
+
+  // Scrollspy: track which section heading is nearest the top of the panel.
+  useEffect(() => {
+    const rootEl = formPanelRef.current;
+    if (!rootEl) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActiveSection(visible[0].target.dataset.section);
+      },
+      { root: rootEl, rootMargin: "-10% 0px -70% 0px" }
+    );
+    for (const section of SECTIONS) {
+      const el = sectionRefs.current[section.id];
+      if (el) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, []);
+
+  const scrollToSection = useCallback((id) => {
+    const el = sectionRefs.current[id];
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Move focus for keyboard/AT users; heading carries tabindex="-1".
+    el.querySelector("h3")?.focus?.();
+    setActiveSection(id);
+  }, []);
+
+  // Alt+1..3: expose the jump function to App's hotkey layer via ref — a
+  // direct call, not a number bounced through component state.
+  useEffect(() => {
+    if (!sectionJumpRef) return undefined;
+    sectionJumpRef.current = (n) => {
+      const section = SECTIONS[n - 1];
+      if (section) scrollToSection(section.id);
+    };
+    return () => {
+      sectionJumpRef.current = null;
+    };
+  }, [sectionJumpRef, scrollToSection]);
+
+  const registerSection = useCallback(
+    (id) => (el) => {
+      sectionRefs.current[id] = el;
     },
-    [onStepChange]
+    []
   );
-
-  const renderStepContent = (stepId) => {
-    if (stepId === 1) {
-      return html`
-        <${DataSourceStep}
-          dataSchema=${dataSchema}
-          dataUiSchema=${dataUiSchema}
-          dataConfig=${dataConfig}
-          onDataConfigChange=${onDataConfigChange}
-          onTestSource=${onRunDataProfile}
-          profile=${dataProfile}
-          profileStatus=${dataProfileStatus}
-        />
-      `;
-    }
-
-    if (stepId === 2) {
-      const guidance = editorHints?.guidance;
-      return html`
-        ${guidance &&
-        html`
-          <details class="guidance-panel">
-            <summary class="guidance-summary">Quick Start: ${chartType} chart</summary>
-            <p class="guidance-desc">${guidance.description}</p>
-            <ol class="guidance-steps">
-              ${guidance.workflow?.map(
-                (step, i) => html`<li key=${i}>${step}</li>`
-              )}
-            </ol>
-            ${guidance.tip &&
-            html`<p class="guidance-tip">${guidance.tip}</p>`}
-          </details>
-        `}
-        <${BindingStep}
-          schema=${schema}
-          uiSchema=${uiSchema}
-          formData=${formData}
-          onFormDataChange=${onFormDataChange}
-          colors=${colors}
-          editorHints=${editorHints}
-          dataProfile=${dataProfile}
-        />
-      `;
-    }
-
-    if (stepId === 3) {
-      return html`
-        <section class="guided-step">
-          <div class="guided-step-header">
-            <h3>Visual Design</h3>
-            <p>Tune styling, scales, legends, and axis behavior.</p>
-          </div>
-          ${seriesCorrelated &&
-          html`
-            <${SeriesEditor}
-              formData=${formData}
-              onFormDataChange=${onFormDataChange}
-              correlatedFields=${seriesCorrelated}
-              colors=${colors}
-            />
-          `}
-          ${hasTiers
-            ? html`
-                <${TieredVisualDesign}
-                  schema=${schema}
-                  uiSchema=${uiSchema}
-                  formData=${formData}
-                  colors=${colors}
-                  onFormDataChange=${onFormDataChange}
-                  fieldTiers=${fieldTiers}
-                  compositeWidgets=${compositeWidgets}
-                  seriesExcluded=${seriesExcludedFields}
-                  visualFields=${visualDesignFields}
-                />
-              `
-            : html`
-                <${ChartForm}
-                  schema=${schema}
-                  uiSchema=${uiSchema}
-                  formData=${formData}
-                  colors=${colors}
-                  onFormDataChange=${onFormDataChange}
-                  includeFields=${visualDesignFields}
-                />
-              `}
-        </section>
-      `;
-    }
-
-    return html`
-      <section class="guided-step">
-        <div class="guided-step-header">
-          <h3>Annotation & Output</h3>
-          <p>Finalize chart narrative and output metadata.</p>
-        </div>
-        <${MetadataSection}
-          formData=${formData}
-          onFormDataChange=${onFormDataChange}
-        />
-      </section>
-    `;
-  };
 
   return html`
     <${Header}
@@ -210,48 +151,114 @@ export function EditorLayout(props) {
       chartTypes=${chartTypes}
       currentFile=${currentFile}
       onChartTypeChange=${onChartTypeChange}
-      onFormDataChange=${onFormDataChange}
-      onDataConfigChange=${onDataConfigChange}
-      onFileChange=${onFileChange}
-      buildFullConfig=${buildFullConfig}
-      showToast=${showToast}
-      dataConfig=${dataConfig}
-      onSaved=${onSaved}
+      onSave=${onSave}
+      onSaveAs=${onSaveAs}
+      onOpen=${onOpen}
+      onNew=${onNew}
+      onToggleHelp=${onToggleHelp}
+      saving=${saving}
       unsavedChanges=${unsavedChanges}
-      preflight=${preflight}
+      yamlOpen=${yamlOpen}
+      onToggleYaml=${onYamlToggle}
     />
 
     <div class="editor-layout" style=${{ gridTemplateColumns: `${formWidth}px 6px 1fr` }}>
-      <div class="form-panel">
-        <div class="step-accordion">
-          ${STEPS.map((step) => {
-            const status = stepStatus?.[step.key] || "not_started";
-            const isOpen = activeStep === step.id;
-            const disabled = step.id > 1 && !dataReady;
+      <div class="form-panel" ref=${formPanelRef}>
+        <nav class="section-nav" aria-label="Chart sections">
+          ${SECTIONS.map((section) => {
+            const issues = sectionIssues[section.id];
             return html`
-              <section key=${step.key} class="step-accordion-item ${isOpen ? "is-open" : ""}">
-                <button
-                  type="button"
-                  class="step-nav-item ${isOpen ? "active" : ""} status-${status}"
-                  onClick=${() => !disabled && toggleStep(step.id, isOpen)}
-                  disabled=${disabled}
-                  aria-expanded=${isOpen}
-                  aria-pressed=${isOpen}
-                  title=${disabled ? "Complete Data Source & Prep first" : statusLabel(status)}
-                >
-                  <span class="step-nav-label">${step.label}</span>
-                  <span class="step-nav-state">${statusLabel(status)}</span>
-                </button>
-                <div class="step-panel ${isOpen ? "is-open" : ""}" aria-hidden=${!isOpen}>
-                  <div class="step-panel-inner">
-                    ${isOpen && html`<${ValidationSummary} preflight=${preflight} />`}
-                    ${renderStepContent(step.id)}
-                  </div>
-                </div>
-              </section>
+              <button
+                key=${section.id}
+                type="button"
+                class="section-chip ${activeSection === section.id ? "active" : ""}"
+                onClick=${() => scrollToSection(section.id)}
+              >
+                ${section.label}
+                ${issues > 0 && html`<span class="section-chip-badge">${issues}</span>`}
+              </button>
             `;
           })}
-        </div>
+        </nav>
+
+        <section
+          class="editor-section"
+          data-section="data"
+          ref=${registerSection("data")}
+        >
+          <div class="editor-section-header">
+            <h3 tabindex="-1">Data</h3>
+            <p>Load a source, then shape its columns.</p>
+          </div>
+          <${DataSourceStep}
+            dataSchema=${dataSchema}
+            dataUiSchema=${dataUiSchema}
+            dataConfig=${dataConfig}
+            onDataConfigChange=${onDataConfigChange}
+            onTestSource=${onRunDataProfile}
+            profile=${dataProfile}
+            profileStatus=${dataProfileStatus}
+          />
+        </section>
+
+        <section
+          class="editor-section"
+          data-section="chart"
+          ref=${registerSection("chart")}
+        >
+          <div class="editor-section-header">
+            <h3 tabindex="-1">Chart</h3>
+            <p>Bind columns, then style the result.</p>
+          </div>
+          ${!dataReady &&
+          html`
+            <div class="section-note">
+              <span>Load data to get column suggestions and checks.</span>
+              <button
+                type="button"
+                class="btn btn-secondary"
+                onClick=${() => scrollToSection("data")}
+              >Go to Data</button>
+            </div>
+          `}
+          <${BindingStep}
+            schema=${schema}
+            uiSchema=${uiSchema}
+            formData=${formData}
+            onFormDataChange=${onFormDataChange}
+            colors=${colors}
+            editorHints=${editorHints}
+            dataProfile=${dataProfile}
+          />
+          <${TieredVisualDesign}
+            schema=${schema}
+            uiSchema=${uiSchema}
+            formData=${formData}
+            colors=${colors}
+            onFormDataChange=${onFormDataChange}
+            fieldTiers=${fieldTiers}
+            compositeWidgets=${compositeWidgets}
+            seriesExcluded=${seriesExcludedFields}
+            visualFields=${visualDesignFields}
+            excludedFields=${editorHints?.excluded_fields}
+            onOpenYaml=${onYamlToggle}
+          />
+        </section>
+
+        <section
+          class="editor-section"
+          data-section="text"
+          ref=${registerSection("text")}
+        >
+          <div class="editor-section-header">
+            <h3 tabindex="-1">Text & Output</h3>
+            <p>Chart narrative and output file name.</p>
+          </div>
+          <${MetadataSection}
+            formData=${formData}
+            onFormDataChange=${onFormDataChange}
+          />
+        </section>
       </div>
 
       <div
@@ -269,6 +276,18 @@ export function EditorLayout(props) {
         renderTick=${renderTick}
       />
     </div>
+
+    ${yamlOpen &&
+    html`
+      <${YamlPane}
+        yamlText=${preflight?.yaml_preview}
+        currentFile=${currentFile}
+        lastEditedField=${lastEditedField}
+        onClose=${onYamlClose}
+        onReloadFromDisk=${onReloadFromDisk}
+        showToast=${showToast}
+      />
+    `}
 
     ${toast && html`<${Toast} message=${toast.message} type=${toast.type} />`}
   `;

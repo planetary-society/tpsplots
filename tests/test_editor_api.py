@@ -4,6 +4,7 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
+from tests.conftest import bump_mtime
 from tpsplots.editor.app import create_editor_app
 from tpsplots.editor.session import EditorSession
 from tpsplots.editor.ui_schema import get_available_chart_types
@@ -74,8 +75,25 @@ class TestFilesEndpoint:
         resp = client.get("/api/files")
         assert resp.status_code == 200
         files = resp.json()["files"]
-        assert "sample.yaml" in files
-        assert "nested/nested.yaml" in files
+        paths = {f["path"] for f in files}
+        assert "sample.yaml" in paths
+        assert "nested/nested.yaml" in paths
+
+    def test_list_files_enriched_shape(self, client):
+        """Each entry carries path + chart type + title."""
+        files = client.get("/api/files").json()["files"]
+        sample = next(f for f in files if f["path"] == "sample.yaml")
+        assert set(sample) == {"path", "type", "title"}
+        assert sample["type"] == "bar"
+        assert sample["title"] == "Test"
+
+    def test_list_files_tolerates_unreadable(self, client, yaml_dir):
+        """A malformed file is listed with null type/title, not dropped."""
+        (yaml_dir / "broken.yaml").write_text("chart: [unclosed", encoding="utf-8")
+        files = client.get("/api/files").json()["files"]
+        broken = next(f for f in files if f["path"] == "broken.yaml")
+        assert broken["type"] is None
+        assert broken["title"] is None
 
     def test_load_file(self, client):
         resp = client.get("/api/load?path=sample.yaml")
@@ -103,13 +121,18 @@ class TestFilesEndpoint:
         assert resp.status_code == 200
         assert (yaml_dir / "new.yaml").exists()
 
-    def test_save_invalid_config_returns_400(self, client):
+    def test_save_invalid_config_returns_409_validation(self, client, yaml_dir):
         config = {
             "data": {"source": "data/new.csv"},
             "chart": {"type": "bar"},
         }
         resp = client.post("/api/save", json={"path": "invalid.yaml", "config": config})
-        assert resp.status_code == 400
+        assert resp.status_code == 409
+        body = resp.json()
+        assert body["kind"] == "validation"
+        assert body["errors"], "expected structured validation errors"
+        # The blocked save must not have written the file.
+        assert not (yaml_dir / "invalid.yaml").exists()
 
     def test_save_path_traversal_blocked(self, client):
         config = {
@@ -118,6 +141,59 @@ class TestFilesEndpoint:
         }
         resp = client.post("/api/save", json={"path": "../../evil.yaml", "config": config})
         assert resp.status_code == 400
+
+    def test_save_conflict_returns_409(self, client, yaml_dir):
+        """Load a file, then change it on disk: the next save is refused."""
+        client.get("/api/load?path=sample.yaml")
+        # Make the on-disk file strictly newer than the recorded load mtime.
+        sample = yaml_dir / "sample.yaml"
+        bump_mtime(sample)
+
+        config = {
+            "data": {"source": "data/test.csv"},
+            "chart": {"type": "bar", "output": "test_chart", "title": "New Title"},
+        }
+        resp = client.post("/api/save", json={"path": "sample.yaml", "config": config})
+        assert resp.status_code == 409
+        assert resp.json()["kind"] == "conflict"
+
+    def test_override_validation_saves_invalid_config(self, client, yaml_dir):
+        config = {
+            "data": {"source": "data/new.csv"},
+            "chart": {"type": "bar"},  # missing required output/title
+        }
+        resp = client.post(
+            "/api/save",
+            json={"path": "forced.yaml", "config": config, "override_validation": True},
+        )
+        assert resp.status_code == 200
+        assert (yaml_dir / "forced.yaml").exists()
+
+    def test_override_conflict_keeps_validation(self, client, yaml_dir):
+        client.get("/api/load?path=sample.yaml")
+        sample = yaml_dir / "sample.yaml"
+        bump_mtime(sample)
+
+        config = {
+            "data": {"source": "data/test.csv"},
+            "chart": {"type": "bar", "output": "test_chart", "title": "Forced Title"},
+        }
+        resp = client.post(
+            "/api/save",
+            json={"path": "sample.yaml", "config": config, "override_conflict": True},
+        )
+        assert resp.status_code == 200
+        loaded = yaml.safe_load(sample.read_text(encoding="utf-8"))
+        assert loaded["chart"]["title"] == "Forced Title"
+
+        # The same override must NOT bypass validation.
+        bad = {"data": {"source": "data/test.csv"}, "chart": {"type": "bar"}}
+        resp = client.post(
+            "/api/save",
+            json={"path": "sample.yaml", "config": bad, "override_conflict": True},
+        )
+        assert resp.status_code == 409
+        assert resp.json()["kind"] == "validation"
 
 
 class TestValidateEndpoint:
@@ -236,6 +312,47 @@ class TestDataEndpoints:
         missing = set(payload["missing_paths"])
         assert "/chart/pie_data" in missing
 
+    def test_preflight_yaml_preview_only_when_requested(self, client):
+        config = {
+            "data": {"source": "data/test.csv"},
+            "chart": {"type": "bar", "output": "test_chart", "title": "Test"},
+        }
+        resp = client.post("/api/preflight", json={"config": config})
+        assert "yaml_preview" not in resp.json()
+
+        resp = client.post("/api/preflight", json={"config": config, "include_yaml": True})
+        preview = resp.json()["yaml_preview"]
+        assert "type: bar" in preview
+        assert "title: Test" in preview
+
+    def test_preflight_yaml_preview_merges_existing_file(self, client, yaml_dir):
+        """With a path, the preview is the comment-preserving merge — the pane
+        shows exactly what a save would write, protected keys included."""
+        target = yaml_dir / "sample.yaml"
+        target.write_text("# hand comment\n" + target.read_text(encoding="utf-8"), encoding="utf-8")
+        client.get("/api/load?path=sample.yaml")
+
+        config = {
+            "data": {"source": "data/test.csv"},
+            "chart": {"type": "bar", "output": "test_chart", "title": "Renamed"},
+        }
+        resp = client.post(
+            "/api/preflight",
+            json={"config": config, "include_yaml": True, "path": "sample.yaml"},
+        )
+        preview = resp.json()["yaml_preview"]
+        assert "# hand comment" in preview
+        assert "title: Renamed" in preview
+        # Preview must not have written anything.
+        assert "Renamed" not in target.read_text(encoding="utf-8")
+
+    def test_preflight_yaml_preview_renders_invalid_config(self, client):
+        """The pane shows work-in-progress configs too — no validation gate."""
+        config = {"data": {"source": "data/test.csv"}, "chart": {"type": "bar"}}
+        resp = client.post("/api/preflight", json={"config": config, "include_yaml": True})
+        assert resp.status_code == 200
+        assert "type: bar" in resp.json()["yaml_preview"]
+
 
 class TestRefreshDataEndpoint:
     def test_refresh_data_returns_ok(self, client):
@@ -277,6 +394,23 @@ class TestPreviewEndpoint:
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "image/png"
         assert resp.content.startswith(b"\x89PNG\r\n\x1a\n")
+
+    def test_preview_typo_ref_returns_400(self, client):
+        """A typo'd {{ref}} against a working data source returns 400 (with the
+        resolver message), never a 500."""
+        config = {
+            "data": {"source": "csv:yaml/examples/data/nasa_authorizations.csv"},
+            "chart": {
+                "type": "line",
+                "output": "typo",
+                "title": "Typo",
+                "x": "{{Year}}",
+                "y": "{{Budgett}}",
+            },
+        }
+        resp = client.post("/api/preview", json={"config": config, "device": "desktop"})
+        assert resp.status_code == 400
+        assert "Available keys" in resp.json()["detail"]
 
 
 class TestSecurityHeaders:

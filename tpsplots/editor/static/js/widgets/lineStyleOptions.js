@@ -1,6 +1,6 @@
 /**
  * Shared line-style options for matplotlib linestyle values.
- * Used by SeriesEditor and ReferenceLineBuilder.
+ * Used by SeriesTable and ReferenceLineBuilder.
  */
 export const LINESTYLE_OPTIONS = [
   { value: "-", label: "\u2501\u2501\u2501\u2501\u2501\u2501" },

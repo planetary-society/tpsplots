@@ -160,6 +160,8 @@ class DonutChartView(ChartView):
         if values is None or len(values) == 0:
             raise ValueError("The 'values' parameter is required for donut_plot")
 
+        values = self._coerce_numeric_values(values)
+
         # Extract styling parameters
         labels = kwargs.pop("labels", None)
         colors = kwargs.pop("colors", None)

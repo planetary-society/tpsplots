@@ -104,8 +104,8 @@ class LollipopChartView(ColorCycleMixin, GridAxisMixin, ChartView):
 
         # Convert to numpy arrays for easier manipulation
         categories = np.array(categories)
-        start_values = np.array(start_values)
-        end_values = np.array(end_values)
+        start_values = self._coerce_numeric_values(start_values, field_name="start_values")
+        end_values = self._coerce_numeric_values(end_values, field_name="end_values")
 
         # Parse literal newline sequences in category labels to actual newlines
         categories = self._parse_newlines_in_labels(categories)

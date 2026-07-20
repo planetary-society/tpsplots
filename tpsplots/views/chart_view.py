@@ -706,6 +706,35 @@ class ChartView(AxisTickFormatMixin):
             if kwargs.get(text):
                 metadata[text] = kwargs.pop(text)
 
+    @staticmethod
+    def _coerce_numeric_values(values, field_name: str = "values"):
+        """Coerce numeric value inputs to floats, with an actionable error.
+
+        CSV columns that were never cast frequently arrive as strings
+        ("10298", "1,268"). Passed straight to matplotlib, a string engages
+        the category axis and the next float crashes with the cryptic
+        "'value' must be an instance of str or bytes, not a float" — or, for
+        line charts, silently renders a categorical y-axis. Clean numeric
+        strings are converted silently; genuinely non-numeric entries raise
+        an error that names the offender and the fix. Shared by every view
+        with a numeric value binding (bar family, line/scatter, lollipop,
+        donut, treemap).
+        """
+        if values is None:
+            return values
+        series = pd.Series(list(values), dtype=object).map(
+            lambda v: v.replace(",", "").strip() if isinstance(v, str) else v
+        )
+        coerced = pd.to_numeric(series, errors="coerce")
+        bad = series[coerced.isna() & series.notna()]
+        if not bad.empty:
+            raise ValueError(
+                f"'{field_name}' contains non-numeric entries (e.g. {bad.iloc[0]!r}). "
+                f"Cast the column to a number in data params "
+                f"(cast: {{<column>: int}}) or clean the source data."
+            )
+        return coerced.to_numpy()
+
     def _setup_figure(self, style: dict, kwargs: dict) -> tuple:
         """
         Create figure and axes with style-appropriate sizing.

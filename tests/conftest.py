@@ -1,10 +1,27 @@
 """Shared pytest fixtures for tpsplots tests."""
 
+import os
 from pathlib import Path
 from unittest.mock import patch
 
 import matplotlib.pyplot as plt
 import pytest
+
+
+def read_source(rel_path: str) -> str:
+    """Read a repo file for source-scan tests, independent of CWD."""
+    return (Path(__file__).resolve().parent.parent / rel_path).read_text(encoding="utf-8")
+
+
+def bump_mtime(path: Path) -> None:
+    """Advance a file's mtime by a full second.
+
+    mtime-keyed caches and the editor's save-conflict check compare
+    nanosecond mtimes; bumping by 1s guarantees a strictly newer stamp even
+    on filesystems with coarse mtime resolution.
+    """
+    st = path.stat()
+    os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000_000))
 
 
 @pytest.fixture

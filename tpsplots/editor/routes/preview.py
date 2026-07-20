@@ -12,6 +12,7 @@ from fastapi.responses import Response as RawResponse
 from pydantic import BaseModel
 
 from tpsplots.editor.session import EditorSession
+from tpsplots.exceptions import TPSPlotsError
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,10 @@ def create_preview_router(session: EditorSession) -> APIRouter:
             ) from exc
         except (ValueError, TypeError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except TPSPlotsError as exc:
+            # Config/data/render errors are user-fixable input problems, not
+            # server faults — return 400 with the message, never a 500.
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         except Exception as exc:
             logger.exception("Preview rendering failed")
             raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -58,7 +63,13 @@ def create_preview_router(session: EditorSession) -> APIRouter:
     @router.post("/validate")
     def validate(config: dict[str, Any]) -> dict:
         """Validate a config dict and return structured errors."""
-        errors = session.validate_config(config)
+        try:
+            errors = session.validate_config(config)
+        except TPSPlotsError as exc:
+            # Safety net: template/data errors are surfaced as structured
+            # errors by validate_config, but any that escape are input
+            # problems and must return 400, not 500.
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"valid": len(errors) == 0, "errors": errors}
 
     return router

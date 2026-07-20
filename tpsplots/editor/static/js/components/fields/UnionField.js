@@ -9,6 +9,7 @@ import { html } from "../../lib/html.js";
 
 import { FIELD_COMPONENTS } from "./fieldComponents.js";
 import { StringField } from "./StringField.js";
+import { ObjectField } from "./ObjectField.js";
 import { formatFieldLabel, yamlKeyTooltip } from "./fieldLabelUtils.js";
 import { resolveSchemaRef } from "./schemaRefUtils.js";
 
@@ -51,8 +52,8 @@ const TYPE_LABELS = {
   boolean: "Checkbox",
   integer: "Number",
   number: "Number",
-  string: "Raw Text",
-  object: "Dictionary",
+  string: "Text",
+  object: "Key–value settings",
   array: "List",
 };
 
@@ -212,6 +213,14 @@ export function UnionField({ name, schema, value, onChange, uiSchema, rootSchema
   const labelTitle = yamlKeyTooltip(name);
   const valueCacheRef = useRef({});
 
+  // Exactly {boolean, object} (null already stripped) gets a purpose-built
+  // checkbox + "Customize…" flow instead of the generic type dropdown. Wider
+  // unions (e.g. bool|dict|str for `legend`) keep the dropdown.
+  const isBoolObject =
+    availableTypes.length === 2 &&
+    availableTypes.includes("boolean") &&
+    availableTypes.includes("object");
+
   useEffect(() => {
     if (currentType !== null) {
       valueCacheRef.current[currentType] = value;
@@ -233,6 +242,72 @@ export function UnionField({ name, schema, value, onChange, uiSchema, rootSchema
   );
 
   const handleClear = useCallback(() => onChange(undefined), [onChange]);
+
+  // bool|object handlers: checking = on (true), unchecking always = false,
+  // "Customize…" switches to the object branch, "Reset to default" back to true.
+  const handleBoolObjectToggle = useCallback(
+    (e) => onChange(e.target.checked ? true : false),
+    [onChange]
+  );
+  const handleCustomize = useCallback(() => onChange({}), [onChange]);
+  const handleResetToDefault = useCallback(() => onChange(true), [onChange]);
+
+  // bool|object: dedicated checkbox + Customize flow (see isBoolObject above).
+  if (isBoolObject) {
+    const isObjectValue =
+      value != null && typeof value === "object" && !Array.isArray(value);
+    // Reuse BooleanField's default rule: unset reflects the model default.
+    const checked = value == null ? schema?.default === true : value === true || isObjectValue;
+    const objectBranchSchema = branchForType(schema, "object", rootSchema);
+
+    return html`
+      <div class="union-field-wrapper union-bool-object">
+        <div class="field-row field-row-checkbox">
+          <label class="field-label" title=${labelTitle}>
+            <input
+              type="checkbox"
+              checked=${checked}
+              onChange=${handleBoolObjectToggle}
+            />
+            ${" " + label}
+          </label>
+          ${help && html`<span class="field-help">${help}</span>`}
+        </div>
+        ${checked &&
+        !isObjectValue &&
+        html`
+          <div class="union-customize-row">
+            <button type="button" class="union-customize-btn" onClick=${handleCustomize}>
+              Customize…
+            </button>
+          </div>
+        `}
+        ${checked &&
+        isObjectValue &&
+        html`
+          <div class="union-customize-body">
+            <${ObjectField}
+              name=${name}
+              schema=${objectBranchSchema}
+              value=${value}
+              onChange=${onChange}
+              uiSchema=${uiSchema}
+              rootSchema=${rootSchema}
+            />
+            <div class="union-customize-row">
+              <button
+                type="button"
+                class="union-customize-btn"
+                onClick=${handleResetToDefault}
+              >
+                Reset to default
+              </button>
+            </div>
+          </div>
+        `}
+      </div>
+    `;
+  }
 
   // No value set — show type selector
   if (currentType === null) {
@@ -271,7 +346,7 @@ export function UnionField({ name, schema, value, onChange, uiSchema, rootSchema
           type="button"
           class="union-clear-btn"
           onClick=${handleClear}
-          title="Clear value"
+          title="Remove — chart uses its default"
         >
           \u00d7
         </button>

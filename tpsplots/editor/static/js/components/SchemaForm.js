@@ -119,7 +119,7 @@ export function SchemaForm({
         const options = fieldUiSchema["ui:options"] || {};
         const help = fieldUiSchema["ui:help"];
         return html`
-          <div class="field-row" key=${fieldName}>
+          <div class="field-row" key=${fieldName} data-field=${fieldName}>
             <label class="field-label" title=${labelTitle}>${label}</label>
             ${help && html`<span class="field-help">${help}</span>`}
             <${FieldComponent}
@@ -133,15 +133,16 @@ export function SchemaForm({
       }
 
       return html`
-        <${FieldComponent}
-          key=${fieldName}
-          name=${fieldName}
-          schema=${effectiveSchema}
-          value=${value}
-          onChange=${(v) => handleFieldChange(fieldName, v)}
-          uiSchema=${fieldUiSchema}
-          rootSchema=${schema}
-        />
+        <div key=${fieldName} data-field=${fieldName}>
+          <${FieldComponent}
+            name=${fieldName}
+            schema=${effectiveSchema}
+            value=${value}
+            onChange=${(v) => handleFieldChange(fieldName, v)}
+            uiSchema=${fieldUiSchema}
+            rootSchema=${schema}
+          />
+        </div>
       `;
     },
     [properties, uiSchema, formData, widgets, handleFieldChange, schema]

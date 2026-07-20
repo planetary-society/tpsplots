@@ -54,10 +54,10 @@ export async function fetchDataProfile(dataConfig) {
   });
 }
 
-export async function fetchPreflight(config) {
+export async function fetchPreflight(config, { path = null, includeYaml = false } = {}) {
   return request("/api/preflight", {
     method: "POST",
-    body: JSON.stringify({ config }),
+    body: JSON.stringify({ config, path, include_yaml: includeYaml }),
   });
 }
 
@@ -69,11 +69,28 @@ export async function loadYaml(path) {
   return request(`/api/load?path=${encodeURIComponent(path)}`);
 }
 
-export async function saveYaml(path, config) {
-  return request("/api/save", {
+export async function saveYaml(path, config, overrides = {}) {
+  // Not routed through request(): a 409 carries a structured body (kind +
+  // errors) the save flow needs to branch on, which request() would flatten
+  // into a bare Error. Enrich the thrown Error with status/kind/errors so the
+  // caller can decide whether to re-POST with override_validation /
+  // override_conflict.
+  const response = await fetch("/api/save", {
     method: "POST",
-    body: JSON.stringify({ path, config }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path, config, ...overrides }),
   });
+  const data = await response
+    .json()
+    .catch(() => ({ detail: `Request failed: ${response.status}` }));
+  if (!response.ok) {
+    const err = new Error(data.detail || `Request failed: ${response.status}`);
+    err.status = response.status;
+    err.kind = data.kind || null;
+    err.errors = data.errors || [];
+    throw err;
+  }
+  return data;
 }
 
 export async function validateConfig(config) {

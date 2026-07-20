@@ -1,20 +1,26 @@
 /**
- * 3-tier visual design wrapper for Step 3.
+ * Tiered visual design wrapper for the styling step.
  *
- * Splits visual design fields into three progressive disclosure zones:
+ * Progressive disclosure zones:
  *   1. Essential (always visible) — fields used in 60%+ of real configs
  *   2. Common (one-click expand) — fields used in 20-60% of configs
- *   3. Advanced (collapsed) — everything else
+ *   3. Everything else — zero pixels until added via the "Add option…"
+ *      combobox (or already carrying a value, which keeps it visible so
+ *      loaded configs never look lossy)
  *
- * Each zone delegates to ChartForm with an includeFields filter.
+ * Excluded fields (annotations, figsize, matplotlib_config) that carry
+ * values render as read-only "YAML-only" chips pointing at the YAML pane.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { html } from "../lib/html.js";
 
+import { AddOptionCombobox } from "./AddOptionCombobox.js";
 import { ChartForm } from "./ChartForm.js";
 import { ReferenceLineBuilder } from "./ReferenceLineBuilder.js";
+import { formatFieldLabel } from "./fields/fieldLabelUtils.js";
 
 const EMPTY_SET = new Set();
+const EMPTY_LIST = [];
 
 export function TieredVisualDesign({
   schema,
@@ -26,7 +32,11 @@ export function TieredVisualDesign({
   compositeWidgets,
   seriesExcluded,
   visualFields,
+  excludedFields = EMPTY_LIST,
+  onOpenYaml,
 }) {
+  // Options the user explicitly added this session (renders their empty field).
+  const [addedFields, setAddedFields] = useState(EMPTY_SET);
   const essentialSet = useMemo(
     () => new Set(fieldTiers?.essential || []),
     [fieldTiers]
@@ -90,6 +100,37 @@ export function TieredVisualDesign({
 
   const hasRefLines = compositeWidgets?.reference_lines != null;
 
+  // Split the long tail: fields with values (or explicitly added) render as
+  // normal inputs; the rest live behind the Add option… combobox.
+  const visibleAdvanced = useMemo(() => {
+    const result = new Set();
+    for (const f of advancedSet) {
+      if (formData?.[f] !== undefined || addedFields.has(f)) result.add(f);
+    }
+    return result;
+  }, [advancedSet, formData, addedFields]);
+
+  const addableOptions = useMemo(() => {
+    const result = [];
+    for (const f of advancedSet) {
+      if (visibleAdvanced.has(f)) continue;
+      const propSchema = schema?.properties?.[f];
+      result.push({
+        name: f,
+        label: formatFieldLabel(f, propSchema),
+        help: uiSchema?.[f]?.["ui:help"] || propSchema?.description || "",
+      });
+    }
+    return result.sort((a, b) => a.label.localeCompare(b.label));
+  }, [advancedSet, visibleAdvanced, schema, uiSchema]);
+
+  // Excluded fields carrying values: visible as YAML-only chips so a loaded
+  // config never looks lossy, but edited in the file (via the YAML pane).
+  const yamlOnlyFields = useMemo(
+    () => excludedFields.filter((f) => formData?.[f] !== undefined),
+    [excludedFields, formData]
+  );
+
   return html`
     <div class="tiered-design">
       ${filteredEssential.size > 0 &&
@@ -137,25 +178,42 @@ export function TieredVisualDesign({
         </details>
       `}
 
-      ${advancedSet.size > 0 &&
+      ${visibleAdvanced.size > 0 &&
       html`
-        <details class="tier-section tier-advanced">
-          <summary class="tier-summary">
-            <span class="tier-arrow">\u25B8</span>
-            Advanced
-            <span class="tier-badge">${advancedSet.size}</span>
-          </summary>
-          <div class="tier-content">
-            <${ChartForm}
-              schema=${schema}
-              uiSchema=${uiSchema}
-              formData=${formData}
-              colors=${colors}
-              onFormDataChange=${onFormDataChange}
-              includeFields=${advancedSet}
-            />
-          </div>
-        </details>
+        <div class="tier-section tier-added">
+          <${ChartForm}
+            schema=${schema}
+            uiSchema=${uiSchema}
+            formData=${formData}
+            colors=${colors}
+            onFormDataChange=${onFormDataChange}
+            includeFields=${visibleAdvanced}
+          />
+        </div>
+      `}
+
+      <${AddOptionCombobox}
+        options=${addableOptions}
+        onAdd=${(name) => setAddedFields((prev) => new Set([...prev, name]))}
+      />
+
+      ${yamlOnlyFields.length > 0 &&
+      html`
+        <div class="yaml-only-chips">
+          ${yamlOnlyFields.map(
+            (f) => html`
+              <button
+                key=${f}
+                type="button"
+                class="yaml-only-chip"
+                title="Set in this chart's YAML \u2014 view in the YAML pane, edit in the file"
+                onClick=${onOpenYaml}
+              >
+                ${formatFieldLabel(f)} <span class="yaml-only-tag">YAML</span>
+              </button>
+            `
+          )}
+        </div>
       `}
     </div>
   `;

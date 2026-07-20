@@ -8,6 +8,8 @@
  */
 import { useMemo, useCallback } from "react";
 import { html } from "../lib/html.js";
+import { useNumericText } from "../lib/numericText.js";
+import { decodeEscapes, encodeEscapes } from "../lib/escapedText.js";
 
 import { ChartForm } from "./ChartForm.js";
 import { MiniColorPicker } from "../widgets/MiniColorPicker.js";
@@ -21,11 +23,67 @@ const DEFAULT_LINE = {
   width: 1.0,
 };
 
+// Per-field pad value used when back-filling an array that is shorter than
+// `hlines` (a YAML author may supply fewer labels/colors/etc. than lines).
+// Padding with these defaults instead of `undefined` keeps committed arrays
+// free of `null` cells — `undefined` JSON-serializes to `null`, which fails
+// the Pydantic list validators (e.g. `hline_widths: list[float]`).
+const FIELD_DEFAULTS = {
+  hlines: DEFAULT_LINE.value,
+  hline_labels: DEFAULT_LINE.label,
+  hline_colors: DEFAULT_LINE.color,
+  hline_styles: DEFAULT_LINE.style,
+  hline_widths: DEFAULT_LINE.width,
+};
+
 function getArray(formData, field) {
   const val = formData?.[field];
   if (Array.isArray(val)) return val;
   if (val != null) return [val];
   return [];
+}
+
+/** Parse display text to a number, or `undefined` for empty/unparseable. */
+function parseNum(text) {
+  if (text === "") return undefined;
+  const num = Number(text);
+  return Number.isNaN(num) ? undefined : num;
+}
+
+/**
+ * Number input for a numeric reference-line cell (Y value, width).
+ *
+ * Adapts the restore-on-blur pattern from fields/NumberField.js: it holds the
+ * raw display text locally and commits ONLY parseable numbers. Crucially, it
+ * never commits `undefined` — an empty or invalid box leaves the last valid
+ * number in place in formData, so `hlines` / `hline_widths` can never gain a
+ * `null` cell (which JSON-serializes from `undefined` and fails Pydantic's
+ * `list[float]`, blocking preview/save). On blur, an empty/invalid box snaps
+ * back to the committed value so the display never shows stale text.
+ */
+function RefLineNumberInput({ value, onCommit, className }) {
+  // commitEmpty: false — empty/unparseable text commits nothing, so the last
+  // valid number stays in formData and serialized arrays never gain nulls.
+  // restoreOnBlur — an abandoned empty/invalid box snaps back to the
+  // committed value rather than leaving orphaned text.
+  const { raw, handleInput, handleBlur } = useNumericText({
+    value,
+    parse: parseNum,
+    onCommit,
+    commitEmpty: false,
+    restoreOnBlur: true,
+  });
+
+  return html`
+    <input
+      type="text"
+      inputmode="decimal"
+      class=${className}
+      value=${raw}
+      onInput=${handleInput}
+      onBlur=${handleBlur}
+    />
+  `;
 }
 
 export function ReferenceLineBuilder({
@@ -45,7 +103,10 @@ export function ReferenceLineBuilder({
   const updateField = useCallback(
     (index, fieldName, value) => {
       const arr = [...getArray(formData, fieldName)];
-      while (arr.length <= index) arr.push(undefined);
+      // Back-fill gaps with the field's default (never `undefined`, which would
+      // serialize to an interior `null` and fail Pydantic list validation).
+      const pad = FIELD_DEFAULTS[fieldName] ?? "";
+      while (arr.length <= index) arr.push(pad);
       arr[index] = value;
       onFormDataChange({ ...formData, [fieldName]: arr });
     },
@@ -116,17 +177,10 @@ export function ReferenceLineBuilder({
               <div class="refline-row1">
                 <div class="refline-field">
                   <label class="refline-field-label">Y Value</label>
-                  <input
-                    type="number"
-                    class="refline-input"
-                    value=${hval ?? ""}
-                    step="any"
-                    onInput=${(e) =>
-                      updateField(
-                        i,
-                        "hlines",
-                        e.target.value ? Number(e.target.value) : undefined
-                      )}
+                  <${RefLineNumberInput}
+                    className="refline-input"
+                    value=${hval}
+                    onCommit=${(num) => updateField(i, "hlines", num)}
                   />
                 </div>
                 <div class="refline-field refline-field-grow">
@@ -134,10 +188,11 @@ export function ReferenceLineBuilder({
                   <input
                     type="text"
                     class="refline-input"
-                    value=${getArray(formData, "hline_labels")[i] || ""}
+                    value=${encodeEscapes(getArray(formData, "hline_labels")[i] || "")}
                     placeholder="Label text"
+                    title=${'Type \\n for a line break'}
                     onInput=${(e) =>
-                      updateField(i, "hline_labels", e.target.value)}
+                      updateField(i, "hline_labels", decodeEscapes(e.target.value))}
                   />
                 </div>
                 <button
@@ -177,19 +232,10 @@ export function ReferenceLineBuilder({
                 </div>
                 <div class="refline-field">
                   <label class="refline-field-label">Width</label>
-                  <input
-                    type="number"
-                    class="refline-input refline-input-width"
-                    value=${getArray(formData, "hline_widths")[i] ?? 1}
-                    min="0.5"
-                    max="5"
-                    step="0.5"
-                    onInput=${(e) =>
-                      updateField(
-                        i,
-                        "hline_widths",
-                        e.target.value ? Number(e.target.value) : undefined
-                      )}
+                  <${RefLineNumberInput}
+                    className="refline-input refline-input-width"
+                    value=${getArray(formData, "hline_widths")[i] ?? DEFAULT_LINE.width}
+                    onCommit=${(num) => updateField(i, "hline_widths", num)}
                   />
                 </div>
               </div>
