@@ -197,7 +197,9 @@ class GroupedBarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, Cha
                 label = labels[i]
             elif labels is not None and i == 0 and isinstance(labels, str):
                 label = labels
-            values = np.array(group.get("values", []))
+            values = self._coerce_numeric_values(
+                group.get("values", []), field_name=f"groups[{group.get('label', i)}].values"
+            )
             color = group.get("color")
             if color is None and colors_list:
                 color = colors_list[i % len(colors_list)]

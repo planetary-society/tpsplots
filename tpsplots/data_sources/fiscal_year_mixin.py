@@ -22,6 +22,16 @@ FY_YEAR_PATTERN = re.compile(r"(\d{4})")
 # substring (e.g. "not-tq-related", "Totals-TQE") never flips the whole column.
 TQ_LABEL_PATTERN = re.compile(r"^\s*(?:FY)?\s*\d{0,4}\s*TQ\s*$", re.IGNORECASE)
 
+# Plausible calendar-year bounds and the minimum fraction of a candidate
+# column's non-null values that must parse as such before it is treated as a
+# fiscal-year column. A column named "Year" whose values are mostly IDs,
+# fractions, or free text (fewer than this fraction plausible) is left alone
+# rather than silently coerced to datetime (or emptied) two steps upstream of
+# a cryptic render error.
+MIN_YEAR = 1900
+MAX_YEAR = 2100
+FY_PLAUSIBILITY_THRESHOLD = 0.8
+
 
 class FiscalYearMixin:
     """
@@ -124,7 +134,7 @@ class FiscalYearMixin:
             # Handle both integer (2020) and float (2020.0) formats
             try:
                 year_val = int(float(s))
-                if 1900 <= year_val <= 2100:
+                if MIN_YEAR <= year_val <= MAX_YEAR:
                     if contains_transition_quarter:
                         return str(year_val)
                     return datetime(year_val, 1, 1)
@@ -148,6 +158,34 @@ class FiscalYearMixin:
             df[col] = pd.to_datetime(df[col])
 
         return df
+
+    @staticmethod
+    def _year_parse_fraction(series: pd.Series) -> float:
+        """
+        Fraction of non-null values that parse as plausible calendar years.
+
+        A value counts as a plausible year when it is a transition-quarter
+        label (e.g. "1976 TQ") or coerces to a number in ``[MIN_YEAR, MAX_YEAR]``
+        (int, float, and string forms all handled). Returns ``1.0`` when the
+        column has no non-null values so an all-empty column is not spuriously
+        rejected.
+
+        Every value is coerced to string before any regex/numeric parsing, so a
+        float-typed or object-with-floats column can never raise a
+        ``str``-accessor / regex type error here.
+        """
+        non_null = series.dropna()
+        total = len(non_null)
+        if total == 0:
+            return 1.0
+
+        # Transition-quarter labels are legitimately convertible.
+        tq = FiscalYearMixin._tq_mask(non_null).to_numpy(dtype=bool)
+        # Numeric years in any form ("2020", 2020, 2020.0, "1958.0").
+        numeric = pd.to_numeric(non_null.astype("string").str.strip(), errors="coerce")
+        in_range = numeric.between(MIN_YEAR, MAX_YEAR).fillna(False).to_numpy(dtype=bool)
+
+        return float((tq | in_range).sum()) / total
 
     def _apply_fiscal_year_conversion(
         self,
@@ -180,6 +218,24 @@ class FiscalYearMixin:
             col = self._detect_fy_column(df)
             if col is None:
                 return df
+
+        # Plausibility gate: only convert when most values actually look like
+        # calendar years. This both prevents a mislabeled column (IDs, fractions,
+        # free text under a "Year" header) from being silently emptied/coerced,
+        # and guarantees the str/regex parsing below never sees an unexpected
+        # dtype it cannot handle.
+        fraction = self._year_parse_fraction(df[col])
+        if fraction < FY_PLAUSIBILITY_THRESHOLD:
+            logger.warning(
+                "Skipping fiscal-year conversion for column '%s': only %.0f%% of "
+                "its non-null values parse as plausible years (%d-%d). Set "
+                "fiscal_year_column to choose a different column or false to disable.",
+                col,
+                fraction * 100,
+                MIN_YEAR,
+                MAX_YEAR,
+            )
+            return df
 
         logger.debug(f"Converting fiscal year column '{col}' to datetime")
         return self._normalize_fy_column(df, col)

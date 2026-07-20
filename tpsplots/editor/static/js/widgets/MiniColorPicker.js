@@ -2,7 +2,7 @@
  * Mini inline color picker: shows the current swatch + dropdown of TPS colors.
  * Uses position:fixed so the dropdown escapes overflow:hidden ancestors.
  *
- * Shared between SeriesEditor and ReferenceLineBuilder.
+ * Shared between SeriesTable and ReferenceLineBuilder.
  */
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { html } from "../lib/html.js";

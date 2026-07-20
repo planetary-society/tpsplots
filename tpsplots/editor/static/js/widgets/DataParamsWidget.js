@@ -64,6 +64,15 @@ export function DataParamsWidget({ value, onChange, options }) {
     [params, commit]
   );
 
+  // Single home for the minimal-YAML persist rule: multiplier 1 is the
+  // default, so the key is dropped entirely; any other value needs the
+  // explicit object form.
+  const setAutoClean = useCallback(
+    (m) =>
+      setField("auto_clean_currency", m === 1 ? undefined : { enabled: true, multiplier: m }),
+    [setField]
+  );
+
   // --- Column include/exclude ---
   const columns = normalizeColumns(params.columns);
   const filterActive = columns.length > 0;
@@ -138,7 +147,14 @@ export function DataParamsWidget({ value, onChange, options }) {
 
   // --- Currency / Fiscal year ---
   const autoClean = params.auto_clean_currency;
-  const autoCleanEnabled = autoClean === true || (isPlainObject(autoClean) && autoClean.enabled !== false);
+  // Cleaning is ON by default (backend AUTO_CLEAN_CURRENCY = True runs when the
+  // key is absent), so an absent/undefined value must read as checked. Only an
+  // explicit `false` or `{enabled: false}` disables it.
+  const autoCleanAbsent = autoClean == null;
+  const autoCleanEnabled =
+    autoCleanAbsent ||
+    autoClean === true ||
+    (isPlainObject(autoClean) && autoClean.enabled !== false);
   const multiplier = normalizeObject(autoClean).multiplier ?? 1;
   const fiscalYearColumn = params.fiscal_year_column;
   const fiscalYearDisabled = fiscalYearColumn === false;
@@ -263,14 +279,19 @@ export function DataParamsWidget({ value, onChange, options }) {
             checked=${autoCleanEnabled}
             onChange=${(e) => {
               if (!e.target.checked) {
-                setField("auto_clean_currency", undefined);
+                // Write literal false so YAML emits `auto_clean_currency: false`.
+                // (Deleting the key would re-enable the ON-by-default behavior.)
+                setField("auto_clean_currency", false);
                 return;
               }
-              setField("auto_clean_currency", { enabled: true, multiplier });
+              setAutoClean(multiplier);
             }}
           />
           <span>Auto-clean currency columns</span>
         </label>
+
+        ${autoCleanAbsent &&
+        html`<p class="data-params-help">On by default for currency-like columns.</p>`}
 
         ${autoCleanEnabled &&
         html`
@@ -282,10 +303,7 @@ export function DataParamsWidget({ value, onChange, options }) {
               value=${multiplier}
               step="1"
               min="0"
-              onInput=${(e) => {
-                const next = e.target.value ? Number(e.target.value) : 1;
-                setField("auto_clean_currency", { enabled: true, multiplier: next });
-              }}
+              onInput=${(e) => setAutoClean(e.target.value ? Number(e.target.value) : 1)}
             />
           </label>
         `}

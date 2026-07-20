@@ -5,8 +5,10 @@
  * handles anyOf (union types) natively via UnionField, and groups
  * fields into collapsible sections using ui:groups from the backend.
  */
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { html } from "../lib/html.js";
+// Aliased: the `revealField` prop names the field, this reveals it.
+import { revealField as revealFieldInDom } from "../lib/revealField.js";
 
 import { FIELD_COMPONENTS } from "./fields/fieldComponents.js";
 import { StringField } from "./fields/StringField.js";
@@ -53,8 +55,10 @@ export function SchemaForm({
   formData,
   onChange,
   widgets,
+  revealField,
   hiddenFields = DEFAULT_HIDDEN_FIELDS,
 }) {
+  const formRef = useRef(null);
   const properties = schema?.properties || {};
   const groups = uiSchema?.["ui:groups"] || [];
   const order = uiSchema?.["ui:order"] || Object.keys(properties);
@@ -119,7 +123,7 @@ export function SchemaForm({
         const options = fieldUiSchema["ui:options"] || {};
         const help = fieldUiSchema["ui:help"];
         return html`
-          <div class="field-row" key=${fieldName}>
+          <div class="field-row" key=${fieldName} data-field=${fieldName}>
             <label class="field-label" title=${labelTitle}>${label}</label>
             ${help && html`<span class="field-help">${help}</span>`}
             <${FieldComponent}
@@ -133,15 +137,16 @@ export function SchemaForm({
       }
 
       return html`
-        <${FieldComponent}
-          key=${fieldName}
-          name=${fieldName}
-          schema=${effectiveSchema}
-          value=${value}
-          onChange=${(v) => handleFieldChange(fieldName, v)}
-          uiSchema=${fieldUiSchema}
-          rootSchema=${schema}
-        />
+        <div key=${fieldName} data-field=${fieldName}>
+          <${FieldComponent}
+            name=${fieldName}
+            schema=${effectiveSchema}
+            value=${value}
+            onChange=${(v) => handleFieldChange(fieldName, v)}
+            uiSchema=${fieldUiSchema}
+            rootSchema=${schema}
+          />
+        </div>
       `;
     },
     [properties, uiSchema, formData, widgets, handleFieldChange, schema]
@@ -168,8 +173,17 @@ export function SchemaForm({
     );
   }, [order, groupedFields, hiddenFields, properties]);
 
+  useEffect(() => {
+    if (!revealField || !formRef.current) return;
+    revealFieldInDom(revealField, {
+      root: formRef.current,
+      block: "nearest",
+      focus: true,
+    });
+  }, [revealField]);
+
   return html`
-    <div class="schema-form">
+    <div class="schema-form" ref=${formRef}>
       ${groups.map((group) => {
         const visibleFields = group.fields.filter((f) => !hiddenFields.has(f) && properties[f]);
         if (visibleFields.length === 0) return null;

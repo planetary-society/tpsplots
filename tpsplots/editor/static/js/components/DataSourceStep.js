@@ -22,6 +22,7 @@ export function DataSourceStep({
 }) {
   const canTestSource = !!dataConfig?.source;
   const sampleRows = useMemo(() => profile?.sample_rows || [], [profile]);
+  const canViewTable = !!profile && sampleRows.length > 0;
   const profileColumns = useMemo(() => profile?.columns || [], [profile]);
   const columnNames = useMemo(
     () => profileColumns.map((col) => String(col.name)),
@@ -75,12 +76,7 @@ export function DataSourceStep({
   }, [dataUiSchema, profileColumns, columnNames]);
 
   return html`
-    <section class="guided-step">
-      <div class="guided-step-header">
-        <h3>Data Source & Preparation</h3>
-        <p>Load your data source, then configure which columns are available and how they're transformed.</p>
-      </div>
-
+    <section class="data-source-step">
       <div class="data-step-actions">
         <button
           type="button"
@@ -88,24 +84,24 @@ export function DataSourceStep({
           disabled=${!canTestSource || profileStatus === "loading"}
           onClick=${onTestSource}
         >
-          ${profileStatus === "loading" ? "Testing Source\u2026" : "Test Source"}
+          ${profileStatus === "loading" ? "Loading data\u2026" : "Load data"}
         </button>
         <button
           type="button"
           class="btn btn-secondary"
           disabled=${!canTestSource || profileStatus === "loading"}
           onClick=${handleRefresh}
-          title="Re-fetch remote sources (URLs, Google Sheets, controllers); local CSVs refresh automatically"
+          title="Re-fetch remote sources; local CSVs refresh automatically"
         >
-          Refresh
+          Re-fetch source
         </button>
         <button
           type="button"
           class="btn btn-secondary"
-          disabled=${!profile || sampleRows.length === 0}
+          disabled=${!canViewTable}
           onClick=${openDialog}
         >
-          View Data
+          ${canViewTable ? `View table (${profile.row_count ?? 0} rows)` : "View table"}
         </button>
       </div>
 

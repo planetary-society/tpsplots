@@ -2,7 +2,9 @@
 
 import logging
 from datetime import datetime
+from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -10,6 +12,10 @@ from tpsplots.data_sources.fiscal_year_mixin import (
     FY_COLUMN_PATTERN,
     TQ_LABEL_PATTERN,
     FiscalYearMixin,
+)
+
+NASA_AUTHORIZATIONS_CSV = (
+    Path(__file__).resolve().parents[1] / "yaml" / "examples" / "data" / "nasa_authorizations.csv"
 )
 
 
@@ -229,6 +235,95 @@ class TestApplyFiscalYearConversion:
             record.message for record in caplog.records if record.levelname == "WARNING"
         ]
         assert any("NonExistent" in message for message in warning_messages)
+
+
+class TestYearParseFraction:
+    """The plausibility metric used to gate fiscal-year conversion."""
+
+    def test_all_plausible_years(self):
+        assert FiscalYearMixin._year_parse_fraction(pd.Series([2020, 2021, 2022])) == 1.0
+
+    def test_float_years_are_plausible(self):
+        assert FiscalYearMixin._year_parse_fraction(pd.Series([1958.0, 1959.0])) == 1.0
+
+    def test_string_years_are_plausible(self):
+        assert FiscalYearMixin._year_parse_fraction(pd.Series(["2020", "2021"])) == 1.0
+
+    def test_transition_quarter_labels_count_as_plausible(self):
+        frac = FiscalYearMixin._year_parse_fraction(pd.Series([1976, "1976TQ", 1977, 1978]))
+        assert frac == 1.0
+
+    def test_ids_and_fractions_are_not_plausible(self):
+        # 100234 is out of [1900, 2100]; 0.1-0.9 are well below MIN_YEAR.
+        assert FiscalYearMixin._year_parse_fraction(pd.Series([100234, 0.1, 0.5, 0.9])) == 0.0
+
+    def test_nulls_excluded_from_denominator(self):
+        frac = FiscalYearMixin._year_parse_fraction(pd.Series([2020, None, 2021, np.nan]))
+        assert frac == 1.0
+
+    def test_all_null_returns_one(self):
+        assert FiscalYearMixin._year_parse_fraction(pd.Series([np.nan, np.nan])) == 1.0
+
+    def test_float_dtype_column_never_raises(self):
+        # A pure float64 column must not raise a str-accessor / regex type error.
+        frac = FiscalYearMixin._year_parse_fraction(pd.Series([2020.0, 2021.0, 0.5]))
+        assert 0.0 <= frac <= 1.0
+
+
+class TestPlausibilityGate:
+    """_apply_fiscal_year_conversion only converts columns that look like years."""
+
+    def test_nasa_authorizations_csv_loads_and_year_converts(self):
+        """Regression: the real CSV (junk columns + garbage rows + a numeric
+        Year) loads without error and Year still becomes datetime64."""
+        from tpsplots.data_sources.csv_source import CSVSource
+
+        assert NASA_AUTHORIZATIONS_CSV.exists()
+        df = CSVSource(csv_path=str(NASA_AUTHORIZATIONS_CSV)).data()
+
+        assert pd.api.types.is_datetime64_any_dtype(df["Year"])
+        assert df["Year"].iloc[0] == datetime(2022, 1, 1)
+        # The junk header row ("Year" string) and blank rows are filtered out.
+        assert df["Year"].notna().all()
+
+    def test_mostly_non_year_column_is_left_unconverted_with_warning(self, caplog):
+        """A column named 'Year' whose values are mostly IDs/fractions is left
+        alone (no silent coercion or row loss) and a warning is logged."""
+        df = pd.DataFrame({"Year": [100234.0, 100235.0, 0.5, 0.9, 0.1], "Amount": range(5)})
+        mixin = ConcreteClass()
+
+        with caplog.at_level(logging.WARNING):
+            result = mixin._apply_fiscal_year_conversion(df)
+
+        # Column untouched, no rows dropped.
+        assert not pd.api.types.is_datetime64_any_dtype(result["Year"])
+        assert result["Year"].tolist() == [100234.0, 100235.0, 0.5, 0.9, 0.1]
+        assert len(result) == 5
+
+        warnings = [r.message for r in caplog.records if r.levelname == "WARNING"]
+        assert any("Year" in m and "fiscal_year_column" in m for m in warnings)
+
+    def test_float_typed_real_years_still_convert(self):
+        """A float-typed column of genuine years converts as before."""
+        df = pd.DataFrame({"Year": [1958.0, 1959.0], "Amount": [1, 2]})
+        mixin = ConcreteClass()
+
+        result = mixin._apply_fiscal_year_conversion(df)
+
+        assert result["Year"].iloc[0] == datetime(1958, 1, 1)
+        assert result["Year"].iloc[1] == datetime(1959, 1, 1)
+
+    def test_configured_non_year_column_is_left_unconverted_with_warning(self, caplog):
+        """The plausibility gate also applies to an explicitly configured column."""
+        df = pd.DataFrame({"Ident": [500123, 500124, 500125], "Amount": [1, 2, 3]})
+        mixin = ConcreteClass()
+
+        with caplog.at_level(logging.WARNING):
+            result = mixin._apply_fiscal_year_conversion(df, fiscal_year_column="Ident")
+
+        assert result["Ident"].tolist() == [500123, 500124, 500125]
+        warnings = [r.message for r in caplog.records if r.levelname == "WARNING"]
+        assert any("Ident" in m for m in warnings)
 
 
 class TestGoogleSheetsFiscalYearIntegration:

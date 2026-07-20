@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from tpsplots.editor.session import EditorSession
 from tpsplots.editor.ui_schema import get_data_source_schema, get_data_ui_schema
-from tpsplots.exceptions import DataSourceError
+from tpsplots.exceptions import DataSourceError, TPSPlotsError
 
 
 class DataProfileRequest(BaseModel):
@@ -18,6 +18,12 @@ class DataProfileRequest(BaseModel):
 
 class PreflightRequest(BaseModel):
     config: dict[str, Any]
+    # YAML-pane support: when include_yaml is set, the response carries a
+    # yaml_preview of exactly what saving to `path` would write. Piggybacked
+    # on preflight (which already runs per debounced edit) so the pane does
+    # not add another request stream; costs nothing while the pane is closed.
+    path: str | None = None
+    include_yaml: bool = False
 
 
 def create_data_router(session: EditorSession) -> APIRouter:
@@ -47,8 +53,23 @@ def create_data_router(session: EditorSession) -> APIRouter:
     def preflight(payload: PreflightRequest) -> dict:
         """Run guided preflight checks for current editor config."""
         try:
-            return session.preflight(payload.config)
+            result = session.preflight(payload.config)
+            if payload.include_yaml:
+                try:
+                    result["yaml_preview"] = session.render_save_output(
+                        payload.config, payload.path
+                    )
+                except Exception as exc:
+                    # The pane is a convenience view — a preview failure must
+                    # not fail preflight itself.
+                    result["yaml_preview"] = None
+                    result["warnings"] = [*result.get("warnings", []), f"YAML preview: {exc}"]
+            return result
         except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except TPSPlotsError as exc:
+            # Config/data errors are user-fixable input problems — return 400
+            # with the message rather than a 500.
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc

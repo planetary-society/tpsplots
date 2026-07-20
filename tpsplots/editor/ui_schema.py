@@ -89,6 +89,8 @@ def _get_excluded_fields(config_cls: type, chart_type: str | None = None) -> set
 # Per-chart-type field → group mapping for non-mixin fields.
 # Data binding fields (x, y, categories, values, etc.) are filtered to
 # Step 2 and excluded here — they never appear in Step 3 groups.
+# Do NOT list excluded fields here (see _EXCLUDED_FIELDS /
+# _CHART_EXCLUDED_FIELDS): they never render, so any mapping for them is dead.
 # ---------------------------------------------------------------------------
 
 _CHART_FIELD_GROUPS: dict[str, dict[str, str]] = {
@@ -164,7 +166,6 @@ _CHART_FIELD_GROUPS: dict[str, dict[str, str]] = {
         "hline_label_bbox": "Reference Lines",
         "xticks": "Custom Ticks",
         "xticklabels": "Custom Ticks",
-        "data": "Advanced",
         "series_overrides": "Advanced",
     },
     "scatter": {
@@ -172,14 +173,11 @@ _CHART_FIELD_GROUPS: dict[str, dict[str, str]] = {
         "y": "Data Bindings",
         "y_right": "Data Bindings",
         "color": "Point Styling",
-        "linestyle": "Point Styling",
-        "linewidth": "Point Styling",
         "marker": "Point Styling",
         "markersize": "Point Styling",
         "alpha": "Point Styling",
         "labels": "Labels",
         "series_types": "Labels",
-        "direct_line_labels": "Labels",
         "ylim_right": "Right Y-Axis",
         "ylabel_right": "Right Y-Axis",
         "y_tick_format_right": "Right Y-Axis",
@@ -196,7 +194,6 @@ _CHART_FIELD_GROUPS: dict[str, dict[str, str]] = {
         "hline_label_bbox": "Reference Lines",
         "xticks": "Custom Ticks",
         "xticklabels": "Custom Ticks",
-        "data": "Advanced",
         "series_overrides": "Advanced",
     },
     "lollipop": {
@@ -249,7 +246,6 @@ _CHART_FIELD_GROUPS: dict[str, dict[str, str]] = {
     },
     "us_map_pie": {
         "pie_data": "Data Bindings",
-        "data": "Data Bindings",
         "location_column": "Data Bindings",
         "value_columns": "Data Bindings",
         "labels": "Data Bindings",
@@ -430,7 +426,6 @@ FIELD_TIERS: dict[str, dict[str, list[str]]] = {
         "common": [
             "marker",
             "markersize",
-            "linewidth",
             "tick_size",
             "ylim_right",
             "ylabel_right",
@@ -482,8 +477,23 @@ FIELD_TIERS: dict[str, dict[str, list[str]]] = {
         "common": ["vertical", "starting_location", "interval_ratio_x", "interval_ratio_y"],
     },
     "us_map_pie": {
-        "essential": ["show_pie_labels", "show_percentages", "base_pie_size"],
-        "common": ["show_state_boundaries"],
+        "essential": [
+            "colors",
+            "labels",
+            "show_pie_labels",
+            "show_percentages",
+            "base_pie_size",
+            "legend_location",
+        ],
+        "common": [
+            "show_state_boundaries",
+            "pie_edge_color",
+            "pie_edge_width",
+            "custom_locations",
+            "max_pie_size",
+            "min_pie_size",
+            "pie_size_column",
+        ],
     },
 }
 
@@ -782,6 +792,33 @@ def get_available_chart_types() -> list[str]:
     return sorted(k for k in CONFIG_REGISTRY if k not in _EDITOR_EXCLUDED_TYPES)
 
 
+def get_protected_chart_keys(chart_type: str) -> set[str]:
+    """Chart-section keys a save must never delete for this chart type.
+
+    These are the base excluded fields (stripped from the editor schema, so
+    the GUI never round-trips them) that are nonetheless valid hand-authored
+    YAML on this type's model. Only fields the model actually declares are
+    protected: keys the target type forbids (``extra="forbid"``) must NOT be
+    preserved across a type switch or the merged file would fail validation.
+
+    Per-type exclusions (``_CHART_EXCLUDED_FIELDS``) are deliberately not
+    protected server-side: the frontend carries them through form state, so
+    the save payload stays authoritative for type-switch pruning (e.g.
+    line -> scatter intentionally drops ``linestyle``).
+
+    NOTE: this base-only set and ``editor_hints["excluded_fields"]`` (base +
+    per-type, in ``get_editor_hints``) intentionally compute the same
+    ``excluded & model_fields`` idiom over DIFFERENT excluded sets. Do not
+    unify them: base-only is the server's always-preserve floor; base+per-type
+    is the frontend's carry set. Merging either direction breaks type-switch
+    drops or the preserve floor.
+    """
+    config_cls = CONFIG_REGISTRY.get(chart_type)
+    if config_cls is None:
+        return set()
+    return _EXCLUDED_FIELDS & set(config_cls.model_fields)
+
+
 def get_primary_binding_fields(chart_type: str) -> list[str]:
     """Return chart-type-specific primary binding fields."""
     return list(PRIMARY_BINDING_FIELDS.get(chart_type, []))
@@ -810,6 +847,11 @@ def get_editor_hints(chart_type: str) -> dict[str, Any]:
     advanced_from_tiers = [f for f in visual if f not in tier_promoted]
 
     hints: dict[str, Any] = {
+        # Fields stripped from the served schema that are still valid on this
+        # type's model. The frontend must carry their values through form
+        # state (the schema alone cannot distinguish excluded-but-valid from
+        # invalid-for-type), or loading + saving would silently delete them.
+        "excluded_fields": sorted(excluded & set(config_cls.model_fields)),
         "primary_binding_fields": primary,
         "step_field_map": {
             "data_source_and_preparation": [

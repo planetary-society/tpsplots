@@ -118,6 +118,11 @@ class StackedBarChartView(
         else:
             raise ValueError("'values' must be a dict or DataFrame")
 
+        # Uncast CSV columns arrive as numeric-looking strings; coerce every
+        # stack series so matplotlib never sees mixed str/float values.
+        for column in df.columns:
+            df[column] = self._coerce_numeric_values(df[column], field_name=f"values[{column}]")
+
         # Set up figure and extract metadata using base class helpers
         fig, ax = self._setup_figure(style, kwargs)
         self._extract_metadata_from_kwargs(metadata, kwargs)

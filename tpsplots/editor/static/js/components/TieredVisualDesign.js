@@ -1,20 +1,35 @@
 /**
- * 3-tier visual design wrapper for Step 3.
+ * Tiered visual design wrapper for the styling step.
  *
- * Splits visual design fields into three progressive disclosure zones:
+ * Progressive disclosure zones:
  *   1. Essential (always visible) — fields used in 60%+ of real configs
  *   2. Common (one-click expand) — fields used in 20-60% of configs
- *   3. Advanced (collapsed) — everything else
+ *   3. Everything else — zero pixels until added via the "Add option…"
+ *      combobox (or already carrying a value, which keeps it visible so
+ *      loaded configs never look lossy)
  *
- * Each zone delegates to ChartForm with an includeFields filter.
+ * Excluded fields (annotations, figsize, matplotlib_config) that carry
+ * values render as read-only "YAML-only" chips pointing at the YAML pane.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { html } from "../lib/html.js";
 
+import { AddOptionCombobox } from "./AddOptionCombobox.js";
 import { ChartForm } from "./ChartForm.js";
 import { ReferenceLineBuilder } from "./ReferenceLineBuilder.js";
+import { formatFieldLabel } from "./fields/fieldLabelUtils.js";
 
 const EMPTY_SET = new Set();
+const EMPTY_LIST = [];
+
+/** Fields in `source` that appear in none of the `excluded` sets. */
+function difference(source, ...excluded) {
+  const result = new Set();
+  for (const field of source) {
+    if (!excluded.some((set) => set.has(field))) result.add(field);
+  }
+  return result;
+}
 
 export function TieredVisualDesign({
   schema,
@@ -26,7 +41,12 @@ export function TieredVisualDesign({
   compositeWidgets,
   seriesExcluded,
   visualFields,
+  excludedFields = EMPTY_LIST,
+  onOpenYaml,
 }) {
+  // Options the user explicitly added this session (renders their empty field).
+  const [addedFields, setAddedFields] = useState(EMPTY_SET);
+  const [revealField, setRevealField] = useState(null);
   const essentialSet = useMemo(
     () => new Set(fieldTiers?.essential || []),
     [fieldTiers]
@@ -57,38 +77,52 @@ export function TieredVisualDesign({
   // composite-consumed, or series-excluded
   const advancedSet = useMemo(() => {
     const all = new Set(visualFields || Object.keys(schema?.properties || {}));
-    const result = new Set();
-    for (const f of all) {
-      if (
-        !essentialSet.has(f) &&
-        !commonSet.has(f) &&
-        !compositeFields.has(f) &&
-        !excludedSet.has(f)
-      ) {
-        result.add(f);
-      }
-    }
-    return result;
+    return difference(all, essentialSet, commonSet, compositeFields, excludedSet);
   }, [schema, visualFields, essentialSet, commonSet, compositeFields, excludedSet]);
 
   // Filter out excluded/composite fields from essential and common sets
-  const filteredEssential = useMemo(() => {
-    const result = new Set();
-    for (const f of essentialSet) {
-      if (!excludedSet.has(f) && !compositeFields.has(f)) result.add(f);
-    }
-    return result;
-  }, [essentialSet, excludedSet, compositeFields]);
+  const filteredEssential = useMemo(
+    () => difference(essentialSet, excludedSet, compositeFields),
+    [essentialSet, excludedSet, compositeFields]
+  );
 
-  const filteredCommon = useMemo(() => {
-    const result = new Set();
-    for (const f of commonSet) {
-      if (!excludedSet.has(f) && !compositeFields.has(f)) result.add(f);
-    }
-    return result;
-  }, [commonSet, excludedSet, compositeFields]);
+  const filteredCommon = useMemo(
+    () => difference(commonSet, excludedSet, compositeFields),
+    [commonSet, excludedSet, compositeFields]
+  );
 
   const hasRefLines = compositeWidgets?.reference_lines != null;
+
+  // Split the long tail: fields with values (or explicitly added) render as
+  // normal inputs; the rest live behind the Add option… combobox.
+  const visibleAdvanced = useMemo(() => {
+    const result = new Set();
+    for (const f of advancedSet) {
+      if (formData?.[f] !== undefined || addedFields.has(f)) result.add(f);
+    }
+    return result;
+  }, [advancedSet, formData, addedFields]);
+
+  const addableOptions = useMemo(() => {
+    const result = [];
+    for (const f of advancedSet) {
+      if (visibleAdvanced.has(f)) continue;
+      const propSchema = schema?.properties?.[f];
+      result.push({
+        name: f,
+        label: formatFieldLabel(f, propSchema),
+        help: uiSchema?.[f]?.["ui:help"] || propSchema?.description || "",
+      });
+    }
+    return result.sort((a, b) => a.label.localeCompare(b.label));
+  }, [advancedSet, visibleAdvanced, schema, uiSchema]);
+
+  // Excluded fields carrying values: visible as YAML-only chips so a loaded
+  // config never looks lossy, but edited in the file (via the YAML pane).
+  const yamlOnlyFields = useMemo(
+    () => excludedFields.filter((f) => formData?.[f] !== undefined),
+    [excludedFields, formData]
+  );
 
   return html`
     <div class="tiered-design">
@@ -137,25 +171,46 @@ export function TieredVisualDesign({
         </details>
       `}
 
-      ${advancedSet.size > 0 &&
+      ${visibleAdvanced.size > 0 &&
       html`
-        <details class="tier-section tier-advanced">
-          <summary class="tier-summary">
-            <span class="tier-arrow">\u25B8</span>
-            Advanced
-            <span class="tier-badge">${advancedSet.size}</span>
-          </summary>
-          <div class="tier-content">
-            <${ChartForm}
-              schema=${schema}
-              uiSchema=${uiSchema}
-              formData=${formData}
-              colors=${colors}
-              onFormDataChange=${onFormDataChange}
-              includeFields=${advancedSet}
-            />
-          </div>
-        </details>
+        <div class="tier-section tier-added">
+          <${ChartForm}
+            schema=${schema}
+            uiSchema=${uiSchema}
+            formData=${formData}
+            colors=${colors}
+            onFormDataChange=${onFormDataChange}
+            includeFields=${visibleAdvanced}
+            revealField=${revealField}
+          />
+        </div>
+      `}
+
+      <${AddOptionCombobox}
+        options=${addableOptions}
+        onAdd=${(name) => {
+          setAddedFields((prev) => new Set([...prev, name]));
+          setRevealField(name);
+        }}
+      />
+
+      ${yamlOnlyFields.length > 0 &&
+      html`
+        <div class="yaml-only-chips">
+          ${yamlOnlyFields.map(
+            (f) => html`
+              <button
+                key=${f}
+                type="button"
+                class="yaml-only-chip"
+                title="Set in this chart's YAML \u2014 view in the YAML pane, edit in the file"
+                onClick=${onOpenYaml}
+              >
+                ${formatFieldLabel(f)} <span class="yaml-only-tag">YAML</span>
+              </button>
+            `
+          )}
+        </div>
       `}
     </div>
   `;

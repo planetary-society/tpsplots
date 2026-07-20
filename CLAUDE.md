@@ -80,13 +80,15 @@ Zero-build React 19 app using `htm` (tagged template literals, no JSX). CDN-load
 | Module | Provides | Import as |
 |--------|----------|-----------|
 | `static/js/lib/html.js` | `html` tagged template binding | `import { html } from "../lib/html.js"` |
+| `static/js/lib/numericText.js` | `useNumericText` controlled numeric-input hook (raw text + external-change reseed) | `import { useNumericText } from "../lib/numericText.js"` |
+| `static/js/lib/seriesArrays.js` | Correlated series-array helpers (sparse writes, scalar display, atomic reorder) | Named exports (`seriesValueAt`, `permuteCorrelated`, etc.) |
 | `static/js/components/fields/fieldComponents.js` | `FIELD_COMPONENTS` type→component map | `import { FIELD_COMPONENTS } from "./fieldComponents.js"` |
 | `static/js/api.js` | All `fetch` wrappers | Named exports (`fetchSchema`, `fetchPreview`, etc.) |
 
 **Key conventions:**
 - Never `new Set()` / `new Map()` / `{}` inline in render — busts `useMemo` caches. Hoist to module-level constants or wrap in `useMemo`.
 - Event handlers passed to hooks: use `useRef` to hold the latest handler (see `useHotkeys.js`) so the effect runs once.
-- `window.dispatchEvent` bridges hotkeys (in App) to Header save/open actions — keep this pattern until save logic is lifted.
+- Save/open/new logic lives in App (app.js): App owns the handlers and the file-menu / help-sheet overlay state, and `useHotkeys` calls those App handlers directly. `Header.js` is presentational (buttons + `FileMenu` + `HotkeySheet`). There is no `window.dispatchEvent` event bridge — do not reintroduce one.
 
 ## Config/View Sync
 

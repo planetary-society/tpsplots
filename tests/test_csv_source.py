@@ -247,12 +247,20 @@ class TestCSVSourceFiscalYearConversion:
         assert df["Fiscal Year"].iloc[0] == 2020
 
     def test_fy_filters_totals_row(self, tmp_path):
-        """FY conversion filters out non-numeric rows like 'Totals'."""
+        """FY conversion filters out non-numeric rows like 'Totals'.
+
+        The plausibility gate only skips conversion when *most* values fail to
+        parse as years; a genuine year column with a single trailing summary
+        row (here 5 years + 1 "Totals" = 83% plausible) still converts, and the
+        "Totals" row is dropped.
+        """
         csv_file = tmp_path / "data.csv"
-        csv_file.write_text("Year,Amount\n2020,100\n2021,200\nTotals,300\n")
+        csv_file.write_text(
+            "Year,Amount\n2016,10\n2017,20\n2018,30\n2019,40\n2020,50\nTotals,150\n"
+        )
 
         source = CSVSource(csv_path=str(csv_file))
         df = source.data()
 
-        assert len(df) == 2
+        assert len(df) == 5
         assert pd.api.types.is_datetime64_any_dtype(df["Year"])

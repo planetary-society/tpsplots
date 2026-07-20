@@ -63,6 +63,7 @@ export function ChartForm({
   onFormDataChange,
   includeFields,
   excludeFields,
+  revealField,
   hiddenFields = DEFAULT_HIDDEN_FIELDS,
 }) {
   // Merge color options into uiSchema for color widgets
@@ -113,6 +114,7 @@ export function ChartForm({
         onChange=${onFormDataChange}
         widgets=${widgets}
         hiddenFields=${hiddenFields}
+        revealField=${revealField}
       />
     </div>
   `;

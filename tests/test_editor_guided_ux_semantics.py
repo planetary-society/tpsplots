@@ -1,10 +1,6 @@
 """Static checks for guided UX coverage in the editor."""
 
-from pathlib import Path
-
-
-def _read(path: str) -> str:
-    return Path(path).read_text(encoding="utf-8")
+from tests.conftest import read_source as _read
 
 
 def test_binding_step_uses_context_keys_for_controller_bindings():
@@ -15,32 +11,31 @@ def test_binding_step_uses_context_keys_for_controller_bindings():
     assert "const referenceNames = useMemo(" in src
 
 
-def test_binding_step_wires_series_binding_editor_for_line_scatter_y():
+def test_binding_step_wires_series_table_for_line_scatter_y():
     src = _read("tpsplots/editor/static/js/components/BindingStep.js")
-    assert 'import { SeriesBindingEditor } from "./SeriesBindingEditor.js";' in src
+    assert 'import { SeriesTable } from "./SeriesTable.js";' in src
     assert (
         'const isSeriesBindingMode = (formData?.type === "line" || formData?.type === "scatter")'
         in src
     )
-    assert "<${SeriesBindingEditor}" in src
-    assert 'fieldName="y"' in src
+    assert "<${SeriesTable}" in src
 
 
-def test_series_binding_editor_supports_add_remove_reorder_and_template_refs():
-    src = _read("tpsplots/editor/static/js/components/SeriesBindingEditor.js")
-    assert "function templateRef(columnName) {" in src
-    assert "const addEmpty = useCallback(() => {" in src
-    assert "const move = useCallback(" in src
-    assert "const toggleSuggestion = useCallback(" in src
-    assert "commitBindings(fieldName, [...bindings, ref], formData, onFormDataChange);" in src
+def test_series_table_supports_add_remove_reorder_and_template_refs():
+    src = _read("tpsplots/editor/static/js/components/SeriesTable.js")
+    assert "function addSeries(" in src
+    assert "function removeSeriesAt(" in src
+    assert "function moveSeries(" in src
+    assert "function toggleColumn(" in src
+    assert "TemplateChipInput" in src
 
 
-def test_series_editor_includes_markersize_and_alpha_controls():
-    src = _read("tpsplots/editor/static/js/components/SeriesEditor.js")
-    assert 'const hasMarkersize = correlated.includes("markersize");' in src
-    assert 'const hasAlpha = correlated.includes("alpha");' in src
+def test_series_table_includes_markersize_and_alpha_controls():
+    src = _read("tpsplots/editor/static/js/components/SeriesTable.js")
     assert '"markersize",' in src
     assert '"alpha",' in src
+    assert 'has("markersize")' in src
+    assert 'has("alpha")' in src
 
 
 def test_array_field_supports_boolean_items_via_schema_items_type():
@@ -88,3 +83,22 @@ def test_tiered_visual_design_scopes_advanced_to_visual_fields():
     assert "visualFields=${visualDesignFields}" in layout
     assert "visualFields," in tiered
     assert "const all = new Set(visualFields || Object.keys(schema?.properties || {}));" in tiered
+
+
+def test_newly_added_advanced_field_is_revealed_and_focused():
+    tiered = _read("tpsplots/editor/static/js/components/TieredVisualDesign.js")
+    chart_form = _read("tpsplots/editor/static/js/components/ChartForm.js")
+    schema_form = _read("tpsplots/editor/static/js/components/SchemaForm.js")
+    reveal = _read("tpsplots/editor/static/js/lib/revealField.js")
+
+    assert "setRevealField(name)" in tiered
+    assert "revealField=${revealField}" in tiered
+    assert "revealField=${revealField}" in chart_form
+    # SchemaForm delegates the DOM work to the shared helper, which StatusStrip
+    # chips also use — a collapsed advanced group must open either way.
+    assert "revealFieldInDom(revealField" in schema_form
+    assert "focus: true" in schema_form
+    assert 'field.closest("details")' in reveal
+    assert "group.open = true" in reveal
+    assert 'field.scrollIntoView({ behavior: "smooth", block })' in reveal
+    assert "?.focus({ preventScroll: true })" in reveal

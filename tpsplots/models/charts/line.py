@@ -116,8 +116,11 @@ class LineChartConfig(
     )
 
     # --- Line styling ---
-    color: str | list[str] | None = Field(None, description="Line color(s)")
-    linestyle: str | list[str] | None = Field(None, description="Line style(s)")
+    # list items may be None (like ``marker``) so a sparse per-series array can
+    # style only some lines and let the rest fall back to defaults (color cycle
+    # for None color, solid for None linestyle).
+    color: str | list[str | None] | None = Field(None, description="Line color(s)")
+    linestyle: str | list[str | None] | None = Field(None, description="Line style(s)")
     linewidth: float | list[float] | None = Field(None, description="Line width(s)")
     marker: str | list[str | None] | None = Field(None, description="Marker style(s)")
     markersize: float | list[float] | None = Field(

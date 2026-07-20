@@ -275,6 +275,10 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         line_colors = []
         line_labels = []
 
+        # Uncast CSV columns arrive as numeric-looking strings; without this a
+        # string series silently engages matplotlib's categorical y-axis.
+        y_data = [self._coerce_numeric_values(series, field_name="y") for series in y_data]
+
         # Style arrays are pre-normalized and sliced per-axis by
         # _normalize_and_slice_style_options, so indexing with `i` is correct.
         colors = style_options["color"]

@@ -1,10 +1,6 @@
 """Static checks for multi-color behavior in the editor color widget."""
 
-from pathlib import Path
-
-
-def _read(path: str) -> str:
-    return Path(path).read_text(encoding="utf-8")
+from tests.conftest import read_source as _read
 
 
 def test_color_widget_supports_schema_driven_multi_mode():

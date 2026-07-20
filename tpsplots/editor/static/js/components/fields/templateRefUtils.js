@@ -16,3 +16,9 @@ export function parseTemplateReferences(value) {
 export function isTemplateReference(value) {
   return parseTemplateReferences(value).length > 0;
 }
+
+/** "{{Column Name}}" -> "Column Name" (non-refs pass through unchanged). */
+export function stripTemplateBraces(ref) {
+  if (typeof ref !== "string") return String(ref ?? "");
+  return ref.replace(/^\{\{\s*/, "").replace(/\s*\}\}$/, "");
+}

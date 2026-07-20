@@ -97,7 +97,7 @@ class BarChartView(CategoricalBarMixin, BarChartMixin, GridAxisMixin, ChartView)
 
         # Convert to arrays for easier handling while preserving date-like categories
         categories = self._normalize_categories(categories)
-        values = np.array(values)
+        values = self._coerce_numeric_values(values)
 
         # Validate data lengths
         if len(categories) != len(values):

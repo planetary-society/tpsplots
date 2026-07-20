@@ -1,13 +1,20 @@
 /**
  * Preview panel: device toggle + live PNG preview with debounced rendering.
+ *
+ * The last successful render stays visible when the config breaks — a banner
+ * overlays it and the image desaturates slightly, instead of the chart
+ * vanishing mid-edit. The StatusStrip in the header is the single home for
+ * preflight state (clickable chips scroll to the offending field).
  */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { html } from "../lib/html.js";
 
 import { fetchPreview } from "../api.js";
-import { PreflightPanel } from "./PreflightPanel.js";
+import { StatusStrip } from "./StatusStrip.js";
 
 const DEBOUNCE_MS = 200;
+const DEVICES = ["desktop", "mobile", "social"];
+const DEVICE_LABELS = { desktop: "Desktop", mobile: "Mobile", social: "Social" };
 
 export function PreviewPanel({
   buildFullConfig,
@@ -20,34 +27,49 @@ export function PreviewPanel({
 }) {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [status, setStatus] = useState("idle");
-  const [renderTime, setRenderTime] = useState(null);
+  const [statusDetail, setStatusDetail] = useState(null);
+  const [renderedAt, setRenderedAt] = useState(null);
 
   const timerRef = useRef(null);
   const controllerRef = useRef(null);
   const requestIdRef = useRef(0);
 
-  // Debounced preview render
+  // Blob URL lifecycle: revoke the previous URL whenever it is replaced, and
+  // the final one on unmount. Kept out of setState updaters so revocation is
+  // a proper effect (safe under StrictMode double-invocation too).
+  const lastUrlRef = useRef(null);
+  useEffect(() => {
+    const previous = lastUrlRef.current;
+    if (previous && previous !== previewUrl) {
+      URL.revokeObjectURL(previous);
+    }
+    lastUrlRef.current = previewUrl;
+  }, [previewUrl]);
+  useEffect(
+    () => () => {
+      if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current);
+    },
+    []
+  );
+
   const scheduleRender = useCallback(() => {
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
       const config = buildFullConfig();
 
-      // Skip if no data source configured
       if (!config.data?.source) {
         setStatus("idle");
-        setPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+        setPreviewUrl(null);
         return;
       }
 
-      // Preflight gating (required fields + blocking issues)
+      // Config not currently valid: keep the last-good render on screen and
+      // let the StatusStrip explain; skip the doomed request.
       if (preflight && !preflight.ready_for_preview) {
-        setStatus("error");
-        setPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
-        setRenderTime("Resolve preflight issues first");
+        setStatus("stale");
         return;
       }
 
-      // Cancel previous request
       if (controllerRef.current) {
         controllerRef.current.abort();
       }
@@ -65,33 +87,27 @@ export function PreviewPanel({
         }
 
         const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-        setPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return blobUrl; });
+        setPreviewUrl(blobUrl);
         setStatus("updated");
-        setRenderTime(elapsed);
+        setStatusDetail(`${elapsed}s`);
+        setRenderedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
       } catch (err) {
         if (err.name === "AbortError") return;
         if (currentId !== requestIdRef.current) return;
+        // Keep the last-good image; surface the message in the banner.
         setStatus("error");
-        setPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
-        setRenderTime(err.message || "Preview failed");
+        setStatusDetail(err.message || "Preview failed");
       }
     }, DEBOUNCE_MS);
   }, [buildFullConfig, device, preflight]);
 
-  // Re-render when formData, dataConfig, or device changes
   useEffect(() => {
     scheduleRender();
     return () => clearTimeout(timerRef.current);
   }, [formData, dataConfig, device, preflight, renderTick, scheduleRender]);
 
-  const statusText = {
-    idle: "Configure a data source to see preview",
-    rendering: "Rendering…",
-    updated: `Updated ${renderTime}s`,
-    error: renderTime || "Preview failed",
-  }[status] || "";
-
   const hasSource = !!dataConfig?.source;
+  const showStale = status === "stale" || status === "error";
 
   return html`
     <div class="preview-panel">
@@ -99,45 +115,56 @@ export function PreviewPanel({
         <h2 class="preview-title">Preview</h2>
 
         <div class="device-toggle">
-          <button
-            type="button"
-            class="device-btn ${device === "desktop" ? "active" : ""}"
-            aria-pressed=${device === "desktop"}
-            onClick=${() => onDeviceChange("desktop")}
-          >Desktop</button>
-          <button
-            type="button"
-            class="device-btn ${device === "mobile" ? "active" : ""}"
-            aria-pressed=${device === "mobile"}
-            onClick=${() => onDeviceChange("mobile")}
-          >Mobile</button>
+          ${DEVICES.map(
+            (d) => html`
+              <button
+                key=${d}
+                type="button"
+                class="device-btn ${device === d ? "active" : ""}"
+                aria-pressed=${device === d}
+                title=${d === "social" ? "Social card (no header/footer — rendered for link previews)" : DEVICE_LABELS[d]}
+                onClick=${() => onDeviceChange(d)}
+              >${DEVICE_LABELS[d]}</button>
+            `
+          )}
         </div>
 
-        <div class="status ${status === "error" ? "error" : ""}">
+        <${StatusStrip} preflight=${preflight} />
+
+        <div class="render-status">
           ${status === "rendering" && html`<span class="spinner-sm"></span>`}
-          ${statusText}
+          ${status === "updated" && statusDetail && `Updated ${statusDetail}`}
         </div>
       </div>
 
       <div class="preview-container">
-        ${preflight && !preflight.ready_for_preview
-          ? html`<${PreflightPanel} preflight=${preflight} />`
-          : previewUrl
-          ? html`<img class="preview-img" src=${previewUrl} alt="Chart preview" />`
-          : html`
-              <div class="empty-state">
-                <img
-                  class="empty-state-logo"
-                  src="/static/tpsplots-logo.png"
-                  alt="tpsplots logo"
-                />
-                ${hasSource
-                  ? html`<p>Loading preview…</p>`
-                  : html`<p>Open a YAML file or configure a data source<br/>to see a live preview</p>`
-                }
+        ${previewUrl
+          ? html`
+              <div class="preview-stage ${showStale ? "is-stale" : ""}">
+                <img class="preview-img" src=${previewUrl} alt="Chart preview" />
+                ${device === "social" &&
+                html`<div class="preview-device-note">Social card — no header/footer</div>`}
+                ${showStale &&
+                html`
+                  <div class="preview-banner ${status === "error" ? "is-error" : ""}">
+                    ${status === "error"
+                      ? statusDetail || "Preview failed"
+                      : "Fix the issues above to refresh"}
+                    ${renderedAt && html`<span class="preview-banner-time">Showing last successful render · ${renderedAt}</span>`}
+                  </div>
+                `}
               </div>
             `
-        }
+          : html`
+              <div class="empty-state">
+                <img class="empty-state-logo" src="/static/tpsplots-logo.png" alt="tpsplots logo" />
+                ${status === "error"
+                  ? html`<p class="empty-state-error">${statusDetail || "Preview failed"}</p>`
+                  : hasSource
+                    ? html`<p>Rendering preview…</p>`
+                    : html`<p>Open a YAML file or configure a data source<br/>to see a live preview</p>`}
+              </div>
+            `}
       </div>
     </div>
   `;

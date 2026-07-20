@@ -1,10 +1,6 @@
 """Static checks for union-field type switch value preservation."""
 
-from pathlib import Path
-
-
-def _read(path: str) -> str:
-    return Path(path).read_text(encoding="utf-8")
+from tests.conftest import read_source as _read
 
 
 def test_union_field_switch_uses_conversion_not_blind_defaults():
@@ -18,7 +14,7 @@ def test_union_field_switch_uses_conversion_not_blind_defaults():
     assert "const valueCacheRef = useRef({});" in src
     assert "valueCacheRef.current[currentType] = value;" in src
     assert "const cached = valueCacheRef.current[newType];" in src
-    assert 'string: "Raw Text",' in src
+    assert 'string: "Text",' in src
     assert 'rawTextMode=${currentType === "string"}' in src
 
 
