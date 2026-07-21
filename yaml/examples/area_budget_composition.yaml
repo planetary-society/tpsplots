@@ -1,0 +1,58 @@
+data:
+  source: csv:yaml/examples/data/nasa_space_science_by_mission_1970s_data.csv
+  params:
+    cast:
+      Fiscal Year: int
+
+chart:
+  type: area
+  output: nasa_space_science_by_mission_1970s_area
+  title: "NASA Space Science by Mission, 1970s"
+  subtitle: "Nominal spending by program, FY 1970–1979"
+  source: "NASA historical budget data"
+  x: "{{Fiscal Year}}"
+  y:
+    - "{{Viking}}"
+    - "{{Mariner}}"
+    - "{{Pioneer & Helios}}"
+    - "{{Voyager}}"
+    - "{{Galileo}}"
+    - "{{HEAO & large observatories}}"
+    - "{{Space Telescope}}"
+    - "{{Explorers & other astrophysics}}"
+    - "{{Life sciences}}"
+    - "{{Research, operations & support}}"
+  stacked: true
+  color:
+    - Neptune Blue
+    - Rocket Flame
+    - Plasma Purple
+    - Medium Neptune
+    - Lunar Soil
+    - Medium Plasma
+    - Light Neptune
+    - Crater Shadow
+    - Light Plasma
+    - Comet Dust
+  labels:
+    - Viking
+    - Mariner
+    - Pioneer & Helios
+    - Voyager
+    - Galileo
+    - HEAO & large observatories
+    - Space Telescope
+    - Explorers & other astrophysics
+    - Life sciences
+    - Research, operations & support
+  y_tick_format: ",.0f"
+  ylabel: "Nominal budget (millions of dollars)"
+  legend:
+    loc: upper center
+    bbox_to_anchor: [0.5, -0.12]
+    ncol: 3
+    fontsize: 9
+    frameon: false
+    columnspacing: 1.0
+    handletextpad: 0.4
+  fiscal_year_ticks: false

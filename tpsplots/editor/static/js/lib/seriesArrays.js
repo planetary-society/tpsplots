@@ -1,7 +1,7 @@
 /**
- * Pure helpers for the per-series parallel arrays used by line/scatter charts.
+ * Pure helpers for the per-series parallel arrays used by correlated-series charts.
  *
- * Line and scatter charts store per-series styling as parallel ("correlated")
+ * Area, line, and scatter charts store per-series styling as parallel ("correlated")
  * arrays on formData: `color`, `labels`, `linestyle`, `linewidth`, `marker`,
  * `markersize`, `alpha`. Each of these arrays is indexed positionally against
  * the chart's series.
@@ -29,8 +29,8 @@
  */
 
 /**
- * Backfill defaults for numeric correlated fields. These are `list[float]` on
- * the Pydantic model and reject interior nulls, so gaps must be filled. String
+ * Backfill defaults for line/scatter numeric correlated fields. These are
+ * `list[float]` on those Pydantic models and reject interior nulls, so gaps must be filled. String
  * fields (color/labels/linestyle/marker) are `list[str | None]` and are absent
  * here — they keep their `null` gaps unchanged.
  *
@@ -46,10 +46,13 @@ const NUMERIC_SERIES_DEFAULTS = { linewidth: 1.5, markersize: 6, alpha: 1.0 };
 /**
  * The default value used to backfill interior gaps of a numeric field, or
  * `undefined` for string fields (which accept `null` gaps unchanged).
+ * Area numeric arrays accept null gaps and therefore bypass these defaults.
  * @param {string} fieldName
+ * @param {string} chartType
  * @returns {number|undefined}
  */
-export function numericSeriesDefault(fieldName) {
+export function numericSeriesDefault(fieldName, chartType) {
+  if (chartType === "area") return undefined;
   return Object.prototype.hasOwnProperty.call(NUMERIC_SERIES_DEFAULTS, fieldName)
     ? NUMERIC_SERIES_DEFAULTS[fieldName]
     : undefined;

@@ -1,7 +1,7 @@
 /**
  * Data bindings: one card per binding, where the card IS the input —
  * an editable template-chip field with status and column suggestions in the
- * same surface (no duplicate form field below). Line/scatter y-series use
+ * same surface (no duplicate form field below). Correlated y-series use
  * the unified SeriesTable (binding + styling per row) instead of cards.
  */
 import { useMemo, useCallback } from "react";
@@ -92,8 +92,13 @@ export function BindingStep({
     [columnNames, contextKeys]
   );
 
-  const isSeriesBindingMode = (formData?.type === "line" || formData?.type === "scatter") && primary.includes("y");
-  const cardFields = isSeriesBindingMode ? primary.filter((field) => field !== "y" && field !== "y_right") : primary;
+  const correlatedFields = editorHints?.series_correlated_fields;
+  const triggerField = correlatedFields?.trigger_field;
+  const secondaryTriggerField = correlatedFields?.secondary_trigger_field;
+  const isSeriesBindingMode = Boolean(correlatedFields?.trigger_field) && primary.includes(triggerField);
+  const cardFields = isSeriesBindingMode
+    ? primary.filter((field) => field !== triggerField && field !== secondaryTriggerField)
+    : primary;
 
   const assignSingleField = useCallback(
     (fieldName, token) => {
@@ -180,10 +185,9 @@ export function BindingStep({
         <${SeriesTable}
           formData=${formData}
           onFormDataChange=${onFormDataChange}
-          correlatedFields=${editorHints?.series_correlated_fields}
+          correlatedFields=${correlatedFields}
           colors=${colors}
           columns=${columns}
-          showLinestyle=${formData?.type !== "scatter"}
         />
       `}
     </div>

@@ -103,7 +103,7 @@ export function EditorLayout(props) {
     return counts;
   }, [preflight, textFields]);
 
-  // The SeriesTable owns per-series styling on line/scatter — its correlated
+  // The SeriesTable owns per-series styling for every chart that declares correlated
   // fields are excluded from the tiered form unconditionally so a value is
   // never editable in two places (even with a single series).
   const seriesCorrelated = editorHints?.series_correlated_fields;

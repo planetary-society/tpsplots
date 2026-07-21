@@ -4,6 +4,45 @@ from tpsplots.models.chart_config import CHART_TYPES
 
 # Templates for each chart type with all parameters commented out
 TEMPLATES = {
+    "area": """# Area Chart Template (v2.0)
+# Generate with: tpsplots --new area
+
+data:
+  source: data/your_data.csv
+
+chart:
+  type: area
+  output: my_area_chart
+  title: "Your Area Chart Title"
+  # subtitle: "Optional subtitle"
+  # source: "Data source"
+
+  # === Data References ===
+  x: "{{x_column}}"
+  y: ["{{series1}}", "{{series2}}"]
+
+  # === Area Mode ===
+  stacked: true                     # false fills each series independently
+
+  # === Series Styling ===
+  # color: [Neptune Blue, Rocket Flame]
+  # labels: ["Series 1", "Series 2"]
+  # alpha: [1.0, 1.0]              # ordinary areas default to 0.65
+  # edgecolor: none
+  # linewidth: 0
+  # linestyle: solid
+
+  # === Axis Configuration ===
+  # xlabel: "X-Axis Label"
+  # ylabel: "Y-Axis Label"
+  # xlim: [2020, 2030]
+  # ylim: [0, 100]
+  # scale: billions
+
+  # === Display Options ===
+  # grid: true
+  # legend: true
+""",
     "line": """# Line Chart Template (v2.0)
 # Generate with: tpsplots --new line
 

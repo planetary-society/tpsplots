@@ -6,7 +6,7 @@ A data visualization framework for The Planetary Society that creates consistent
 
 - **YAML-Driven Chart Generation** - Define charts declaratively without writing Python code
 - **Interactive Chart Editor** - Browser-based GUI for creating and editing charts with live preview
-- **Multiple Chart Types** - Line, scatter, bar, donut, treemap, lollipop, stacked bar, waffle, grouped bar, US map pie, and line subplots
+- **Multiple Chart Types** - Area, line, scatter, bar, donut, treemap, lollipop, stacked bar, waffle, grouped bar, US map pie, and line subplots
 - **Automatic Responsive Output** - Generates desktop (16:10), mobile (8:9), and social card (2400x1260, 40:21 OG ratio) versions
 - **Multi-Format Export** - SVG, PNG, PPTX, and CSV data export
 - **Flexible Data Sources** - Google Sheets, CSV files, or custom controller methods
@@ -378,6 +378,7 @@ chart:
 
 | Type | Description | Key Parameters |
 |------|-------------|----------------|
+| `area` | Ordinary or stacked filled series | `x`, `y`, `stacked`, `color`, `labels` |
 | `line` | Multi-series line charts | `x`, `y`, `color`, `linestyle`, `marker`, `labels` |
 | `scatter` | Scatter plots (line chart variant) | `x`, `y`, `color`, `marker`, `labels` |
 | `bar` | Vertical or horizontal bars | `categories`, `values`, `orientation`, `colors` |
@@ -396,9 +397,9 @@ List all available types: `tpsplots --list-types`
 
 ## Animated Charts (`tpsplots animate`)
 
-Turn a static chart into a short MP4 of it building itself out — lines drawing left-to-right with smooth easing, bars growing from the baseline in a staggered cascade, labels settling into place. These are made for Instagram and YouTube, where a chart that animates on autoplay stops the scroll.
+Turn a static chart into a short MP4 of it building itself out — lines and areas revealing left-to-right with smooth easing, bars growing from the baseline in a staggered cascade, labels settling into place. These are made for Instagram and YouTube, where a chart that animates on autoplay stops the scroll.
 
-The line and bar families animate today: `line`, `scatter`, `bar`, `grouped_bar`, `stacked_bar`, and `lollipop`. Other chart types report a clear "not animatable" message and the batch continues. Each run writes `{output}_{format}.mp4` plus a poster PNG of the final frame. The default output is a **square 1080×1080** video; use `--format` for landscape (1920×1080), portrait (1080×1920), or `all` for every aspect at once.
+The continuous-series and bar families animate today: `area`, `line`, `scatter`, `bar`, `grouped_bar`, `stacked_bar`, and `lollipop`. Other chart types report a clear "not animatable" message and the batch continues. Each run writes `{output}_{format}.mp4` plus a poster PNG of the final frame. The default output is a **square 1080×1080** video; use `--format` for landscape (1920×1080), portrait (1080×1920), or `all` for every aspect at once.
 
 **The video is the chart panel only** — no title, subtitle, source line, or logo. Titles and branding are composited in your video editor, which is what lets the same chart work cropped to square, landscape, and portrait.
 

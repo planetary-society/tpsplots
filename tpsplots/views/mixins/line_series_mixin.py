@@ -37,6 +37,34 @@ class LineSeriesMixin:
 
         return [y_data]
 
+    def _resolve_xy_series_data(self, data: Any, x: Any, y: Any):
+        """Resolve dataframe bindings and normalize y to a list of series.
+
+        The helper accepts explicit values so concrete views retain ownership
+        of every public ``kwargs.pop`` used by config/view drift checks.
+        """
+        if data is not None:
+            x_data = data[x] if isinstance(x, str) else x
+            if isinstance(y, (list, tuple)) and all(isinstance(item, str) for item in y):
+                y_data = [data[col] for col in y]
+            elif isinstance(y, str):
+                y_data = [data[y]]
+            else:
+                y_data = y
+        else:
+            x_data = x
+            y_data = y
+
+        if y_data is None and isinstance(
+            x_data, (list, tuple, np.ndarray, pd.Series, ExtensionArray)
+        ):
+            y_data = [x_data]
+            x_data = np.arange(len(x_data))
+        else:
+            y_data = self._coerce_series_list(y_data)
+
+        return x_data, y_data
+
     @staticmethod
     def _normalize_series_param(value: Any, num_series: int, *, default: Any = None) -> list[Any]:
         """Normalize scalar/list params to a list sized to ``num_series``."""
@@ -70,11 +98,14 @@ class LineSeriesMixin:
             if pd.api.types.is_datetime64_any_dtype(x_series):
                 lower = pd.Timestamp(lower) if lower is not None else None
                 upper = pd.Timestamp(upper) if upper is not None else None
+            clip_lower, clip_upper = lower, upper
+            if clip_lower is not None and clip_upper is not None and clip_lower > clip_upper:
+                clip_lower, clip_upper = clip_upper, clip_lower
             keep = pd.Series(True, index=x_series.index)
-            if lower is not None:
-                keep &= x_series >= lower
-            if upper is not None:
-                keep &= x_series <= upper
+            if clip_lower is not None:
+                keep &= x_series >= clip_lower
+            if clip_upper is not None:
+                keep &= x_series <= clip_upper
         except (TypeError, ValueError):
             return x_data, y_data, y_right_data
 

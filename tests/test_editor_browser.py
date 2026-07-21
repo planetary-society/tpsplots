@@ -182,6 +182,36 @@ def test_add_series_keeps_pending_rows_and_correlated_values(editor_page: Page) 
     assert config["chart"]["labels"] == ["Alpha", "Beta"]
 
 
+def test_area_series_table_exposes_area_styles_and_updates_yaml(editor_page: Page) -> None:
+    page = editor_page
+    page.locator(".chart-type-select").select_option("area")
+    primary = page.locator(".series-axis-group").first
+    add = primary.get_by_role("button", name="+ Add series")
+    add.click()
+    add.click()
+
+    rows = primary.locator(".series-row")
+    expect(rows).to_have_count(2)
+    bindings = primary.locator(".series-row-binding")
+    labels = primary.locator(".series-row-label")
+    bindings.nth(0).fill("{{Science}}")
+    bindings.nth(1).fill("{{Exploration}}")
+    labels.nth(0).fill("Science")
+    labels.nth(1).fill("Exploration")
+
+    style = rows.nth(0).locator(".series-row-style")
+    style.evaluate("element => { element.open = true; }")
+    expect(style).to_contain_text("Line")
+    expect(style).to_contain_text("Weight")
+    expect(style).to_contain_text("Edge")
+    expect(style).to_contain_text("Opacity")
+
+    config = _yaml_config(page, "{{Exploration}}")
+    assert config["chart"]["type"] == "area"
+    assert config["chart"]["y"] == ["{{Science}}", "{{Exploration}}"]
+    assert config["chart"]["labels"] == ["Science", "Exploration"]
+
+
 def test_scrollspy_keeps_last_section_active_at_scroll_bottom(editor_page: Page) -> None:
     page = editor_page
     panel = page.locator(".form-panel")

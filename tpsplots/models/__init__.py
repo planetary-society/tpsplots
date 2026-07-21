@@ -7,6 +7,7 @@ from tpsplots.models.chart_config import (
 )
 from tpsplots.models.charts import (
     CONFIG_REGISTRY,
+    AreaChartConfig,
     BarChartConfig,
     DirectLineLabelsConfig,
     DonutChartConfig,
@@ -29,6 +30,7 @@ __all__ = [
     "CHART_TYPES",
     "CONFIG_REGISTRY",
     # Per-chart config models
+    "AreaChartConfig",
     "BarChartConfig",
     "ChartConfig",
     "ChartType",

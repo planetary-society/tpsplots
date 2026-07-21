@@ -412,8 +412,12 @@ class ChartView(AxisTickFormatMixin):
         editor previews, right after the subclass builds the figure.
         """
         fig = self._create_chart(metadata, **chart_kwargs)
-        self._apply_annotations(fig, metadata, chart_kwargs.get("style"))
-        return fig
+        try:
+            self._apply_annotations(fig, metadata, chart_kwargs.get("style"))
+            return fig
+        except Exception:
+            plt.close(fig)
+            raise
 
     @staticmethod
     def _coerce_annotation_x(value):

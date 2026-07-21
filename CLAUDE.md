@@ -64,7 +64,7 @@ data:
     type: nnsi                    # nnsi (default) or gdp
 
 chart:
-  type: line | scatter | bar | donut | treemap | lollipop | stacked_bar | waffle | grouped_bar | us_map_pie | line_subplots  # line_subplots excluded from editor
+  type: area | line | scatter | bar | donut | treemap | lollipop | stacked_bar | waffle | grouped_bar | us_map_pie | line_subplots  # line_subplots excluded from editor
   output: filename_stem
   title: "Chart Title"
   x: "{{column_name}}"      # Data reference syntax

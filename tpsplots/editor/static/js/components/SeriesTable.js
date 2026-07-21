@@ -1,5 +1,5 @@
 /**
- * Unified series table for line/scatter charts: one row per series, owning
+ * Unified series table for charts with correlated series: one row per series, owning
  * binding AND styling together (no more hopping between a binding editor and
  * a separate style table).
  *
@@ -47,12 +47,14 @@ export function SeriesTable({
   correlatedFields,
   colors,
   columns,
-  showLinestyle = true,
 }) {
   const triggerField = correlatedFields?.trigger_field || "y";
   const secondaryField = correlatedFields?.secondary_trigger_field;
   const correlated = correlatedFields?.correlated || [];
   const tpsColors = useMemo(() => colors?.tps_colors || {}, [colors]);
+  // Area perimeters default to no stroke, so 0 is a valid weight and the
+  // stepping is finer; stroked series need a visible minimum.
+  const allowsZeroLinewidth = formData?.type === "area";
 
   const leftBindings = useMemo(
     () => normalizeBindings(formData?.[triggerField]),
@@ -136,7 +138,7 @@ export function SeriesTable({
         concatIndex,
         totalCount,
         newValue,
-        numericSeriesDefault(fieldName)
+        numericSeriesDefault(fieldName, formData?.type)
       );
       const next = { ...formData };
       if (nextArray === undefined) {
@@ -183,6 +185,17 @@ export function SeriesTable({
           (opt) => html`<option key=${opt.value} value=${opt.value}>${opt.label}</option>`
         )}
       </select>
+    </label>
+  `;
+
+  const colorStyleField = (concatIndex, field, label) => html`
+    <label class="series-style-field">
+      <span>${label}</span>
+      <${MiniColorPicker}
+        value=${seriesValueAt(formData?.[field], concatIndex) || ""}
+        onChange=${(v) => handleStyleChange(concatIndex, field, v)}
+        tpsColors=${tpsColors}
+      />
     </label>
   `;
 
@@ -247,12 +260,15 @@ export function SeriesTable({
         <details class="series-row-style">
           <summary>Style</summary>
           <div class="series-row-style-grid">
-            ${showLinestyle &&
-            has("linestyle") &&
+            ${has("linestyle") &&
             selectStyleField(concatIndex, "linestyle", "Line", LINESTYLE_OPTIONS)}
-            ${showLinestyle &&
-            has("linewidth") &&
-            numberStyleField(concatIndex, "linewidth", "Weight", { min: 0.5, max: 8, step: 0.5 })}
+            ${has("linewidth") &&
+            numberStyleField(concatIndex, "linewidth", "Weight", {
+              min: allowsZeroLinewidth ? 0 : 0.5,
+              max: 8,
+              step: allowsZeroLinewidth ? 0.25 : 0.5,
+            })}
+            ${has("edgecolor") && colorStyleField(concatIndex, "edgecolor", "Edge")}
             ${has("marker") && selectStyleField(concatIndex, "marker", "Marker", MARKER_OPTIONS)}
             ${has("markersize") &&
             numberStyleField(concatIndex, "markersize", "Size", { min: 1, max: 24, step: 1 })}

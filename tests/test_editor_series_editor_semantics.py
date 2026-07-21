@@ -50,3 +50,8 @@ def test_binding_field_value_preserves_pending_rows_until_removed():
     assert 'normalized.length === 1 && normalized[0] !== ""' in src
     assert "return normalized;" in src
     assert ".filter(Boolean)" not in src
+
+
+def test_area_numeric_series_fields_keep_sparse_null_gaps():
+    src = _read(_LIB)
+    assert 'if (chartType === "area") return undefined;' in src

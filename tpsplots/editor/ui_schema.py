@@ -94,6 +94,19 @@ def _get_excluded_fields(config_cls: type, chart_type: str | None = None) -> set
 # ---------------------------------------------------------------------------
 
 _CHART_FIELD_GROUPS: dict[str, dict[str, str]] = {
+    "area": {
+        "x": "Data Bindings",
+        "y": "Data Bindings",
+        "stacked": "Area Styling",
+        "color": "Area Styling",
+        "labels": "Labels",
+        "alpha": "Area Styling",
+        "edgecolor": "Area Styling",
+        "linewidth": "Area Styling",
+        "linestyle": "Area Styling",
+        "xticks": "Custom Ticks",
+        "xticklabels": "Custom Ticks",
+    },
     "bar": {
         "categories": "Data Bindings",
         "values": "Data Bindings",
@@ -320,6 +333,7 @@ GROUP_ORDER = [
     "Data Bindings",
     "Bar Styling",
     "Colors",
+    "Area Styling",
     "Line Styling",
     "Point Styling",
     "Stem Styling",
@@ -381,6 +395,7 @@ _INLINE_ROWS = [
 
 # Primary binding fields shown first in guided editor flows.
 PRIMARY_BINDING_FIELDS: dict[str, list[str]] = {
+    "area": ["x", "y"],
     "line": ["x", "y", "y_right"],
     "scatter": ["x", "y", "y_right"],
     "bar": ["categories", "values"],
@@ -405,6 +420,17 @@ OPTIONAL_BINDING_FIELDS: set[str] = {"y_right"}
 # ---------------------------------------------------------------------------
 
 FIELD_TIERS: dict[str, dict[str, list[str]]] = {
+    "area": {
+        "essential": ["stacked", "color", "labels", "scale", "legend", "xlim", "ylim"],
+        "common": [
+            "alpha",
+            "edgecolor",
+            "linewidth",
+            "linestyle",
+            "tick_size",
+            "max_xticks",
+        ],
+    },
     "line": {
         "essential": ["color", "labels", "scale", "legend", "xlim", "ylim"],
         "common": [
@@ -502,6 +528,16 @@ FIELD_TIERS: dict[str, dict[str, list[str]]] = {
 # ---------------------------------------------------------------------------
 
 CHART_TYPE_GUIDANCE: dict[str, dict[str, Any]] = {
+    "area": {
+        "description": "Filled time-series charts for showing totals or composition over time.",
+        "workflow": [
+            "Bind x (usually fiscal year) and one or more y value columns",
+            "Enable stacked to show cumulative composition",
+            "Set colors and labels in bottom-to-top series order",
+            "Adjust opacity for overlapping ordinary areas",
+        ],
+        "tip": "Stacked areas require non-negative values; missing values create a shared gap.",
+    },
     "line": {
         "description": "Time-series and trend lines. Most common chart type for budget data.",
         "workflow": [
@@ -599,6 +635,17 @@ CHART_TYPE_GUIDANCE: dict[str, dict[str, Any]] = {
 # ---------------------------------------------------------------------------
 
 _SERIES_CORRELATED: dict[str, dict[str, Any]] = {
+    "area": {
+        "trigger_field": "y",
+        "correlated": [
+            "color",
+            "labels",
+            "alpha",
+            "edgecolor",
+            "linewidth",
+            "linestyle",
+        ],
+    },
     "line": {
         "trigger_field": "y",
         "secondary_trigger_field": "y_right",

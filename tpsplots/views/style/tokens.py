@@ -53,6 +53,12 @@ DIRECT_LABEL_MIN_OFFSET_POINTS = 12
 # ── Bar charts (BarChartView, GroupedBarChartView) ─────────────────
 BAR_EDGECOLOR = "white"
 
+# ── Area charts (AreaChartView) ──────────────────────────
+AREA_ALPHA = 0.65
+STACKED_AREA_ALPHA = 1.0
+AREA_EDGECOLOR = "none"
+AREA_LINEWIDTH = 0.0
+
 # ── Lollipop chart (LollipopChartView) ─────────────────────────────
 LOLLIPOP_MARKER_EDGECOLOR = "white"
 

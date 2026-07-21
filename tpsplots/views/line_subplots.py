@@ -8,8 +8,7 @@ import numpy as np
 from tpsplots.models.charts.line_subplots import LineSubplotsChartConfig
 
 from .chart_view import ChartView
-from .line_chart import _is_integer_x_data
-from .mixins import GridAxisMixin, LineSeriesMixin
+from .mixins import GridAxisMixin, LineSeriesMixin, is_integer_x_data
 from .style import tokens
 
 logger = logging.getLogger(__name__)
@@ -340,7 +339,7 @@ class LineSubplotsView(LineSeriesMixin, GridAxisMixin, ChartView):
             # Set tick locators if needed
             if max_xticks:
                 use_integer = (
-                    integer_xticks if integer_xticks is not None else _is_integer_x_data(x_data)
+                    integer_xticks if integer_xticks is not None else is_integer_x_data(x_data)
                 )
                 ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks, integer=use_integer))
 
@@ -368,7 +367,7 @@ class LineSubplotsView(LineSeriesMixin, GridAxisMixin, ChartView):
             ax.set_xticks(xticks)
             if xticklabels is not None:
                 ax.set_xticklabels(xticklabels)
-            elif _is_integer_x_data(xticks):
+            elif is_integer_x_data(xticks):
                 ax.set_xticklabels([f"{int(x)}" for x in xticks])
 
         self._apply_tick_format_specs(

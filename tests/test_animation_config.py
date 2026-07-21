@@ -197,6 +197,7 @@ def test_formats_literal_matches_all_formats_and_video_styles():
 
 def test_choreography_covers_animatable_types():
     assert set(CHOREOGRAPHY) == {
+        "area_plot",
         "line_plot",
         "scatter_plot",
         "bar_plot",

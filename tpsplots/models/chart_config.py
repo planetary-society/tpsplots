@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 
 from pydantic import Discriminator, Tag
 
+from tpsplots.models.charts.area import AreaChartConfig
 from tpsplots.models.charts.bar import BarChartConfig
 from tpsplots.models.charts.donut import DonutChartConfig
 from tpsplots.models.charts.grouped_bar import GroupedBarChartConfig
@@ -27,6 +28,7 @@ from tpsplots.models.charts.waffle import WaffleChartConfig
 # Chart type mapping: v2.0 name → v1.0 view method name
 # ---------------------------------------------------------------------------
 CHART_TYPES = {
+    "area": "area_plot",
     "line": "line_plot",
     "scatter": "scatter_plot",
     "bar": "bar_plot",
@@ -52,6 +54,7 @@ def chart_type_v1(chart_type_v2: str) -> str:
 
 
 ChartType = Literal[
+    "area",
     "line",
     "scatter",
     "bar",
@@ -69,7 +72,8 @@ ChartType = Literal[
 # Discriminated union — Pydantic dispatches on the ``type`` field
 # ---------------------------------------------------------------------------
 ChartConfig = Annotated[
-    Annotated[LineChartConfig, Tag("line")]
+    Annotated[AreaChartConfig, Tag("area")]
+    | Annotated[LineChartConfig, Tag("line")]
     | Annotated[ScatterChartConfig, Tag("scatter")]
     | Annotated[BarChartConfig, Tag("bar")]
     | Annotated[DonutChartConfig, Tag("donut")]

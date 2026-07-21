@@ -165,6 +165,10 @@ _LINE_CHOREO: dict[str, Any] = {
 }
 
 CHOREOGRAPHY: dict[str, dict[str, Any]] = {
+    "area_plot": {
+        "draw_duration": 3.0,
+        "easing": "cubic_in_out",
+    },
     "line_plot": _LINE_CHOREO,
     "scatter_plot": _LINE_CHOREO,
     # Bars: cubic_in_out (honest values on paused frames; overshoot opt-in).

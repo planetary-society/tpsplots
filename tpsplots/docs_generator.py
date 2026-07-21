@@ -301,6 +301,20 @@ def render_model_section(model_cls: type, heading: str, level: int = 2) -> str:
 # ---------------------------------------------------------------------------
 
 MINIMAL_EXAMPLES: dict[str, str] = {
+    "area": """\
+data:
+  source: data/budget_composition.csv
+
+chart:
+  type: area
+  output: budget_composition
+  title: "Budget Composition"
+  x: "{{Fiscal Year}}"
+  y: ["{{Science}}", "{{Exploration}}"]
+  stacked: true
+  color: [Neptune Blue, Rocket Flame]
+  labels: ["Science", "Exploration"]\
+""",
     "line": """\
 data:
   source: data/budget.csv

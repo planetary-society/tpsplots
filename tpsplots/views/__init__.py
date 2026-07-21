@@ -1,5 +1,6 @@
 """Chart views for the TPS Plots package."""
 
+from .area_chart import AreaChartView
 from .bar_chart import BarChartView
 from .chart_view import ChartView
 from .donut_chart import DonutChartView
@@ -17,6 +18,7 @@ from .waffle_chart import WaffleChartView
 # Centralized registry mapping chart type names to view classes
 # This is the single source of truth for available chart types
 VIEW_REGISTRY: dict[str, type[ChartView]] = {
+    "area_plot": AreaChartView,
     "line_plot": LineChartView,
     "scatter_plot": ScatterChartView,
     "bar_plot": BarChartView,
@@ -32,11 +34,9 @@ VIEW_REGISTRY: dict[str, type[ChartView]] = {
 
 # Export these classes as the public API
 __all__ = [
-    # Registry
     "VIEW_REGISTRY",
-    # Mixins
+    "AreaChartView",
     "BarChartMixin",
-    # View classes
     "BarChartView",
     "ChartView",
     "DonutChartView",

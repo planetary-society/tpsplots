@@ -196,8 +196,9 @@ def test_text_fade_drives_bbox_patch():
 # ── registry ─────────────────────────────────────────────────────────
 
 
-def test_registry_covers_the_six_animatable_types():
+def test_registry_covers_all_animatable_types():
     assert supported_chart_types() == (
+        "area_plot",
         "bar_plot",
         "grouped_bar_plot",
         "line_plot",
@@ -212,5 +213,13 @@ def test_unsupported_chart_type_error_lists_yaml_names():
         get_animator("donut_plot")
     message = str(excinfo.value)
     assert "'donut'" in message
-    for name in ("bar", "grouped_bar", "line", "lollipop", "scatter", "stacked_bar"):
+    for name in (
+        "area",
+        "bar",
+        "grouped_bar",
+        "line",
+        "lollipop",
+        "scatter",
+        "stacked_bar",
+    ):
         assert name in message

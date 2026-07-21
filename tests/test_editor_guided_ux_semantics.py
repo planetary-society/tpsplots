@@ -11,13 +11,11 @@ def test_binding_step_uses_context_keys_for_controller_bindings():
     assert "const referenceNames = useMemo(" in src
 
 
-def test_binding_step_wires_series_table_for_line_scatter_y():
+def test_binding_step_wires_series_table_from_correlated_field_hints():
     src = _read("tpsplots/editor/static/js/components/BindingStep.js")
     assert 'import { SeriesTable } from "./SeriesTable.js";' in src
-    assert (
-        'const isSeriesBindingMode = (formData?.type === "line" || formData?.type === "scatter")'
-        in src
-    )
+    assert "const correlatedFields = editorHints?.series_correlated_fields;" in src
+    assert "const isSeriesBindingMode = Boolean(correlatedFields?.trigger_field)" in src
     assert "<${SeriesTable}" in src
 
 
@@ -36,6 +34,14 @@ def test_series_table_includes_markersize_and_alpha_controls():
     assert '"alpha",' in src
     assert 'has("markersize")' in src
     assert 'has("alpha")' in src
+
+
+def test_series_table_derives_area_perimeter_controls_from_correlated_fields():
+    src = _read("tpsplots/editor/static/js/components/SeriesTable.js")
+    assert "showLinestyle" not in src
+    assert 'has("edgecolor")' in src
+    assert 'colorStyleField(concatIndex, "edgecolor", "Edge")' in src
+    assert "numericSeriesDefault(fieldName, formData?.type)" in src
 
 
 def test_array_field_supports_boolean_items_via_schema_items_type():

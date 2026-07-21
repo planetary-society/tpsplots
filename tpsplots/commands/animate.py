@@ -3,7 +3,7 @@
 The ``tpsplots animate`` command mirrors ``generate``'s per-file loop,
 status/summary output, and exit-code conventions, but drives the animation
 pipeline (:func:`tpsplots.animation.renderer.animate_yaml`) instead of static
-rendering. Only the line and bar chart families are animatable in v1; other
+rendering. Area, line, and bar chart families are animatable in v1; other
 chart types report a clear "not animatable" failure and the batch continues.
 """
 
@@ -102,8 +102,8 @@ def animate(
 ) -> None:
     """Render animated MP4 videos of charts drawing themselves out.
 
-    Animatable chart types (v1): line, scatter, bar, grouped_bar, stacked_bar,
-    lollipop. Each produces ``{output}_{format}.mp4`` plus a poster PNG of the
+    Animatable chart types (v1): area, line, scatter, bar, grouped_bar,
+    stacked_bar, lollipop. Each produces ``{output}_{format}.mp4`` plus a poster PNG of the
     final frame. Override flags left unset fall back to the YAML ``animation:``
     block, then to built-in defaults.
 

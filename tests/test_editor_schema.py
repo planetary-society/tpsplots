@@ -166,6 +166,29 @@ class TestGetAvailableChartTypes:
 
 
 class TestEditorHints:
+    def test_area_editor_exposes_series_bindings_styles_and_guidance(self):
+        hints = get_editor_hints("area")
+        assert hints["primary_binding_fields"] == ["x", "y"]
+        assert hints["series_correlated_fields"] == {
+            "trigger_field": "y",
+            "correlated": [
+                "color",
+                "labels",
+                "alpha",
+                "edgecolor",
+                "linewidth",
+                "linestyle",
+            ],
+        }
+        assert "stacked" in hints["field_tiers"]["essential"]
+        assert hints["guidance"]["description"].startswith("Filled")
+
+        ui = get_ui_schema("area")
+        area_group = next(group for group in ui["ui:groups"] if group["name"] == "Area Styling")
+        assert {"stacked", "color", "alpha", "edgecolor", "linewidth", "linestyle"}.issubset(
+            area_group["fields"]
+        )
+
     def test_treemap_editor_exposes_bindings_guidance_and_visual_tiers(self):
         hints = get_editor_hints("treemap")
         assert hints["primary_binding_fields"] == ["labels", "values"]

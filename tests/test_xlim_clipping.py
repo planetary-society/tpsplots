@@ -100,6 +100,24 @@ class TestNumericXlim:
         assert fig.get_axes()[0].get_ylim()[1] < 1000
         plt.close(fig)
 
+    def test_inverted_limits_clip_by_ordered_bounds_and_preserve_direction(
+        self, line_view, numeric_df, desktop_style
+    ):
+        fig = line_view._create_chart(
+            metadata={"title": "Test"},
+            style=desktop_style,
+            data=numeric_df,
+            x="Year",
+            y="Budget",
+            xlim=[2008, 2003],
+        )
+        xdata = _line_xdata(fig)
+        assert len(xdata) == 6
+        assert min(xdata) == 2003
+        assert max(xdata) == 2008
+        assert fig.get_axes()[0].get_xlim() == pytest.approx((2008, 2003))
+        plt.close(fig)
+
 
 class TestDatetimeXlim:
     def test_date_bounds_clip_datetime_x(self, line_view, datetime_df, desktop_style):

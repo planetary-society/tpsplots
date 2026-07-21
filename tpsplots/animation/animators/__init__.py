@@ -11,6 +11,7 @@ from tpsplots.exceptions import RenderingError
 # chart_type_v1 -> (module, class name). Keys are the animatable chart types;
 # everything else gets UnsupportedChartAnimation.
 _ANIMATOR_MODULES: dict[str, tuple[str, str]] = {
+    "area_plot": ("tpsplots.animation.animators.area", "AreaAnimator"),
     "line_plot": ("tpsplots.animation.animators.line", "LineAnimator"),
     "scatter_plot": ("tpsplots.animation.animators.line", "LineAnimator"),
     "bar_plot": ("tpsplots.animation.animators.bars", "BarAnimator"),

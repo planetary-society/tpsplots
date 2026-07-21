@@ -10,6 +10,7 @@
 
 ## Chart Types
 
+- [Area](area.md) — Filled time-series charts for showing totals or composition over time.
 - [Bar](bar.md) — Simple bar charts for single-series comparisons.
 - [Donut](donut.md) — Proportional donut charts for showing composition.
 - [Grouped Bar](grouped_bar.md) — Side-by-side bars for comparing categories across groups.

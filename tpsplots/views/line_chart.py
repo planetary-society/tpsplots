@@ -2,48 +2,46 @@
 import logging
 from typing import ClassVar, TypedDict
 
-import matplotlib.dates as mdates
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-from pandas.api.extensions import ExtensionArray
-
 from tpsplots.colors import resolve_color
 from tpsplots.models.charts.line import LineChartConfig
 
 from .anim_tags import Roles, tag_artist
 from .chart_view import ChartView
 from .mixins import (
+    ContinuousAxisMixin,
     DirectLineLabelsMixin,
     GridAxisMixin,
     LineSeriesMixin,
     broadcast_param,
     legend_config_kwargs,
 )
-from .style import tokens
 
 logger = logging.getLogger(__name__)
 
 
-def _is_integer_x_data(x_data) -> bool:
-    """Return True if all x values are integer-valued (int dtype or whole-number floats)."""
-    if x_data is None or len(x_data) == 0:
-        return False
-    if isinstance(x_data, pd.Series):
-        if pd.api.types.is_integer_dtype(x_data):
-            return True
-        if pd.api.types.is_float_dtype(x_data):
-            return bool((x_data % 1 == 0).all())
-        return False
-    if isinstance(x_data, np.ndarray):
-        if np.issubdtype(x_data.dtype, np.integer):
-            return True
-        if np.issubdtype(x_data.dtype, np.floating):
-            return bool((x_data % 1 == 0).all())
-        return False
-    return all(
-        isinstance(v, int) or (isinstance(v, float) and float(v).is_integer()) for v in x_data
-    )
+# Keys shared verbatim between ``_extract_axes_styling_options`` and the
+# ``ContinuousAxisMixin`` entry point.
+_CONTINUOUS_AXIS_OPTS = (
+    "x_data",
+    "xlim",
+    "ylim",
+    "xticks",
+    "xticklabels",
+    "max_xticks",
+    "integer_xticks",
+    "x_tick_format",
+    "y_tick_format",
+    "grid",
+    "grid_axis",
+    "tick_rotation",
+    "tick_size",
+    "label_size",
+    "xlabel",
+    "ylabel",
+    "scale",
+    "axis_scale",
+    "fiscal_year_ticks",
+)
 
 
 class SeriesTypeStyle(TypedDict, total=False):
@@ -55,7 +53,13 @@ class SeriesTypeStyle(TypedDict, total=False):
     linewidth: float
 
 
-class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, ChartView):
+class LineChartView(
+    DirectLineLabelsMixin,
+    ContinuousAxisMixin,
+    LineSeriesMixin,
+    GridAxisMixin,
+    ChartView,
+):
     """Specialized view for line charts with a focus on exposing matplotlib's API."""
 
     CONFIG_CLASS = LineChartConfig
@@ -134,27 +138,7 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
         data = kwargs.pop("data", None)
         x = kwargs.pop("x", None)
         y = kwargs.pop("y", None)
-
-        if data is not None:
-            x_data = data[x] if isinstance(x, str) else x
-            if isinstance(y, (list, tuple)) and all(isinstance(item, str) for item in y):
-                y_data = [data[col] for col in y]
-            elif isinstance(y, str):
-                y_data = [data[y]]
-            else:
-                y_data = y
-        else:
-            x_data = x
-            y_data = y
-
-        if y_data is None and isinstance(
-            x_data, (list, tuple, np.ndarray, pd.Series, ExtensionArray)
-        ):
-            y_data = [x_data]
-            x_data = np.arange(len(x_data))
-        else:
-            y_data = self._coerce_series_list(y_data)
-
+        x_data, y_data = self._resolve_xy_series_data(data, x, y)
         return x_data, y_data, data
 
     def _resolve_y_right_data(self, kwargs, data_ref):
@@ -791,137 +775,6 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
             "right_labels": right_labels,
         }
 
-    def _apply_line_label_grid_tick_styling(self, ax, style, opts):
-        """Apply shared labels/grid/ticks while preserving legacy line behavior."""
-        grid = opts["grid"]
-        if isinstance(grid, dict):
-            self._apply_axis_labels(
-                ax,
-                xlabel=opts["xlabel"],
-                ylabel=opts["ylabel"],
-                label_size=opts["label_size"],
-                style_type=style["type"],
-            )
-            ax.grid(**grid)
-            self._apply_tick_styling(
-                ax,
-                tick_size=opts["tick_size"],
-                tick_rotation=opts["tick_rotation"],
-            )
-            return
-
-        effective_grid = style.get("grid") if grid is None else bool(grid)
-        # YAML grid_axis wins; otherwise the device default (house style: "y")
-        # applies whether or not the YAML turned the grid on explicitly.
-        effective_grid_axis = opts["grid_axis"] or style.get("grid_axis")
-
-        self._apply_common_axis_styling(
-            ax,
-            style=style,
-            xlabel=opts["xlabel"],
-            ylabel=opts["ylabel"],
-            label_size=opts["label_size"],
-            tick_size=opts["tick_size"],
-            tick_rotation=opts["tick_rotation"],
-            grid=effective_grid,
-            grid_axis=effective_grid_axis,
-            grid_linestyle=tokens.GRID_LINESTYLE,
-            grid_linewidth=tokens.GRID_LINEWIDTH,
-        )
-
-    def _apply_line_axis_limits(self, ax, xlim, ylim, x_data):
-        """Apply x/y limits with datetime conversion for year-like x limits."""
-        if xlim:
-            xlim = self._convert_xlim_to_datetime(xlim, x_data)
-        self._apply_axis_limits(ax, xlim=xlim, ylim=ylim)
-
-    def _apply_line_tick_formatting(self, ax, style, opts):
-        """Apply x-axis date/fiscal/categorical tick formatting."""
-        x_data = opts["x_data"]
-        tick_rotation = opts["tick_rotation"]
-        tick_size = opts["tick_size"]
-        max_xticks = opts["max_xticks"]
-        integer_xticks = opts["integer_xticks"]
-        fiscal_year_ticks = opts["fiscal_year_ticks"]
-
-        if fiscal_year_ticks and x_data is not None and self._contains_dates(x_data):
-            self._apply_fiscal_year_ticks(ax, style, tick_size=tick_size)
-            return
-
-        if x_data is not None and self._contains_dates(x_data):
-            ax.xaxis.set_major_locator(mdates.YearLocator())
-            ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-            plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
-            plt.setp(ax.get_yticklabels(), fontsize=tick_size)
-            return
-
-        plt.setp(ax.get_xticklabels(), rotation=tick_rotation, fontsize=tick_size)
-        plt.setp(ax.get_yticklabels(), fontsize=tick_size)
-
-        is_categorical = (
-            x_data is not None and len(x_data) > 0 and isinstance(next(iter(x_data)), str)
-        )
-        if max_xticks and not is_categorical:
-            use_integer = (
-                integer_xticks if integer_xticks is not None else _is_integer_x_data(x_data)
-            )
-            ax.xaxis.set_major_locator(plt.MaxNLocator(max_xticks, integer=use_integer))
-        elif is_categorical and max_xticks and len(x_data) > max_xticks:
-            step = len(x_data) // max_xticks + 1
-            current_xlim = ax.get_xlim()
-            tick_positions = [
-                pos
-                for pos in range(0, len(x_data), step)
-                if current_xlim[0] <= pos <= current_xlim[1]
-            ]
-            if not tick_positions:
-                tick_positions = list(range(0, len(x_data), step))
-            ax.set_xticks(tick_positions)
-            try:
-                ax.set_xticklabels([list(x_data)[i] for i in tick_positions])
-            except Exception:
-                logger.warning("Could not set categorical xticklabels.")
-            ax.set_xlim(current_xlim)
-
-    def _apply_line_scale_and_custom_ticks(self, ax, opts):
-        """Apply scale formatters, custom ticks, and format specs."""
-        scaled_x = False
-        scaled_y = False
-        if opts["scale"]:
-            if opts["axis_scale"] == "both":
-                self._apply_scale_formatter(
-                    ax, opts["scale"], "x", tick_format=opts["x_tick_format"]
-                )
-                self._apply_scale_formatter(
-                    ax, opts["scale"], "y", tick_format=opts["y_tick_format"]
-                )
-                scaled_x = True
-                scaled_y = True
-            elif opts["axis_scale"] == "x":
-                self._apply_scale_formatter(
-                    ax, opts["scale"], "x", tick_format=opts["x_tick_format"]
-                )
-                scaled_x = True
-            else:
-                self._apply_scale_formatter(
-                    ax, opts["scale"], "y", tick_format=opts["y_tick_format"]
-                )
-                scaled_y = True
-
-        if opts["xticks"] is not None:
-            ax.set_xticks(opts["xticks"])
-            if opts["xticklabels"] is not None:
-                ax.set_xticklabels(opts["xticklabels"])
-            elif _is_integer_x_data(opts["xticks"]):
-                ax.set_xticklabels([f"{int(x)}" for x in opts["xticks"]])
-
-        self._apply_tick_format_specs(
-            ax,
-            x_tick_format=opts["x_tick_format"] if not scaled_x else None,
-            y_tick_format=opts["y_tick_format"] if not scaled_y else None,
-            has_explicit_xticklabels=opts["xticklabels"] is not None,
-        )
-
     def _apply_line_label_strategy(self, ax, style, fig, opts, kwargs):
         """Apply direct line labels or legend based on options."""
         ax2 = opts.get("ax2")
@@ -994,10 +847,9 @@ class LineChartView(DirectLineLabelsMixin, LineSeriesMixin, GridAxisMixin, Chart
     def _apply_axes_styling(self, ax, metadata, style, fig=None, **kwargs):
         """Apply consistent styling to line chart axes."""
         opts = self._extract_axes_styling_options(style, kwargs)
-        self._apply_line_label_grid_tick_styling(ax, style, opts)
-        self._apply_line_axis_limits(ax, opts["xlim"], opts["ylim"], opts["x_data"])
-        self._apply_line_tick_formatting(ax, style, opts)
-        self._apply_line_scale_and_custom_ticks(ax, opts)
+        self._apply_continuous_axis(
+            ax, style=style, **{key: opts[key] for key in _CONTINUOUS_AXIS_OPTS}
+        )
         self._apply_horizontal_lines(ax, **kwargs)
         self._apply_line_label_strategy(ax, style, fig, opts, kwargs)
 

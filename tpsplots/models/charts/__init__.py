@@ -5,6 +5,7 @@ parameters at YAML load time. The ``CONFIG_REGISTRY`` maps chart type
 strings to their config classes for O(1) dispatch.
 """
 
+from tpsplots.models.charts.area import AreaChartConfig
 from tpsplots.models.charts.bar import BarChartConfig
 from tpsplots.models.charts.donut import DonutChartConfig
 from tpsplots.models.charts.grouped_bar import GroupConfig, GroupedBarChartConfig
@@ -23,6 +24,7 @@ from tpsplots.models.charts.waffle import WaffleChartConfig
 
 # Registry: chart type string → config class
 CONFIG_REGISTRY: dict[str, type] = {
+    "area": AreaChartConfig,
     "line": LineChartConfig,
     "scatter": ScatterChartConfig,
     "bar": BarChartConfig,
@@ -40,6 +42,7 @@ __all__ = [
     # Registry
     "CONFIG_REGISTRY",
     # Config models
+    "AreaChartConfig",
     "BarChartConfig",
     # Sub-models
     "DirectLineLabelsConfig",
